@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.1]
+## [0.1.1] - 2026-10-08
 
 - Introduce durable job metadata with one-shot and recurring schedules, bounded
   retries, pending cancellation and explicit uncertain-effect reconciliation.
