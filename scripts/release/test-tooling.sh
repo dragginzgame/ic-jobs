@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 # Real Git fixtures; the complete release gate and crates.io effects are replaced.
 # Dependencies: Bash 3.2, Git, Make, Cargo/cargo-edit/cargo-sort, jq/yq and Perl.
@@ -13,6 +13,7 @@ finish() {
     else echo "Failed release tooling fixture retained: $fixture" >&2; fi
 }
 trap finish EXIT
+trap 'printf "error: release tooling failed at %s:%s\n" "${BASH_SOURCE[0]}" "$LINENO" >&2' ERR
 unset MAKEFLAGS MFLAGS MAKEOVERRIDES GNUMAKEFLAGS MAKEFILES
 unset RELEASE_DELIVERY RELEASE_SOURCE RELEASE_COMMIT RELEASE_VERSION RELEASE_PREVIOUS RELEASE_DATE
 unset RELEASE_REMOTE RELEASE_BRANCH RELEASE_MAKE VERSION
@@ -79,7 +80,8 @@ MAKE
     bash scripts/ci/check-release-tag.sh "$(git rev-parse HEAD)" "$candidate"
     [[ "$(git -C "$repository.git" rev-parse refs/heads/main)" == "$(git rev-parse HEAD)" ]]
     [[ "$(git -C "$repository.git" rev-parse "refs/tags/v$candidate")" == "$(git rev-parse "refs/tags/v$candidate")" ]]
-    [[ "$(git show --format= --name-only HEAD | sort)" == $'CHANGELOG.md\nCargo.lock\nCargo.toml' ]]
+    # Compare machine-owned paths in byte order, regardless of the caller's locale.
+    [[ "$(git show --format= --name-only HEAD | LC_ALL=C sort)" == $'CHANGELOG.md\nCargo.lock\nCargo.toml' ]]
     [[ -z "$(git status --porcelain)" && -f ".git/release-state/$candidate.plan" ]]
     [[ "$(wc -l < .git/gate-events | tr -d ' ')" == 1 ]]
     make --no-print-directory release-resume "VERSION=$candidate" > "$fixture/resume-$kind.log" 2>&1
