@@ -1,0 +1,24 @@
+[package]
+name = "ic-jobs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description.workspace = true
+repository.workspace = true
+publish = ["crates-io"]
+readme = "README.md"
+
+[features]
+default = []
+timers = ["dep:ic-timers"]
+
+[dependencies]
+ic-timers = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true
