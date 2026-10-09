@@ -1,18 +1,65 @@
 # Current handoff
 
-IC Jobs package version 0.1.2, released at `0b37437` and pushed by the maintainer.
+IC Jobs package version 0.2.0, released at
+`2a00cf5f09949719c2df15a5edf36f26255ed2d8` and pushed by the maintainer.
+The exact local annotated `v0.2.0` object
+`aa64b265af0e628ec75804de8c19123d9aca890b` matches GitHub's tag reference;
+the retained local release plan is complete. The maintainer reports publication,
+and the exact crates.io version observer confirms 0.2.0 present. This registry
+observation alone does not bind its bytes to a local artifact.
+Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37895034200)
+completed successfully on Linux, macOS Apple Silicon and macOS Intel. These
+native results qualify the released 0.2.0 gate; they do not establish live IC
+recovery or qualify later working-tree changes.
 The library owns job policy and checked metadata transitions. Applications own
 persistence and effects; the optional adapter uses the consumer-selected IC Timers
 dependency graph.
 
 The maintainer requires Rust 1.88 for the complete package. Manifest metadata,
 native/Wasm minimum checks, CI setup and current support documentation now use
-that floor for both core and timers. The next pending changelog is 0.2.0 because
-dropping the previously advertised 1.85 floor changes the consumer toolchain
-contract; consumers must upgrade to 1.88. Package version remains 0.1.2.
+that floor for both core and timers. Release 0.2.0 drops the previously advertised
+1.85 floor and changes the consumer toolchain contract; consumers must upgrade
+to 1.88. The next selected pending patch is 0.2.1 for restore validation fixes;
+package metadata remains 0.2.0.
 Earlier 1.85 qualification below records historical evidence only.
-The pre-existing Cargo.lock edits selecting IC Timers 0.14.21 and IC Metrics
-0.2.16 are preserved; this batch does not select dependency upgrades.
+The released lockfile selects IC Timers 0.14.21 and IC Metrics 0.2.16; the prior
+MSRV and snapshot batches preserved the maintainer's selections.
+
+Continuation source review found that `Job::restore` admitted contradictory
+pending records, tracked in [#2](https://github.com/dragginzgame/ic-jobs/issues/2).
+Three new regression tests reproduced the incorrect admission against released
+0.2.0 before the fix. Restoration now rejects zero-attempt success with no
+completed recurring occurrence, retry completion before its scheduled time,
+and successful recurring successors inconsistent with completion. The existing
+Schedule successor calculation owns those deadlines; CatchUp completion is
+checked against its previous scheduled occurrence. Running/Uncertain remain
+blocked and public transition error behavior is unchanged. There are no public
+API, stored-field, dependency or compiler-floor changes. Records produced by
+valid public transitions remain admitted; this is the compatible 0.2.1 patch.
+The recurring transition/restore series now covers AfterCompletion as well as
+both fixed-rate policies, including retries, uncertainty and cancellation.
+Two additional regression cases reproduced shifted first-occurrence deadlines
+and cancellation timestamps preceding a retained completion in the earlier
+working patch. Restoration now requires the first occurrence's original deadline
+in every state and derives a shared completion-time lower bound for untouched
+recurrences, including cancelled ones. Pending successors still reuse the
+canonical scheduling calculation. Valid cancellation at completion or after
+the next deadline is retained; recovery cases also cover zero-time completion,
+maximum representable intervals/deadlines and unchanged scheduler selection.
+Focused Linux qualification passed: 24 all-feature and 23 core job tests on
+Rust 1.88.0, core/all-feature native and Wasm minimum checks, warnings-denied
+Clippy, rustdoc and both doctests, and verified all-feature packaging.
+Formatting, snapshot integrity, dependency declarations and documentation links
+pass. The full CI/release gate and native macOS/live IC qualification were not
+run for this working-tree patch. No commit, release, push or upload was made.
+
+The fleet reporter cleanup in
+[#1](https://github.com/dragginzgame/ic-jobs/issues/1) has no intentional local
+caller, but its canonical optional-selection Make/guide fix is still dirty
+upstream after Shared Tooling `635a39a9dd5f8d021fa9c9196b591e00521a7e02`.
+No reporter was removed or vendored file patched. The owning issue records that
+adoption awaits a reviewed committed correction for shared #83; sibling files
+remain read-only.
 Focused Linux qualification passed with Rust 1.88.0: native and Wasm library
 checks both without timers and with all features, plus all 18 job tests with
 all features against that lockfile. Formatting, documentation links, dependency
@@ -63,8 +110,11 @@ and verified before attempting removal. The retained backup is
 `.git/retired-repositories/ic-host-tools-20261009/backup.tar`, with a checked
 SHA-256 beside it. GitHub rejected DELETE with HTTP 403: the authenticated CLI
 token lacks `delete_repo` scope. No enabled browser session or repository-deletion
-connector was available; the GitHub repository still exists. The successor
-`dragginzgame/ic-host-tooling` and crates.io packages were unchanged.
+connector was available. On the subsequent 0.2.0 continuation, authenticated
+GitHub inspection returned 404 for the old repository while the token retained
+`repo` access, consistent with its removal outside this agent's attempted DELETE.
+The backup remains retained. This retirement did not remove crates.io packages
+or the successor `dragginzgame/ic-host-tooling`.
 
 ## Earlier implementation and qualification evidence
 

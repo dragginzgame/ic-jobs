@@ -416,6 +416,188 @@ fn corrupt_decoded_configuration_and_state_are_rejected() {
 }
 
 #[test]
+fn restore_rejects_successful_work_rewritten_as_a_first_pending_occurrence() {
+    let mut job = once();
+    let attempt = job.start(100).unwrap();
+    job.finish(attempt, 200, Outcome::Success).unwrap();
+    let mut record = roundtrip(&job).record();
+    record.attempts = 0;
+    record.state = JobState::Pending { due_ns: 100 };
+    assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
+    record.state = JobState::Cancelled;
+    assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
+}
+
+#[test]
+fn restore_rejects_retry_completion_before_the_occurrence_deadline() {
+    let mut job = once();
+    let attempt = job.start(100).unwrap();
+    job.finish(attempt, 100, Outcome::RetryableFailure).unwrap();
+    let mut record = roundtrip(&job).record();
+    record.updated_ns = 99;
+    record.state = JobState::Pending { due_ns: 109 };
+    assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
+}
+
+#[test]
+fn restore_keeps_the_first_occurrence_at_its_original_deadline() {
+    for schedule in [
+        Schedule::AfterCompletion {
+            first_at_ns: 100,
+            every_ns: 10,
+        },
+        Schedule::FixedRate {
+            first_at_ns: 100,
+            every_ns: 10,
+            missed: MissedRunPolicy::Skip,
+        },
+    ] {
+        let mut job = Job::new(JobId(7), schedule, retry()).unwrap();
+        let attempt = job.start(200).unwrap();
+        let running = roundtrip(&job).record();
+        job.finish(attempt, 200, Outcome::Uncertain).unwrap();
+        let uncertain = roundtrip(&job).record();
+        job.resolve(attempt, 200, Outcome::RetryableFailure)
+            .unwrap();
+        let retrying = roundtrip(&job).record();
+        job.cancel(201).unwrap();
+        let cancelled = roundtrip(&job).record();
+        let mut failed = Job::restore(running).unwrap();
+        failed
+            .finish(attempt, 200, Outcome::PermanentFailure)
+            .unwrap();
+        for mut record in [running, uncertain, retrying, cancelled, failed.record()] {
+            record.scheduled_ns = 110;
+            assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
+        }
+    }
+}
+
+#[test]
+fn restore_rejects_cancellation_before_the_prior_recurring_completion() {
+    for schedule in [
+        Schedule::AfterCompletion {
+            first_at_ns: 100,
+            every_ns: 10,
+        },
+        Schedule::FixedRate {
+            first_at_ns: 100,
+            every_ns: 10,
+            missed: MissedRunPolicy::Skip,
+        },
+        Schedule::FixedRate {
+            first_at_ns: 100,
+            every_ns: 10,
+            missed: MissedRunPolicy::CatchUp,
+        },
+    ] {
+        let mut job = Job::new(JobId(7), schedule, retry()).unwrap();
+        let attempt = job.start(100).unwrap();
+        job.finish(attempt, 200, Outcome::Success).unwrap();
+        let pending = roundtrip(&job).record();
+        for cancelled_ns in [200, 300] {
+            let mut cancelled = Job::restore(pending).unwrap();
+            cancelled.cancel(cancelled_ns).unwrap();
+            let mut record = roundtrip(&cancelled).record();
+            record.updated_ns = record.scheduled_ns - 11;
+            assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
+        }
+    }
+}
+
+#[test]
+fn recurring_recovery_preserves_zero_and_maximum_deadlines() {
+    for every_ns in [1, u64::MAX] {
+        for schedule in [
+            Schedule::AfterCompletion {
+                first_at_ns: 0,
+                every_ns,
+            },
+            Schedule::FixedRate {
+                first_at_ns: 0,
+                every_ns,
+                missed: MissedRunPolicy::Skip,
+            },
+            Schedule::FixedRate {
+                first_at_ns: 0,
+                every_ns,
+                missed: MissedRunPolicy::CatchUp,
+            },
+        ] {
+            let mut job = Job::new(JobId(7), schedule, retry()).unwrap();
+            let attempt = job.start(0).unwrap();
+            job = roundtrip(&job);
+            job.finish(attempt, 0, Outcome::Success).unwrap();
+            let pending = roundtrip(&job).record();
+            assert_eq!(pending.state, JobState::Pending { due_ns: every_ns });
+            let mut jobs = [Job::restore(pending).unwrap()];
+            assert_eq!(Scheduler::new(&mut jobs).next_due_ns(), Some(every_ns));
+            assert_eq!(Scheduler::new(&mut jobs).start_next(0), Ok(None));
+            assert_eq!(jobs[0].record(), pending);
+            for cancelled_ns in [0, u64::MAX] {
+                let mut cancelled = Job::restore(pending).unwrap();
+                cancelled.cancel(cancelled_ns).unwrap();
+                assert_eq!(roundtrip(&cancelled).record(), cancelled.record());
+            }
+        }
+    }
+}
+
+#[test]
+fn restore_checks_successor_deadlines_against_the_recorded_completion() {
+    for schedule in [
+        Schedule::AfterCompletion {
+            first_at_ns: 100,
+            every_ns: 10,
+        },
+        Schedule::FixedRate {
+            first_at_ns: 100,
+            every_ns: 10,
+            missed: MissedRunPolicy::Skip,
+        },
+    ] {
+        let mut job = Job::new(JobId(7), schedule, retry()).unwrap();
+        let attempt = job.start(100).unwrap();
+        job.finish(attempt, 200, Outcome::Success).unwrap();
+        assert_eq!(roundtrip(&job).next_due_ns(), Some(210));
+        for deadline in [110, 200, 220] {
+            let mut record = job.record();
+            record.scheduled_ns = deadline;
+            record.state = JobState::Pending { due_ns: deadline };
+            assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
+        }
+        let mut record = job.record();
+        record.updated_ns = 99;
+        assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
+        record.updated_ns = u64::MAX;
+        assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
+
+        // Cancellation records a later transition time, not another completion.
+        job.cancel(300).unwrap();
+        assert_eq!(roundtrip(&job).record(), job.record());
+    }
+
+    let mut catch_up = Job::new(
+        JobId(8),
+        Schedule::FixedRate {
+            first_at_ns: 100,
+            every_ns: 10,
+            missed: MissedRunPolicy::CatchUp,
+        },
+        retry(),
+    )
+    .unwrap();
+    for _ in 0..2 {
+        let attempt = catch_up.start(200).unwrap();
+        catch_up.finish(attempt, 200, Outcome::Success).unwrap();
+        assert!(roundtrip(&catch_up).next_due_ns().unwrap() < 200);
+        let mut record = catch_up.record();
+        record.updated_ns = record.scheduled_ns - 11;
+        assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
+    }
+}
+
+#[test]
 fn completion_from_another_job_cannot_change_state() {
     let mut job = once();
     let mut other = Job::new(JobId(99), Schedule::Once { at_ns: 100 }, retry()).unwrap();
@@ -431,17 +613,23 @@ fn completion_from_another_job_cannot_change_state() {
 
 #[test]
 fn transition_sequences_remain_restorable() {
-    for missed in [MissedRunPolicy::Skip, MissedRunPolicy::CatchUp] {
-        let mut job = Job::new(
-            JobId(7),
-            Schedule::FixedRate {
-                first_at_ns: 100,
-                every_ns: 20,
-                missed,
-            },
-            retry(),
-        )
-        .unwrap();
+    for schedule in [
+        Schedule::AfterCompletion {
+            first_at_ns: 100,
+            every_ns: 20,
+        },
+        Schedule::FixedRate {
+            first_at_ns: 100,
+            every_ns: 20,
+            missed: MissedRunPolicy::Skip,
+        },
+        Schedule::FixedRate {
+            first_at_ns: 100,
+            every_ns: 20,
+            missed: MissedRunPolicy::CatchUp,
+        },
+    ] {
+        let mut job = Job::new(JobId(7), schedule, retry()).unwrap();
         let mut now = 200;
         for _ in 0..50 {
             now = now.max(job.next_due_ns().unwrap());

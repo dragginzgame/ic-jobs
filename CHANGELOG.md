@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1]
+
+- Reject contradictory occurrence records during restoration, including successful
+  one-shot work made pending again, shifted first-occurrence deadlines, retries
+  before their scheduled time, and recurring deadlines or cancellation times
+  inconsistent with preceding completion. Preserve valid recovery, CatchUp
+  and cancellation behavior
+  ([#2](https://github.com/dragginzgame/ic-jobs/issues/2)).
+
 ## [0.2.0] - 2026-10-09
 
 - **Breaking:** Require Rust 1.88 for the package, with or without the optional

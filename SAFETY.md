@@ -44,6 +44,15 @@ checks structural invariants; it is not a signature, schema migration, trusted
 history proof or a byte-format versioning protocol. Consumers own their selected
 codec and any retained storage-format contract.
 
+Pending retries must record completion at or after the occurrence's scheduled
+time. A zero-attempt successor must follow a completed recurring occurrence,
+with its deadline matching the recorded completion and scheduling policy.
+Successful one-shot work cannot be reconstructed as a fresh pending occurrence.
+The first occurrence retains the original schedule deadline through dispatch,
+uncertainty, retries and cancellation. Cancellation timestamps must remain
+consistent with the preceding completed occurrence; cancellation may still
+precede the next due time.
+
 CatchUp exposes only one occurrence per successful completion. Consumers bound
 each dispatch batch, indexed query, payload, outstanding-call set and retained
 history. Skip advances from the current schedule to the first aligned deadline
