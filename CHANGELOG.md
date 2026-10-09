@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.3.1]
+## [0.3.1] - 2026-10-09
 
 - Add notification and cache-maintenance test consumers for persistence failures,
   lost-reply reconciliation, safe retries, shared wakeup selection and bounded work. Expose
