@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.3]
+## [0.4.3] - 2026-10-09
 
 - Adopt Shared Tooling 0.2.7 so release and formatting commands refuse Make's
   ignore-errors, dry-run, touch and question modes before recipes run. Keep
