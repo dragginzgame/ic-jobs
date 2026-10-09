@@ -101,6 +101,10 @@ a consumer-owned continuation/outbox; do not put async work inside the synchrono
 watchdog callback. All owners in a final canister must resolve one IC Timers
 package identity. No direct CDK timers are used here.
 
+The optional adapter selects IC Timers 0.16. Applications using its public timer
+types must align their direct timer dependency to 0.16. For exchanged measurement
+summaries, select IC Metrics 0.3 or use `ic_timers::MeasurementSummary`.
+
 ## Scope and validation
 
 The library provides metadata and transitions; it does not itself supply stable

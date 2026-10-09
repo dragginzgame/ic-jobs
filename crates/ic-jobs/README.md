@@ -69,6 +69,10 @@ the volatile watchdog, lifecycle initialization, bounded callbacks and any
 consumer-owned asynchronous delivery continuation. This crate supplies no stable
 storage, global queue, handler registry or exactly-once effects.
 
+The optional adapter uses IC Timers 0.16. Align direct timer dependencies and all
+timer owners in the canister to that package identity. For exchanged measurement
+summaries, select IC Metrics 0.3 or use `ic_timers::MeasurementSummary`.
+
 The package requires Rust 1.88, with or without the optional timers feature.
 See the [repository guide](https://github.com/dragginzgame/ic-jobs) and
 [safety contract](https://github.com/dragginzgame/ic-jobs/blob/main/SAFETY.md)

@@ -1,15 +1,18 @@
 # Current handoff
 
-IC Jobs package version 0.3.0, released at
-`a88148944738a012b18e628098b8b1c04f587ddc` and pushed by the maintainer.
-The exact local annotated `v0.3.0` object
-`42146fa73e14a9a873172c63e23af4c5ad5d4a2f` matches GitHub's tag reference;
+IC Jobs package version 0.3.1, released at
+`bf98b68f4b3dbc554bba26496c1ef95aac1ddc17` and pushed by the maintainer.
+The exact local annotated `v0.3.1` object
+`e66ae58f5a14884ef65d13d1b743c641d70977a9` matches GitHub's tag reference;
 the retained local release plan is complete. The maintainer reports it live,
-and an exact crates.io observation confirms 0.3.0 present without binding
+and an exact crates.io observation confirms 0.3.1 present without binding
 registry bytes to a local artifact.
-Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37918180627)
-has passed Linux, including explicit five-tool installation and offline admission;
-both native macOS jobs were queued at the latest observation. The preceding
+Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37925974097)
+has passed Linux; both native macOS jobs were queued at the latest observation.
+The preceding 0.3.0
+[CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37918180627)
+has passed Linux, including explicit five-tool installation and offline admission,
+with both native macOS jobs still queued. The preceding
 0.2.3 [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37909918403)
 has passed Linux and retains both original queued macOS job identities across
 the 0.3.0 push. These results do not qualify later source or live IC recovery.
@@ -31,11 +34,30 @@ that floor for both core and timers. Release 0.2.0 drops the previously advertis
 1.85 floor and changes the consumer toolchain contract; consumers must upgrade
 to 1.88. The compatible publication-path and release-cache fixes are delivered
 in 0.2.3. The developer IC bundle hard cut, shared-tooling fixes and locked
-dependency refresh are delivered in 0.3.0. The next selected pending patch is
-0.3.1 for compatible final-pin-record admission and application-owned test consumers;
-package metadata remains 0.3.0.
+dependency refresh are delivered in 0.3.0. The final-pin-record admission and
+application-owned test consumers are delivered in 0.3.1. The next selected draft
+is 0.4.0 for the incoming optional IC Timers package-identity change;
+package metadata remains 0.3.1.
 Job APIs, stored fields, scheduling policy and the Rust floor are unchanged.
 Earlier 1.85 qualification below records historical evidence only.
+
+The maintainer's incoming root catalog/lock select registry IC Timers 0.16.0 and
+IC Metrics 0.3.1. Their locked bytes are preserved at SHA-256
+`b2dad5af4c1540a6f4f2f26f01426032ff64f36209ff308e0e846faeea1aee62`.
+The optional adapter exposes Timers types, so consumers must align timer owners
+to 0.16 and exchanged summaries to Metrics 0.3 or the Timers reexport. This is a
+pre-1.0 breaking dependency identity and requires the next minor; Job APIs,
+durable fields and scheduling transitions do not change. Tagged upstream source
+comparison finds no timer runtime or Metrics arithmetic changes between the
+released 0.14.23/0.2.20 and selected 0.16.0/0.3.1 library source. No adapter shim,
+database or host dependency is added. The prepared cache supports focused Linux
+Rust 1.88 core/all-feature native and Wasm checks, all 24 job tests, all nine
+consumer tests in each feature selection, warnings-denied Clippy, rustdoc and
+both doctests. Formatting, declarations, documentation links, whitespace checks
+and verified all-feature packaging pass; packaging still uses local metadata
+0.3.1 and uploads nothing. Earlier 0.3.1 native CI does not qualify this changed graph;
+native macOS and live IC acceptance remain separate. No full local CI, package
+version bump, release, push or publication was performed for this adoption.
 
 The maintainer requested in-repository test consumers.
 [Notification and cache-maintenance fixtures](../test-consumers.md)
@@ -53,12 +75,13 @@ recurring runs per wake. `make test-consumers` qualifies core/timers separately 
 Rust 1.88 and is selected by configured CI. Timer tests project actual fixture
 deadlines through `complete_batch`; native execution does not qualify live
 watchdog registration, provider delivery, stable memory or IC upgrade/rollback.
-No dependency, library API or storage-contract change is introduced.
-Focused Linux checks pass for this working tree: all nine consumer tests in each
+The consumer batch introduced no dependency, library API or storage-contract change.
+Focused Linux checks passed before 0.3.1 delivery: all nine consumer tests in each
 core/all-feature Rust 1.88 invocation, warnings-denied development Clippy,
 formatting, documentation links and whitespace checks. The released lockfile is
-unchanged. No full CI, native macOS or live IC run, commit, release or publication
-was performed for the consumer batch.
+unchanged during that batch. The agent ran no full CI, native macOS or live IC gate,
+commit, release or publication for the consumer batch; the maintainer subsequently
+delivered it in 0.3.1, whose exact Linux CI passes as recorded above.
 
 The released 0.2.3 lockfile selects IC Timers 0.14.23 and IC Metrics 0.2.18 within the
 existing compatible requirements. Explicit `cargo fetch --locked` downloaded the
@@ -157,7 +180,7 @@ IC qualification was run by the agent for this cleanup. The maintainer subsequen
 delivered it in 0.3.0; its exact Linux CI passes, with native macOS acceptance
 still queued as recorded above.
 
-The pending 0.3.1 adoption selects committed Shared Tooling 0.2.2 at
+The adoption delivered in 0.3.1 selects committed Shared Tooling 0.2.2 at
 `ee48bb37c98c771e77b92fd891f0757d8c1c8b99` through the canonical exporter
 from `/tmp/ic-jobs-pin-final-row.u6skwt/source`, retaining the 71-file selection.
 Both IC installer loops now consume the final populated pin record without a
@@ -173,12 +196,13 @@ The corrected canonical IC fixture passes on Linux Bash 5 and genuine Bash
 final newline, wrong final-tool version and original pin/receipt preservation.
 Jobs' actual prepared bundle passes offline checks under Bash 3.2; setup reuse
 with a failing curl substitute retains its active selection, pins and receipt.
-The released Cargo.lock remains unchanged at SHA-256
+During that tooling batch, the released 0.3.0 Cargo.lock stayed unchanged at SHA-256
 `0bad777cf80f3560ef09092f7bc1bb857e6ec7eccbbce09186d7ca63f9f6ea83`.
 Snapshot, actual declarations, docs, formatting, Make adapters, ShellCheck and
 whitespace checks pass. No full local CI, native macOS or live IC execution was
-run for this pending patch; no commit, package bump, release, push or upload
-was performed. Delivery and native consumer acceptance remain with #9.
+run by the agent for this patch; no commit, package bump, release, push or upload
+was performed by the agent. The maintainer subsequently delivered it in 0.3.1;
+its exact Linux CI passes, while native consumer acceptance remains with #9.
 
 Release 0.2.3 adopts reviewed committed Shared Tooling 0.1.35 at
 `be550afa57fe9e16872e5110b5cd69c24b4fa9e8` through the canonical exporter from a
