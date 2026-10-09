@@ -22,6 +22,7 @@ unset TOOLING_GATE_FAILURE TOOLING_REGISTRY_HTTP TOOLING_REGISTRY_RESULT TOOLING
 export RUSTUP_AUTO_INSTALL=0
 export TOOLING_REAL_CARGO
 TOOLING_REAL_CARGO="$(command -v cargo)"
+base_version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable "$root/Cargo.toml")"
 
 new_repository() {
     local name="$1"
@@ -56,7 +57,7 @@ refuse() {
 # pushes for every increment, without running the consumer's complete gate.
 for kind in patch minor major; do
     new_repository "release-$kind"
-    candidate="$(bash scripts/ci/next-release-version.sh 0.1.0 "$kind")"
+    candidate="$(bash scripts/ci/next-release-version.sh "$base_version" "$kind")"
     printf '# Changelog\n\n## [%s]\n\n- Fixture release.\n' "$candidate" > CHANGELOG.md
     cat >> Makefile <<'MAKE'
 
@@ -70,7 +71,7 @@ MAKE
     if [[ "$kind" == patch ]]; then
         refuse failed-gate env TOOLING_GATE_FAILURE=1 make --no-print-directory release-patch
         [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]]
-        [[ "$(bash scripts/release/metadata.sh version)" == 0.1.0 ]]
+        [[ "$(bash scripts/release/metadata.sh version)" == "$base_version" ]]
         [[ -z "$(git status --porcelain)" ]]
     fi
     make --no-print-directory "release-$kind" > "$fixture/release-$kind.log" 2>&1
@@ -93,9 +94,10 @@ done
 new_repository publication
 commit_source
 commit="$(git rev-parse HEAD)"
-git tag -a v0.1.0 -m 'Fixture release'
-tag_object="$(git rev-parse refs/tags/v0.1.0)"
-git push --quiet origin refs/tags/v0.1.0
+tag="refs/tags/v$base_version"
+git tag -a "v$base_version" -m 'Fixture release'
+tag_object="$(git rev-parse "$tag")"
+git push --quiet origin "$tag"
 mkdir "$fixture/bin"
 export TOOLING_UPLOAD_EVENTS="$fixture/upload-events"
 : > "$TOOLING_UPLOAD_EVENTS"
@@ -135,17 +137,17 @@ done
 refuse existing-version env TOOLING_REGISTRY_HTTP=200 bash scripts/release/publish.sh origin
 refuse unavailable-registry env TOOLING_REGISTRY_HTTP=503 bash scripts/release/publish.sh origin
 refuse transport-failure env TOOLING_REGISTRY_HTTP=200 TOOLING_REGISTRY_RESULT=7 bash scripts/release/publish.sh origin
-git update-ref refs/tags/v0.1.0 "$commit"
+git update-ref "$tag" "$commit"
 refuse lightweight-tag bash scripts/release/publish.sh origin
-git update-ref refs/tags/v0.1.0 "$tag_object"
+git update-ref "$tag" "$tag_object"
 git commit --quiet --allow-empty -m 'Fixture descendant'
 refuse tag-not-at-head bash scripts/release/publish.sh origin
 git update-ref refs/heads/main "$commit"
-git -C "$repository.git" update-ref -d refs/tags/v0.1.0
+git -C "$repository.git" update-ref -d "$tag"
 refuse missing-remote-tag bash scripts/release/publish.sh origin
-git -C "$repository.git" update-ref refs/tags/v0.1.0 "$commit"
+git -C "$repository.git" update-ref "$tag" "$commit"
 refuse conflicting-remote-tag bash scripts/release/publish.sh origin
-git -C "$repository.git" update-ref refs/tags/v0.1.0 "$tag_object"
+git -C "$repository.git" update-ref "$tag" "$tag_object"
 git remote set-url --add --push origin "$repository.git"
 git remote set-url --add --push origin "$fixture/another.git"
 refuse multiple-destinations bash scripts/release/publish.sh origin

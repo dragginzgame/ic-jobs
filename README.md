@@ -4,13 +4,14 @@ IC Jobs provides durable job metadata and scheduling policies for Internet
 Computer applications. It sits above IC Timers: applications persist job records
 and execute handlers; IC Timers owns volatile wakeups.
 
-The initial crate supports:
+The crate supports:
 
 - one-shot deadlines, fixed-rate intervals and recurrence after completion;
 - skipping missed intervals or catching up one occurrence at a time;
 - per-occurrence retry budgets with capped exponential backoff;
 - cancellation of pending work and exact attempt correlation;
 - validated record reconstruction and explicit uncertain-effect reconciliation;
+- bounded batch scheduling with earliest-deadline selection and dispatch intent;
 - an optional adapter to the existing IC Timers watchdog runtime.
 
 ## Use
@@ -48,6 +49,40 @@ destination-side idempotency key. `Attempt` identifies a particular dispatch,
 allowing stale replies to be rejected. Never reuse a job ID or change an
 occurrence's payload under the same effect identity.
 
+## Scheduling a batch
+
+`Scheduler` borrows a bounded batch of validated, application-owned jobs. It
+selects the earliest pending deadline, including retry backoff, and starts at
+most one due attempt per call. Equal deadlines follow the supplied batch order.
+
+```rust
+use ic_jobs::{Job, JobId, RetryPolicy, Schedule, Scheduler};
+
+let mut jobs = [
+    Job::new(JobId(1), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE)?,
+    Job::new(JobId(2), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE)?,
+];
+let next_wakeup = Scheduler::new(&mut jobs).next_due_ns();
+assert_eq!(next_wakeup, Some(100));
+if let Some((attempt, running_record)) = Scheduler::new(&mut jobs).start_next(100)? {
+    assert_eq!(attempt.execution.job, JobId(2));
+    // Commit running_record with the payload/index before dispatching the effect.
+    // Record its outcome with the owning Job's finish method and persist again.
+    # assert_eq!(running_record, jobs[1].record());
+}
+# Ok::<(), ic_jobs::JobError>(())
+```
+
+Running, uncertain and terminal jobs have no dispatch deadline. Reconstruct all
+stored records through `Job::restore`; uncertain effects become eligible only
+after explicit disposition. A selected job's transition error leaves the batch
+unchanged and does not fall through to another job.
+
+The scheduler reports deadlines only for its supplied batch. Applications bound
+candidate selection through their storage owner's due-time index and keep that
+index current after each transition. Use the batch deadline for IC Timers when
+it covers the earliest pending work, or obtain the global deadline from the index.
+
 ## Timer integration
 
 Enable `features = ["timers"]` to use `ic_jobs::timers`. The application owns one
@@ -68,9 +103,8 @@ package identity. No direct CDK timers are used here.
 
 ## Scope and validation
 
-This is an initial local crate, not a published package or deployed service.
-It provides metadata and transitions; it does not itself supply stable storage,
-a global queue, handler registry, full history, calendar cron parsing, timezones,
+The library provides metadata and transitions; it does not itself supply stable
+storage, a global queue, handler registry, full history, calendar cron parsing, timezones,
 Canic lifecycle exports, email delivery or exactly-once effects. Records retain
 the latest outcome; applications own any longer audit history.
 

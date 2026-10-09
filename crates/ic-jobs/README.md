@@ -29,6 +29,35 @@ completion, missed-run policies, bounded retries, pending cancellation and exact
 attempt correlation. Persist the canonical `JobRecord` beside the application
 payload and reconstruct it through `Job::restore`.
 
+## Scheduling a batch
+
+`Scheduler` borrows a bounded batch of application-owned jobs, derives its next
+pending deadline, and starts one earliest due attempt at a time. It leaves storage,
+payload lookup, effect execution and completion persistence with the application.
+
+```rust
+use ic_jobs::{Job, JobId, RetryPolicy, Schedule, Scheduler};
+
+let mut jobs = [
+    Job::new(JobId(1), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE)?,
+    Job::new(JobId(2), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE)?,
+];
+assert_eq!(Scheduler::new(&mut jobs).next_due_ns(), Some(100));
+if let Some((attempt, running_record)) = Scheduler::new(&mut jobs).start_next(100)? {
+    assert_eq!(attempt.execution.job, JobId(2));
+    // Commit running_record with the payload/index before dispatching the effect.
+    // Record its outcome with the owning Job's finish method and persist again.
+    # assert_eq!(running_record, jobs[1].record());
+}
+# Ok::<(), ic_jobs::JobError>(())
+```
+
+Equal deadlines follow the supplied batch order. A selected job's transition error
+leaves every record unchanged; it does not select another job. Use a bounded
+candidate batch from the application's due-time index. The reported deadline
+covers only that batch; the storage owner supplies any wider queue's earliest
+deadline to IC Timers.
+
 A restored Running job remains Running. Uncertain effects block dispatch until
 the application establishes the result or explicitly determines that repetition
 is safe. `ExecutionId` identifies the logical effect across retries; `Attempt`

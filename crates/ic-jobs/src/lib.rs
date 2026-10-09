@@ -14,8 +14,10 @@
 
 mod job;
 mod policy;
+mod scheduler;
 #[cfg(feature = "timers")]
 pub mod timers;
 
 pub use job::{Attempt, ExecutionId, Job, JobError, JobId, JobRecord, JobState, Outcome};
 pub use policy::{MissedRunPolicy, RetryPolicy, Schedule};
+pub use scheduler::Scheduler;

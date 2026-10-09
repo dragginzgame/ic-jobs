@@ -16,9 +16,9 @@ Wasm targets as described in the README, alongside the development toolchain.
 Fetch the selected dependency graph explicitly with `cargo fetch --locked`
 before offline checks. Commit the intended source through the contribution
 workflow; release commands require an existing source commit and refuse unrelated
-staged, unstaged or untracked work. Its proposed first standard release is 0.1.1
-from the local 0.1.0 version, including the initial library and compatible delivery
-tooling.
+staged, unstaged or untracked work. The first tagged release, 0.1.1, advanced the
+initial 0.1.0 implementation with compatible delivery tooling and packaging fixes.
+The changelog records the initial implementation separately from those additions.
 
 | Command | Effect |
 | --- | --- |
