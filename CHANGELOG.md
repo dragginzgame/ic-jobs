@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0]
+## [0.2.0] - 2026-10-09
 
 - **Breaking:** Require Rust 1.88 for the package, with or without the optional
   timers feature. Upgrade older consumer toolchains; native and Wasm minimum
