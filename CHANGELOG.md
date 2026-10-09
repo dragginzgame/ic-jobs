@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0]
+
+- **Breaking:** The shared IC setup now installs five tools; PocketIC provisioning
+  belongs to IC Testkit. Explicitly rerun `make install-ic-tools`, then
+  `make ic-tools-check`, to replace a six-tool installation. Previous bundles
+  and receipts are retained; scheduler APIs and stored jobs are unchanged
+  ([#7](https://github.com/dragginzgame/ic-jobs/issues/7),
+  [shared #76](https://github.com/dragginzgame/shared-tooling/issues/76)).
+- Keep prepared checkout-local tools available to isolated pre-commit formatting
+  and reject multi-document dependency-pinning exception catalogs. Adopt the
+  committed Shared Tooling fixes without adding a Cargo-tool mode
+  ([#6](https://github.com/dragginzgame/ic-jobs/issues/6)).
+- Refresh the locked optional-timers graph to IC Metrics 0.2.20 within the
+  existing compatible dependency requirements.
+- Remove the unused PR release transport from the selected snapshot, retaining
+  Jobs' direct release and recovery workflow
+  ([#8](https://github.com/dragginzgame/ic-jobs/issues/8)).
+
 ## [0.2.3] - 2026-10-09
 
 - Preserve checkout paths ending in newlines when publishing, and qualify

@@ -1,17 +1,22 @@
 # Current handoff
 
-IC Jobs package version 0.2.2, released at
-`117c48e5bbddf8b1dd0ce35f9a8ac07ce1449fb3` and pushed by the maintainer.
-The exact local annotated `v0.2.2` object
-`7be0b1fa0f77ba0a94b6c656f200d2b34e6bb2bd` matches GitHub's tag reference;
+IC Jobs package version 0.2.3, released at
+`e32d44bccddcbba248aa9461af5b7f90cd54e553` and pushed by the maintainer.
+The exact local annotated `v0.2.3` object
+`9957db640097b0dadf0c8d3f1432d4e01129c458` matches GitHub's tag reference;
 the retained local release plan is complete. The maintainer reports it live,
-and an exact crates.io observation confirms 0.2.2 present without binding
+and an exact crates.io observation confirms 0.2.3 present without binding
 registry bytes to a local artifact.
-Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37903041952)
+Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37909918403)
 has passed Linux; both native macOS jobs were queued at the latest observation.
-The preceding 0.2.1 [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37899775906)
-passed all three hosts. These earlier native results do not qualify 0.2.2,
-later working-tree changes or live IC recovery.
+The preceding 0.2.2 [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37903041952)
+has passed Linux, macOS Apple Silicon and macOS Intel at its exact release SHA.
+Those earlier native jobs retain their original identities after the 0.2.3 push:
+queued retention is observed, and both retained native jobs have completed successfully.
+This does not establish retention of a job already running at push time.
+Release 0.2.1 [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37899775906)
+passed all three hosts. Its earlier native results do not qualify later source
+or live IC recovery. Owning issues retain the outstanding native/hosted acceptance.
 The library owns job policy and checked metadata transitions. Applications own
 persistence and effects; the optional adapter uses the consumer-selected IC Timers
 dependency graph.
@@ -20,22 +25,108 @@ The maintainer requires Rust 1.88 for the complete package. Manifest metadata,
 native/Wasm minimum checks, CI setup and current support documentation now use
 that floor for both core and timers. Release 0.2.0 drops the previously advertised
 1.85 floor and changes the consumer toolchain contract; consumers must upgrade
-to 1.88. The next selected pending patch is 0.2.3 for compatible publication
-path and release-cache fixes; package metadata remains 0.2.2. Job APIs, stored
-fields, scheduling policy and the Rust floor are unchanged.
+to 1.88. The compatible publication-path and release-cache fixes are delivered
+in 0.2.3. The next selected pending release is 0.3.0 for the breaking developer
+IC bundle hard cut, carrying the earlier compatible shared-tooling fixes and
+the maintainer's incoming locked dependency refresh. Package metadata remains
+0.2.3. Job APIs, stored fields, scheduling policy and the Rust floor are unchanged.
 Earlier 1.85 qualification below records historical evidence only.
-The released lockfile selects IC Timers 0.14.21 and IC Metrics 0.2.16; the prior
-MSRV and snapshot batches preserved the maintainer's selections. The incoming
-working lockfile now selects IC Timers 0.14.23 and IC Metrics 0.2.18 within the
+The released 0.2.3 lockfile selects IC Timers 0.14.23 and IC Metrics 0.2.18 within the
 existing compatible requirements. Explicit `cargo fetch --locked` downloaded the
-missing Timers input; the incoming lockfile's SHA-256 remained
+missing Timers input before delivery; that pre-release lockfile's SHA-256 remained
 `3c423922eda86146028b688b0ac37a83ea4cd01490b5149aebc8107d36cfc980`.
 Focused Linux checks passed on that graph: Rust 1.88 native and Wasm library
 checks for core/all features, all 24 job tests with timers, and warnings-denied
 development Clippy. This replaces the earlier missing-cache check limitation;
 it does not qualify native macOS or live IC recovery.
+The incoming working lockfile selects IC Metrics 0.2.20 with IC Timers 0.14.23.
+That maintainer selection is preserved byte-for-byte at SHA-256
+`be8149670998dccb7516e292f831b43e3c28131ac248917402a99f79bdc8d23e`.
+Its cached graph now passes focused Linux Rust 1.88 core/all-feature native and
+Wasm checks, all 24 job tests with timers, and warnings-denied development Clippy.
+The tagged Metrics 0.2.18-to-0.2.20 arithmetic source and package requirements are
+unchanged; the upstream fixes concern host tooling. Native macOS and live IC
+recovery remain separate qualification requirements for this working tree.
 
-The current batch adopts reviewed committed Shared Tooling 0.1.35 at
+The initial compatible pending batch adopted committed Shared Tooling revision
+`926a20606591214ab29faa236b0b584e4857439e` through the canonical exporter from
+`/tmp/ic-jobs-shared-038.Nj6oHA/source`, preserving the 72-file selection.
+The sibling's dirty VERSION bump is excluded. This commit contains the 0.1.38
+pin-exception fix but records VERSION 0.1.37; no published 0.1.38 tag was observed.
+The hook keeps original-checkout prepared executable lookup while formatting
+isolated index inputs. Pin exceptions must be one validated JSON array, so later
+documents cannot mask malformed exceptions. The selected Cargo installer also
+adopts single-document receipt admission, original failure status and ancestor
+rechecks; its consumer-selected mode remains inactive in Jobs.
+See [#6](https://github.com/dragginzgame/ic-jobs/issues/6) for reproduction,
+adoption and qualification evidence. This clone already has
+`core.hooksPath=.githooks`; source adoption does not activate other clones.
+Focused qualification passes on Linux Bash 5 and genuine Bash 3.2.57: canonical
+dependency, hook and Rust installer fixtures, including multi-document refusal,
+local-only executable lookup, wrong/missing tools and payload preservation.
+The installer uses substitute Cargo; the hook fixtures combine executable
+substitutes with real formatting cases. Jobs' actual Make fmt/fmt-check adapter
+also passes disposable-checkout adoption with prepared formatters, including
+manifest sorting, partial-stage refusal, failure isolation and unrelated edits.
+Snapshot integrity, actual declarations, documentation links, formatting,
+release Make adapters, ShellCheck and whitespace checks pass. The full local
+gate, native macOS and live IC qualification were not run for this pending batch;
+no commit, release, push or upload was made.
+
+The requested hard cut now adopts the latest committed Shared Tooling revision
+`8140e3dd1b44409d682c721889ab702f438c6a17` from the clean isolated checkout
+`/tmp/ic-jobs-shared-hard-cut.IcFDos/source`. That export retained all 72 files;
+Jobs never selected the retired PocketIC checkers/fixture. This source contains
+Shared's 0.2.0 hard cut but records VERSION 0.1.38; no published 0.2.0 tag was
+observed. Upstream native acceptance remains separate from this local adoption.
+The IC matrix/validator/installer now select exactly five tools. Jobs has no
+PocketIC/Testkit dependency or server-path/equality caller, so no replacement
+server installer or product dependency is added. The existing CI matrix now
+explicitly prepares the reviewed bundle and checks it offline on all three hosts.
+See [#7](https://github.com/dragginzgame/ic-jobs/issues/7) for adoption acceptance.
+An existing six-tool bundle must be replaced by explicit `make install-ic-tools`
+before `make ic-tools-check`; previous bundles, pins, receipts and evidence stay
+retained. This clone had no installed IC bundle before adoption. No job storage
+reset or consumer data conversion is needed. Future application-owned IC recovery
+qualification uses Testkit's selected setup/check contract.
+Focused Linux qualification passes: the canonical IC installer fixture on Bash 5
+and genuine Bash 3.2.57 covers synthetic selections for all three hosts, rejects
+six-tool matrices before effects and preserves old bundle bytes/receipts through
+failed and successful replacement. Actual `make install-ic-tools` verified the
+official five-tool Linux assets; `make ic-tools-check` passed offline. Setup reuse
+with a failing curl substitute kept the same active selection, pins and receipt;
+the prior six-tool matrix is refused against the actual installer. Installed
+artifacts remain under `.tools/ic-set.*`; logs and before-adoption inputs are
+retained under `/tmp/ic-jobs-shared-hard-cut.IcFDos/`.
+Snapshot, actual declarations, documentation links, formatting, Make adapters,
+ShellCheck, actionlint and whitespace checks pass. The incoming Cargo.lock digest
+is unchanged. No job code or public symbol was removed; the installer drops only
+PocketIC version/download/archive branches and the catalog drops its three rows.
+No full local CI, native macOS or live IC run was performed for this hard cut;
+delivery and exact-source native acceptance remain with the owning issue. No
+commit, version bump, release, push or upload was made.
+
+The subsequent authorized removal omits `scripts/ci/release-pr.sh` and its
+snapshot record; the current selection has 71 files at the same shared revision.
+Jobs supports direct release delivery only, enforced by both Make and its
+metadata adapter. The shared runner loads the removed transport only for PR
+delivery; no retained local PR plan exists. Canonical PR-adoption guidance stays
+unchanged at its owner. The existing real-Git fixture now checks PR refusal
+before fetch, gate or source mutation. Job/scheduler surfaces and restore/recovery
+checks remain live and retained. See
+[#8](https://github.com/dragginzgame/ic-jobs/issues/8) for the exact removed
+function inventory and qualification.
+Canonical refresh and the 71-file verifier pass after selection pruning.
+`LC_ALL=en_US.UTF-8 CARGO_NET_OFFLINE=true make test-release-tooling` passes on
+Linux Bash 5 and genuine Bash 3.2.57, exercising the supported direct
+patch/minor/major/recovery and publication flows plus PR-mode refusal before
+fetch/gate/Git or metadata mutation. Gate/registry/upload effects are substituted;
+no live release or publication was performed. Documentation links, formatting,
+release Make adapters, ShellCheck, runner syntax and whitespace checks pass.
+The incoming Cargo.lock remains byte-identical. No full CI, native macOS or live
+IC qualification was run for this cleanup; it remains local pending 0.3.0 work.
+
+Release 0.2.3 adopts reviewed committed Shared Tooling 0.1.35 at
 `be550afa57fe9e16872e5110b5cd69c24b4fa9e8` through the canonical exporter from a
 clean temporary checkout. The 72-file selection still omits fleet reporting.
 Its new selected Cargo-tool mode is not activated in Jobs; the fixed Rust-tool
@@ -55,7 +146,7 @@ prepared-cache reuse and dirty-source refusal before any fetch, with original
 failure status and no gate/version effects. See
 [#5](https://github.com/dragginzgame/ic-jobs/issues/5).
 
-The current local publication fix preserves trailing newlines in the checkout
+The delivered publication fix preserves trailing newlines in the checkout
 path, using the metadata adapter's existing path-sentinel pattern in the
 publisher and release fixture. The extended fixture reproduced the released
 publisher's incorrect `cd` at
@@ -69,9 +160,10 @@ real local Git and substituted gate/registry/upload effects under
 `LC_ALL=en_US.UTF-8`, also using Bash 3.2.57 on Linux from a source checkout
 ending in two newlines with `CDPATH=/tmp`. The source copy is retained at
 `/tmp/jobs-release-checkout.iInCSL`. ShellCheck, documentation links, snapshot
-integrity, release Make adapters and whitespace checks pass. Native macOS and
-the complete gate have not run for this local change. No commit, release, push
-or upload was made by the agent. The combined cache/path release fixture now
+integrity, release Make adapters and whitespace checks pass. The agent did not
+run the complete gate or deliver this patch; the maintainer subsequently
+released/published 0.2.3. Its Linux CI passes, while native macOS qualification
+remains queued as recorded above. The combined cache/path release fixture
 also passes under the offline gate environment and Bash 3.2.57 on Linux from
 `/tmp/jobs-release-cache-checkout.xAx7mC/source checkout` followed by two newlines,
 with `CDPATH=/tmp`. Gate/registry/upload and cache outcomes in that fixture are
@@ -115,7 +207,7 @@ Install/check aggregate wiring was inspected with Make dry runs; the complete
 Rust/IC bundles were not installed or checked here. The full CI/release gate and
 native macOS qualification were not run by the agent for that working-tree
 batch. The maintainer subsequently delivered it as 0.2.2; its native macOS CI
-qualification remains queued as recorded above.
+qualification passes on all three supported hosts as recorded above.
 
 ## Delivered restore and earlier tooling evidence
 

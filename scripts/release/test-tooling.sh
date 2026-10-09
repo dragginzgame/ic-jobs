@@ -97,6 +97,14 @@ release-verify:
 MAKE
     commit_source
     base="$(git rev-parse HEAD)"
+    # Jobs selects direct release delivery only. Unsupported PR delivery must
+    # stop before fetching, validating or mutating this committed fixture.
+    refuse "refused-pr-$kind" env RELEASE_DELIVERY=pr make --no-print-directory "release-$kind"
+    grep -F 'ic-jobs supports direct release delivery only' "$fixture/refused-pr-$kind.log" > /dev/null
+    refuse "refused-pr-adapter-$kind" env RELEASE_DELIVERY=pr bash scripts/release/metadata.sh preflight
+    grep -F 'ic-jobs supports RELEASE_DELIVERY=direct only' "$fixture/refused-pr-adapter-$kind.log" > /dev/null
+    [[ "$(git rev-parse HEAD)" == "$base" && ! -e .git/gate-events && ! -s "$TOOLING_FETCH_EVENTS" ]]
+    git diff --exit-code HEAD -- > /dev/null
     if [[ "$kind" == patch ]]; then
         # The consumer adapter reports every refused path before gate/preparation,
         # preserving hidden staged changes, working bytes and the index itself.

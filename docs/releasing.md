@@ -1,9 +1,10 @@
 # IC Jobs release and publication
 
 IC Jobs uses the reviewed [Shared Tooling release contract](releases.md) with
-consumer-owned Cargo metadata and validation. The standard delivery policy is
-direct: remote `origin`, branch `main`, annotated tag `vX.Y.Z`. All three SemVer
-commands use the same runner and complete gate. They do not publish to crates.io.
+consumer-owned Cargo metadata and validation. IC Jobs selects direct release
+delivery only: remote `origin`, branch `main`, annotated tag `vX.Y.Z`. All three
+SemVer commands use the same runner and complete gate. They do not publish to
+crates.io.
 
 ## Preparation
 
@@ -95,6 +96,9 @@ The fetch substitute also exercises cold-cache preparation, explicit offline
 refusal, fetch failure and prepared-cache reuse, verifying unchanged metadata
 and no gate/version effects on preparation failure. Dirty source is refused
 before any fetch. Actual registry cache preparation is separate evidence.
+Unsupported PR delivery is refused at both the Make and metadata-adapter
+boundaries before fetch, gate or source mutation; the PR transport is omitted
+from Jobs' snapshot selection.
 
 Release 0.2.1 passed its configured gate on Linux and both native macOS
 architectures; see the [current handoff](status/current.md) for exact source and

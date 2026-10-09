@@ -33,6 +33,10 @@ jobs:
           cargo install cargo-sort --version "$SHARED_TOOLING_CARGO_SORT_VERSION" --locked
           make install-host-tools
           make install-release-tools
+      - name: Prepare reviewed IC tools
+        run: make install-ic-tools
+      - name: Check prepared IC tools offline
+        run: make ic-tools-check
       - name: Prepare selected dependency cache
         run: cargo fetch --locked
       - name: Validate the selected graph

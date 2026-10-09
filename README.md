@@ -120,10 +120,15 @@ release 0.2.1 passed native CI on all three hosts. See the
 live IC recovery remains pending.
 
 Common tooling is adopted from reviewed Shared Tooling revision
-`be550afa57fe9e16872e5110b5cd69c24b4fa9e8` (0.1.35).
+`8140e3dd1b44409d682c721889ab702f438c6a17`.
 Run `make install-tools` explicitly to prepare the checkout-local host, IC and
 Rust tools; `make tools-check` verifies them offline. For an interactive shell,
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/bin` to PATH.
+The shared IC bundle contains Quill, ICP CLI, didc, ic-wasm and wasm-opt.
+After updating an older six-tool bundle, run `make install-ic-tools` explicitly,
+then `make ic-tools-check`; previous bundles and receipts are retained.
+PocketIC provisioning belongs to IC Testkit. Jobs has no server caller; a future
+application recovery harness must use its selected Testkit setup/check contract.
 System prerequisites are Git, Bash, Make, Perl, curl, tar and rustup;
 see [local setup](docs/local-setup.md). Install `wasm32-unknown-unknown`
 explicitly before Wasm checks. `make install-hooks` enables the reviewed
