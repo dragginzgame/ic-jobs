@@ -19,6 +19,17 @@ all features against that lockfile. Formatting, documentation links, dependency
 declarations and the unchanged shared snapshot also verify. Full CI, release
 gates, native macOS and live IC qualification were not run for this batch.
 
+The maintainer's subsequent `make release-minor` failed in the CI gate at the
+development Clippy `manual_is_multiple_of` lint, newly applicable after raising
+the advertised floor. The failure is retained at
+`.git/release-state/validation-failures/20261009T061629Z-1284332-0-ci.log`.
+Fixed-rate restoration now uses `u64::is_multiple_of`, supported by the required
+Rust 1.88 compiler; schedule validation still rejects zero intervals before
+this check. Accepted records and error transitions are unchanged. Focused repair
+checks passed: warnings-denied Clippy, all 18 job tests on Rust 1.88.0, core and
+all-feature native/Wasm minimum checks, and formatting. No release was retried
+or metadata bumped by the repair.
+
 Shared Tooling 0.1.30 is adopted from committed revision
 `4e274a2219c0b0cc3af68ec65658b373253518fb` through the canonical exporter,
 using a clean temporary checkout and excluding dirty sibling work. The snapshot
@@ -43,6 +54,17 @@ remains at 0.2.0. No host dependency is needed by the scheduler library now.
 Bounded process capture and child cleanup could serve a future application-owned
 PocketIC test harness outside the canister package. No host-crate adoption was
 performed.
+
+The maintainer subsequently requested removal of the older GitHub repository
+`dragginzgame/ic-host-tools` (0.2.0). Its local checkout was already absent.
+A fresh Git mirror at `be7d73908225e73ab5babf8fbb9fe959f40d439b`, repository
+metadata, all 10 issues and 15 comments, and empty release metadata were archived
+and verified before attempting removal. The retained backup is
+`.git/retired-repositories/ic-host-tools-20261009/backup.tar`, with a checked
+SHA-256 beside it. GitHub rejected DELETE with HTTP 403: the authenticated CLI
+token lacks `delete_repo` scope. No enabled browser session or repository-deletion
+connector was available; the GitHub repository still exists. The successor
+`dragginzgame/ic-host-tooling` and crates.io packages were unchanged.
 
 ## Earlier implementation and qualification evidence
 

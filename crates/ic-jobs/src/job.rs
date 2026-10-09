@@ -199,7 +199,7 @@ impl Job {
                 missed,
             } => {
                 let delta = record.scheduled_ns - first_at_ns;
-                if delta % every_ns != 0
+                if !delta.is_multiple_of(every_ns)
                     || delta / every_ns < record.occurrence
                     || (missed == MissedRunPolicy::CatchUp && delta / every_ns != record.occurrence)
                 {
