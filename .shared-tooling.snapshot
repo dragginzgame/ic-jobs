@@ -1,7 +1,7 @@
 # Shared Tooling snapshot v1
 format	1
 source	https://github.com/dragginzgame/shared-tooling
-revision	8140e3dd1b44409d682c721889ab702f438c6a17
+revision	ee48bb37c98c771e77b92fd891f0757d8c1c8b99
 file	0d472a74369e6aa772d585305e19b398fb86f0ef9698f1564356ddc11c60e0b6	-	DRAGGINZGAME.md
 file	05838a36f21bb4299617ae8965687791062c94d768181f5f97676cc577382153	-	rules/contributions.md
 file	b5a6e8fb723a861b722834675e27b4b16f3d296112622c1b40cdc8714f575404	-	rules/changelogs.md
@@ -45,19 +45,19 @@ file	27a04aeee753252b310fef363856edf83577337bfaea1e63a50017460eddde59	-	docs/pri
 file	457fd38e0073c91ba470b918d4facd9faac3c5200ebd38c97e9d6b76acdaea55	-	docs/principles/simplicity-and-maintainability.md
 file	70489e0c67d0d42d1237e0d06bd8f7e81816874a4d16365220197ebc838b0567	-	docs/consuming-snapshots.md
 file	1a0d1d6f2a87a0d77378fdda605f5700cc7e2ca8c8dfac79418248da30b7e657	-	docs/provenance.md
-file	f1add12a62a9be7a3113dccae86d3fcc4c7b13a69498e4d0b3ff9ba0965ea0ed	-	docs/verification-helpers.md
-file	a8d04b361678ded307960c42692cd6743f168e2487a3e19117be388cf1522e84	-	docs/ic-tools.md
+file	8ea130d767dd83ea491f8321b34b6498538220a99b1685ccbec0cbbef0522b48	-	docs/verification-helpers.md
+file	67cc50a0c95ad7d9d50b4a50ec2969ce3455c7fdefc4a4a61e00f3a68a7d501c	-	docs/ic-tools.md
 file	077c98e506e8b3998b3b9e668b656c60a502610df06a513e4241bf93bc01b790	-	docs/local-setup.md
 file	a906686771b89c83b9382a29e73c185fde6658093b704cea1d62ac028c78cc04	-	ci/ic-tools.tsv
 file	82892e25292fe47c26035a0031aa4ad1996fcf181732163e75039bd657f2f84b	-	ci/tool-versions.env
-file	068c33ce3216d1c6dfb2295eb3819d3d5a0d4725afeee115c369661b8f640c6e	-	docs/supported-hosts.md
+file	b036679899b70c1304373df13e78c637ddbba711b075fba2e7cec6c011a1254b	-	docs/supported-hosts.md
 file	4c981184847462ab3c01cac087e28309f8e054253fd95c7bbe56f643877aa708	x	scripts/ci/verify-file-checksum.sh
 file	ba5c6b76d15bec4ac226f1ab0732d5087446152d64107993c52642a68d2ff464	x	scripts/ci/verify-shared-tooling-snapshot.sh
 file	1063002468575e2f821cfec71524bde06a64634bf30455d64d2d9fed872969d6	-	docs/tag-maintenance.md
 file	431f4a40037fc341bec1d53416b440b3bcd4b6af5cd45210e390c82abb08b475	-	scripts/distribution/governance-files.txt
 file	49c3ea9db43f37ea293be61a1031c61bdf00745ae58bc66b76afcea07f9a2128	-	make/tools.mk
 file	74134f6567746b2071ecfca28829b0ea4da69ed207b958b38fd181e722a3aea9	x	scripts/dev/install-host-tools.sh
-file	2b7024d99a95b4aa8be57671c52e6a45bcaaab6585fee213bfd5c84d6d469c59	x	scripts/dev/install-ic-tools.sh
+file	f41ba134d2838df094d373c70ba254f6bc2f1184914eee06119062708f2d6797	x	scripts/dev/install-ic-tools.sh
 file	83e60382356dcf245349b41658b36560bc17a14b1c3be8abc8c6d7101f6376ac	x	scripts/dev/install-rust-tools.sh
 file	04314208858a3b8c6833aee30b8574741518b4ca36ed509c095424762a7be79e	x	scripts/dev/install-git-hooks.sh
 file	8a14c80cec16a2cb07454c4e0f741150bc8385cd51ebc720a84ee3af1cc63043	x	scripts/dev/cloc.sh

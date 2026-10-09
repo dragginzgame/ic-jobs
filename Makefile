@@ -7,9 +7,9 @@ include make/tools.mk
 install-tools: install-rust-tools install-release-tools
 tools-check: rust-tools-check release-tools-check
 
-.PHONY: help version install-hooks install-release-tools release-tools-check format-tools-check fmt fmt-check check test-jobs check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling package publish-check publish ci
+.PHONY: help version install-hooks install-release-tools release-tools-check format-tools-check fmt fmt-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling package publish-check publish ci
 help:
-	@echo "Focused: check, test-jobs, check-msrv, check-wasm, clippy, docs-check, fmt-check"
+	@echo "Focused: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
 	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-release-commands"
 	@echo "Release tooling: version, release-tools-check, test-release-tooling"
 	@echo "Registry preparation: package (offline), publish-check (registry dry run; no upload)"
@@ -46,6 +46,10 @@ check:
 
 test-jobs:
 	cargo test -p ic-jobs --test jobs --all-features --locked --offline
+
+test-consumers:
+	cargo +1.88.0 test -p ic-jobs --test consumers --no-default-features --locked --offline
+	cargo +1.88.0 test -p ic-jobs --test consumers --all-features --locked --offline
 
 check-msrv:
 	cargo +1.88.0 check -p ic-jobs --lib --locked --offline
@@ -86,7 +90,7 @@ publish-check:
 publish:
 	+@bash scripts/release/publish.sh "$(RELEASE_REMOTE)"
 
-ci: shared-tooling-check check-doc-links check-pins check-release-commands test-release-tooling fmt-check check test-jobs check-msrv check-wasm clippy docs-check package
+ci: shared-tooling-check check-doc-links check-pins check-release-commands test-release-tooling fmt-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check package
 
 .PHONY: release-patch release-minor release-major release-resume release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
 ifneq ($(word 2,$(filter release-patch release-minor release-major release-resume,$(MAKECMDGOALS))),)

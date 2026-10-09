@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.1]
+
+- Add notification and cache-maintenance test consumers for persistence failures,
+  lost-reply reconciliation, safe retries, shared wakeup selection and bounded work. Expose
+  `make test-consumers` for core/timers qualification and include it in configured CI.
+- Install and verify the final selected IC tool even when its pin file has no
+  trailing newline, preserving the original pins and version checks. Adopt the
+  reviewed Shared Tooling 0.2.2 snapshot
+  ([#9](https://github.com/dragginzgame/ic-jobs/issues/9),
+  [shared #87](https://github.com/dragginzgame/shared-tooling/issues/87)).
+
 ## [0.3.0] - 2026-10-09
 
 - **Breaking:** The shared IC setup now installs five tools; PocketIC provisioning

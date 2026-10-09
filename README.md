@@ -111,6 +111,10 @@ the latest outcome; applications own any longer audit history.
 See [SAFETY.md](SAFETY.md) for persistence and recovery obligations.
 Run `cargo run -p ic-jobs --locked --example persisted_job` for a runnable
 reconstruction example. Focused checks are listed by `make help`.
+Run `make test-consumers` for application-owned notification and cache-maintenance
+fixtures covering commit failures, reconstruction, receipt reconciliation and
+bounded recurring work. See [test consumers](docs/test-consumers.md) for their
+storage and timer boundaries.
 
 The package requires Rust 1.88 (edition 2024), including the optional IC Timers
 path. Development formatting uses
@@ -120,7 +124,7 @@ release 0.2.1 passed native CI on all three hosts. See the
 live IC recovery remains pending.
 
 Common tooling is adopted from reviewed Shared Tooling revision
-`8140e3dd1b44409d682c721889ab702f438c6a17`.
+`ee48bb37c98c771e77b92fd891f0757d8c1c8b99`.
 Run `make install-tools` explicitly to prepare the checkout-local host, IC and
 Rust tools; `make tools-check` verifies them offline. For an interactive shell,
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/bin` to PATH.
