@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.1]
+## [0.2.1] - 2026-10-09
 
 - Reject contradictory occurrence records during restoration, including successful
   one-shot work made pending again, shifted first-occurrence deadlines, retries
