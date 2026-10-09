@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.1]
+## [0.4.1] - 2026-10-09
 
 - Adopt committed Shared Tooling 0.2.5 to preserve literal hook selections and
   support hook setup/formatting in checkouts ending in newlines
