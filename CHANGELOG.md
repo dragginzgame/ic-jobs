@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.2]
+## [0.4.2] - 2026-10-09
 
 - Adopt Shared Tooling 0.2.6 for release entrypoints and workspace formatting,
   replacing duplicated Make recipes while retaining direct-only release admission
