@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.2]
+
+- Adopt Shared Tooling 0.2.6 for release entrypoints and workspace formatting,
+  replacing duplicated Make recipes while retaining direct-only release admission
+  and explicitly prepared formatter requirements
+  ([#10](https://github.com/dragginzgame/ic-jobs/issues/10)).
+- Refresh the locked optional timer dependency to IC Timers 0.16.2 within the
+  existing 0.16 requirement. Timer library source, Job records and scheduling
+  behavior are unchanged.
+
 ## [0.4.1] - 2026-10-09
 
 - Adopt committed Shared Tooling 0.2.5 to preserve literal hook selections and

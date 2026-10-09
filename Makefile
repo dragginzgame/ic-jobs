@@ -1,13 +1,13 @@
 .DEFAULT_GOAL := help
-RELEASE_REMOTE ?= origin
-RELEASE_BRANCH ?= main
 export RELEASE_DELIVERY ?= direct
 include make/tools.mk
+include make/release.mk
+include make/rust-format.mk
 
 install-tools: install-rust-tools install-release-tools
 tools-check: rust-tools-check release-tools-check
 
-.PHONY: help version install-hooks install-release-tools release-tools-check format-tools-check fmt fmt-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling package publish-check publish ci
+.PHONY: help version install-hooks install-release-tools release-tools-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling package publish-check publish ci
 help:
 	@echo "Focused: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
 	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-release-commands"
@@ -29,17 +29,6 @@ release-tools-check:
 
 install-hooks:
 	bash scripts/dev/install-git-hooks.sh
-
-format-tools-check:
-	@. ci/tool-versions.env && bash scripts/ci/check-format-tools.sh "$${SHARED_TOOLING_CARGO_SORT_VERSION:?}"
-
-fmt: format-tools-check
-	cargo sort --workspace
-	cargo fmt --all
-
-fmt-check: format-tools-check
-	cargo sort --workspace --check
-	cargo fmt --all -- --check
 
 check:
 	cargo check -p ic-jobs --all-targets --all-features --locked --offline
@@ -76,7 +65,7 @@ check-pins:
 	bash scripts/ci/check-dependency-pins.sh --cargo-inheritance
 
 check-release-commands:
-	bash scripts/ci/check-release-commands.sh . make/tools.mk
+	bash scripts/ci/check-release-commands.sh . make/tools.mk make/release.mk make/rust-format.mk
 
 test-release-tooling:
 	bash scripts/release/test-tooling.sh
@@ -92,22 +81,13 @@ publish:
 
 ci: shared-tooling-check check-doc-links check-pins check-release-commands test-release-tooling fmt-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check package
 
-.PHONY: release-patch release-minor release-major release-resume release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
-ifneq ($(word 2,$(filter release-patch release-minor release-major release-resume,$(MAKECMDGOALS))),)
-$(error Select exactly one release target)
-endif
+.PHONY: release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
 _release_targets := release-patch release-minor release-major release-resume release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
 ifneq ($(filter $(_release_targets),$(MAKECMDGOALS)),)
 ifneq ($(RELEASE_DELIVERY),direct)
 $(error ic-jobs supports direct release delivery only)
 endif
 endif
-
-release-patch release-minor release-major:
-	+@bash scripts/ci/run-release.sh "$(@:release-%=%)" "$(RELEASE_REMOTE)" "$(RELEASE_BRANCH)"
-
-release-resume:
-	+@bash scripts/ci/run-release.sh resume "$(VERSION)" "$(RELEASE_REMOTE)" "$(RELEASE_BRANCH)"
 
 version release-version:
 	@bash scripts/release/metadata.sh version
