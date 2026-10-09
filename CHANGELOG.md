@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.3]
+## [0.2.3] - 2026-10-09
 
 - Preserve checkout paths ending in newlines when publishing, and qualify
   publication refusals and the intended upload invocation from unusual paths
