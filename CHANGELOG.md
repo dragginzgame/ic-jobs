@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.3.0]
+## [0.3.0] - 2026-10-09
 
 - **Breaking:** The shared IC setup now installs five tools; PocketIC provisioning
   belongs to IC Testkit. Explicitly rerun `make install-ic-tools`, then
