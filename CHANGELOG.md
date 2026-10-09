@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.2]
+## [0.2.2] - 2026-10-09
 
 - Keep fleet reporting in Shared Tooling while retaining local tool setup,
   offline checks and workspace LOC reporting. Adopt the reviewed 0.1.34 snapshot
