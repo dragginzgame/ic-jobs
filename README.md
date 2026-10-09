@@ -115,10 +115,12 @@ reconstruction example. Focused checks are listed by `make help`.
 The package requires Rust 1.88 (edition 2024), including the optional IC Timers
 path. Development formatting uses
 Rust 1.99.0. Linux and macOS Intel/Apple Silicon host workflows are maintained;
-native macOS and live IC qualification are pending.
+release 0.2.1 passed native CI on all three hosts. See the
+[current handoff](docs/status/current.md) for source-bound qualification;
+live IC recovery remains pending.
 
 Common tooling is adopted from reviewed Shared Tooling revision
-`4e274a2219c0b0cc3af68ec65658b373253518fb` (0.1.30).
+`3d33cd250fcae7dbe5cabe44b2abd6b2c91a1822` (0.1.34).
 Run `make install-tools` explicitly to prepare the checkout-local host, IC and
 Rust tools; `make tools-check` verifies them offline. For an interactive shell,
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/bin` to PATH.

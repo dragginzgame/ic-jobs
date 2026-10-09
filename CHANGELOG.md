@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.2]
+
+- Keep fleet reporting in Shared Tooling while retaining local tool setup,
+  offline checks and workspace LOC reporting. Adopt the reviewed 0.1.34 snapshot
+  and remove the unused consumer reporter
+  ([#1](https://github.com/dragginzgame/ic-jobs/issues/1)).
+- Reuse verified IC tool bundles when only pin comments or row order change,
+  preserving checksums, version admission and original installation receipts
+  ([shared #79](https://github.com/dragginzgame/shared-tooling/issues/79)).
+- Preserve CI qualification for each pushed commit, including queued native
+  checks; superseded revisions of the same pull request may still be cancelled
+  ([#3](https://github.com/dragginzgame/ic-jobs/issues/3)).
+
 ## [0.2.1] - 2026-10-09
 
 - Reject contradictory occurrence records during restoration, including successful

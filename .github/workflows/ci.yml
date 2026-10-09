@@ -9,8 +9,10 @@ defaults:
   run:
     shell: /bin/bash --noprofile --norc -e -o pipefail {0}
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Preserve native qualification for each pushed commit, including queued jobs.
+  # Superseded revisions of the same PR may still be cancelled.
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   validate:
     strategy:

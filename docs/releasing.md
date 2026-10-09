@@ -85,5 +85,8 @@ checks cover source admission, local/remote tag identity, Make execution modes,
 registry availability and upload failure. The complete gate and registry/upload
 effects are substituted; the fixture performs no live release or publication.
 
-Native macOS and live IC recovery qualification remain pending. Linux fixture
-passes and Bash 3.2 execution on Linux do not establish native macOS evidence.
+Release 0.2.1 passed its configured gate on Linux and both native macOS
+architectures; see the [current handoff](status/current.md) for exact source and
+run identity. Later changes need their own qualification. Linux fixture passes
+and Bash 3.2 execution on Linux do not establish native macOS evidence;
+live IC recovery remains pending.

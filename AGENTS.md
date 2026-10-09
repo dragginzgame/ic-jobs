@@ -2,7 +2,7 @@
 
 Apply the reviewed [Dragginzgame baseline](DRAGGINZGAME.md) first.
 Its exact revision is recorded in [.shared-tooling.snapshot](.shared-tooling.snapshot):
-`4e274a2219c0b0cc3af68ec65658b373253518fb`.
+`3d33cd250fcae7dbe5cabe44b2abd6b2c91a1822`.
 This file is the local overlay. Read [the current handoff](docs/status/current.md).
 
 - Scope is this workspace; other sibling repositories remain read-only.
@@ -15,8 +15,9 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
   `make ci`, release gates and live PocketIC qualification are complete gates
   selected explicitly or by configured CI.
 - Rust floor: 1.88 for both core and optional timers. Qualify both separately.
-- Host workflows support Linux and macOS Intel/Apple Silicon. Native macOS and
-  IC recovery evidence are pending; do not claim native tests establish them.
+- Host workflows support Linux and macOS Intel/Apple Silicon. Bind native
+  qualification to its tested source; IC recovery evidence remains pending and
+  native tests do not establish it.
 - Use the common contribution and release authority rules. The public remote is
   `dragginzgame/ic-jobs`; configuring tooling does not authorize releases or
   publication. Direct release delivery uses `origin`/`main`; `make publish` is

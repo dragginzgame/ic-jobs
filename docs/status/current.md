@@ -1,15 +1,15 @@
 # Current handoff
 
-IC Jobs package version 0.2.0, released at
-`2a00cf5f09949719c2df15a5edf36f26255ed2d8` and pushed by the maintainer.
-The exact local annotated `v0.2.0` object
-`aa64b265af0e628ec75804de8c19123d9aca890b` matches GitHub's tag reference;
-the retained local release plan is complete. The maintainer reports publication,
-and the exact crates.io version observer confirms 0.2.0 present. This registry
-observation alone does not bind its bytes to a local artifact.
-Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37895034200)
+IC Jobs package version 0.2.1, released at
+`da3f1098bca8382d04566c153f0debb4e470a74f` and pushed by the maintainer.
+The exact local annotated `v0.2.1` object
+`15bb0f826bde3a4aea468dcccc0daeabb99d403f` matches GitHub's tag reference;
+the retained local release plan is complete. Publication of 0.2.1 has not been
+observed here; the prior exact crates.io observation confirmed 0.2.0 present
+without binding registry bytes to a local artifact.
+Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37899775906)
 completed successfully on Linux, macOS Apple Silicon and macOS Intel. These
-native results qualify the released 0.2.0 gate; they do not establish live IC
+native results qualify the released 0.2.1 gate; they do not establish live IC
 recovery or qualify later working-tree changes.
 The library owns job policy and checked metadata transitions. Applications own
 persistence and effects; the optional adapter uses the consumer-selected IC Timers
@@ -19,11 +19,50 @@ The maintainer requires Rust 1.88 for the complete package. Manifest metadata,
 native/Wasm minimum checks, CI setup and current support documentation now use
 that floor for both core and timers. Release 0.2.0 drops the previously advertised
 1.85 floor and changes the consumer toolchain contract; consumers must upgrade
-to 1.88. The next selected pending patch is 0.2.1 for restore validation fixes;
-package metadata remains 0.2.0.
+to 1.88. The next selected pending patch is 0.2.2 for compatible development
+tooling and CI fixes; package metadata remains 0.2.1. Job APIs, stored fields,
+runtime behavior, dependency selections and the Rust floor are unchanged.
 Earlier 1.85 qualification below records historical evidence only.
 The released lockfile selects IC Timers 0.14.21 and IC Metrics 0.2.16; the prior
 MSRV and snapshot batches preserved the maintainer's selections.
+
+The current local batch adopts Shared Tooling 0.1.34 at reviewed committed
+revision `3d33cd250fcae7dbe5cabe44b2abd6b2c91a1822` through the canonical exporter
+from a clean temporary checkout. The 72-file snapshot omits the unused fleet
+reporter and its manifest record; local LOC reporting, pinned cloc and required
+verification companions remain selected. The canonical Make include now explains
+the optional fleet selection instead of calling a missing file. See
+[#1](https://github.com/dragginzgame/ic-jobs/issues/1) for adoption evidence.
+No fleet reporter regression is selected by Jobs CI, and sibling repositories
+remain read-only. The public GitHub description matches the maintained scope.
+
+The same snapshot adopts the independent IC installer reuse correction from
+[shared #79](https://github.com/dragginzgame/shared-tooling/issues/79): compare
+validated pin records rather than file presentation. Comment or row-order edits
+reuse a verified bundle without rewriting receipts; changed records, checksums
+and versions retain their admission checks. Actual tool pins are unchanged.
+
+The CI workflow now includes the pushed commit's SHA in its concurrency group;
+only superseded revisions of a pull request share a cancellable group. This
+preserves queued and running push qualification without changing the three-host
+matrix, permissions, gates or timeout. Delivery and hosted consecutive-push
+observations remain to qualify the policy, tracked in
+[#3](https://github.com/dragginzgame/ic-jobs/issues/3).
+
+Focused Linux tooling checks passed: the committed owner's command fixture with
+substitute installers/reporters and IC installation/retention fixture with
+synthetic assets for all three host selections; actual offline host-tool
+verification and local
+`make cloc`; optional fleet-report refusal; snapshot integrity, documentation
+links, dependency declarations, release Make adapters, formatting, ShellCheck
+and actionlint. The first local LOC attempt lacked cloc; explicit pinned
+`make install-host-tools` prepared the checkout-local bundle, with pins unchanged.
+Install/check aggregate wiring was inspected with Make dry runs; the complete
+Rust/IC bundles were not installed or checked here. The full CI/release gate and
+native macOS qualification were not run for this working-tree batch. No commit,
+release, push or upload was made.
+
+## Delivered restore and earlier tooling evidence
 
 Continuation source review found that `Job::restore` admitted contradictory
 pending records, tracked in [#2](https://github.com/dragginzgame/ic-jobs/issues/2).
@@ -50,16 +89,13 @@ Focused Linux qualification passed: 24 all-feature and 23 core job tests on
 Rust 1.88.0, core/all-feature native and Wasm minimum checks, warnings-denied
 Clippy, rustdoc and both doctests, and verified all-feature packaging.
 Formatting, snapshot integrity, dependency declarations and documentation links
-pass. The full CI/release gate and native macOS/live IC qualification were not
-run for this working-tree patch. No commit, release, push or upload was made.
+pass. The agent did not run a full gate or deliver this repair; the maintainer
+subsequently released and pushed it as 0.2.1, whose three-host native CI now
+passes as recorded above. Live IC recovery remains unqualified.
 
-The fleet reporter cleanup in
-[#1](https://github.com/dragginzgame/ic-jobs/issues/1) has no intentional local
-caller, but its canonical optional-selection Make/guide fix is still dirty
-upstream after Shared Tooling `635a39a9dd5f8d021fa9c9196b591e00521a7e02`.
-No reporter was removed or vendored file patched. The owning issue records that
-adoption awaits a reviewed committed correction for shared #83; sibling files
-remain read-only.
+The initial fleet cleanup review found no intentional local caller but awaited
+a committed upstream optional-selection correction. That blocker was resolved
+by Shared Tooling 0.1.33 and the current 0.1.34 adoption described above.
 Focused Linux qualification passed with Rust 1.88.0: native and Wasm library
 checks both without timers and with all features, plus all 18 job tests with
 all features against that lockfile. Formatting, documentation links, dependency
@@ -77,7 +113,7 @@ checks passed: warnings-denied Clippy, all 18 job tests on Rust 1.88.0, core and
 all-feature native/Wasm minimum checks, and formatting. No release was retried
 or metadata bumped by the repair.
 
-Shared Tooling 0.1.30 is adopted from committed revision
+The earlier Shared Tooling 0.1.30 adoption used committed revision
 `4e274a2219c0b0cc3af68ec65658b373253518fb` through the canonical exporter,
 using a clean temporary checkout and excluding dirty sibling work. The snapshot
 contains 73 files, including the explicitly selected shared release-source
