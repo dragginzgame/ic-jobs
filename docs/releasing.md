@@ -14,6 +14,10 @@ consumer's additional `make install-release-tools` installs pinned cargo-edit
 selected executable without downloads. Prepare Rust 1.88.0 and its Wasm target
 as described in the README, alongside the development toolchain.
 
+Shared Make entrypoints require recipe execution and failure propagation.
+Remove `-i`, `--ignore-errors`, `-n`, `-t`, `-q` and inherited equivalents;
+these modes are refused before recipes run, including formatting commands.
+
 Before ordinary offline checks, prepare the selected dependency graph explicitly
 with `cargo fetch --locked`. Standard release commands include that locked fetch
 in preflight, after source/candidate admission and before offline validation or
@@ -92,6 +96,8 @@ tags, failure before version mutation, and completed-release recovery. Publicati
 checks cover source admission, local/remote tag identity, Make execution modes,
 registry availability and upload failure. The complete gate and registry/upload
 effects are substituted; the fixture performs no live release or publication.
+Direct and inherited Make modes are checked at the outer release and formatting
+entrypoints, verifying refusal before fetch, gate or source changes.
 The fetch substitute also exercises cold-cache preparation, explicit offline
 refusal, fetch failure and prepared-cache reuse, verifying unchanged metadata
 and no gate/version effects on preparation failure. Dirty source is refused

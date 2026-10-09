@@ -35,9 +35,9 @@ dependencies = [
 
 [[package]]
 name = "ic-metrics"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c02088befd3a964640ed81463022876ed6c03ce8c29fd78a9115c77abf15941"
+checksum = "a5e14c6174e3baf461085f8ef1b7213d703691464b9443ca98d960aedd2c9c69"
 
 [[package]]
 name = "ic-timers"

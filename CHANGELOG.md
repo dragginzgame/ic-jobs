@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.3]
+
+- Adopt Shared Tooling 0.2.7 so release and formatting commands refuse Make's
+  ignore-errors, dry-run, touch and question modes before recipes run. Keep
+  release adapter checks isolated from inherited tooling roots
+  ([#10](https://github.com/dragginzgame/ic-jobs/issues/10),
+  [shared #30](https://github.com/dragginzgame/shared-tooling/issues/30),
+  [shared #7](https://github.com/dragginzgame/shared-tooling/issues/7)).
+
 ## [0.4.2] - 2026-10-09
 
 - Adopt Shared Tooling 0.2.6 for release entrypoints and workspace formatting,

@@ -97,6 +97,28 @@ release-verify:
 MAKE
     commit_source
     base="$(git rev-parse HEAD)"
+    # The outer Make must refuse execution modes which can turn a failed or
+    # skipped recipe into successful release/formatting evidence. Exercise both
+    # direct flags and inherited controls before any cache or runner effects.
+    if [[ "$kind" == patch ]]; then
+        for target in release-patch release-minor release-major release-resume fmt fmt-check; do
+            for mode in -i --ignore-errors -n -t -q; do
+                for controls in direct inherited; do
+                    label="refused-mode-$target-$mode-$controls"
+                    if [[ "$controls" == direct ]]; then
+                        refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate"
+                    else
+                        refuse "$label" env _shared_make_execution_checked=yes MAKEFLAGS="$mode" \
+                            make --no-print-directory "$target" VERSION="$candidate"
+                    fi
+                    [[ "$refusal_status" == 2 ]]
+                    [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]]
+                    [[ ! -e .git/gate-events && ! -s "$TOOLING_FETCH_EVENTS" ]]
+                    git diff --exit-code HEAD -- > /dev/null
+                done
+            done
+        done
+    fi
     # Jobs selects direct release delivery only. Unsupported PR delivery must
     # stop before fetching, validating or mutating this committed fixture.
     refuse "refused-pr-$kind" env RELEASE_DELIVERY=pr make --no-print-directory "release-$kind"

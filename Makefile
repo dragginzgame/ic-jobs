@@ -65,7 +65,7 @@ check-pins:
 	bash scripts/ci/check-dependency-pins.sh --cargo-inheritance
 
 check-release-commands:
-	bash scripts/ci/check-release-commands.sh . make/tools.mk make/release.mk make/rust-format.mk
+	bash scripts/ci/check-release-commands.sh . make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh
 
 test-release-tooling:
 	bash scripts/release/test-tooling.sh
