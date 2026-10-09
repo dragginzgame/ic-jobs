@@ -120,7 +120,7 @@ release 0.2.1 passed native CI on all three hosts. See the
 live IC recovery remains pending.
 
 Common tooling is adopted from reviewed Shared Tooling revision
-`3d33cd250fcae7dbe5cabe44b2abd6b2c91a1822` (0.1.34).
+`be550afa57fe9e16872e5110b5cd69c24b4fa9e8` (0.1.35).
 Run `make install-tools` explicitly to prepare the checkout-local host, IC and
 Rust tools; `make tools-check` verifies them offline. For an interactive shell,
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/bin` to PATH.

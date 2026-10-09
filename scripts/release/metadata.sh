@@ -41,7 +41,14 @@ case "$operation" in
             -f scripts/ci/finalize-release-changelog.awk CHANGELOG.md > /dev/null
         cargo set-version --help >/dev/null
         cargo sort --help >/dev/null
-        cargo fetch --locked --offline
+        # Standard releases prepare the admitted graph before offline validation.
+        # Cargo still honours an explicit offline environment/configuration.
+        cargo fetch --locked || {
+            status=$?
+            echo 'release dependency preparation failed; selected metadata is unchanged' >&2
+            echo 'prepare the selected graph with cargo fetch --locked; explicit offline settings still apply' >&2
+            exit "$status"
+        }
         ;;
     prepare)
         current_version="$(bash "$reader" Cargo.toml)"

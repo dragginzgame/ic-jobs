@@ -35,15 +35,15 @@ dependencies = [
 
 [[package]]
 name = "ic-metrics"
-version = "0.2.16"
+version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44b447757f583aa5e5145e34bbd6d8b75004614d90ef33544252c9e496178155"
+checksum = "2ff2e0e09dd7a1ee832582062825f03b46e9fb1f3c7272f0a86ffecfd54fa513"
 
 [[package]]
 name = "ic-timers"
-version = "0.14.21"
+version = "0.14.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0825a2c70a8124ef9777699213a340d7e95638899203729ff7f9b82f76afaba5"
+checksum = "700977dab59cd139e57c6d0f10fc07faa38853179fb13d77362cc16824d1b44a"
 dependencies = [
  "ic-cdk-timers",
  "ic-metrics",

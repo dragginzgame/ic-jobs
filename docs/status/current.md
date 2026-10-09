@@ -1,16 +1,17 @@
 # Current handoff
 
-IC Jobs package version 0.2.1, released at
-`da3f1098bca8382d04566c153f0debb4e470a74f` and pushed by the maintainer.
-The exact local annotated `v0.2.1` object
-`15bb0f826bde3a4aea468dcccc0daeabb99d403f` matches GitHub's tag reference;
-the retained local release plan is complete. Publication of 0.2.1 has not been
-observed here; the prior exact crates.io observation confirmed 0.2.0 present
-without binding registry bytes to a local artifact.
-Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37899775906)
-completed successfully on Linux, macOS Apple Silicon and macOS Intel. These
-native results qualify the released 0.2.1 gate; they do not establish live IC
-recovery or qualify later working-tree changes.
+IC Jobs package version 0.2.2, released at
+`117c48e5bbddf8b1dd0ce35f9a8ac07ce1449fb3` and pushed by the maintainer.
+The exact local annotated `v0.2.2` object
+`7be0b1fa0f77ba0a94b6c656f200d2b34e6bb2bd` matches GitHub's tag reference;
+the retained local release plan is complete. The maintainer reports it live,
+and an exact crates.io observation confirms 0.2.2 present without binding
+registry bytes to a local artifact.
+Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37903041952)
+has passed Linux; both native macOS jobs were queued at the latest observation.
+The preceding 0.2.1 [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37899775906)
+passed all three hosts. These earlier native results do not qualify 0.2.2,
+later working-tree changes or live IC recovery.
 The library owns job policy and checked metadata transitions. Applications own
 persistence and effects; the optional adapter uses the consumer-selected IC Timers
 dependency graph.
@@ -19,14 +20,67 @@ The maintainer requires Rust 1.88 for the complete package. Manifest metadata,
 native/Wasm minimum checks, CI setup and current support documentation now use
 that floor for both core and timers. Release 0.2.0 drops the previously advertised
 1.85 floor and changes the consumer toolchain contract; consumers must upgrade
-to 1.88. The next selected pending patch is 0.2.2 for compatible development
-tooling and CI fixes; package metadata remains 0.2.1. Job APIs, stored fields,
-runtime behavior, dependency selections and the Rust floor are unchanged.
+to 1.88. The next selected pending patch is 0.2.3 for compatible publication
+path and release-cache fixes; package metadata remains 0.2.2. Job APIs, stored
+fields, scheduling policy and the Rust floor are unchanged.
 Earlier 1.85 qualification below records historical evidence only.
 The released lockfile selects IC Timers 0.14.21 and IC Metrics 0.2.16; the prior
-MSRV and snapshot batches preserved the maintainer's selections.
+MSRV and snapshot batches preserved the maintainer's selections. The incoming
+working lockfile now selects IC Timers 0.14.23 and IC Metrics 0.2.18 within the
+existing compatible requirements. Explicit `cargo fetch --locked` downloaded the
+missing Timers input; the incoming lockfile's SHA-256 remained
+`3c423922eda86146028b688b0ac37a83ea4cd01490b5149aebc8107d36cfc980`.
+Focused Linux checks passed on that graph: Rust 1.88 native and Wasm library
+checks for core/all features, all 24 job tests with timers, and warnings-denied
+development Clippy. This replaces the earlier missing-cache check limitation;
+it does not qualify native macOS or live IC recovery.
 
-The current local batch adopts Shared Tooling 0.1.34 at reviewed committed
+The current batch adopts reviewed committed Shared Tooling 0.1.35 at
+`be550afa57fe9e16872e5110b5cd69c24b4fa9e8` through the canonical exporter from a
+clean temporary checkout. The 72-file selection still omits fleet reporting.
+Its new selected Cargo-tool mode is not activated in Jobs; the fixed Rust-tool
+bundle remains the setup contract. The owner's fixed/selected installer fixture
+passes with substitute Cargo, and snapshot/pin/docs/format/Make checks pass.
+The public GitHub description matches the maintained library scope; sibling
+repositories remain read-only.
+
+Release preflight now uses `cargo fetch --locked` after source/candidate admission
+and saved-intent selection, before the offline gate or metadata preparation.
+Explicit Cargo offline settings remain authoritative. Fetch failure retains
+Cargo's diagnostics/status and leaves metadata unchanged; ordinary version and
+metadata checks remain offline. The new fixture reproduced the old forced-offline
+dispatch at `/tmp/jobs-release-tooling.esB0Uj/cold-offline.log`. Its corrected
+cases cover cold preparation, explicit offline refusal, failed fetch,
+prepared-cache reuse and dirty-source refusal before any fetch, with original
+failure status and no gate/version effects. See
+[#5](https://github.com/dragginzgame/ic-jobs/issues/5).
+
+The current local publication fix preserves trailing newlines in the checkout
+path, using the metadata adapter's existing path-sentinel pattern in the
+publisher and release fixture. The extended fixture reproduced the released
+publisher's incorrect `cd` at
+`/tmp/jobs-release-tooling.2oZeDV/publication.log`; failure occurred before any
+registry observation or upload. The initial fixture-edit failure is retained
+at `/tmp/jobs-release-tooling.EZZHDM`; its remote mapping was corrected before
+the publisher reproduction. See
+[#4](https://github.com/dragginzgame/ic-jobs/issues/4) for the defect and delivery
+qualification. The corrected focused release/publication fixture passes with
+real local Git and substituted gate/registry/upload effects under
+`LC_ALL=en_US.UTF-8`, also using Bash 3.2.57 on Linux from a source checkout
+ending in two newlines with `CDPATH=/tmp`. The source copy is retained at
+`/tmp/jobs-release-checkout.iInCSL`. ShellCheck, documentation links, snapshot
+integrity, release Make adapters and whitespace checks pass. Native macOS and
+the complete gate have not run for this local change. No commit, release, push
+or upload was made by the agent. The combined cache/path release fixture now
+also passes under the offline gate environment and Bash 3.2.57 on Linux from
+`/tmp/jobs-release-cache-checkout.xAx7mC/source checkout` followed by two newlines,
+with `CDPATH=/tmp`. Gate/registry/upload and cache outcomes in that fixture are
+substituted; the actual locked registry fetch above is separate evidence.
+ShellCheck also passes for the adopted Rust installer and consumer adapters.
+
+## Delivered 0.2.2 tooling evidence
+
+Release 0.2.2 adopts Shared Tooling 0.1.34 at reviewed committed
 revision `3d33cd250fcae7dbe5cabe44b2abd6b2c91a1822` through the canonical exporter
 from a clean temporary checkout. The 72-file snapshot omits the unused fleet
 reporter and its manifest record; local LOC reporting, pinned cloc and required
@@ -45,8 +99,8 @@ and versions retain their admission checks. Actual tool pins are unchanged.
 The CI workflow now includes the pushed commit's SHA in its concurrency group;
 only superseded revisions of a pull request share a cancellable group. This
 preserves queued and running push qualification without changing the three-host
-matrix, permissions, gates or timeout. Delivery and hosted consecutive-push
-observations remain to qualify the policy, tracked in
+matrix, permissions, gates or timeout. Delivery is complete; hosted
+consecutive-push observations remain to qualify the policy, tracked in
 [#3](https://github.com/dragginzgame/ic-jobs/issues/3).
 
 Focused Linux tooling checks passed: the committed owner's command fixture with
@@ -59,8 +113,9 @@ and actionlint. The first local LOC attempt lacked cloc; explicit pinned
 `make install-host-tools` prepared the checkout-local bundle, with pins unchanged.
 Install/check aggregate wiring was inspected with Make dry runs; the complete
 Rust/IC bundles were not installed or checked here. The full CI/release gate and
-native macOS qualification were not run for this working-tree batch. No commit,
-release, push or upload was made.
+native macOS qualification were not run by the agent for that working-tree
+batch. The maintainer subsequently delivered it as 0.2.2; its native macOS CI
+qualification remains queued as recorded above.
 
 ## Delivered restore and earlier tooling evidence
 

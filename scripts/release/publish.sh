@@ -10,7 +10,8 @@ set -euo pipefail
 remote="$1"
 root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
-root="$(cd -P "${root%/*}/../.." && pwd -P)"
+root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
+root="${root%/.}"
 cd "$root"
 fail() { echo "publication refused: $*" >&2; exit 1; }
 bash scripts/ci/check-make-execution.sh

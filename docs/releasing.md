@@ -13,8 +13,15 @@ consumer's additional `make install-release-tools` installs pinned cargo-edit
 selected executable without downloads. Prepare Rust 1.88.0 and its Wasm target
 as described in the README, alongside the development toolchain.
 
-Fetch the selected dependency graph explicitly with `cargo fetch --locked`
-before offline checks. Commit the intended source through the contribution
+Before ordinary offline checks, prepare the selected dependency graph explicitly
+with `cargo fetch --locked`. Standard release commands include that locked fetch
+in preflight, after source/candidate admission and before offline validation or
+metadata writes; no separate manual fetch is required. This preparation may use
+the registry but does not upgrade dependencies or rewrite the lockfile. Cargo's
+explicit offline environment/configuration remains authoritative; missing inputs
+then stop the release with its original fetch failure. Version reads, metadata
+checks and the validation gate remain offline. Commit the intended source through
+the contribution
 workflow; release commands require an existing source commit and refuse unrelated
 staged, unstaged or untracked work. The first tagged release, 0.1.1, advanced the
 initial 0.1.0 implementation with compatible delivery tooling and packaging fixes.
@@ -84,6 +91,10 @@ tags, failure before version mutation, and completed-release recovery. Publicati
 checks cover source admission, local/remote tag identity, Make execution modes,
 registry availability and upload failure. The complete gate and registry/upload
 effects are substituted; the fixture performs no live release or publication.
+The fetch substitute also exercises cold-cache preparation, explicit offline
+refusal, fetch failure and prepared-cache reuse, verifying unchanged metadata
+and no gate/version effects on preparation failure. Dirty source is refused
+before any fetch. Actual registry cache preparation is separate evidence.
 
 Release 0.2.1 passed its configured gate on Linux and both native macOS
 architectures; see the [current handoff](status/current.md) for exact source and

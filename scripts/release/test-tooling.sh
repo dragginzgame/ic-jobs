@@ -5,7 +5,8 @@ set -Eeuo pipefail
 # Dependencies: Bash 3.2, Git, Make, Cargo/cargo-edit/cargo-sort, jq/yq and Perl.
 root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
-root="$(cd -P "${root%/*}/../.." && pwd -P)"
+root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
+root="${root%/.}"
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/jobs-release-tooling.XXXXXX")"
 finish() {
     local status=$?
@@ -19,9 +20,32 @@ unset RELEASE_DELIVERY RELEASE_SOURCE RELEASE_COMMIT RELEASE_VERSION RELEASE_PRE
 unset RELEASE_REMOTE RELEASE_BRANCH RELEASE_MAKE VERSION
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE
 unset TOOLING_GATE_FAILURE TOOLING_REGISTRY_HTTP TOOLING_REGISTRY_RESULT TOOLING_UPLOAD_RESULT
+unset TOOLING_FETCH_FAILURE
 export RUSTUP_AUTO_INSTALL=0
 export TOOLING_REAL_CARGO
 TOOLING_REAL_CARGO="$(command -v cargo)"
+mkdir "$fixture/cache-bin"
+cat > "$fixture/cache-bin/cargo" <<'CARGO'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == fetch ]]; then
+    printf '%s\n' "$*" >> "$TOOLING_FETCH_EVENTS"
+    [[ "$*" == 'fetch --locked' ]] || { echo 'unexpected cache preparation arguments' >&2; exit 45; }
+    if [[ "${TOOLING_FETCH_FAILURE:-0}" != 0 ]]; then
+        echo 'fixture registry fetch failed' >&2
+        exit "$TOOLING_FETCH_FAILURE"
+    fi
+    if [[ "${CARGO_NET_OFFLINE:-false}" == true && ! -f "$TOOLING_CACHE_READY" ]]; then
+        echo 'fixture dependency is absent from the offline cache' >&2
+        exit 44
+    fi
+    touch "$TOOLING_CACHE_READY"
+    exit 0
+fi
+exec "$TOOLING_REAL_CARGO" "$@"
+CARGO
+chmod +x "$fixture/cache-bin/cargo"
+export PATH="$fixture/cache-bin:$PATH"
 base_version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable "$root/Cargo.toml")"
 
 new_repository() {
@@ -39,6 +63,9 @@ new_repository() {
     git config core.hooksPath /dev/null
     git init --quiet --bare "$repository.git"
     git remote add origin "$repository.git"
+    export TOOLING_FETCH_EVENTS="$repository/.git/fetch-events"
+    export TOOLING_CACHE_READY="$repository/.git/cache-ready"
+    : > "$TOOLING_FETCH_EVENTS"
 }
 commit_source() {
     git add -- .
@@ -50,6 +77,8 @@ refuse() {
     shift
     if "$@" > "$fixture/$label.log" 2>&1; then
         echo "Unexpected acceptance: $label" >&2; exit 1
+    else
+        refusal_status=$?
     fi
 }
 
@@ -91,6 +120,7 @@ MAKE
         cmp LICENSE "$fixture/source-working"
         cmp "$unusual" "$fixture/source-untracked"
         [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" && ! -e .git/gate-events ]]
+        [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e "$TOOLING_CACHE_READY" ]]
         git restore --source=HEAD --staged --worktree -- README.md LICENSE
         rm "$unusual"
 
@@ -132,11 +162,38 @@ GIT
         cmp .git/index "$fixture/source-index"
         [[ ! -e .git/gate-events && -z "$(git status --porcelain)" ]]
 
+        # Preparation respects caller offline mode, preserves the selected lock
+        # and stops before the gate/version writes when fetching cannot complete.
+        cp .git/index "$fixture/cache-index"
+        for path in Cargo.toml Cargo.lock CHANGELOG.md; do cp "$path" "$fixture/cache-$path"; done
+        preflight=(env RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09)
+        refuse cold-offline "${preflight[@]}" CARGO_NET_OFFLINE=true bash scripts/release/metadata.sh preflight
+        [[ "$refusal_status" == 44 && ! -e "$TOOLING_CACHE_READY" ]]
+        grep -F 'fixture dependency is absent from the offline cache' "$fixture/cold-offline.log" > /dev/null
+        refuse failed-fetch "${preflight[@]}" CARGO_NET_OFFLINE=false TOOLING_FETCH_FAILURE=43 bash scripts/release/metadata.sh preflight
+        [[ "$refusal_status" == 43 && ! -e "$TOOLING_CACHE_READY" ]]
+        grep -F 'fixture registry fetch failed' "$fixture/failed-fetch.log" > /dev/null
+        cmp .git/index "$fixture/cache-index"
+        for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
+        [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" && ! -e .git/gate-events ]]
+        [[ ! -e ".git/release-state/$candidate.plan" ]]
+        "${preflight[@]}" CARGO_NET_OFFLINE=false bash scripts/release/metadata.sh preflight
+        [[ -f "$TOOLING_CACHE_READY" ]]
+        "${preflight[@]}" CARGO_NET_OFFLINE=true bash scripts/release/metadata.sh preflight
+        [[ "$(wc -l < "$TOOLING_FETCH_EVENTS" | tr -d ' ')" == 4 ]]
+        cmp .git/index "$fixture/cache-index"
+        for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
+        [[ ! -e .git/gate-events && ! -e ".git/release-state/$candidate.plan" ]]
+
         refuse failed-gate env TOOLING_GATE_FAILURE=1 make --no-print-directory release-patch
         [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]]
         [[ "$(bash scripts/release/metadata.sh version)" == "$base_version" ]]
         [[ -z "$(git status --porcelain)" ]]
     fi
+    # The full offline gate runs fixtures against prepared dependencies. Model
+    # that input for the ordinary release series; cold-cache cases above select
+    # their offline/online outcomes explicitly without any actual fetch.
+    if [[ "${CARGO_NET_OFFLINE:-false}" == true ]]; then touch "$TOOLING_CACHE_READY"; fi
     make --no-print-directory "release-$kind" > "$fixture/release-$kind.log" 2>&1
     [[ "$(bash scripts/release/metadata.sh version)" == "$candidate" ]]
     [[ "$(git log -1 --format=%s)" == "Release $candidate" ]]
@@ -161,6 +218,14 @@ tag="refs/tags/v$base_version"
 git tag -a "v$base_version" -m 'Fixture release'
 tag_object="$(git rev-parse "$tag")"
 git push --quiet origin "$tag"
+# Keep the remote's ordinary path while exercising a checkout whose name contains
+# spaces and ends in newlines. Command substitution must preserve its identity.
+publication_checkout="$fixture/"$'publication checkout\n\n'
+publication_remote="$repository.git"
+cd "$fixture"
+mv "$repository" "$publication_checkout"
+repository="$publication_checkout"
+cd "$repository"
 mkdir "$fixture/bin"
 export TOOLING_UPLOAD_EVENTS="$fixture/upload-events"
 : > "$TOOLING_UPLOAD_EVENTS"
@@ -206,12 +271,12 @@ git update-ref "$tag" "$tag_object"
 git commit --quiet --allow-empty -m 'Fixture descendant'
 refuse tag-not-at-head bash scripts/release/publish.sh origin
 git update-ref refs/heads/main "$commit"
-git -C "$repository.git" update-ref -d "$tag"
+git -C "$publication_remote" update-ref -d "$tag"
 refuse missing-remote-tag bash scripts/release/publish.sh origin
-git -C "$repository.git" update-ref "$tag" "$commit"
+git -C "$publication_remote" update-ref "$tag" "$commit"
 refuse conflicting-remote-tag bash scripts/release/publish.sh origin
-git -C "$repository.git" update-ref "$tag" "$tag_object"
-git remote set-url --add --push origin "$repository.git"
+git -C "$publication_remote" update-ref "$tag" "$tag_object"
+git remote set-url --add --push origin "$publication_remote"
 git remote set-url --add --push origin "$fixture/another.git"
 refuse multiple-destinations bash scripts/release/publish.sh origin
 git config --unset-all remote.origin.pushurl

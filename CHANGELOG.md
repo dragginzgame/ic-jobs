@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.3]
+
+- Preserve checkout paths ending in newlines when publishing, and qualify
+  publication refusals and the intended upload invocation from unusual paths
+  ([#4](https://github.com/dragginzgame/ic-jobs/issues/4)).
+- Prepare the selected locked dependency cache during release preflight before
+  offline validation, respecting explicit offline settings and preserving
+  metadata on fetch failure. Adopt Shared Tooling 0.1.35
+  ([#5](https://github.com/dragginzgame/ic-jobs/issues/5)).
+- Refresh the locked optional-timers graph to IC Timers 0.14.23 and IC Metrics
+  0.2.18 within the existing compatible dependency requirements.
+
 ## [0.2.2] - 2026-10-09
 
 - Keep fleet reporting in Shared Tooling while retaining local tool setup,
