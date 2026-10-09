@@ -48,11 +48,11 @@ test-jobs:
 	cargo test -p ic-jobs --test jobs --all-features --locked --offline
 
 check-msrv:
-	cargo +1.85.0 check -p ic-jobs --lib --locked --offline
+	cargo +1.88.0 check -p ic-jobs --lib --locked --offline
 	cargo +1.88.0 check -p ic-jobs --lib --all-features --locked --offline
 
 check-wasm:
-	cargo +1.85.0 check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline
+	cargo +1.88.0 check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline
 	cargo +1.88.0 check -p ic-jobs --lib --all-features --target wasm32-unknown-unknown --locked --offline
 
 clippy:

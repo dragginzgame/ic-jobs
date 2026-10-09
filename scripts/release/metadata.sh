@@ -23,21 +23,10 @@ local_lock_packages() {
            (($local | map(.name) | unique | length) == ($local | length))
         then $local[].name else error("invalid workspace lock identities") end'
 }
-admit_files() (
-    local paths path admitted=true
-    paths="$(mktemp "${TMPDIR:-/tmp}/jobs-release-paths.XXXXXX")"
-    trap 'rm -f "$paths"' EXIT
-    # Staged content can differ even when working bytes have returned to HEAD.
-    git diff --cached --name-only -z HEAD -- > "$paths"
-    git diff --name-only -z -- >> "$paths"
-    git ls-files --others --exclude-standard -z >> "$paths"
-    while IFS= read -r -d '' path; do
-        case "$path" in Cargo.toml|Cargo.lock|CHANGELOG.md) ;;
-            *) printf 'uncommitted non-release path: %q\n' "$path" >&2; admitted=false; break ;;
-        esac
-    done < "$paths"
-    [[ "$admitted" == true ]]
-)
+admit_files() {
+    bash "$root/scripts/ci/check-release-source.sh" \
+        --allow Cargo.toml --allow Cargo.lock --allow CHANGELOG.md
+}
 case "$operation" in
     version) bash "$reader" Cargo.toml ;;
     preflight)

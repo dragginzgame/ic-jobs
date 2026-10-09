@@ -10,8 +10,8 @@ commands use the same runner and complete gate. They do not publish to crates.io
 Install the required host and Rust tools with `make install-tools`. The
 consumer's additional `make install-release-tools` installs pinned cargo-edit
 0.13.13 with its set-version feature; `make release-tools-check` checks the
-selected executable without downloads. Prepare Rust 1.85.0 and 1.88.0 and their
-Wasm targets as described in the README, alongside the development toolchain.
+selected executable without downloads. Prepare Rust 1.88.0 and its Wasm target
+as described in the README, alongside the development toolchain.
 
 Fetch the selected dependency graph explicitly with `cargo fetch --locked`
 before offline checks. Commit the intended source through the contribution
@@ -19,6 +19,13 @@ workflow; release commands require an existing source commit and refuse unrelate
 staged, unstaged or untracked work. The first tagged release, 0.1.1, advanced the
 initial 0.1.0 implementation with compatible delivery tooling and packaging fixes.
 The changelog records the initial implementation separately from those additions.
+
+The shared source checker reports every refused path, including unusual path
+bytes, without changing source or the index. Release metadata permits only
+`Cargo.toml`, `Cargo.lock` and `CHANGELOG.md`; publication permits no exceptions.
+An initial release-preflight refusal reports that validation and version
+preparation have not started for that attempt. Failed Git observations are
+reported separately from a dirty checkout.
 
 | Command | Effect |
 | --- | --- |
@@ -33,8 +40,8 @@ The changelog records the initial implementation separately from those additions
 
 Package and dry-run checks intentionally permit working edits. The real upload
 does not. Package verification is included in configured CI and the complete
-release gate. The core Rust 1.85 and optional timer Rust 1.88 paths remain checked
-separately; packaging with the development toolchain does not prove either floor.
+release gate. The core and optional timer paths are checked separately on Rust
+1.88; packaging with the development toolchain does not prove that floor.
 
 ## Release recovery
 

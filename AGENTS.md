@@ -2,7 +2,7 @@
 
 Apply the reviewed [Dragginzgame baseline](DRAGGINZGAME.md) first.
 Its exact revision is recorded in [.shared-tooling.snapshot](.shared-tooling.snapshot):
-`1872ed2c20f6c70689bb2249050b1d673c60bfa0`.
+`4e274a2219c0b0cc3af68ec65658b373253518fb`.
 This file is the local overlay. Read [the current handoff](docs/status/current.md).
 
 - Scope is this workspace; other sibling repositories remain read-only.
@@ -14,7 +14,7 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
 - Use focused package checks automatically during authorized implementation.
   `make ci`, release gates and live PocketIC qualification are complete gates
   selected explicitly or by configured CI.
-- Core floor: Rust 1.85. Optional timers path: Rust 1.88. Qualify both separately.
+- Rust floor: 1.88 for both core and optional timers. Qualify both separately.
 - Host workflows support Linux and macOS Intel/Apple Silicon. Native macOS and
   IC recovery evidence are pending; do not claim native tests establish them.
 - Use the common contribution and release authority rules. The public remote is

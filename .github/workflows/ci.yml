@@ -26,7 +26,6 @@ jobs:
       - name: Prepare development and minimum toolchains
         run: |
           rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
-          rustup toolchain install 1.85.0 --profile minimal --target wasm32-unknown-unknown
           rustup toolchain install 1.88.0 --profile minimal --target wasm32-unknown-unknown
           source ci/tool-versions.env
           cargo install cargo-sort --version "$SHARED_TOOLING_CARGO_SORT_VERSION" --locked

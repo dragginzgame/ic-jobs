@@ -69,7 +69,7 @@ the volatile watchdog, lifecycle initialization, bounded callbacks and any
 consumer-owned asynchronous delivery continuation. This crate supplies no stable
 storage, global queue, handler registry or exactly-once effects.
 
-The core supports Rust 1.85; the optional timers path requires Rust 1.88.
+The package requires Rust 1.88, with or without the optional timers feature.
 See the [repository guide](https://github.com/dragginzgame/ic-jobs) and
 [safety contract](https://github.com/dragginzgame/ic-jobs/blob/main/SAFETY.md)
 for the complete persistence and recovery obligations.

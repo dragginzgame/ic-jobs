@@ -69,6 +69,69 @@ MAKE
     commit_source
     base="$(git rev-parse HEAD)"
     if [[ "$kind" == patch ]]; then
+        # The consumer adapter reports every refused path before gate/preparation,
+        # preserving hidden staged changes, working bytes and the index itself.
+        printf '\nFixture staged change.\n' >> README.md
+        git add README.md
+        git restore --source=HEAD --worktree -- README.md
+        printf '\nFixture unstaged change.\n' >> LICENSE
+        unusual=$'untracked\nsource.txt'
+        printf 'Fixture untracked content.\n' > "$unusual"
+        cp .git/index "$fixture/source-index"
+        cp LICENSE "$fixture/source-working"
+        cp "$unusual" "$fixture/source-untracked"
+        refuse refused-source make --no-print-directory release-patch
+        for expected in 'staged: README.md' 'unstaged: README.md' 'unstaged: LICENSE' \
+            'preflight refused; this attempt has not started validation or version preparation'; do
+            grep -F "$expected" "$fixture/refused-source.log" > /dev/null
+        done
+        printf '  untracked: %q\n' "$unusual" > "$fixture/source-expected"
+        grep -Fx -f "$fixture/source-expected" "$fixture/refused-source.log" > /dev/null
+        cmp .git/index "$fixture/source-index"
+        cmp LICENSE "$fixture/source-working"
+        cmp "$unusual" "$fixture/source-untracked"
+        [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" && ! -e .git/gate-events ]]
+        git restore --source=HEAD --staged --worktree -- README.md LICENSE
+        rm "$unusual"
+
+        # Release metadata allowances are literal; an allowed rename destination
+        # cannot hide a refused original path.
+        printf '\nFixture metadata edit.\n' >> Cargo.lock
+        cp .git/index "$fixture/source-index"
+        cp Cargo.lock "$fixture/source-lock"
+        bash scripts/ci/check-release-source.sh --allow Cargo.toml --allow Cargo.lock --allow CHANGELOG.md
+        cmp .git/index "$fixture/source-index"
+        cmp Cargo.lock "$fixture/source-lock"
+        git restore --source=HEAD --worktree -- Cargo.lock
+        git mv README.md CHANGELOG-renamed.md
+        refuse renamed-source bash scripts/ci/check-release-source.sh --allow CHANGELOG-renamed.md
+        grep -F 'staged: README.md' "$fixture/renamed-source.log" > /dev/null
+        git restore --source=HEAD --staged --worktree -- README.md
+        git restore --source=HEAD --staged -- CHANGELOG-renamed.md
+        rm CHANGELOG-renamed.md
+
+        # A failed Git observation stays distinct from a dirty checkout and cannot
+        # reach validation; invoke the actual adapter with a substituted observer.
+        mkdir "$fixture/source-bin"
+        export TOOLING_REAL_GIT
+        TOOLING_REAL_GIT="$(command -v git)"
+        cat > "$fixture/source-bin/git" <<'GIT'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == status ]]; then echo 'fixture Git status observation failed' >&2; exit 9; fi
+exec "$TOOLING_REAL_GIT" "$@"
+GIT
+        chmod +x "$fixture/source-bin/git"
+        cp .git/index "$fixture/source-index"
+        refuse source-observation env PATH="$fixture/source-bin:$PATH" \
+            RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09 \
+            bash scripts/release/metadata.sh preflight
+        grep -F 'fixture Git status observation failed' "$fixture/source-observation.log" > /dev/null
+        grep -F 'cannot inspect release-source status' "$fixture/source-observation.log" > /dev/null
+        if grep -F 'uncommitted paths' "$fixture/source-observation.log" > /dev/null; then exit 1; fi
+        cmp .git/index "$fixture/source-index"
+        [[ ! -e .git/gate-events && -z "$(git status --porcelain)" ]]
+
         refuse failed-gate env TOOLING_GATE_FAILURE=1 make --no-print-directory release-patch
         [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]]
         [[ "$(bash scripts/release/metadata.sh version)" == "$base_version" ]]

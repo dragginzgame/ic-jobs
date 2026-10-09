@@ -15,12 +15,8 @@ cd "$root"
 fail() { echo "publication refused: $*" >&2; exit 1; }
 bash scripts/ci/check-make-execution.sh
 
-# Observe the index as well as the worktree, including untracked source.
-status="$(git status --porcelain --untracked-files=all)" || fail 'cannot inspect source'
-if [[ -n "$status" ]]; then
-    printf '%s\n' "$status" >&2
-    fail 'commit the intended source before publication'
-fi
+# Publication allows no metadata exceptions; retain the helper's full diagnostics.
+bash scripts/ci/check-release-source.sh || fail 'source admission failed before registry observation or upload'
 commit="$(git rev-parse --verify HEAD)" || fail 'publication requires a committed release'
 version="$(bash scripts/ci/read-cargo-workspace-version.sh --stable Cargo.toml)"
 bash scripts/ci/check-release-tag.sh "$commit" "$version"
@@ -44,6 +40,5 @@ esac
 # Recheck local source after network observations, before dispatching Cargo.
 [[ "$(git rev-parse --verify HEAD)" == "$commit" &&
    "$(git rev-parse --verify "$tag")" == "$tag_object" ]] || fail 'release identity changed during preflight'
-status="$(git status --porcelain --untracked-files=all)" || fail 'cannot recheck source'
-[[ -z "$status" ]] || fail 'source changed during publication preflight'
+bash scripts/ci/check-release-source.sh || fail 'source admission failed after publication preflight; upload has not started'
 cargo publish -p ic-jobs --all-features --locked --registry crates-io

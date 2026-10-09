@@ -112,13 +112,13 @@ See [SAFETY.md](SAFETY.md) for persistence and recovery obligations.
 Run `cargo run -p ic-jobs --locked --example persisted_job` for a runnable
 reconstruction example. Focused checks are listed by `make help`.
 
-The core supports Rust 1.85 (edition 2024). The optional IC Timers path requires
-Rust 1.88 because of its selected dependency. Development formatting uses
+The package requires Rust 1.88 (edition 2024), including the optional IC Timers
+path. Development formatting uses
 Rust 1.99.0. Linux and macOS Intel/Apple Silicon host workflows are maintained;
 native macOS and live IC qualification are pending.
 
 Common tooling is adopted from reviewed Shared Tooling revision
-`1872ed2c20f6c70689bb2249050b1d673c60bfa0`.
+`4e274a2219c0b0cc3af68ec65658b373253518fb` (0.1.30).
 Run `make install-tools` explicitly to prepare the checkout-local host, IC and
 Rust tools; `make tools-check` verifies them offline. For an interactive shell,
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/bin` to PATH.

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.0]
+
+- **Breaking:** Require Rust 1.88 for the package, with or without the optional
+  timers feature. Upgrade older consumer toolchains; native and Wasm minimum
+  checks now use the same floor.
+- Report all staged, unstaged and untracked paths refused by release or
+  publication preflight, preserving source and index bytes. Adopt Shared Tooling
+  0.1.30 and its PocketIC 16.1.0 setup pin
+  ([shared #74](https://github.com/dragginzgame/shared-tooling/issues/74),
+  [shared #76](https://github.com/dragginzgame/shared-tooling/issues/76)).
+
 ## [0.1.2] - 2026-10-09
 
 - Add a bounded batch scheduler that selects the earliest due job and returns

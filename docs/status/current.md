@@ -1,8 +1,50 @@
 # Current handoff
 
-IC Jobs package version 0.1.1.
+IC Jobs package version 0.1.2, released at `0b37437` and pushed by the maintainer.
 The library owns job policy and checked metadata transitions. Applications own
-persistence and effects; the optional adapter uses IC Timers 0.14.19.
+persistence and effects; the optional adapter uses the consumer-selected IC Timers
+dependency graph.
+
+The maintainer requires Rust 1.88 for the complete package. Manifest metadata,
+native/Wasm minimum checks, CI setup and current support documentation now use
+that floor for both core and timers. The next pending changelog is 0.2.0 because
+dropping the previously advertised 1.85 floor changes the consumer toolchain
+contract; consumers must upgrade to 1.88. Package version remains 0.1.2.
+Earlier 1.85 qualification below records historical evidence only.
+The pre-existing Cargo.lock edits selecting IC Timers 0.14.21 and IC Metrics
+0.2.16 are preserved; this batch does not select dependency upgrades.
+Focused Linux qualification passed with Rust 1.88.0: native and Wasm library
+checks both without timers and with all features, plus all 18 job tests with
+all features against that lockfile. Formatting, documentation links, dependency
+declarations and the unchanged shared snapshot also verify. Full CI, release
+gates, native macOS and live IC qualification were not run for this batch.
+
+Shared Tooling 0.1.30 is adopted from committed revision
+`4e274a2219c0b0cc3af68ec65658b373253518fb` through the canonical exporter,
+using a clean temporary checkout and excluding dirty sibling work. The snapshot
+contains 73 files, including the explicitly selected shared release-source
+checker. Both metadata and publication adapters delegate source observations;
+only the metadata adapter permits the three local release files. Initial
+preflight refusals identify that validation/preparation have not started, and
+Git observation failures remain distinct from dirty source.
+The shared PocketIC setup pin advances to 16.1.0; no executable installation or
+live protocol qualification was performed. Optional npm checks and Cargo-install
+qualification are not activated. Focused Linux checks passed: locale-sensitive
+real-Git release/publication fixtures with substitute gate/registry/upload
+effects, all-path diagnostics, literal allowances, rename-source refusal,
+Git-observation failure and source/index preservation. ShellCheck, snapshot
+integrity, documentation links, dependency declarations, formatting and standard
+Make release adapters passed. The public GitHub description matches current
+purpose. No full CI, commit, release, push or upload was performed.
+
+Upstream inspection on 2026-10-09 confirmed IC Host Tooling main at 0.8.4
+(`97187b2a46d6f8a6964224a36a133d858ef0d223`); the earlier IC Host Tools repository
+remains at 0.2.0. No host dependency is needed by the scheduler library now.
+Bounded process capture and child cleanup could serve a future application-owned
+PocketIC test harness outside the canister package. No host-crate adoption was
+performed.
+
+## Earlier implementation and qualification evidence
 
 Core, persistence example, focused state/recovery tests and repository tooling
 are implemented. Local Linux validation passed: 14 focused tests with the timer
