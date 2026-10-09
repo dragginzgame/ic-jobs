@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.0]
+## [0.4.0] - 2026-10-09
 
 - **Breaking:** The optional adapter now uses IC Timers 0.16 and its IC Metrics
   0.3 package identity. Align all timer owners in a canister to IC Timers 0.16;
