@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.2]
+## [0.1.2] - 2026-10-09
 
 - Add a bounded batch scheduler that selects the earliest due job and returns
   its checked dispatch intent for application-owned persistence and execution.
