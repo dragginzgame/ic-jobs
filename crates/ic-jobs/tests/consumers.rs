@@ -17,14 +17,14 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 // trait, and a failed write keeps the previously committed bytes unchanged.
 struct Store {
     bytes: Vec<u8>,
-    fail_next_write: bool,
+    writes_before_failure: Option<usize>,
 }
 
 impl Store {
     fn new(value: &impl Serialize) -> Result<Self> {
         let mut store = Self {
             bytes: Vec::new(),
-            fail_next_write: false,
+            writes_before_failure: None,
         };
         store.write(value)?;
         Ok(store)
@@ -42,8 +42,12 @@ impl Store {
         if bytes.len() > 4096 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "snapshot too large").into());
         }
-        if std::mem::take(&mut self.fail_next_write) {
-            return Err(io::Error::other("injected commit failure").into());
+        if let Some(remaining) = self.writes_before_failure {
+            if remaining == 0 {
+                self.writes_before_failure = None;
+                return Err(io::Error::other("injected commit failure").into());
+            }
+            self.writes_before_failure = Some(remaining - 1);
         }
         self.bytes = bytes;
         Ok(())
@@ -192,14 +196,22 @@ impl Notifications {
             .iter()
             .position(|job| job.record().id == attempt.execution.job)
             .ok_or(JobError::StaleAttempt)?;
-        if !destination
+        let outcome = if destination
             .receipts
             .contains(&(attempt.execution, snapshots[index].payload.clone()))
         {
+            Outcome::Success
+        } else if destination
+            .rejections
+            .contains(&(attempt, snapshots[index].payload.clone()))
+        {
+            // Exact destination evidence confirms this attempt had no effect.
+            Outcome::RetryableFailure
+        } else {
             // A missing receipt is not proof that delivery failed.
             return Ok(false);
-        }
-        jobs[index].resolve(attempt, now_ns, Outcome::Success)?;
+        };
+        jobs[index].resolve(attempt, now_ns, outcome)?;
         snapshots[index].job = jobs[index].record();
         self.store.write(&snapshots)?;
         Ok(true)
@@ -222,6 +234,7 @@ impl Notifications {
 #[derive(Default)]
 struct Destination {
     receipts: Vec<(ExecutionId, Notification)>,
+    rejections: Vec<(Attempt, Notification)>,
     reject_next: bool,
     calls: usize,
 }
@@ -229,20 +242,32 @@ struct Destination {
 impl Destination {
     fn deliver(&mut self, delivery: &Delivery) -> bool {
         self.calls += 1;
-        if std::mem::take(&mut self.reject_next) {
-            return false; // Explicit rejection before any effect or receipt.
-        }
         if let Some((_, payload)) = self
             .receipts
             .iter()
             .find(|(execution, _)| *execution == delivery.attempt.execution)
         {
             assert_eq!(payload, &delivery.payload);
-        } else {
-            assert!(self.receipts.len() < 4);
-            self.receipts
-                .push((delivery.attempt.execution, delivery.payload.clone()));
+            return true;
         }
+        if let Some((_, payload)) = self
+            .rejections
+            .iter()
+            .find(|(attempt, _)| *attempt == delivery.attempt)
+        {
+            assert_eq!(payload, &delivery.payload);
+            return false;
+        }
+        if std::mem::take(&mut self.reject_next) {
+            // At most two attempts for each of this fixture's four jobs.
+            assert!(self.rejections.len() < 8);
+            self.rejections
+                .push((delivery.attempt, delivery.payload.clone()));
+            return false;
+        }
+        assert!(self.receipts.len() < 4);
+        self.receipts
+            .push((delivery.attempt.execution, delivery.payload.clone()));
         true
     }
 }
@@ -345,7 +370,7 @@ fn notification_commit_failure_never_exposes_delivery() -> Result<()> {
     let mut sender = Notifications::new()?;
     let before = sender.store.bytes.clone();
     assert_eq!(sender.prepare(99)?, None);
-    sender.store.fail_next_write = true;
+    sender.store.writes_before_failure = Some(0);
     assert!(sender.prepare(100).is_err());
     assert_eq!(sender.store.bytes, before);
     assert!(sender.outstanding()?.is_empty());
@@ -365,7 +390,7 @@ fn lost_reply_and_failed_result_commit_reconcile_without_redelivery() -> Result<
         let delivery = sender.prepare(100)?.unwrap();
         assert!(destination.deliver(&delivery));
         if failed_result_commit {
-            sender.store.fail_next_write = true;
+            sender.store.writes_before_failure = Some(0);
             assert!(
                 sender
                     .finish(delivery.attempt, 101, Outcome::Success)
@@ -377,7 +402,7 @@ fn lost_reply_and_failed_result_commit_reconcile_without_redelivery() -> Result<
         let mut restored = Notifications {
             store: Store {
                 bytes: sender.store.bytes,
-                fail_next_write: false,
+                writes_before_failure: None,
             },
         };
         assert_eq!(restored.outstanding()?, vec![delivery.clone()]);
@@ -390,7 +415,7 @@ fn lost_reply_and_failed_result_commit_reconcile_without_redelivery() -> Result<
             JobState::Uncertain { started_ns: 100 }
         );
         let unresolved = restored.store.bytes.clone();
-        restored.store.fail_next_write = true;
+        restored.store.writes_before_failure = Some(0);
         assert!(
             restored
                 .reconcile(delivery.attempt, &destination, 202)
@@ -435,6 +460,7 @@ fn known_rejection_retries_same_payload_and_rejects_old_reply() -> Result<()> {
     );
     assert_eq!(sender.store.bytes, before);
     assert!(destination.deliver(&second));
+    destination.reject_next = true;
     assert!(destination.deliver(&second)); // Destination-side duplicate suppression.
     sender.finish(second.attempt, 112, Outcome::Success)?;
     assert_eq!(destination.receipts.len(), 1);
@@ -448,7 +474,7 @@ fn maintenance_reconstruction_bounds_catch_up_and_rebuilds_deadlines() -> Result
     let mut restored = Maintenance {
         store: Store {
             bytes: maintenance.store.bytes,
-            fail_next_write: false,
+            writes_before_failure: None,
         },
     };
     let early = restored.wake(99)?;
@@ -517,7 +543,7 @@ fn maintenance_reconstruction_bounds_catch_up_and_rebuilds_deadlines() -> Result
 fn local_maintenance_effect_rolls_back_with_failed_commit_and_skip_avoids_backlog() -> Result<()> {
     let mut maintenance = Maintenance::new(MissedRunPolicy::Skip)?;
     let before = maintenance.store.bytes.clone();
-    maintenance.store.fail_next_write = true;
+    maintenance.store.writes_before_failure = Some(0);
     assert!(maintenance.wake(135).is_err());
     assert_eq!(maintenance.store.bytes, before);
     assert_eq!(maintenance.load()?.1.completed_runs, 0);
@@ -583,7 +609,7 @@ fn shared_notification_wakeup_preserves_order_and_progress_past_unresolved_work(
     let mut restored = Notifications {
         store: Store {
             bytes: sender.store.bytes,
-            fail_next_write: false,
+            writes_before_failure: None,
         },
     };
     let mut destination = Destination::default();
@@ -630,7 +656,7 @@ fn interruption_before_delivery_keeps_committed_intent_blocked() -> Result<()> {
     let mut restored = Notifications {
         store: Store {
             bytes: sender.store.bytes,
-            fail_next_write: false,
+            writes_before_failure: None,
         },
     };
     let destination = Destination::default();
@@ -691,5 +717,119 @@ fn notification_queue_rejects_reused_identities_and_excess_work() -> Result<()> 
         Some(&JobError::InvalidRecord)
     );
     assert_eq!(sender.store.bytes, before);
+    Ok(())
+}
+
+#[test]
+fn lost_rejection_reply_uses_exact_evidence_and_retains_retry_budget() -> Result<()> {
+    for second_succeeds in [false, true] {
+        let mut sender = Notifications::new()?;
+        let mut destination = Destination {
+            reject_next: true,
+            ..Destination::default()
+        };
+        let first = sender.prepare(100)?.unwrap();
+        assert!(!destination.deliver(&first));
+        // The receiver retains its rejection even if an old delivery is repeated.
+        assert!(!destination.deliver(&first));
+        let mut restored = Notifications {
+            store: Store {
+                bytes: sender.store.bytes,
+                writes_before_failure: None,
+            },
+        };
+        assert_eq!(restored.prepare(101)?, None);
+        restored.finish(first.attempt, 101, Outcome::Uncertain)?;
+
+        let before = restored.store.bytes.clone();
+        assert!(!restored.reconcile(first.attempt, &Destination::default(), 102)?);
+        assert_eq!(restored.store.bytes, before);
+        restored.store.writes_before_failure = Some(0);
+        assert!(
+            restored
+                .reconcile(first.attempt, &destination, 102)
+                .is_err()
+        );
+        assert_eq!(restored.store.bytes, before);
+        assert_eq!(restored.prepare(102)?, None);
+        assert!(restored.reconcile(first.attempt, &destination, 102)?);
+        assert_eq!(restored.next_due_ns()?, Some(112));
+        assert_eq!(restored.prepare(111)?, None);
+        let second = restored.prepare(112)?.unwrap();
+        assert_eq!(second.attempt.execution, first.attempt.execution);
+        assert_ne!(second.attempt.sequence, first.attempt.sequence);
+        assert_eq!(second.payload, first.payload);
+        destination.reject_next = !second_succeeds;
+        assert_eq!(destination.deliver(&second), second_succeeds);
+        restored.finish(second.attempt, 113, Outcome::Uncertain)?;
+
+        let before = restored.store.bytes.clone();
+        let error = restored
+            .reconcile(first.attempt, &destination, 114)
+            .unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<JobError>(),
+            Some(&JobError::StaleAttempt)
+        );
+        assert_eq!(restored.store.bytes, before);
+        assert!(restored.reconcile(second.attempt, &destination, 114)?);
+        assert_eq!(
+            restored.load()?.0[0].record().state,
+            if second_succeeds {
+                JobState::Completed
+            } else {
+                JobState::Failed
+            }
+        );
+        assert_eq!(restored.next_due_ns()?, None);
+        assert_eq!(restored.prepare(1000)?, None);
+        assert!(restored.outstanding()?.is_empty());
+        assert_eq!(destination.receipts.len(), usize::from(second_succeeds));
+    }
+    Ok(())
+}
+
+#[test]
+fn maintenance_resumes_after_partial_batch_commit_without_repeating_work() -> Result<()> {
+    let mut maintenance = Maintenance::new(MissedRunPolicy::CatchUp)?;
+    maintenance.store.writes_before_failure = Some(1);
+    let error = maintenance.wake(135).unwrap_err();
+    assert_eq!(
+        error.downcast_ref::<io::Error>().unwrap().kind(),
+        io::ErrorKind::Other
+    );
+    let (job, snapshot) = maintenance.load()?;
+    assert_eq!(snapshot.completed_runs, 1);
+    assert_eq!(snapshot.expires_ns, vec![200]);
+    assert_eq!(job.record().occurrence, 1);
+    assert_eq!(job.record().sequence, 1);
+    assert_eq!(job.next_due_ns(), Some(110));
+
+    let mut restored = Maintenance {
+        store: Store {
+            bytes: maintenance.store.bytes,
+            writes_before_failure: None,
+        },
+    };
+    assert_eq!(
+        restored.wake(135)?,
+        Wake {
+            completed: 2,
+            next_due_ns: Some(130)
+        }
+    );
+    let (job, snapshot) = restored.load()?;
+    assert_eq!(snapshot.completed_runs, 3);
+    assert_eq!(job.record().occurrence, 3);
+    assert_eq!(job.record().sequence, 3);
+    assert_eq!(
+        restored.wake(135)?,
+        Wake {
+            completed: 1,
+            next_due_ns: Some(140)
+        }
+    );
+    assert_eq!(restored.load()?.1.completed_runs, 4);
+    assert_eq!(restored.load()?.1.expires_ns, vec![200]);
     Ok(())
 }

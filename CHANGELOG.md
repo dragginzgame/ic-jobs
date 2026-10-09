@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.1]
+
+- Adopt committed Shared Tooling 0.2.5 to preserve literal hook selections and
+  support hook setup/formatting in checkouts ending in newlines
+  ([shared #89](https://github.com/dragginzgame/shared-tooling/issues/89)).
+- Extend the test consumers with exact rejection evidence for lost replies,
+  retry-budget exhaustion and recovery after a partially committed maintenance
+  batch. Confirmed delivery receipts remain authoritative for duplicate requests.
+
 ## [0.4.0] - 2026-10-09
 
 - **Breaking:** The optional adapter now uses IC Timers 0.16 and its IC Metrics

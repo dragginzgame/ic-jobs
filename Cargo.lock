@@ -41,9 +41,9 @@ checksum = "9c02088befd3a964640ed81463022876ed6c03ce8c29fd78a9115c77abf15941"
 
 [[package]]
 name = "ic-timers"
-version = "0.16.0"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "965d118b0a71eea4b436d0a0608aac2f1c576e73936408e5a1b786d3c43a32a8"
+checksum = "0e8db762df1156967d76b4739be6110207ed3174ed74c894ee24969497e75258"
 dependencies = [
  "ic-cdk-timers",
  "ic-metrics",

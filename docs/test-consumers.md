@@ -23,6 +23,14 @@ retain the original payload and produce one logical delivery. An absent receipt
 leaves the uncertain job blocked. A known rejection before the effect permits an
 explicit retryable classification; a missing reply does not.
 
+The destination retains rejection evidence for the exact `Attempt` and payload,
+so a lost rejection reply can be reconciled to a safe retry after sender
+reconstruction. That disposition must commit before the next attempt becomes
+eligible. Repeated requests retain the destination's recorded result; a confirmed
+successful execution takes precedence over an earlier rejected attempt. Stale
+attempt evidence cannot resolve the current dispatch. Exhausting the original
+retry budget leaves the job terminal rather than allocating another attempt.
+
 The notification queue supplies all its bounded records to `Scheduler`, so the
 derived deadline covers its earliest pending work. Equal deadlines retain queue
 order. Enqueue and cancellation update the committed queue before the application
@@ -38,6 +46,10 @@ completed job transition in the same replacement. A failed replacement commits
 neither. Its bounded wake result uses `timers::complete_batch` when timers are
 enabled. Tests check future and overdue scheduling decisions and stopping after
 cancellation; the native fixture does not call the IC timer provider.
+The store can also refuse the second write in a batch. The first committed
+occurrence survives; reconstruction resumes at the second occurrence without
+repeating the first. This byte-store fault injection does not model an IC trap's
+message-wide rollback.
 
 Reconstruction keeps only committed bytes and discards volatile consumer state.
 The tests cover refused intent/result commits, lost replies, receipt reconciliation,
