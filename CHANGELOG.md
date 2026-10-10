@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.4]
+## [0.4.4] - 2026-10-10
 
 - Exercise authorized create, inspect, bounded list, cancel and due-dispatch
   management flows in the notification consumer, deriving wakeup decisions from
