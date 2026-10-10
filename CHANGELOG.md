@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.6]
+## [0.4.6] - 2026-10-10
 
 - Adopt IC Memory 0.34 in the test consumers, using one host-owned allocation
   pool and key-only opens. Exercise stable-cell cold reopens with retained job
