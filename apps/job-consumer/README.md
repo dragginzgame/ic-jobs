@@ -71,6 +71,21 @@ including a caller-selected target directory. Linux x86-64 and both macOS
 architectures use Testkit's supported server selections. Host Testkit/Host crates
 remain outside the canister and public Jobs normal Wasm dependency graphs.
 
+After [the recovery workflow](../../.github/workflows/recovery.yml) is delivered
+to `main`, select **Actions → Canister recovery → Run workflow** and choose the
+branch to qualify. This manual trigger runs all five tests on Linux, Apple Silicon
+and Intel macOS. Ordinary push/PR CI still compiles the harness without starting
+PocketIC. See [GitHub's manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+
+Each host uploads a `jobs-recovery-<host>-<run>-<attempt>` artifact for 14 days on
+success or failure. It records the selected commit, lockfile, snapshot, Rust
+toolchains, Testkit receipt, test outcome/output and the actual tested Wasm with
+its SHA-256. Testkit captures server stdout/stderr in the same artifact; failed
+setup additionally retains canonical tool evidence. `test-canister` admits the
+prepared server and compiles Wasm and the host harness before starting the
+15-minute server lifetime. Local runs retain the Wasm/hash and server logs in
+the reported `jobs-recovery.*` directory under `RUNNER_TEMP`, `TMPDIR` or `/tmp`.
+
 The live harness covers management authorization, wakeup changes, real local and
 external timer delivery, upgrade retention, overdue policies, synchronous
 write/timer rollback, lost sender-result traps with retained destination receipts,

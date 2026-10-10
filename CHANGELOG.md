@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1]
+
+- Add a manually triggered canister-recovery workflow for Linux and both macOS
+  architectures. Retain source/graph selections, the tested Wasm, test output and
+  PocketIC logs; compile the harness before starting the bounded server lifetime
+  ([#11](https://github.com/dragginzgame/ic-jobs/issues/11)).
+
 ## [0.5.0] - 2026-10-10
 
 - **Breaking tooling:** Adopt Shared Tooling 0.3.0. `install-tools` prepares the

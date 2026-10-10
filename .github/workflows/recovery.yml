@@ -1,0 +1,88 @@
+name: Canister recovery
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+jobs:
+  recovery:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - id: checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Record selected source and graph
+        run: |
+          evidence="$RUNNER_TEMP/jobs-recovery"
+          mkdir "$evidence"
+          {
+            printf 'commit=%s\nref=%s\nrun=%s\nattempt=%s\n' \
+              "$(git rev-parse HEAD)" "$GITHUB_REF" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            uname -sm
+          } > "$evidence/source.txt"
+          cp Cargo.toml Cargo.lock rust-toolchain.toml ci/testkit-tools.env "$evidence/"
+          cp .shared-tooling.snapshot "$evidence/shared-tooling.snapshot"
+      - name: Prepare development and minimum toolchains
+        run: |
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+          rustup toolchain install 1.88.0 --profile minimal --target wasm32-unknown-unknown
+          {
+            rustc +1.99.0 --version --verbose
+            rustc +1.88.0 --version --verbose
+          } > "$RUNNER_TEMP/jobs-recovery/toolchains.txt"
+      - name: Prepare and admit the complete common toolset
+        run: |
+          make install-tools 2>&1 | tee "$RUNNER_TEMP/tools-common-setup.log"
+          make tools-check 2>&1 | tee "$RUNNER_TEMP/tools-common-check.log"
+          make shared-tooling-check check-pins
+      - name: Prepare the selected dependency cache
+        run: cargo fetch --locked 2>&1 | tee "$RUNNER_TEMP/tools-dependency-cache.log"
+      - name: Prepare and admit the selected Testkit CLI
+        run: |
+          make install-testkit-tools 2>&1 | tee "$RUNNER_TEMP/tools-testkit-setup.log"
+          make testkit-tools-check 2>&1 | tee "$RUNNER_TEMP/tools-testkit-check.log"
+          source ci/testkit-tools.env
+          cli="$(bash scripts/dev/install-rust-tools.sh --package ic-testkit \
+            --version "$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release --check)"
+          cp "${cli%/bin/*}/selection.json" "$RUNNER_TEMP/jobs-recovery/testkit-selection.json"
+      - name: Prepare and admit the Testkit-owned PocketIC bundle
+        run: |
+          make install-consumer-server 2>&1 | tee "$RUNNER_TEMP/tools-pocketic-setup.log"
+          make consumer-server-check 2>&1 | tee "$RUNNER_TEMP/tools-pocketic-check.log"
+      - name: Qualify live canister recovery
+        id: live
+        run: make test-canister 2>&1 | tee "$RUNNER_TEMP/jobs-recovery/test.log"
+      - name: Record live gate outcome
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
+        env:
+          LIVE_OUTCOME: ${{ steps.live.outcome }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/jobs-recovery"
+          printf 'live-outcome=%s\n' "$LIVE_OUTCOME" > "$RUNNER_TEMP/jobs-recovery/outcome.txt"
+      - name: Retain recovery evidence on every outcome
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: jobs-recovery-${{ matrix.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/jobs-recovery/
+            ${{ runner.temp }}/jobs-recovery.*/
+            ${{ runner.temp }}/tools-*.log
+          retention-days: 14
+          if-no-files-found: error
+      - name: Retain failed setup and tool evidence
+        if: failure()
+        uses: ./.github/actions/retain-failure-evidence
+        with:
+          name: jobs-recovery-tools-${{ matrix.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          temp-root: ${{ runner.temp }}
+          repository-root: ${{ github.workspace }}
+          compact-successful-tools: 'true'

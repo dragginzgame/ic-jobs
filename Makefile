@@ -74,6 +74,7 @@ consumer-server-check: testkit-tools-check
 # artifact compilation; normal CI compiles the harness without executing it.
 test-canister: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
+	cargo +1.88.0 test -p jobs-canister-tests --test recovery --locked --offline --no-run
 	bash scripts/ci/test-canister.sh
 
 check-msrv:

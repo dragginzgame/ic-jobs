@@ -1,5 +1,57 @@
 # Current handoff
 
+IC Jobs **0.5.0** is pushed at
+`b4b7fb6f0e0b8221126019ff29f0eb332c91eb3e`, matching public main. The annotated
+`v0.5.0` object `09a3eab5c3e4ce8ffc90e58835b1f4f934f01aa9` matches GitHub;
+the retained release plan is complete. Its
+[CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38048491093) passes Linux;
+both macOS jobs remain queued at the latest observation. Shared Tooling's
+[producer CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38044218125)
+now passes on all three hosts and lint/security. Registry publication was not
+independently checked.
+
+Pending compatible **0.5.1** adds the manually triggered
+[Canister recovery workflow](../../.github/workflows/recovery.yml), running the
+existing five PocketIC scenarios on Linux, Apple Silicon and Intel macOS. It
+uses the reviewed common tooling, selected Testkit CLI and Testkit-owned server
+setup/admission. A fresh job compiles the Wasm and host harness before starting
+the 15-minute server lifetime. The test wrapper retains a Wasm copy/hash and
+server stdout/stderr in a new attempt directory; tests read that retained copy.
+Each workflow host uploads source/graph/tool selections, test outcome/output,
+the tested Wasm and server logs for 14 days on success or failure. Failed setup
+also uses the canonical failure collector. Push/PR CI remains compile-only for
+the live harness. See the [consumer instructions](../../apps/job-consumer/README.md)
+for manual execution after delivery to `main`.
+
+The maintainer's delivered catalog selects Memory **0.35.0**, Timers **0.17.0**
+and Testkit **0.31.0**. Those selections are preserved; no dependency update was
+performed in this batch. The unchanged lock SHA-256 is
+`5d1f6362eccaa041f8d61298b29c9b1b7461741dfae17646554bb19644fc1d33`.
+Jobs runtime source, JobRecord and Rust 1.88 floor are unchanged. The workflow
+adds no library lifecycle, storage or Host dependency ownership.
+
+Full local `make ci` passes at this delivered graph, including separate Rust 1.88
+core/timers native/Wasm checks, consumer native tests, linked Wasm/harness
+compilation, strict Clippy, docs and packaging. All five live Linux tests pass
+with the new log capture; after binding tests directly to the retained copy, the
+final wrapper passes again on genuine Linux Bash 3.2.57/Make 3.81. Workflow lint,
+ShellCheck, snapshot, pin, formatting and documentation checks pass. Logs are
+retained in `/tmp/ic-jobs-recovery-workflow.k03mBT/` (`ci.log`, `live.log`,
+`live-final-bash32.log`, `metadata.log`); `final-source.sha256` and
+`tracked.patch` plus `recovery.yml` bind the final working tree. The final live
+attempt is `jobs-recovery.036j71/` in that directory; its Wasm SHA-256 is
+`810f093b5d097a04894fbae2b7b1a53c92fab4f3df25698c89bfdf7b91c56d00`.
+The successful server emitted startup stdout and empty stderr, both retained.
+
+Hosted recovery execution and artifact upload remain unqualified until the
+workflow is delivered and manually dispatched; local passes do not establish
+macOS live behavior or the hosted upload. [#11](https://github.com/dragginzgame/ic-jobs/issues/11)
+owns recovery qualification, and [#15](https://github.com/dragginzgame/ic-jobs/issues/15)
+still awaits delivered native macOS CI. No commit, push, release, publication
+or hosted workflow dispatch occurred in this batch.
+
+## Earlier 0.5.0 adoption evidence before delivery
+
 IC Jobs **0.4.7** is pushed at
 `b7833ab0f32008f787167e5ca0b4f84aeb2b4694`, matching public main. The annotated
 `v0.4.7` object `73330d87bc4c8ba68807372f123213b57aa445eb` matches GitHub and
