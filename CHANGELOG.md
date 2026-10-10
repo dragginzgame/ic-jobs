@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.5]
+## [0.4.5] - 2026-10-10
 
 - Adopt Shared Tooling 0.2.12 and remove the temporary Make flag parser. Canonical
   admission rejects hidden unsafe modes and overwritten invocation evidence
