@@ -1,5 +1,82 @@
 # Current handoff
 
+Pending compatible **0.5.3** aligns the selected Testkit CLI to the incoming
+**0.32.2** harness library; rerun `make install-testkit-tools`. The existing
+Shared 0.3.5 snapshot refresh remains local, with all 79 selected file hashes
+identical to delivered Shared 0.3.4. Public Jobs main remains released 0.5.2 at
+`6516eba4f54f69c50a1c1bcab38fa65354ba8b46`; its exact-source CI now passes
+Linux, while both macOS jobs remain queued. The Shared 0.3.5 snapshot refresh
+and CLI changes remain uncommitted here.
+
+The incoming lock is preserved: Memory **0.35.3**, Timers **0.17.3**, Metrics
+**0.5.3**, Testkit **0.32.2** and four Host crates **0.12.4**, SHA-256
+`f0929622a8977029d94d31aed7ffc48d44e7781b57ee9a7115c768a1b9850fac`.
+Reviewed published producer commits: Testkit
+`9e697b6363441e3fa96477adae5b07820461c3c5`, Memory
+`b1fd17cf905fee32675f165f774da2def55b2059`, Timers
+`4cc3c64e6b773d73edb66f6bdf2d91cce5e68790`, Host
+`5400f159474cebac1ec7ae7c8763abfd258bde03`. Their packaged Rust source trees
+match the prior patch versions byte-for-byte; tooling/qualification changed.
+Jobs acquires no direct Host dependency or new lifecycle/storage authority.
+Job APIs, stored records, scheduling policy and Rust 1.88 remain unchanged.
+
+Locked cache preparation and selected CLI/server admission pass. Full local
+`make ci` passes, including separate Rust 1.88 core/timers native/Wasm checks,
+native consumers, linked Wasm/harness builds, strict Clippy, docs and packaging.
+All five live recovery scenarios pass for the original and Binaryen 133 `-O3`,
+`-Os`, `-Oz` Wasm outputs, using genuine Linux Bash 3.2.57/Make 3.81 with parallel
+Make and no jobserver warnings. Source hashes match after CI and live execution.
+
+Evidence is retained under `/tmp/ic-jobs-testkit-0322.qotFQz/`: `ci.log`,
+`live-bash32.log`, `metadata.json`, `source-review.txt`, selected CLI receipt,
+incoming lock and source hashes. Attempt `jobs-recovery.gYgMoY/` retains actual
+Wasm/hashes and per-variant optimizer/test/server logs; original Wasm SHA-256 is
+`19f44d2f8c83427dff68b3aee7a859c18e701067c5e27df0742cd3d56d00a057`.
+Final handoff checks/hash binding follow qualification. Earlier graph evidence
+below remains separately bound. Native macOS and hosted recovery/artifact
+acceptance remain pending in #11, #15 and #16. No commit, push, release,
+publication, sibling edit or hosted dispatch occurred; package metadata remains
+0.5.2.
+
+## Earlier Shared 0.3.5 snapshot-only qualification
+
+IC Jobs **0.5.2** is pushed at
+`6516eba4f54f69c50a1c1bcab38fa65354ba8b46`, matching public main. Its
+[exact-source CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38056524883)
+is running on Linux; both macOS jobs are queued. The updated optimized recovery
+workflow is delivered, but hosted execution/upload remain unqualified.
+
+The maintainer-requested Shared Tooling **0.3.5** adoption selects committed
+`a744d7f1990b9e1451ef45cd6d495de00a141cd3` through the canonical exporter from
+clean detached `/tmp/ic-jobs-shared-035.bAP8SC/shared`. All 79 selected file
+hashes/modes match the prior 0.3.4 snapshot; only its revision/version and the
+local AGENTS reference change. Newer dirty upstream hook edits are excluded.
+Binaryen 133 and every executable/dependency selection remain unchanged, so
+this adoption needs no reinstall, product changes or governance-only changelog
+entry. Package metadata remains 0.5.2.
+
+Shared 0.3.5 isolates its own validation-runner fixture from inherited parent
+logs, failure logs and GitHub summaries
+([shared #105](https://github.com/dragginzgame/shared-tooling/issues/105)). Jobs
+does not vendor that fixture or the producer portable suite. The exact committed
+fixture passes from the detached checkout with all three parent destinations
+selected, preserving sentinel contents and directory membership, on current
+Bash/Make and genuine Linux Bash 3.2.57/Make 3.81. Jobs snapshot integrity,
+complete offline tool admission, format-tool admission, pins, documentation links
+and substitute release-adapter checks pass; Cargo.lock is unchanged.
+
+Evidence is retained under `/tmp/ic-jobs-shared-035.bAP8SC/`: `refresh.log`,
+`parent-current.log`, `parent-bash32.log`, retained parent directories/test logs
+and `jobs-focused.log`. Shared 0.3.5
+[exact-source CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38056455993)
+passes lint/security; Linux regression is running and both macOS jobs are queued.
+No new full Jobs CI or live tests were run for this metadata-only refresh;
+the prior qualification below remains bound to its actual inputs. Native macOS
+and hosted recovery acceptance remain pending. No commit, push, release,
+publication, sibling edit or hosted dispatch occurred in this adoption.
+
+## Earlier 0.5.2 implementation and Shared 0.3.4 qualification
+
 Pending compatible **0.5.2** now adopts Shared Tooling **0.3.4** at
 `169d77b8440568c5200eede971625126181f7bb2`. The canonical exporter refreshed
 the same 79 selected files from a clean detached checkout under

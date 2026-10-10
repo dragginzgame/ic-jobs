@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3]
+
+- Align the recovery harness and selected CLI on Testkit 0.32.2 for the updated
+  consumer dependency graph. Rerun `make install-testkit-tools` before live
+  qualification; Job APIs and stored records remain unchanged
+  ([#11](https://github.com/dragginzgame/ic-jobs/issues/11)).
+
 ## [0.5.2] - 2026-10-10
 
 - Align the recovery harness and its selected CLI on Testkit 0.32.1. Rerun
