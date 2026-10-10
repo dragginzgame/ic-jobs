@@ -195,7 +195,14 @@ leave no completed manifest. All evidence is retained. CI observes the failed st
 requires that invocation's completion output (an old manifest cannot qualify it),
 uploads through the common collector, downloads the exact returned artifact ID,
 and extracts the archive to check its payload against the original checksum
-manifest. Separate checks cover a newline/colon filename's bytes and mode,
+manifest. Both full and compact evidence readbacks use the pinned download
+action's authenticated REST path, scoped to the current repository and run.
+Only the portable job grants `actions: read`; download digest mismatches fail
+before the independent payload checks. This transport selection follows
+[the Blob readback report](https://github.com/dragginzgame/shared-tooling/issues/93);
+its original internal lookup failure has no proven cause, and local checks do
+not establish hosted acceptance of the new path.
+Separate checks cover a newline/colon filename's bytes and mode,
 executable state and a symlink whose target stays outside the selection. Missing logs,
 hidden candidate files, failed uploads, early fixture failures and corrupted
 downloads fail the job. Source hashes, commit, host and run identity stay with

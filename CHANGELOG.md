@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.4]
+
+- Exercise authorized create, inspect, bounded list, cancel and due-dispatch
+  management flows in the notification consumer, deriving wakeup decisions from
+  committed records and preserving blocked effects after reconstruction
+  ([#11](https://github.com/dragginzgame/ic-jobs/issues/11)).
+- Add IC Memory 0.33 to the test consumers for composable, key-only storage
+  requests and collision rejection. Allocation and stable-store bootstrap remain
+  host-owned ([#11](https://github.com/dragginzgame/ic-jobs/issues/11)).
+- Refuse unsafe Make modes even when command-line `MAKEFLAGS` hides them. Adopt
+  Shared Tooling 0.2.9 for selected-snapshot admission and recursive Make commands
+  ([#12](https://github.com/dragginzgame/ic-jobs/issues/12),
+  [shared #30](https://github.com/dragginzgame/shared-tooling/issues/30)).
+
 ## [0.4.3] - 2026-10-09
 
 - Adopt Shared Tooling 0.2.7 so release and formatting commands refuse Make's

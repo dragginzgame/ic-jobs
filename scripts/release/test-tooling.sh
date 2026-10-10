@@ -94,6 +94,11 @@ for kind in patch minor major; do
 release-verify:
 	@test "$${TOOLING_GATE_FAILURE:-0}" = 0
 	@printf 'substitute gate\n' >> .git/gate-events
+.PHONY: tooling-nested tooling-selection
+tooling-nested:
+	+@$(MAKE) tooling-selection
+tooling-selection:
+	@test "$(TOOLING_QUOTED_SELECTION)" = "owner's selection"
 MAKE
     commit_source
     base="$(git rev-parse HEAD)"
@@ -101,19 +106,37 @@ MAKE
     # skipped recipe into successful release/formatting evidence. Exercise both
     # direct flags and inherited controls before any cache or runner effects.
     if [[ "$kind" == patch ]]; then
-        for target in release-patch release-minor release-major release-resume fmt fmt-check; do
-            for mode in -i --ignore-errors -n -t -q; do
-                for controls in direct inherited; do
+        # Harmless goals use only the selected admission helper, even with an
+        # unrelated runtime root. Parallel recursive commands retain selections
+        # without loading their consumer Makefiles into the isolated probe.
+        make --no-print-directory help SHARED_TOOLING_ROOT="$fixture/unselected" > "$fixture/external-root.log" 2>&1
+        make -k -s --no-print-directory help "AUDIT_SELECTION=owner's selection" > "$fixture/ordinary-flags.log" 2>&1
+        recursive_make="$(command -v make) --no-print-directory -f Makefile"
+        make -j2 --no-print-directory tooling-nested "MAKE=$recursive_make" \
+            "TOOLING_QUOTED_SELECTION=owner's selection" SHARED_TOOLING_ROOT="$fixture/unselected" \
+            > "$fixture/recursive-selection.log" 2>&1
+        if grep -i jobserver "$fixture/recursive-selection.log" > /dev/null; then exit 1; fi
+        for target in release-patch release-minor release-major release-resume fmt fmt-check publish; do
+            for mode in -i --ignore-errors -n --dry-run -t --touch -q --question -kin; do
+                for controls in direct inherited cleared replaced; do
                     label="refused-mode-$target-$mode-$controls"
+                    cp .git/index "$fixture/mode-index"
                     if [[ "$controls" == direct ]]; then
                         refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate"
-                    else
+                    elif [[ "$controls" == inherited ]]; then
                         refuse "$label" env _shared_make_execution_checked=yes MAKEFLAGS="$mode" \
                             make --no-print-directory "$target" VERSION="$candidate"
+                    elif [[ "$controls" == cleared ]]; then
+                        refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS=
+                    else
+                        refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS=--no-print-directory
                     fi
                     [[ "$refusal_status" == 2 ]]
+                    grep -F 'Make recipe execution and failure propagation' "$fixture/$label.log" > /dev/null
+                    cmp .git/index "$fixture/mode-index"
                     [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]]
                     [[ ! -e .git/gate-events && ! -s "$TOOLING_FETCH_EVENTS" ]]
+                    [[ ! -e .git/release-state ]]
                     git diff --exit-code HEAD -- > /dev/null
                 done
             done

@@ -3,11 +3,15 @@
 //! Byte replacement models an atomic commit; reconstruction discards all volatile
 //! state. These native fixtures do not model IC message rollback or live timers.
 
-use std::{error::Error, io};
+use std::{error::Error, fmt, io};
 
 use ic_jobs::{
     Attempt, ExecutionId, Job, JobError, JobId, JobRecord, JobState, MissedRunPolicy, Outcome,
     RetryPolicy, Schedule, Scheduler,
+};
+use ic_memory::{
+    MemoryRequest, MemoryRuntime, RuntimeOpenError, SchemaMetadata, SealedDeclarationSnapshot,
+    StaticMemoryDeclarationError, ic_stable_structures::VectorMemory,
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
@@ -60,7 +64,7 @@ struct Notification {
     body: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 struct NotificationSnapshot {
     job: JobRecord,
     payload: Notification,
@@ -78,7 +82,71 @@ struct Notifications {
     store: Store,
 }
 
+// The fixture receives a trusted caller from its application boundary. A real
+// canister obtains that identity from the IC caller API, never request payloads.
+const NOTIFICATION_MANAGER: &str = "notification-manager";
+
+#[derive(Clone)]
+enum ManagementCommand {
+    Enqueue {
+        id: JobId,
+        at_ns: u64,
+        payload: Notification,
+    },
+    Inspect(JobId),
+    List {
+        after: Option<JobId>,
+        limit: usize,
+    },
+    Cancel(JobId),
+    DispatchDue,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum ManagementValue {
+    Job(NotificationSnapshot),
+    Page(Vec<NotificationSnapshot>),
+    Dispatch(Option<Delivery>),
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct ManagementReply {
+    value: ManagementValue,
+    // The application projects this committed queue deadline into its watchdog.
+    // Native execution does not register or qualify a platform timer.
+    next_due_ns: Option<u64>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum ManagementError {
+    Unauthorized,
+    UnknownJob,
+    InvalidPageLimit,
+}
+
+impl fmt::Display for ManagementError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::Unauthorized => "caller cannot manage this notification queue",
+            Self::UnknownJob => "notification job is not retained",
+            Self::InvalidPageLimit => "page limit must be between one and four",
+        })
+    }
+}
+
+impl Error for ManagementError {}
+
 impl Notifications {
+    // One consumer-owned store holds records and immutable payloads together.
+    // The eventual host supplies allocation policy and owns one bootstrap.
+    fn memory_request() -> Result<MemoryRequest> {
+        Ok(MemoryRequest::new(
+            "test.notifications",
+            "test.notifications.queue.v1",
+            SchemaMetadata::default(),
+        )?)
+    }
+
     fn new() -> Result<Self> {
         Ok(Self {
             store: Store::new(&vec![NotificationSnapshot {
@@ -136,6 +204,57 @@ impl Notifications {
             payload,
         });
         self.store.write(&snapshots)
+    }
+
+    fn inspect(&self, id: JobId) -> Result<NotificationSnapshot> {
+        self.load()?
+            .1
+            .into_iter()
+            .find(|snapshot| snapshot.job.id == id)
+            .ok_or_else(|| ManagementError::UnknownJob.into())
+    }
+
+    fn manage(
+        &mut self,
+        caller: &str,
+        now_ns: u64,
+        command: ManagementCommand,
+    ) -> Result<ManagementReply> {
+        // Authorization precedes decoding, reads of private payloads and writes.
+        if caller != NOTIFICATION_MANAGER {
+            return Err(ManagementError::Unauthorized.into());
+        }
+        let value = match command {
+            ManagementCommand::Enqueue { id, at_ns, payload } => {
+                self.enqueue(id, at_ns, payload)?;
+                ManagementValue::Job(self.inspect(id)?)
+            }
+            ManagementCommand::Inspect(id) => ManagementValue::Job(self.inspect(id)?),
+            ManagementCommand::List { after, limit } => {
+                if !(1..=4).contains(&limit) {
+                    return Err(ManagementError::InvalidPageLimit.into());
+                }
+                let (_, mut snapshots) = self.load()?;
+                snapshots.sort_by_key(|snapshot| snapshot.job.id);
+                ManagementValue::Page(
+                    snapshots
+                        .into_iter()
+                        .filter(|snapshot| after.is_none_or(|id| snapshot.job.id > id))
+                        .take(limit)
+                        .collect(),
+                )
+            }
+            ManagementCommand::Cancel(id) => {
+                self.inspect(id)?;
+                self.cancel(id, now_ns)?;
+                ManagementValue::Job(self.inspect(id)?)
+            }
+            ManagementCommand::DispatchDue => ManagementValue::Dispatch(self.prepare(now_ns)?),
+        };
+        Ok(ManagementReply {
+            value,
+            next_due_ns: self.next_due_ns()?,
+        })
     }
 
     fn next_due_ns(&self) -> Result<Option<u64>> {
@@ -303,6 +422,14 @@ impl Wake {
 }
 
 impl Maintenance {
+    fn memory_request() -> Result<MemoryRequest> {
+        Ok(MemoryRequest::new(
+            "test.maintenance",
+            "test.maintenance.state.v1",
+            SchemaMetadata::default(),
+        )?)
+    }
+
     fn new(missed: MissedRunPolicy) -> Result<Self> {
         Ok(Self {
             store: Store::new(&MaintenanceSnapshot {
@@ -363,6 +490,58 @@ impl Maintenance {
         snapshot.job = job.record();
         self.store.write(&snapshot)
     }
+}
+
+#[test]
+fn consumer_memory_requests_compose_without_granting_open_authority() -> Result<()> {
+    let notifications = Notifications::memory_request()?;
+    let maintenance = Maintenance::memory_request()?;
+    let composed =
+        SealedDeclarationSnapshot::new(&[], &[], &[notifications.clone(), maintenance.clone()])?;
+    let reordered = SealedDeclarationSnapshot::new(&[], &[], &[maintenance, notifications])?;
+    assert_eq!(composed, reordered);
+    assert!(composed.registered_declarations().is_empty());
+    assert!(composed.registered_ranges().is_empty());
+    assert_eq!(composed.requests().len(), 2);
+    assert_ne!(
+        composed.requests()[0].authority(),
+        composed.requests()[1].authority(),
+    );
+
+    // Sealed requests establish checked names, not committed allocation access.
+    // No range-based bootstrap or provisional allocator is introduced here.
+    let runtime = MemoryRuntime::new(VectorMemory::default())?;
+    for request in composed.requests() {
+        assert!(matches!(
+            runtime.open_memory_by_key(request.stable_key().as_str()),
+            Err(RuntimeOpenError::NotBootstrapped)
+        ));
+    }
+    Ok(())
+}
+
+#[test]
+fn consumer_memory_collision_refuses_without_changing_retained_jobs() -> Result<()> {
+    let notifications = Notifications::new()?;
+    let maintenance = Maintenance::new(MissedRunPolicy::Skip)?;
+    let notification_bytes = notifications.store.bytes.clone();
+    let maintenance_bytes = maintenance.store.bytes.clone();
+    let requested = Notifications::memory_request()?;
+    let foreign = MemoryRequest::new(
+        Maintenance::memory_request()?.authority(),
+        requested.stable_key().as_str(),
+        SchemaMetadata::default(),
+    )?;
+    assert!(matches!(
+        SealedDeclarationSnapshot::new(&[], &[], &[requested.clone(), foreign]),
+        Err(StaticMemoryDeclarationError::DuplicateRequest { stable_key })
+            if stable_key == *requested.stable_key()
+    ));
+    assert_eq!(notifications.store.bytes, notification_bytes);
+    assert_eq!(maintenance.store.bytes, maintenance_bytes);
+    assert_eq!(notifications.load()?.0[0].next_due_ns(), Some(100));
+    assert_eq!(maintenance.load()?.0.next_due_ns(), Some(100));
+    Ok(())
 }
 
 #[test]
@@ -831,5 +1010,368 @@ fn maintenance_resumes_after_partial_batch_commit_without_repeating_work() -> Re
     );
     assert_eq!(restored.load()?.1.completed_runs, 4);
     assert_eq!(restored.load()?.1.expires_ns, vec![200]);
+    Ok(())
+}
+
+#[test]
+fn management_creation_inspection_and_pages_survive_reconstruction() -> Result<()> {
+    let mut sender = Notifications::new()?;
+    for (id, at_ns, body, next_due_ns) in [(8, 80, "eight", 80), (3, 200, "three", 80)] {
+        let reply = sender.manage(
+            NOTIFICATION_MANAGER,
+            0,
+            ManagementCommand::Enqueue {
+                id: JobId(id),
+                at_ns,
+                payload: Notification {
+                    recipient: "bob".into(),
+                    body: body.into(),
+                },
+            },
+        )?;
+        assert_eq!(reply.next_due_ns, Some(next_due_ns));
+        let ManagementValue::Job(snapshot) = reply.value else {
+            panic!("creation must return the committed notification");
+        };
+        assert_eq!(snapshot.job.id, JobId(id));
+        assert_eq!(snapshot.job.state, JobState::Pending { due_ns: at_ns });
+        assert_eq!(snapshot.payload.body, body);
+    }
+    let mut restored = Notifications {
+        store: Store {
+            bytes: sender.store.bytes,
+            writes_before_failure: None,
+        },
+    };
+    let before = restored.store.bytes.clone();
+    let reply = restored.manage(
+        NOTIFICATION_MANAGER,
+        0,
+        ManagementCommand::Inspect(JobId(8)),
+    )?;
+    let ManagementValue::Job(snapshot) = reply.value else {
+        panic!("inspection must return the retained notification");
+    };
+    assert_eq!(snapshot.payload.body, "eight");
+    assert_eq!(reply.next_due_ns, Some(80));
+
+    // Cursor order follows stable job identity, independently of insertion order.
+    let mut after = None;
+    for expected in [1, 3, 8] {
+        let reply = restored.manage(
+            NOTIFICATION_MANAGER,
+            0,
+            ManagementCommand::List { after, limit: 1 },
+        )?;
+        assert_eq!(reply.next_due_ns, Some(80));
+        let ManagementValue::Page(page) = reply.value else {
+            panic!("listing must return a bounded page");
+        };
+        assert_eq!(page.len(), 1);
+        assert_eq!(page[0].job.id, JobId(expected));
+        after = Some(page[0].job.id);
+    }
+    let reply = restored.manage(
+        NOTIFICATION_MANAGER,
+        0,
+        ManagementCommand::List { after, limit: 1 },
+    )?;
+    assert_eq!(reply.value, ManagementValue::Page(vec![]));
+    assert_eq!(restored.store.bytes, before);
+    Ok(())
+}
+
+#[test]
+fn management_refuses_unauthorized_calls_before_decoding_or_writing() -> Result<()> {
+    let commands = [
+        ManagementCommand::Enqueue {
+            id: JobId(2),
+            at_ns: 80,
+            payload: Notification {
+                recipient: "bob".into(),
+                body: "private".into(),
+            },
+        },
+        ManagementCommand::Inspect(JobId(1)),
+        ManagementCommand::List {
+            after: None,
+            limit: 4,
+        },
+        ManagementCommand::Cancel(JobId(1)),
+        ManagementCommand::DispatchDue,
+    ];
+    for corrupt in [false, true] {
+        let mut sender = Notifications::new()?;
+        if corrupt {
+            sender.store.bytes = b"not a snapshot".to_vec();
+        }
+        let before = sender.store.bytes.clone();
+        sender.store.writes_before_failure = Some(0);
+        for command in &commands {
+            let error = sender
+                .manage("other-caller", 100, command.clone())
+                .unwrap_err();
+            assert_eq!(
+                error.downcast_ref::<ManagementError>(),
+                Some(&ManagementError::Unauthorized)
+            );
+            assert_eq!(sender.store.bytes, before);
+            assert_eq!(sender.store.writes_before_failure, Some(0));
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn management_commit_failures_preserve_queue_and_derived_wakeup() -> Result<()> {
+    for (command, expected_deadline) in [
+        (
+            ManagementCommand::Enqueue {
+                id: JobId(2),
+                at_ns: 80,
+                payload: Notification {
+                    recipient: "bob".into(),
+                    body: "committed before dispatch".into(),
+                },
+            },
+            Some(80),
+        ),
+        (ManagementCommand::Cancel(JobId(1)), None),
+        (ManagementCommand::DispatchDue, None),
+    ] {
+        let mut sender = Notifications::new()?;
+        let before = sender.store.bytes.clone();
+        sender.store.writes_before_failure = Some(0);
+        let error = sender
+            .manage(NOTIFICATION_MANAGER, 100, command.clone())
+            .unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<io::Error>().unwrap().kind(),
+            io::ErrorKind::Other
+        );
+        assert_eq!(sender.store.bytes, before);
+        assert!(sender.outstanding()?.is_empty());
+        assert_eq!(sender.next_due_ns()?, Some(100));
+
+        let reply = sender.manage(NOTIFICATION_MANAGER, 100, command)?;
+        assert_eq!(reply.next_due_ns, expected_deadline);
+        #[cfg(feature = "timers")]
+        {
+            let result = ic_jobs::timers::complete_batch(
+                ic_timers::TimerCompletion::no_work(),
+                reply.next_due_ns,
+            );
+            assert_eq!(
+                result.decision(),
+                expected_deadline.map_or(
+                    ic_timers::WatchdogDecision::Stop,
+                    ic_timers::WatchdogDecision::ScheduleAt,
+                ),
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn management_preserves_due_admission_and_blocks_unresolved_effects() -> Result<()> {
+    let mut sender = Notifications::new()?;
+    let before = sender.store.bytes.clone();
+    let early = sender.manage(NOTIFICATION_MANAGER, 99, ManagementCommand::DispatchDue)?;
+    assert_eq!(early.value, ManagementValue::Dispatch(None));
+    assert_eq!(early.next_due_ns, Some(100));
+    assert_eq!(sender.store.bytes, before);
+
+    let reply = sender.manage(NOTIFICATION_MANAGER, 100, ManagementCommand::DispatchDue)?;
+    let ManagementValue::Dispatch(Some(delivery)) = reply.value else {
+        panic!("a due dispatch must return its committed intent");
+    };
+    assert_eq!(reply.next_due_ns, None);
+    assert_eq!(sender.outstanding()?, vec![delivery.clone()]);
+    let before = sender.store.bytes.clone();
+    let error = sender
+        .manage(
+            NOTIFICATION_MANAGER,
+            101,
+            ManagementCommand::Cancel(JobId(1)),
+        )
+        .unwrap_err();
+    assert_eq!(error.downcast_ref::<JobError>(), Some(&JobError::InFlight));
+    assert_eq!(sender.store.bytes, before);
+
+    let mut restored = Notifications {
+        store: Store {
+            bytes: sender.store.bytes,
+            writes_before_failure: None,
+        },
+    };
+    assert_eq!(
+        restored
+            .manage(NOTIFICATION_MANAGER, 200, ManagementCommand::DispatchDue)?
+            .value,
+        ManagementValue::Dispatch(None)
+    );
+    restored.finish(delivery.attempt, 200, Outcome::Uncertain)?;
+    let before = restored.store.bytes.clone();
+    let error = restored
+        .manage(
+            NOTIFICATION_MANAGER,
+            201,
+            ManagementCommand::Cancel(JobId(1)),
+        )
+        .unwrap_err();
+    assert_eq!(error.downcast_ref::<JobError>(), Some(&JobError::InFlight));
+    assert_eq!(restored.store.bytes, before);
+    assert!(!restored.reconcile(delivery.attempt, &Destination::default(), 202)?);
+    assert_eq!(
+        restored
+            .manage(NOTIFICATION_MANAGER, 203, ManagementCommand::DispatchDue)?
+            .value,
+        ManagementValue::Dispatch(None)
+    );
+
+    let mut destination = Destination::default();
+    assert!(destination.deliver(&delivery));
+    assert!(restored.reconcile(delivery.attempt, &destination, 204)?);
+    let inspected = restored.manage(
+        NOTIFICATION_MANAGER,
+        204,
+        ManagementCommand::Inspect(JobId(1)),
+    )?;
+    let ManagementValue::Job(snapshot) = inspected.value else {
+        panic!("inspection must return the resolved job");
+    };
+    assert_eq!(snapshot.job.state, JobState::Completed);
+    assert_eq!(inspected.next_due_ns, None);
+    assert_eq!(destination.calls, 1);
+    Ok(())
+}
+
+#[test]
+fn management_refused_inputs_preserve_committed_jobs_and_deadlines() -> Result<()> {
+    let mut sender = Notifications::new()?;
+    let before = sender.store.bytes.clone();
+    for (command, expected) in [
+        (
+            ManagementCommand::Inspect(JobId(99)),
+            ManagementError::UnknownJob,
+        ),
+        (
+            ManagementCommand::Cancel(JobId(99)),
+            ManagementError::UnknownJob,
+        ),
+        (
+            ManagementCommand::List {
+                after: None,
+                limit: 0,
+            },
+            ManagementError::InvalidPageLimit,
+        ),
+        (
+            ManagementCommand::List {
+                after: None,
+                limit: 5,
+            },
+            ManagementError::InvalidPageLimit,
+        ),
+    ] {
+        let error = sender.manage(NOTIFICATION_MANAGER, 0, command).unwrap_err();
+        assert_eq!(error.downcast_ref::<ManagementError>(), Some(&expected));
+        assert_eq!(sender.store.bytes, before);
+        assert_eq!(sender.next_due_ns()?, Some(100));
+    }
+    for (id, body) in [(1, "duplicate".into()), (2, "x".repeat(4097))] {
+        assert!(
+            sender
+                .manage(
+                    NOTIFICATION_MANAGER,
+                    0,
+                    ManagementCommand::Enqueue {
+                        id: JobId(id),
+                        at_ns: 80,
+                        payload: Notification {
+                            recipient: "bob".into(),
+                            body
+                        },
+                    }
+                )
+                .is_err()
+        );
+        assert_eq!(sender.store.bytes, before);
+        assert_eq!(sender.next_due_ns()?, Some(100));
+    }
+    let cancelled = sender.manage(
+        NOTIFICATION_MANAGER,
+        90,
+        ManagementCommand::Cancel(JobId(1)),
+    )?;
+    let ManagementValue::Job(snapshot) = cancelled.value else {
+        panic!("cancellation must return the committed record");
+    };
+    assert_eq!(snapshot.job.state, JobState::Cancelled);
+    assert_eq!(cancelled.next_due_ns, None);
+    let before = sender.store.bytes.clone();
+    let error = sender
+        .manage(
+            NOTIFICATION_MANAGER,
+            100,
+            ManagementCommand::Cancel(JobId(1)),
+        )
+        .unwrap_err();
+    assert_eq!(
+        error.downcast_ref::<JobError>(),
+        Some(&JobError::NotPending)
+    );
+    assert_eq!(sender.store.bytes, before);
+    assert_eq!(
+        sender
+            .manage(NOTIFICATION_MANAGER, 100, ManagementCommand::DispatchDue)?
+            .value,
+        ManagementValue::Dispatch(None)
+    );
+    Ok(())
+}
+
+#[test]
+fn management_validates_future_records_before_reads_or_mutation() -> Result<()> {
+    let mut sender = Notifications::new()?;
+    sender.enqueue(
+        JobId(2),
+        200,
+        Notification {
+            recipient: "bob".into(),
+            body: "future".into(),
+        },
+    )?;
+    let mut snapshots: Vec<NotificationSnapshot> = sender.store.read()?;
+    snapshots[1].job.state = JobState::Completed;
+    sender.store.write(&snapshots)?;
+    let before = sender.store.bytes.clone();
+    for command in [
+        ManagementCommand::Enqueue {
+            id: JobId(3),
+            at_ns: 80,
+            payload: Notification {
+                recipient: "bob".into(),
+                body: "new".into(),
+            },
+        },
+        ManagementCommand::Inspect(JobId(1)),
+        ManagementCommand::List {
+            after: None,
+            limit: 1,
+        },
+        ManagementCommand::Cancel(JobId(1)),
+        ManagementCommand::DispatchDue,
+    ] {
+        let error = sender
+            .manage(NOTIFICATION_MANAGER, 100, command)
+            .unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<JobError>(),
+            Some(&JobError::InvalidRecord)
+        );
+        assert_eq!(sender.store.bytes, before);
+    }
     Ok(())
 }

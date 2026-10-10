@@ -17,6 +17,10 @@ as described in the README, alongside the development toolchain.
 Shared Make entrypoints require recipe execution and failure propagation.
 Remove `-i`, `--ignore-errors`, `-n`, `-t`, `-q` and inherited equivalents;
 these modes are refused before recipes run, including formatting commands.
+Jobs also checks invocation modes retained in `MFLAGS` when command-line
+`MAKEFLAGS` is cleared or replaced. This consumer-owned admission supplements
+the shared probe until [Shared #30](https://github.com/dragginzgame/shared-tooling/issues/30)
+covers that case; the adopted snapshot stays unchanged.
 
 Before ordinary offline checks, prepare the selected dependency graph explicitly
 with `cargo fetch --locked`. Standard release commands include that locked fetch
@@ -97,7 +101,9 @@ checks cover source admission, local/remote tag identity, Make execution modes,
 registry availability and upload failure. The complete gate and registry/upload
 effects are substituted; the fixture performs no live release or publication.
 Direct and inherited Make modes are checked at the outer release and formatting
-entrypoints, verifying refusal before fetch, gate or source changes.
+entrypoints, including cleared/replaced `MAKEFLAGS`, verifying refusal before
+fetch, gate or source changes. Harmless external-root selection and parallel
+argument-bearing recursive Make preserve quoted caller selections.
 The fetch substitute also exercises cold-cache preparation, explicit offline
 refusal, fetch failure and prepared-cache reuse, verifying unchanged metadata
 and no gate/version effects on preparation failure. Dirty source is refused

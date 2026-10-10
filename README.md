@@ -117,7 +117,12 @@ Run `cargo run -p ic-jobs --locked --example persisted_job` for a runnable
 reconstruction example. Focused checks are listed by `make help`.
 Run `make test-consumers` for application-owned notification and cache-maintenance
 fixtures covering commit failures, reconstruction, receipt reconciliation and
-bounded recurring work. See [test consumers](docs/test-consumers.md) for their
+bounded recurring work. The notification fixture also exercises authorized
+management, bounded inspection/listing and committed wakeup decisions.
+Both fixtures contribute checked, key-only storage requests using the
+development dependency IC Memory. Host allocation and stable persistence remain
+pending the shared-pool contract; Jobs' library dependency graph is unchanged.
+See [test consumers](docs/test-consumers.md) for their
 storage and timer boundaries.
 
 The package requires Rust 1.88 (edition 2024), including the optional IC Timers
@@ -128,7 +133,7 @@ release 0.2.1 passed native CI on all three hosts. See the
 live IC recovery remains pending.
 
 Common tooling is adopted from reviewed Shared Tooling revision
-`47d6ae6488b8007323fa7c2e22a6efa11d77ae63`.
+`f8a70ba348e9975a6eb5b337860b00bc8a0b36d1`.
 Run `make install-tools` explicitly to prepare the checkout-local host, IC and
 Rust tools; `make tools-check` verifies them offline. For an interactive shell,
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/bin` to PATH.

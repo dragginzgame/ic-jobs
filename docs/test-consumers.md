@@ -58,3 +58,114 @@ Live IC message rollback, stable-memory persistence, actual lifecycle upgrades,
 watchdog registration/provider delivery and external canister calls remain
 unqualified. A live harness must use IC Testkit's selected server setup/check
 contract rather than adding another PocketIC installer here.
+
+## Native management fixture
+
+The notification consumer now exercises an application management boundary:
+create a one-shot notification, inspect it, list a bounded page, cancel pending
+work or dispatch one eligible due notification. All calls require the fixture's
+configured manager identity before decoding storage, reading private payloads
+or writing. The supplied caller is trusted boundary input; a real canister must
+obtain it from the IC caller API, never from a request field. This native policy
+check does not qualify Candid endpoints or IC caller authentication.
+
+Listing accepts limits from one to four and an optional exclusive job-ID cursor.
+Pages sort by job ID independently of queue insertion order; each page observes
+the current committed queue, without claiming a snapshot across requests.
+Every read and mutation validates the entire bounded queue through `Job::restore`.
+Unknown jobs, invalid page limits, corrupt future records, duplicate identities
+and oversized snapshots are refused without changing committed records.
+
+Successful responses include the earliest deadline derived from committed
+records. Failed create/cancel/dispatch writes expose no successful management
+response or delivery envelope and retain the previous deadline. The timers
+feature tests projection of those deadlines into ScheduleAt/Stop decisions;
+it does not register provider wakeups. Cancellation retains terminal history,
+refuses Running/Uncertain work and cannot undo an effect. An early dispatch is
+idle; restored intent stays blocked until exact destination evidence resolves it.
+
+These flows use the existing byte-replacement store and immutable payloads.
+They establish consumer composition evidence only. Stable allocation and the
+real canister lifecycle must adopt the replacement contract coordinated by
+[IC Memory #44](https://github.com/dragginzgame/ic-memory/issues/44); no provisional
+range-based bootstrap is added here.
+
+## Consumer memory requests
+
+IC Memory is a development dependency selected from the root workspace catalog
+(`0.33`, locked to 0.33.4). Each fixture contributes one checked `MemoryRequest`
+with a distinct authority and permanent logical key: `test.notifications.queue.v1`
+for job records and immutable notification payloads, and
+`test.maintenance.state.v1` for the maintenance record, entries and counter.
+These names describe the fixture's intended stores; no numeric slots or private
+ranges are selected by the consumers.
+
+The host composes both requests into one `SealedDeclarationSnapshot`. Native
+checks establish order-independent declaration meaning, refusal of a foreign
+request reusing a consumer key, and unchanged retained job bytes/deadlines after
+that refusal. A fresh native `MemoryRuntime` refuses opens before bootstrap;
+sealed requests alone do not grant committed allocation authority. Authority
+labels express ownership policy, not caller authentication.
+
+The fixtures still commit to their bounded byte store. The published IC Memory
+0.33 contract requires host authority ranges for actual allocation; the requested
+shared-pool hard cut is pending in
+[IC Memory #44](https://github.com/dragginzgame/ic-memory/issues/44).
+This dependency/declaration step neither implements that allocator nor establishes
+stable persistence or upgrades. The final host must gather declarations and
+recovered-metadata admission, bootstrap once, and open stores only after the
+allocation commit. Jobs' library acquires no storage dependency or lifecycle hook.
+
+## Proposed durable canister consumer
+
+The next composition requested by the maintainer is a small canister consumer
+with a management API and actual upgrade recovery. Its implementation and
+qualification are tracked in [#11](https://github.com/dragginzgame/ic-jobs/issues/11).
+This section records the intended canister architecture. The management flow is
+exercised natively above; Candid endpoints, stable-memory persistence and actual
+IC timer reconstruction remain unimplemented.
+
+The consumer API should authorize task creation/scheduling, job inspection,
+bounded queue listing, pending cancellation and bounded dispatch of eligible
+due work. Startup reconstructs retained tasks. `Job::start` still requires a
+due Pending job; cancellation cannot undo Running or Uncertain effects.
+Exact-attempt reconciliation remains required before retry. API names and the
+stable byte format are to be selected during implementation; force-run,
+arbitrary rescheduling and replay are not implied by this management surface.
+
+The consumer owns authentication, immutable execution payloads, handlers, storage,
+codec, due-time index, bounds and lifecycle hooks. Jobs supplies checked records
+and scheduling; IC Timers supplies volatile wakeups. IC Memory should validate
+stable-region ownership before stores open. The selected stable structure and
+codec then retain `JobRecord`, payload and queue/index metadata; IC Memory does
+not serialize jobs or validate their transitions.
+
+An admitted API mutation applies the checked Jobs transition, updates stable
+record/payload/index state consistently, derives the earliest global pending
+deadline and calls `timers::reconcile` on the consumer's single watchdog.
+Enqueue, cancellation, completion and explicit disposition all rederive this
+wakeup; no pending work leaves it inactive. Stable writes and timer changes
+belong to the same synchronous message segment and a trap rolls that segment
+back. Refused mutations and timer-reconciliation failures must not report a
+successful persisted schedule. The implementation must qualify that boundary.
+
+Commit Running intent before exposing an external effect, using a consumer-owned
+continuation because the synchronous watchdog cannot await. Persist the exact
+result and update scheduling afterward. Lost replies and interrupted result
+writes keep work blocked until receipt evidence or explicit disposition resolves
+it; upgrading does not authorize replay.
+
+During `post_upgrade`, validate IC Memory allocations, open retained stores,
+boundedly decode records through `Job::restore`, initialize IC Timers and
+reconstruct required wakeups from durable deadlines before downstream hooks.
+Provider handles, closures and the timer registry are recreated. Overdue work
+follows the existing bounded CatchUp/Skip behavior; Running and Uncertain work
+remains blocked.
+
+Use IC Testkit for the separate host harness and PocketIC setup/check ownership.
+Test real wakeup changes, dispatch, retained jobs/payloads/deadlines across an
+upgrade, overdue bounds, invalid restored records, message rollback and
+lost-reply reconciliation without duplicate effects. Testkit already depends on
+the Host crates; a direct Host dependency needs a concrete additional caller.
+Keep host dependencies outside the Jobs library's Wasm graph. Rust 1.88,
+native macOS qualification and live IC recovery remain separate requirements.

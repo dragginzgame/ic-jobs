@@ -1,22 +1,29 @@
 # Current handoff
 
-IC Jobs package version 0.4.2, released at
-`3e5bd7b324caa91774c055de01c25030ef587a1a` and pushed by the maintainer.
-The exact local annotated `v0.4.2` object
-`5082f7b7f6f1b6fcdb007e9209da41d82d29ea18` matches GitHub's tag reference;
+IC Jobs package version 0.4.3, released at
+`7939c8a53add5ab019cc26e97bd93274b5ed3a43` and pushed by the maintainer.
+The exact local annotated `v0.4.3` object
+`0a81bc12e25993a995df326827bd6bf74a0cedec` matches GitHub's tag reference;
 the retained local release plan is complete. The maintainer reports it live,
-and an exact crates.io observation confirms 0.4.2 present without binding
+and an exact crates.io observation confirms 0.4.3 present without binding
 registry bytes to a local artifact.
-Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37951742672)
-has passed Linux; both native macOS jobs are queued without assigned runners or
-executed steps. The preceding 0.4.1
+Release-commit [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37954681664)
+has passed Linux, native macOS Intel and Apple Silicon, including five-tool
+setup, offline admission and the configured selected-graph gate. Jobs
+`113902068497`, `113902069034` and `113902068936` qualify released 0.4.3,
+not the pending management fixture or incoming Metrics graph.
+The preceding 0.4.2
+[CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37951742672)
+has passed Linux; both native macOS jobs have since been cancelled without
+passing. The preceding 0.4.1
 [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37941395642)
-has passed Linux; both native macOS jobs remain queued. The preceding 0.4.0
+has passed Linux; both native macOS jobs have since been cancelled. The preceding 0.4.0
 [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37936803386)
-has passed Linux; both native macOS jobs remain queued.
+has passed Linux and macOS Intel; Apple Silicon has since been cancelled.
 The preceding 0.3.1
 [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37925974097)
-passed Linux and macOS Intel; Apple Silicon remains queued without an assigned runner.
+passed Linux and macOS Intel; Apple Silicon has since been cancelled. These older
+source-bound native gaps are not relabelled by the later all-host 0.4.3 result.
 The preceding 0.3.0
 [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/37918180627)
 has passed Linux, macOS Intel and Apple Silicon at its exact release source,
@@ -41,6 +48,98 @@ The library owns job policy and checked metadata transitions. Applications own
 persistence and effects; the optional adapter uses the consumer-selected IC Timers
 dependency graph.
 
+The maintainer requested notes for an application-owned canister management API,
+IC Memory-governed stable storage and timer reconstruction across upgrades.
+The [consumer composition](../test-consumers.md#proposed-durable-canister-consumer)
+records ownership, mutation/rollback ordering, startup and blocked-effect rules;
+[#11](https://github.com/dragginzgame/ic-jobs/issues/11) owns implementation and
+IC Testkit qualification. The 0.4.4 continuation implements the native notification
+management fixture described below; actual endpoints, stable storage and upgrade
+evidence remain pending the reviewed replacement allocation contract in
+[IC Memory #44](https://github.com/dragginzgame/ic-memory/issues/44).
+
+Pending **0.4.4** extends the existing application-owned notification consumer
+with manager-authorized create, inspect, bounded job-ID pagination, pending
+cancellation and due dispatch. Admission precedes payload/storage access; all
+restoration uses `Job::restore`. Replies carry the earliest committed deadline,
+and failed writes retain the previous queue/deadline without exposing delivery.
+Cancellation cannot undo Running/Uncertain effects; reconstruction and management
+dispatch preserve blocked intent until destination evidence permits disposition.
+No library API, record, scheduling policy or compiler-floor change is made.
+This is compatible test-consumer work, so the draft is a patch.
+The current upstream cut is unimplemented; no provisional 0.33 range adapter,
+duplicate allocator or lifecycle export is introduced in Jobs.
+Focused Linux Rust 1.88 tests pass for all 17 consumers in each core/all-feature
+selection, including the six new management boundary checks. Optional timer
+coverage projects committed deadlines without registering a platform timer.
+Warnings-denied development Clippy, formatting, documentation links and whitespace
+checks pass. Native caller policy and byte-store reconstruction are not evidence
+of Candid authentication, real stable-memory persistence, message rollback or IC
+upgrades. Native macOS and live IC qualification remain separate. No full local
+CI, commit, release, push, upload or live qualification gate is run for this batch.
+
+The authorized IC Memory addition declares `ic-memory = "0.33"` in the root
+catalog and inherits it only as a Jobs development dependency, locked to 0.33.4.
+Reviewed public main is `9137192d4b3425a229fa21df5f343883f56d80e8` (0.33.4);
+its host-wide pool hard cut remains unimplemented. Both fixtures now contribute
+key-only requests for their combined record/payload or maintenance state stores.
+Native composition checks reject conflicting consumer identities and preserve
+job bytes/deadlines; request order does not change the sealed declaration meaning.
+Fresh-runtime opens refuse before bootstrap. No host range adapter, global
+registration, storage trait, library dependency or lifecycle export is added.
+The byte-replacement stores remain authoritative until the final host integration
+can adopt [IC Memory #44](https://github.com/dragginzgame/ic-memory/issues/44).
+All 19 consumer tests pass separately at Rust 1.88 for core and optional timers
+on the current Memory/Timers/Metrics graph. Library-only normal dependency trees
+confirm Memory is absent from both feature selections. Rust 1.88 native and Wasm
+library checks pass separately for core and timers. Warnings-denied consumer
+Clippy, locked metadata, declaration checks, formatting, snapshot integrity,
+documentation links and whitespace checks also pass. No complete CI/release gate
+or native macOS/live IC qualification was run for this dependency addition.
+This native declaration
+evidence does not establish IC stable-store persistence, allocation recovery,
+Canic/IcyDB composition, message rollback or upgrades. The addition extends
+compatible pending 0.4.4; no release or publication is authorized.
+
+The authorized [Make repair](https://github.com/dragginzgame/ic-jobs/issues/12)
+adopts committed Shared Tooling **0.2.9** at
+`f8a70ba348e9975a6eb5b337860b00bc8a0b36d1`, verified as public main, through
+the canonical exporter from `/tmp/ic-jobs-shared-029-fix.HZfYBT/source`.
+The 74-file selection now records the exact committed version. The admission
+helper follows the selected include rather than an ambient runtime root and
+uses `MAKE_COMMAND` without importing argument-bearing recursive `MAKE` files.
+Fleet reports and hosted artifact transport are outside Jobs' selection.
+
+Shared's hidden-mode gap remains at
+[Shared #30](https://github.com/dragginzgame/shared-tooling/issues/30).
+Before repair, `-i release-patch MAKEFLAGS=` dispatched a substitute runner
+exiting 23 and returned false success; inputs/logs remain at
+`/tmp/ic-jobs-make-flags-review.amyFpk/`. The extended maintained Jobs fixture
+also failed its new cleared-flags case before implementation, retained at
+`/tmp/jobs-release-tooling.DhtoP6/`. Jobs now checks invocation modes retained
+in `MFLAGS` at its own Makefile boundary, before the shared includes. This
+explicit consumer-owned adapter is permitted by the baseline; no vendored
+guard is patched. Remove that supplementary admission only after a committed
+canonical repair passes these actual-consumer regressions. Upstream repair and
+source-bound native macOS acceptance keep #12 open.
+
+Focused release/publication, actual adapter, root/recursive-Make and formatting
+fixtures pass on Linux with Bash 5.2.21/GNU Make 4.3 and genuine
+Bash 3.2.57/GNU Make 3.81. The maintained Jobs cases cover all four unsafe modes,
+long forms and a cluster, direct/inherited selections and cleared/replaced
+`MAKEFLAGS`, refusing release/resume, formatting and publication before fetch,
+gate or source mutation. Ordinary keep-going/silent flags, quoted selections and
+parallel recursive Make still work without jobserver warnings. Real local Git
+release/recovery uses substituted gate/cache/registry/upload effects; this is
+not live release or complete-gate evidence. Logs remain in the adoption directory.
+Snapshot integrity, declaration checks, formatting, ShellCheck, documentation
+links and whitespace checks pass. The first post-repair fixture attempt stopped
+on an uncached incoming Timers 0.16.4 at `/tmp/jobs-release-tooling.WDnSXs/`;
+`cargo fetch --locked` then prepared that exact graph without altering its bytes.
+The compatible repair extends pending 0.4.4 without library/API/storage/MSRV
+changes. No sibling edits, commit, push, real release/publication, hook activation,
+full local CI or native macOS/live IC qualification were performed.
+
 The maintainer requires Rust 1.88 for the complete package. Manifest metadata,
 native/Wasm minimum checks, CI setup and current support documentation now use
 that floor for both core and timers. Release 0.2.0 drops the previously advertised
@@ -51,10 +150,11 @@ dependency refresh are delivered in 0.3.0. The final-pin-record admission and
 application-owned test consumers are delivered in 0.3.1. The optional IC Timers
 package-identity change is delivered in 0.4.0. Test-consumer recovery coverage
 and shared hook fixes are delivered in 0.4.1. The locked Timers refresh and shared
-Make adoption are delivered in 0.4.2; package metadata remains 0.4.2. The next
-draft is 0.4.3 for the compatible Shared Tooling 0.2.7 Make admission and fixture
-isolation fixes. No library or dependency contract changes are selected by this
-tooling refresh.
+Make adoption are delivered in 0.4.2. The compatible Shared Tooling 0.2.7 Make
+admission and fixture isolation fixes are delivered in 0.4.3; package metadata
+is 0.4.3; the compatible management fixture and Make repair are collected under
+the undated 0.4.4 draft. The released tooling refresh makes no library or dependency
+contract change.
 Job APIs, stored fields, scheduling policy and the Rust floor are unchanged.
 Earlier 1.85 qualification below records historical evidence only.
 
@@ -62,11 +162,33 @@ The released 0.4.2 lock selects Timers 0.16.3 and Metrics 0.3.2, at SHA-256
 `5f1e57f836b5265a545e0f3161b59419f6e2b76503c72bd06b4a11341825f496`.
 Its finalized changelog names the earlier Timers 0.16.2 working selection; the
 released lock owns the actual graph. The published entry is preserved.
-The incoming maintainer lock independently advances Metrics to 0.3.3, retaining
-Timers 0.16.3; its bytes are preserved at SHA-256
+The pre-release maintainer lock independently advanced Metrics to 0.3.3, retaining
+Timers 0.16.3; its tested tooling-only bytes were preserved at SHA-256
 `c5204f0b9bc6f8dc54fec4786541f7c08f4dda8012d179f87fd49064c672ebd1`.
-That incoming graph has no new Rust qualification from this tooling refresh;
-the 0.4.2 CI results qualify only the released graph.
+Release 0.4.3 retains that dependency selection, updating the local package row;
+its lock SHA-256 is
+`5c4f56be2c0abbc1cd137ec841c4c3d77dcd87e70416b2fa9f73e07fd02e7322`.
+The local tooling fixtures did not qualify that Rust graph. Exact-source 0.4.3
+Linux and native macOS CI now qualify the released graph separately; live IC
+evidence remains pending.
+
+The management batch's tested maintainer lock selected Metrics 0.3.4 while
+retaining Timers 0.16.3. Its bytes were preserved throughout that batch at SHA-256
+`7f7086e572d3476482c5ce4f1e94f9295f12a35c0d5498d3190f936a351987d4`.
+The focused 0.4.4 native consumer checks above use that graph; they do
+not relabel released 0.4.3 CI or establish a complete dependency/MSRV/Wasm gate.
+An intervening maintainer lock selected Metrics 0.3.5, still with Timers 0.16.3,
+at SHA-256 `8a3246b1c611e5d5f7842e514fcbe1c64c86f90ea474c973e4abb736da6e744d`.
+The earlier incoming maintainer lock selected Metrics 0.3.5 and Timers 0.16.4 at
+SHA-256 `af774a3bdd96463c2dc7662e3174a0c4b89ef10c9686bc839fc923282a54cfec`.
+That graph is cache-prepared and preserved byte-for-byte during the Make repair;
+metadata fixtures do not establish Rust/MSRV/Wasm qualification for it.
+The current lock also selects development IC Memory 0.33.4 and its exact
+stable-structures 0.7.2 substrate, retaining Timers 0.16.4 and Metrics 0.3.5,
+at SHA-256 `67dfef93be379e92df50716137d2bb5bce1a6effd11ea3a99994115b07aca9ca`.
+Locked cache preparation and metadata inspection pass; the consumer tests above
+qualify this graph separately from the older management-only results. Native
+macOS and live IC evidence for pending 0.4.4 remain outstanding.
 
 The current [Make follow-up](https://github.com/dragginzgame/ic-jobs/issues/10)
 adopts committed Shared Tooling 0.2.7 at
@@ -87,7 +209,10 @@ dependency declarations, documentation links, formatting, ShellCheck and whitesp
 checks pass. Logs remain in the adoption directory. The incoming Metrics lock
 bytes above are unchanged; tooling fixtures do not qualify that Rust graph.
 Native macOS and live IC qualification remain separate. No full CI, release,
-publication, commit, push or hook activation is performed for this adoption.
+publication, commit, push or hook activation was performed by the agent for
+this adoption. The maintainer subsequently delivered it in 0.4.3, whose exact
+Linux, Intel macOS and Apple Silicon CI now pass as recorded above, completing
+native consumer acceptance for #10. Live IC qualification remains separate.
 
 The authorized [Make adoption](https://github.com/dragginzgame/ic-jobs/issues/10)
 selects committed Shared Tooling 0.2.6 at
@@ -111,14 +236,15 @@ Logs and the additional actual-Make probes remain in the adoption directory.
 Snapshot, dependency declarations, formatting, docs, ShellCheck and whitespace
 checks pass; incoming Cargo.lock remains byte-identical at the digest below.
 The maintainer subsequently delivered this adoption in 0.4.2, whose exact Linux
-CI passes as recorded above; native macOS qualification remains pending. No full
+CI passes as recorded above; its macOS jobs were subsequently cancelled. The
+later 0.4.3 result qualifies the adopted tooling on all three hosts. No full
 CI, real release/publication, commit, push or hook activation was performed by
 the agent during that adoption.
 The [reviewed follow-up](https://github.com/dragginzgame/ic-jobs/issues/10#issuecomment-6083691125)
 reproduced ignore-errors mode bypassing formatter admission in a disposable Jobs
 0.2.6 Make copy, then verified refusal before formatter calls with the committed
-0.2.7 guard. That follow-up is adopted locally above; 0.4.2 remains the delivered
-0.2.6 baseline.
+0.2.7 guard. That follow-up is delivered in 0.4.3; 0.4.2 records the earlier
+delivered 0.2.6 baseline.
 
 The released 0.4.1 lock selects IC Timers 0.16.1 and IC Metrics 0.3.2, at SHA-256
 `4d27cde30ee4dc43d019e134ef3a55b17a2c34381e4f00db96f8e35b6e4dc1e5`.

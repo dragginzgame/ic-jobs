@@ -1,4 +1,10 @@
 .DEFAULT_GOAL := help
+# Shared #30: MFLAGS retains modes hidden by command-line MAKEFLAGS replacement.
+# Keep this Jobs-owned admission outside the snapshot until its owner covers it.
+override _jobs_make_execution_flags := $(filter-out --% %=%,$(firstword $(MAKEFLAGS)) $(MFLAGS))
+ifneq ($(strip $(foreach mode,i n t q,$(findstring $(mode),$(_jobs_make_execution_flags)))),)
+$(error ic-jobs requires Make recipe execution and failure propagation; remove ignore-errors, dry-run, touch and question modes)
+endif
 export RELEASE_DELIVERY ?= direct
 include make/tools.mk
 include make/release.mk
