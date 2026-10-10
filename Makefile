@@ -14,6 +14,7 @@ help:
 	@echo "Explicit IC qualification: install-testkit-tools; install-consumer-server; test-canister[-optimized]"
 	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-release-commands"
 	@echo "Tooling fixtures: version, release-tools-check, test-release-tooling, test-formatting-evidence, test-consumer-tooling"
+	@echo "Hook qualification: formatting-hook-check (disposable Git copies; prepared formatters required)"
 	@echo "Registry preparation: package (offline), publish-check (registry dry run; no upload)"
 	@echo "Explicit setup: install-tools, tools-check, install-hooks"
 	@echo "Complete gate: ci (explicit request or configured CI)"
@@ -114,6 +115,11 @@ test-formatting-evidence:
 test-consumer-tooling:
 	+bash scripts/ci/test-consumer-tooling.sh
 
+.PHONY: formatting-hook-check
+formatting-hook-check: format-tools-check
+	+bash scripts/ci/test-git-hooks.sh
+	+bash scripts/ci/check-jobs-formatting.sh
+
 package:
 	+cargo package -p ic-jobs --all-features --locked --offline --allow-dirty
 
@@ -129,7 +135,7 @@ validation-tools-check: tools-check format-tools-check
 # Ordered recursive calls preserve admission before dependent work under -j.
 ci: shared-tooling-check
 	+$(MAKE) --no-print-directory validation-tools-check
-	+$(MAKE) --no-print-directory check-doc-links check-pins check-release-commands test-release-tooling test-formatting-evidence test-consumer-tooling fmt-check check test-jobs test-consumers check-consumer check-msrv check-wasm clippy docs-check package
+	+$(MAKE) --no-print-directory check-doc-links check-pins check-release-commands test-release-tooling test-formatting-evidence test-consumer-tooling formatting-hook-check fmt-check check test-jobs test-consumers check-consumer check-msrv check-wasm clippy docs-check package
 
 .PHONY: release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
 _release_targets := release-patch release-minor release-major release-resume release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check

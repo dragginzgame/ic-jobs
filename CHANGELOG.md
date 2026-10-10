@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.5]
+
+- Qualify the actual pre-commit hook and Jobs formatting in native CI, including
+  failed Git observations, manifest sorting and preservation of staged/working
+  files ([#17](https://github.com/dragginzgame/ic-jobs/issues/17)).
+
 ## [0.5.4] - 2026-10-10
 
 - Select the Testkit CLI directly from `Cargo.lock` for setup, offline admission

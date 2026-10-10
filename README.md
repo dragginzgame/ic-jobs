@@ -124,22 +124,23 @@ fixtures covering commit failures, reconstruction, receipt reconciliation and
 bounded recurring work. The notification fixture also exercises authorized
 management, bounded inspection/listing and committed wakeup decisions.
 Both fixtures contribute checked, key-only storage requests using the
-development dependency IC Memory 0.34. A native host fixture bootstraps one pool
+development dependency IC Memory 0.35. A native host fixture bootstraps one pool
 and reopens stable cells, retaining payloads/deadlines and blocked effects.
-Real canister upgrade and timer reconstruction remain pending; Jobs' library
-dependency graph is unchanged.
+The unpublished [canister consumer](apps/job-consumer/README.md) exercises real
+management, upgrade, rollback and timer reconstruction through PocketIC. See the
+current handoff for the source-bound results and outstanding host qualification.
 See [test consumers](docs/test-consumers.md) for their
 storage and timer boundaries.
 
 The package requires Rust 1.88 (edition 2024), including the optional IC Timers
 path. Development formatting uses
 Rust 1.99.0. Linux and macOS Intel/Apple Silicon host workflows are maintained;
-release 0.2.1 passed native CI on all three hosts. See the
+see the
 [current handoff](docs/status/current.md) for source-bound native and live
 PocketIC recovery qualification.
 
-Common tooling is adopted from reviewed Shared Tooling revision
-`88a73139a0f083344c41a6f6f4b5c3a8aca7dc1d` (0.3.0).
+Common tooling is adopted through the reviewed
+[Shared Tooling snapshot](.shared-tooling.snapshot).
 Run `make install-tools` explicitly to prepare the checkout-local host, IC and
 Rust tools in order, then selected cargo-edit; `make tools-check` verifies the
 same complete set offline. Host tools include jq, yq, ripgrep with PCRE2 and cloc;
@@ -158,6 +159,8 @@ see [local setup](docs/local-setup.md). Install `wasm32-unknown-unknown`
 explicitly on both Rust 1.88.0 and 1.99.0 before the consumer's build and Clippy
 checks. `make install-hooks` enables the reviewed
 formatting hook after formatter preparation.
+`make formatting-hook-check` exercises the hook and Jobs' actual formatter in
+disposable Git copies. Complete CI runs these checks on every supported host.
 
 The public repository is [dragginzgame/ic-jobs](https://github.com/dragginzgame/ic-jobs).
 Run `make version` to inspect the local version. `make package` verifies the

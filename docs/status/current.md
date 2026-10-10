@@ -1,5 +1,57 @@
 # Current handoff
 
+Jobs **0.5.4** is delivered at `d5e5aaf6e8450072b90357c3ea3eba3913bc24d7`,
+matching public main and annotated `v0.5.4`. Its actual released graph includes
+Memory 0.35.4, Metrics 0.5.5, Testkit 0.33.1 and Host 0.12.7; earlier local
+qualification below remains bound to its original selections. Exact-source
+[CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38068172788) passes Linux;
+Intel macOS was cancelled and Apple Silicon remains queued.
+
+Pending compatible **0.5.5** adds `make formatting-hook-check` to full CI on all
+three native hosts. The canonical hook fixture tests failed Git observations,
+partial staging, formatter failures and preservation; the Jobs adapter selects
+its actual Rust/manifest/Make inputs and an unsorted copy of the same manifest.
+All Git changes occur in disposable copies. Shared **0.3.8** at
+`67285b28a98b7c4211ad32de726709d4e87edea4` is adopted canonically; the snapshot
+now has 82 files, adding the two hook checkers and their declared frontend
+fixture companion. README references now reflect the current allocator, snapshot
+and canister qualification.
+
+The incoming root lock is preserved: Memory **0.35.4**, Timers **0.17.5**,
+Metrics **0.5.5**, Testkit **0.33.1**, Host **0.12.8**, serde_json **1.0.152**;
+SHA-256 `0f87aadb5d67f4bdd30b9785c6c6d2b9e6b638420a3617a18232cc0dda1c846c`.
+Host's published Rust trees match 0.12.7; Timers' match 0.17.4. Reviewed Memory's
+policy documentation and Testkit's added invalid-destination tests separately.
+Host remains outside normal core/canister Wasm graphs. Job APIs, stored records
+and consumer effect/storage authority retain their contracts.
+
+The first CI attempt stopped after a concurrent lock change selected uncached
+Timers 0.17.5; that failed run and its earlier input hashes remain retained.
+Fresh cache preparation, cold lock-selected Testkit 0.33.1 CLI setup and server
+admission pass. Offline admission correctly refused the missing 0.33.1 CLI
+before setup, despite the existing 0.33.0 installation.
+Actual hook qualification passes on current Bash/Make and genuine Linux Bash
+3.2.57/Make 3.81. Fresh full `make ci` passes, including separate Rust 1.88 core/
+timers native/Wasm checks and packaging. All five live scenarios pass on each
+original and Binaryen 133 `-O3`, `-Os`, `-Oz` output under parallel Bash 3.2/
+Make 3.81 without jobserver warnings. Source hashes match after CI/live.
+
+Evidence lives under `/tmp/ic-jobs-hook-qualification.EnxLxR/`; its
+`graph-timers-0175/` contains the passing CI/live logs, frozen graph, CLI receipt
+and source hashes. Attempt `jobs-recovery.XlhOGX/` retains exact variant/server
+artifacts; original Wasm SHA-256 is
+`5b5f1ac1fd336d9d11b5c0b2dedf8ca5d6e0d2c7210fee22893bd848ee48a6b6`.
+Final documentation checks/hash binding follow separately. New native Jobs
+acceptance remains in [#17](https://github.com/dragginzgame/ic-jobs/issues/17);
+hosted optimized recovery acceptance remains in [#11](https://github.com/dragginzgame/ic-jobs/issues/11).
+Host 0.12.8's Apple Silicon job passes both hook checks, then fails its own
+fixture-retention test; the [owning report](https://github.com/dragginzgame/ic-host-tooling/issues/57#issuecomment-6100282418)
+records the log and retained artifact. No sibling repair was attempted. Package
+metadata remains 0.5.4; this work is local, with no commit, push, release,
+publication or hosted dispatch.
+
+## Earlier pending 0.5.4 qualification at Shared 0.3.7
+
 Pending compatible **0.5.4** now adopts committed Shared **0.3.7** at
 `34e5ad7aac3599306c9572bb547f2239d09df1a3`, through its canonical exporter with
 the existing 79-file selection. Shared rejects failed Cargo-tool activation
