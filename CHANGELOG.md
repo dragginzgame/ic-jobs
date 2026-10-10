@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.0]
+## [0.5.0] - 2026-10-10
 
 - **Breaking tooling:** Adopt Shared Tooling 0.3.0. `install-tools` prepares the
   complete host, IC and Rust toolsets in order, then selected cargo-edit;
