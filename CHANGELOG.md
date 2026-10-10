@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.5]
+
+- Adopt Shared Tooling 0.2.12 and remove the temporary Make flag parser. Canonical
+  admission rejects hidden unsafe modes and overwritten invocation evidence
+  ([#12](https://github.com/dragginzgame/ic-jobs/issues/12),
+  [shared #30](https://github.com/dragginzgame/shared-tooling/issues/30)).
+- Keep formatting output concise while retaining full failure diagnostics locally
+  and collecting them in CI artifacts
+  ([#13](https://github.com/dragginzgame/ic-jobs/issues/13)).
+- Reject line breaks in snapshot directory paths before export or verification
+  can select a different checkout
+  ([shared #95](https://github.com/dragginzgame/shared-tooling/issues/95)).
+
 ## [0.4.4] - 2026-10-10
 
 - Exercise authorized create, inspect, bounded list, cancel and due-dispatch

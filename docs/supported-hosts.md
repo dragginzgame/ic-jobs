@@ -100,6 +100,7 @@ required to run setup. Make targets and CI select this same local tool set.
 | Local IC tool setup | Bash 3.2+, `curl`, `tar`, xz/gzip, Perl, and a SHA-256 implementation; see [IC tools](ic-tools.md) |
 | Nonempty Cargo test helper | Cargo with normal libtest summaries, `awk`, and `tee` |
 | Exact release-tag checker | Git and the caller's selected exact commit/version |
+| Exact crates.io observation | Bash/curl for presence; metadata mode additionally requires jq and curl 8.4.0+ for bounded downloads |
 | `scripts/ci/run-sccache.sh` | An executable `sccache` binary |
 | Snapshot verification | A SHA-256 implementation |
 | Snapshot refresh | Git, a clean Shared Tooling checkout, and a SHA-256 implementation |
@@ -170,6 +171,8 @@ failed and interrupted setup, and atomic activation using substituted payloads;
 only the separate native installation step qualifies actual upstream binaries.
 Failure-artifact collection runs after native qualification and includes installer
 logs and retained host/IC candidate directories as well as portable fixtures.
+It also selects the compact formatting runner's `formatting.*` failure logs from
+the selected temporary root; CI callers use `RUNNER_TEMP` for those logs.
 It also selects available `rust-tools-*.log` files and `.tools/rust/build`,
 independently of compact host/IC retention. Rust build evidence is selected only
 through physical parent directories; a final build symlink is retained without

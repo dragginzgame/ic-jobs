@@ -17,10 +17,15 @@ as described in the README, alongside the development toolchain.
 Shared Make entrypoints require recipe execution and failure propagation.
 Remove `-i`, `--ignore-errors`, `-n`, `-t`, `-q` and inherited equivalents;
 these modes are refused before recipes run, including formatting commands.
-Jobs also checks invocation modes retained in `MFLAGS` when command-line
-`MAKEFLAGS` is cleared or replaced. This consumer-owned admission supplements
-the shared probe until [Shared #30](https://github.com/dragginzgame/shared-tooling/issues/30)
-covers that case; the adopted snapshot stays unchanged.
+The shared probe checks invocation modes retained in `MFLAGS` independently
+when command-line `MAKEFLAGS` is cleared or replaced. Leave `MFLAGS` generated
+by GNU Make; command-line and Makefile assignments to it are refused. Jobs uses
+this canonical admission without a supplementary flag parser.
+
+Formatting reports a short success/failure summary. A failure retains the full
+formatter output at the reported path; configured CI collects those logs and
+tool evidence through the reviewed shared action. `make test-formatting-evidence`
+checks local failure propagation and archive contents without a hosted upload.
 
 Before ordinary offline checks, prepare the selected dependency graph explicitly
 with `cargo fetch --locked`. Standard release commands include that locked fetch

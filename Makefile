@@ -1,10 +1,4 @@
 .DEFAULT_GOAL := help
-# Shared #30: MFLAGS retains modes hidden by command-line MAKEFLAGS replacement.
-# Keep this Jobs-owned admission outside the snapshot until its owner covers it.
-override _jobs_make_execution_flags := $(filter-out --% %=%,$(firstword $(MAKEFLAGS)) $(MFLAGS))
-ifneq ($(strip $(foreach mode,i n t q,$(findstring $(mode),$(_jobs_make_execution_flags)))),)
-$(error ic-jobs requires Make recipe execution and failure propagation; remove ignore-errors, dry-run, touch and question modes)
-endif
 export RELEASE_DELIVERY ?= direct
 include make/tools.mk
 include make/release.mk
@@ -13,11 +7,11 @@ include make/rust-format.mk
 install-tools: install-rust-tools install-release-tools
 tools-check: rust-tools-check release-tools-check
 
-.PHONY: help version install-hooks install-release-tools release-tools-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling package publish-check publish ci
+.PHONY: help version install-hooks install-release-tools release-tools-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling test-formatting-evidence package publish-check publish ci
 help:
 	@echo "Focused: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
 	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-release-commands"
-	@echo "Release tooling: version, release-tools-check, test-release-tooling"
+	@echo "Tooling fixtures: version, release-tools-check, test-release-tooling, test-formatting-evidence"
 	@echo "Registry preparation: package (offline), publish-check (registry dry run; no upload)"
 	@echo "Explicit setup: install-tools, tools-check, install-hooks"
 	@echo "Complete gate: ci (explicit request or configured CI)"
@@ -71,10 +65,13 @@ check-pins:
 	bash scripts/ci/check-dependency-pins.sh --cargo-inheritance
 
 check-release-commands:
-	bash scripts/ci/check-release-commands.sh . make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh
+	bash scripts/ci/check-release-commands.sh . make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh
 
 test-release-tooling:
 	bash scripts/release/test-tooling.sh
+
+test-formatting-evidence:
+	bash scripts/ci/test-formatting-evidence.sh
 
 package:
 	cargo package -p ic-jobs --all-features --locked --offline --allow-dirty
@@ -85,7 +82,7 @@ publish-check:
 publish:
 	+@bash scripts/release/publish.sh "$(RELEASE_REMOTE)"
 
-ci: shared-tooling-check check-doc-links check-pins check-release-commands test-release-tooling fmt-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check package
+ci: shared-tooling-check check-doc-links check-pins check-release-commands test-release-tooling test-formatting-evidence fmt-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check package
 
 .PHONY: release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
 _release_targets := release-patch release-minor release-major release-resume release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check

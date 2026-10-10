@@ -118,7 +118,7 @@ MAKE
         if grep -i jobserver "$fixture/recursive-selection.log" > /dev/null; then exit 1; fi
         for target in release-patch release-minor release-major release-resume fmt fmt-check publish; do
             for mode in -i --ignore-errors -n --dry-run -t --touch -q --question -kin; do
-                for controls in direct inherited cleared replaced; do
+                for controls in direct inherited cleared replaced erased-mflags; do
                     label="refused-mode-$target-$mode-$controls"
                     cp .git/index "$fixture/mode-index"
                     if [[ "$controls" == direct ]]; then
@@ -128,11 +128,17 @@ MAKE
                             make --no-print-directory "$target" VERSION="$candidate"
                     elif [[ "$controls" == cleared ]]; then
                         refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS=
-                    else
+                    elif [[ "$controls" == replaced ]]; then
                         refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS=--no-print-directory
+                    else
+                        refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS= MFLAGS=
                     fi
                     [[ "$refusal_status" == 2 ]]
-                    grep -F 'Make recipe execution and failure propagation' "$fixture/$label.log" > /dev/null
+                    if [[ "$controls" == erased-mflags ]]; then
+                        grep -F "generated MFLAGS" "$fixture/$label.log" > /dev/null
+                    else
+                        grep -F 'Make recipe execution and failure propagation' "$fixture/$label.log" > /dev/null
+                    fi
                     cmp .git/index "$fixture/mode-index"
                     [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]]
                     [[ ! -e .git/gate-events && ! -s "$TOOLING_FETCH_EVENTS" ]]
@@ -141,6 +147,13 @@ MAKE
                 done
             done
         done
+        # Even harmless invocations cannot independently assign the evidence of
+        # the running Make's options, whether by CLI or an extra Makefile.
+        refuse refused-mflags-assignment make --no-print-directory help MFLAGS=
+        grep -F 'generated MFLAGS' "$fixture/refused-mflags-assignment.log" > /dev/null
+        printf 'override MFLAGS :=\n' > "$fixture/mflags.mk"
+        refuse refused-mflags-include make --no-print-directory -f "$fixture/mflags.mk" -f Makefile help
+        grep -F 'generated MFLAGS' "$fixture/refused-mflags-include.log" > /dev/null
     fi
     # Jobs selects direct release delivery only. Unsupported PR delivery must
     # stop before fetching, validating or mutating this committed fixture.

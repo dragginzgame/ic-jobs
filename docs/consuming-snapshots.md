@@ -4,6 +4,14 @@ CI and release behavior must not depend on a sibling checkout, a moving Git
 branch, or network availability. Consumers vendor a reviewed file set and
 record its exact Shared Tooling source revision.
 
+Directory paths must not contain LF or CR characters. Snapshot refresh and
+verification reject them in both supplied and resolved physical paths, including
+ancestor directories and symlink destinations. They never trim a forbidden name
+into another checkout. Rename an affected operational directory explicitly before
+using these commands; existing artifacts are not renamed or deleted automatically.
+Spaces and ordinary physical aliases remain supported. Snapshot-relative file
+and manifest paths also reject LF, CR and tab characters.
+
 ## Initial snapshot
 
 Run the refresh helper from a clean Shared Tooling checkout:
@@ -406,7 +414,10 @@ policy:
   validation adapters. See the [release example](releases.md#makefile-example).
 - `make/rust-format.mk`, included after `make/tools.mk`,
   supplies the simple root-workspace formatting commands. Select both includes,
-  `scripts/ci/check-format-tools.sh` and the reviewed pin file. Keep richer
+  `scripts/ci/check-format-tools.sh`, `scripts/ci/run-formatting.sh` and the
+  reviewed pin file. The wrapper reports one success line and retains failure
+  diagnostics behind a two-line summary. Include it in isolated hook fixtures.
+  Refresh the failure collector to retain `formatting.*` logs in CI. Keep richer
   workspace/frontend recipes local under the [formatting rules](../rules/git-hooks.md).
 
 Both includes require the adjacent `make/execution.mk` and its execution-probe
@@ -497,6 +508,12 @@ document and each selected helper in the snapshot, and move callers before
 deleting duplicated code. Keep product-specific checks and publication policy
 local. Adoption must wait for a reviewed committed source revision; local
 upstream tests do not establish that consumers have refreshed their snapshots.
+
+Exact registry metadata uses the existing `check-crates-io-version.sh` selection
+with `--metadata NEW-DIRECTORY`; no additional shared script is required. Prepare
+jq and curl 8.4.0+ for that mode. Retain each attempt's directory and handle all
+three statuses before removing local transport/parsing. The consumer still owns
+payload verification, yanked-version acceptance and publication reconciliation.
 
 File-digest generation uses the checksum verifier's additive `--print` interface,
 so its existing snapshot file set is sufficient. Refresh that verifier before

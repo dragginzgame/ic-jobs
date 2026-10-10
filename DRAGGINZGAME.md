@@ -252,6 +252,13 @@ Consumer choices described in those guides remain subject to this baseline.
 
 ## Rust workspaces and portable tooling
 
+- Directory names for repositories, workspaces, tooling and operational inputs
+  must not contain line-feed (LF) or carriage-return (CR) characters, including
+  ancestor directories and resolved symlink destinations. Do not create or select
+  such directories for normal work. Reject invalid paths before trimming or
+  normalizing them; never silently select a different path. Deliberate negative
+  test fixtures may contain forbidden names. Preserve existing artifacts and
+  evidence with those names; this rule does not authorize renaming or deletion.
 - Provide [local developer setup](docs/local-setup.md) through explicit
   `make install-tools` and offline `make tools-check`, following the
   [required tool inventory](docs/local-setup.md#required-tool-inventory).
