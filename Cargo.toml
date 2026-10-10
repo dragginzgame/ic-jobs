@@ -1,5 +1,6 @@
 [workspace]
-members = ["crates/ic-jobs"]
+members = ["apps/job-consumer", "crates/ic-jobs", "crates/jobs-canister-tests"]
+default-members = ["crates/ic-jobs"]
 resolver = "3"
 
 [workspace.package]
@@ -11,8 +12,13 @@ description = "Durable application job policies for Internet Computer canisters"
 repository = "https://github.com/dragginzgame/ic-jobs"
 
 [workspace.dependencies]
+candid = "0.10"
+ic-cdk = "0.20"
+ic-jobs = { path = "crates/ic-jobs" }
 ic-memory = "0.34"
+ic-testkit = "0.31"
 ic-timers = "0.16"
+jobs-test-consumer = { path = "apps/job-consumer" }
 serde = "1.0"
 serde_json = "1.0"
 

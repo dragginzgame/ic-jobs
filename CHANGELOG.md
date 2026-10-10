@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.7]
+
+- Add an unpublished canister consumer with authorized task management, stable
+  queue storage, timer reconstruction and independent delivery receipts. Add an
+  explicit PocketIC harness for upgrade, rollback and lost-result qualification;
+  ordinary CI builds it without launching the server
+  ([#11](https://github.com/dragginzgame/ic-jobs/issues/11)).
+- Include app-owned workspace members in committed release-metadata checks.
+
 ## [0.4.6] - 2026-10-10
 
 - Adopt IC Memory 0.34 in the test consumers, using one host-owned allocation

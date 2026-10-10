@@ -54,7 +54,7 @@ new_repository() {
     repository="$fixture/$name"
     mkdir -p "$repository"
     cp "$root"/{Cargo.toml,Cargo.lock,CHANGELOG.md,README.md,LICENSE,Makefile,.gitignore,rust-toolchain.toml} "$repository/"
-    cp -R "$root/crates" "$root/scripts" "$root/make" "$root/ci" "$repository/"
+    cp -R "$root/crates" "$root/apps" "$root/scripts" "$root/make" "$root/ci" "$repository/"
     cat >> "$repository/Makefile" <<'MAKE'
 
 # Substitute the existing installer/check effects, retaining actual routing.
@@ -67,7 +67,7 @@ release-tools-check:
 	@test "$${TOOLING_CHECK_FAILURE:-0}" = 0 && test -f .git/release-tool-ready
 shared-tooling-check host-tools-check ic-tools-check format-tools-check:
 	@:
-check test-jobs test-consumers check-msrv check-wasm clippy docs-check package:
+check test-jobs test-consumers check-consumer check-msrv check-wasm clippy docs-check package:
 	@printf 'unexpected build\n' >> .git/validation-events; exit 49
 MAKE
     cd "$repository"

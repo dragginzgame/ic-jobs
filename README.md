@@ -16,6 +16,10 @@ The crate supports:
 
 ## Use
 
+The unpublished [canister consumer](apps/job-consumer/README.md) demonstrates
+application-owned storage, management and lifecycle integration. Its separate
+PocketIC harness is compiled by CI; live qualification is explicitly selected.
+
 ```rust
 use ic_jobs::{Job, JobId, Outcome, RetryPolicy, Schedule};
 

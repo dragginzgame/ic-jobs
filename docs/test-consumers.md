@@ -93,7 +93,7 @@ range-based bootstrap is added here.
 ## Consumer memory requests
 
 IC Memory is a development dependency selected from the root workspace catalog
-(`0.33`, locked to 0.33.4). Each fixture contributes one checked `MemoryRequest`
+(`0.34`, locked to 0.34.1). Each fixture contributes one checked `MemoryRequest`
 with a distinct authority and permanent logical key: `test.notifications.queue.v1`
 for job records and immutable notification payloads, and
 `test.maintenance.state.v1` for the maintenance record, entries and counter.
@@ -122,56 +122,20 @@ coordination requirements. No old allocation API or fallback remains in Jobs'
 consumers; no existing Job format or retained installation is reset. Jobs' library
 acquires no storage dependency or lifecycle hook.
 
-## Proposed durable canister consumer
+## Durable canister consumer
 
-The next composition requested by the maintainer is a small canister consumer
-with a management API and actual upgrade recovery. Its implementation and
-qualification are tracked in [#11](https://github.com/dragginzgame/ic-jobs/issues/11).
-This section records the intended canister architecture. The management flow is
-exercised natively above; Candid endpoints, canister storage integration and
-actual IC timer reconstruction remain unimplemented.
+The unpublished [application canister](../apps/job-consumer/README.md) now
+implements an authenticated management API, bounded stable queue, local counter
+tasks, external delivery receipts and lifecycle-owned timer reconstruction.
+All decoded records still cross `Job::restore`; restored Running/Uncertain work
+stays blocked. It owns a new test installation rather than changing these native
+consumers' existing snapshots or any deployed format.
 
-The consumer API should authorize task creation/scheduling, job inspection,
-bounded queue listing, pending cancellation and bounded dispatch of eligible
-due work. Startup reconstructs retained tasks. `Job::start` still requires a
-due Pending job; cancellation cannot undo Running or Uncertain effects.
-Exact-attempt reconciliation remains required before retry. API names and the
-stable byte format are to be selected during implementation; force-run,
-arbitrary rescheduling and replay are not implied by this management surface.
-
-The consumer owns authentication, immutable execution payloads, handlers, storage,
-codec, due-time index, bounds and lifecycle hooks. Jobs supplies checked records
-and scheduling; IC Timers supplies volatile wakeups. IC Memory should validate
-stable-region ownership before stores open. The selected stable structure and
-codec then retain `JobRecord`, payload and queue/index metadata; IC Memory does
-not serialize jobs or validate their transitions.
-
-An admitted API mutation applies the checked Jobs transition, updates stable
-record/payload/index state consistently, derives the earliest global pending
-deadline and calls `timers::reconcile` on the consumer's single watchdog.
-Enqueue, cancellation, completion and explicit disposition all rederive this
-wakeup; no pending work leaves it inactive. Stable writes and timer changes
-belong to the same synchronous message segment and a trap rolls that segment
-back. Refused mutations and timer-reconciliation failures must not report a
-successful persisted schedule. The implementation must qualify that boundary.
-
-Commit Running intent before exposing an external effect, using a consumer-owned
-continuation because the synchronous watchdog cannot await. Persist the exact
-result and update scheduling afterward. Lost replies and interrupted result
-writes keep work blocked until receipt evidence or explicit disposition resolves
-it; upgrading does not authorize replay.
-
-During `post_upgrade`, validate IC Memory allocations, open retained stores,
-boundedly decode records through `Job::restore`, initialize IC Timers and
-reconstruct required wakeups from durable deadlines before downstream hooks.
-Provider handles, closures and the timer registry are recreated. Overdue work
-follows the existing bounded CatchUp/Skip behavior; Running and Uncertain work
-remains blocked.
-
-Use IC Testkit for the separate host harness and PocketIC setup/check ownership.
-Test real wakeup changes, dispatch, retained jobs/payloads/deadlines across an
-upgrade, overdue bounds, invalid restored records, message rollback and
-lost-reply reconciliation without duplicate effects. Testkit already depends on
-the Host crates; a direct Host dependency needs a concrete additional caller.
-Keep host dependencies outside the Jobs library's Wasm graph. Rust 1.88,
-native macOS qualification and live IC recovery remain separate requirements.
+`make check-consumer` runs native stable-memory tests, builds the Rust 1.88 Wasm,
+compiles the separate Testkit harness and checks native/Wasm Clippy. Ordinary CI
+includes these checks without launching a server. Explicit Testkit CLI/server
+preparation and `make test-canister` select the live upgrade, rollback, watchdog
+and lost-result scenarios. Their implementation is present, but live execution
+and native macOS acceptance remain source-bound qualification work in
+[#11](https://github.com/dragginzgame/ic-jobs/issues/11). The original small native
+consumers remain focused models; they do not substitute for those IC observations.

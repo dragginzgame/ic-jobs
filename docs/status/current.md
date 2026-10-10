@@ -1,5 +1,76 @@
 # Current handoff
 
+IC Jobs **0.4.6** is pushed at
+`33463211e61b007777aeac0699bd5ea2b01820a9`, matching public main. The annotated
+`v0.4.6` object `a557c0f8738be6a6b82d3e4f1ae5dee06643e386` matches GitHub,
+and the retained release plan is complete. Its exact-source
+[CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38042280637) passes Linux,
+Apple Silicon and Intel macOS. This completes the delivered 0.2.13 adoption
+qualification for [#14](https://github.com/dragginzgame/ic-jobs/issues/14).
+Registry publication was not independently checked.
+
+Pending compatible **0.4.7** adds the unpublished
+[consumer canister](../../apps/job-consumer/README.md) and a separate Testkit
+host harness for [#11](https://github.com/dragginzgame/ic-jobs/issues/11).
+The public Jobs API, stored JobRecord and Rust 1.88 floor remain unchanged.
+The new consumer owns its bounded stable snapshot, authenticated management,
+counter/delivery payloads, receipt authority and lifecycle exports. The one
+watchdog is reconstructed after all retained records pass `Job::restore`.
+It commits Running intent before external dispatch; absent receipts retain
+blocked work, while exact retained receipts permit explicit disposition.
+
+The selected graph contains Memory 0.34.1, Timers 0.16.7 and Testkit 0.30.0.
+Memory 0.34.1 was already selected in the incoming lock; concurrent selection
+updates to Timers 0.16.7 and the Testkit 0.30 catalog are retained. Public Testkit
+0.30.0 is `6ac161b8ed689012bf8b0ce926946f94ea9f407d`; Timers 0.16.7 is
+`999d9b5c3a84ec5abd729ca72b8f259abbb060e1`. Published selected API sources
+were reviewed directly. Host/Testkit dependencies stay in the separate host
+package; default workspace commands still select the Jobs library.
+PocketIC 16.1.0 requires exact thiserror 2.0.18, so the expanded graph necessarily
+replaces the previous compatible 2.0.21 selection. A precise attempt to retain
+2.0.21 was refused by that upstream constraint; it made no lock mutation.
+Other released registry identities remain selected alongside the required new
+host dependencies. The final lock SHA-256 is
+`73045efaeecaa8bb4800eb9fd6cf83d9f68bc58b77f995eceb37f09bdaa9e72d`.
+
+Five native stable-cell consumer tests pass at Rust 1.88, and the initial focused
+native/Wasm/harness compile-only and strict Clippy checks pass. An initial
+compile found undocumented Candid fields and an unused import; those were fixed.
+Evidence is retained at `/tmp/ic-jobs-consumer-native.log` and
+`/tmp/ic-jobs-consumer-check.log`. Final `make check-consumer` passes in
+`/tmp/ic-jobs-consumer-check-final.log`: five native tests, a linked Rust 1.88
+release Wasm, host harness compilation and warnings-denied native/Wasm Clippy.
+The Wasm SHA-256 is
+`bea14e94468abb8426bd68cc93a84d5af420b9145e4d755a9f04d1ec353b3820`;
+Candid extraction succeeds at `/tmp/ic-jobs-consumer.did`.
+The original twenty consumer tests pass separately for core/timers, all 24 job
+tests pass, and Rust 1.88 core/timers native/Wasm plus Jobs Clippy pass in
+`/tmp/ic-jobs-consumer-integration.log`. That invocation then found committed
+metadata export omitted app members, retaining its failed fixture at
+`/tmp/jobs-release-tooling.EIJYOK` and selected metadata at
+`/tmp/jobs-committed-metadata.dDcXLw`. Exact-commit archive now supplies all
+workspace members without a second directory roster. Corrected real local Git
+release/publication substitute fixtures pass with Bash 5/GNU Make 4.3 and genuine
+Linux Bash 3.2.57/GNU Make 3.81 in `/tmp/ic-jobs-consumer-final-tools.log` and
+`/tmp/ic-jobs-consumer-release-bash32.log`. Snapshot, pins, formatting, ShellCheck,
+documentation links and diff checks pass. The selected Testkit CLI is not yet
+installed: its offline admission correctly refuses, without setup effects, in
+`/tmp/ic-jobs-consumer-cli-admission.log`.
+
+The full `make ci` gate remains unrun and explicitly selected under the
+maintainer's supplied overlay. Five live harness tests are implemented but
+not executed: management/timer upgrade recovery, synchronous write/timer trap
+rollback, lost sender-result/receipt disposition, invalid restore with controller
+snapshot recovery, and overdue policies. Live PocketIC and native macOS evidence
+for this working tree remain pending. No server installation, live gate, commit,
+release, push or publication has been performed during this batch.
+
+Shared 0.3.0's complete common toolset remains separate adoption work in
+[#15](https://github.com/dragginzgame/ic-jobs/issues/15), awaiting reviewed committed
+producer source at the earlier observation; no dirty upstream files were adopted.
+
+## Earlier 0.4.6 adoption evidence before delivery
+
 IC Jobs package version **0.4.5** is pushed at
 `c253b3aab8ce8c52ff93b69e1ae14f5dd86b74c9`. Public main matches local HEAD;
 the annotated `v0.4.5` object `063d7d0d7682a64513bc754ff9831261d68b1b9e`

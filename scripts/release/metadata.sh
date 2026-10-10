@@ -123,9 +123,10 @@ case "$operation" in
                 exit "$status"
             }
             trap cleanup_committed_metadata EXIT
-            # Cargo's manifest validator needs the selected workspace members
-            # and targets. Export their committed tree, never newer HEAD files.
-            git archive --format=tar "$RELEASE_COMMIT" Cargo.toml Cargo.lock CHANGELOG.md crates |
+            # Cargo needs every selected workspace member and target, including
+            # app-owned packages. The exact committed tree is the inventory;
+            # never substitute newer HEAD files or a second directory roster.
+            git archive --format=tar "$RELEASE_COMMIT" |
                 tar -xf - -C "$metadata_root"
         fi
         current_version="$(bash "$reader" "$metadata_root/Cargo.toml")"
