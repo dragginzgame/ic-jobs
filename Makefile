@@ -3,6 +3,7 @@ export RELEASE_DELIVERY ?= direct
 include make/tools.mk
 include make/release.mk
 include make/rust-format.mk
+export PATH := $(CURDIR)/.tools/rust/cargo-edit-$(shell . ci/release-tools.env && printf '%s' "$$IC_JOBS_CARGO_EDIT_VERSION")/bin:$(PATH)
 
 install-tools: install-rust-tools install-release-tools
 tools-check: rust-tools-check release-tools-check
@@ -20,11 +21,16 @@ help:
 	@echo "Recovery: rerun the release target, or release-resume VERSION=X.Y.Z"
 
 install-release-tools:
-	@. ci/release-tools.env && cargo install cargo-edit --version "=$$IC_JOBS_CARGO_EDIT_VERSION" --locked \
-		--no-default-features --features set-version --root "$(CURDIR)/.tools/rust" --target-dir "$(CURDIR)/.tools/rust/build"
+	+@. ci/release-tools.env && selected_root="$(CURDIR)/.tools/rust/cargo-edit-$$IC_JOBS_CARGO_EDIT_VERSION" && \
+		if test -e "$$selected_root" || test -L "$$selected_root"; then \
+			$(MAKE) --no-print-directory release-tools-check; \
+		else \
+			cargo install cargo-edit --version "=$$IC_JOBS_CARGO_EDIT_VERSION" --locked \
+				--no-default-features --features set-version --root "$$selected_root" --target-dir "$(CURDIR)/.tools/rust/build"; \
+		fi
 
 release-tools-check:
-	@. ci/release-tools.env && actual="$$(cargo set-version --version)" && test "$$actual" = "cargo-edit-set-version $$IC_JOBS_CARGO_EDIT_VERSION" || \
+	@. ci/release-tools.env && test -x "$(CURDIR)/.tools/rust/cargo-edit-$$IC_JOBS_CARGO_EDIT_VERSION/bin/cargo-set-version" && actual="$$(cargo set-version --version)" && test "$$actual" = "cargo-edit-set-version $$IC_JOBS_CARGO_EDIT_VERSION" || \
 		{ echo 'Missing or mismatched cargo-edit; run make install-release-tools' >&2; exit 1; }
 
 install-hooks:
@@ -67,7 +73,7 @@ check-pins:
 check-release-commands:
 	bash scripts/ci/check-release-commands.sh . make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh
 
-test-release-tooling:
+test-release-tooling: release-tools-check format-tools-check
 	bash scripts/release/test-tooling.sh
 
 test-formatting-evidence:
@@ -82,7 +88,13 @@ publish-check:
 publish:
 	+@bash scripts/release/publish.sh "$(RELEASE_REMOTE)"
 
-ci: shared-tooling-check check-doc-links check-pins check-release-commands test-release-tooling test-formatting-evidence fmt-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check package
+.PHONY: validation-tools-check
+validation-tools-check: host-tools-check ic-tools-check format-tools-check release-tools-check
+
+# Ordered recursive calls preserve admission before dependent work under -j.
+ci: shared-tooling-check
+	+$(MAKE) --no-print-directory validation-tools-check
+	+$(MAKE) --no-print-directory check-doc-links check-pins check-release-commands test-release-tooling test-formatting-evidence fmt-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check package
 
 .PHONY: release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
 _release_targets := release-patch release-minor release-major release-resume release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
@@ -95,8 +107,8 @@ endif
 version release-version:
 	@bash scripts/release/metadata.sh version
 
-release-preflight: release-tools-check
-	@bash scripts/release/metadata.sh preflight
+release-preflight:
+	+@bash scripts/release/metadata.sh preflight
 
 release-verify:
 	+CARGO_NET_OFFLINE=true VALIDATION_FAILURE_LOG_DIR="$$(git rev-parse --git-path release-state)/validation-failures" bash scripts/ci/run-validation-targets.sh --fail-fast ci

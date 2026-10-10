@@ -1,7 +1,78 @@
 # Current handoff
 
-IC Jobs package version **0.4.4** is pushed at
-`7470aebe60e10f84a5dd105eb96ee144865ac509`. Public main matches local HEAD;
+IC Jobs package version **0.4.5** is pushed at
+`c253b3aab8ce8c52ff93b69e1ae14f5dd86b74c9`. Public main matches local HEAD;
+the annotated `v0.4.5` object `063d7d0d7682a64513bc754ff9831261d68b1b9e`
+matches GitHub's tag reference, and the retained release plan is complete.
+The maintainer reports it live; registry publication was not independently checked.
+Release-source [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38038868582)
+has passed Linux (`114174945921`), Apple Silicon (`114174945776`) and Intel
+(`114174945917`) at the exact released source. The configured failure
+collector was skipped on the successful Linux gate, so this does not establish
+hosted failure-log upload. The released lock changes only the local Jobs version
+row from 0.4.4, with SHA-256
+`036531dc76445e1c562787a5c77dd8436b6b930d0cd4d460f4c3d1075c90c482`.
+
+Pending compatible **0.4.6** implements the requested upstream adoption. Shared
+Tooling **0.2.13** at `5864f468d39f8f9d1bd26fca1afe0e20f25f1b5e`, matching
+public main, is adopted through the canonical exporter from clean detached
+`/tmp/ic-jobs-adoption.4pCu8K/shared` (78 files). Source/candidate admission and
+locked fetch precede selected cargo-edit setup/check. Versioned tool roots retain
+older installations; valid selections are checked and reused without replacement,
+and invalid existing roots refuse rather than being silently repaired. Ordinary
+CI checks tools before dependent dispatch, including under parallel Make.
+This adopts the full-delivery-suite baseline; release and live IC execution
+retain separate authorization. Jobs has no selected Testkit CLI caller.
+[#14](https://github.com/dragginzgame/ic-jobs/issues/14) owns consumer delivery.
+Shared's [exact-source CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38039035514)
+passes Linux portable regression, both native macOS hosts and lint/security.
+
+IC Memory **0.34.0** is delivered at
+`958080df899ebfa7bb9c2d4c93bb8664bd23575d`, verified as public main and reviewed
+from `/tmp/ic-jobs-adoption.4pCu8K/memory`, excluding dirty sibling files. The
+maintainer's incoming catalog already selects 0.34; its entire locked selection
+is preserved, including Timers 0.16.5 and Metrics 0.3.7, at SHA-256
+`b6343c8d97d217ae33c6b0718a075d1f99c58658970268c66df4b0d004a279ee`.
+Consumers use the replacement request-only declaration and key-open APIs directly.
+One native host owns the shared pool, grants namespaces and bootstraps before
+component verification/open. Real stable cells on VectorMemory persist existing
+snapshot bytes; cold reopens retain IDs, payloads, deadlines and blocked Running/
+Uncertain attempts. A pending cancellation survives another reopen. Foreign
+claims fail without opening capability or changing retained backing bytes.
+Fault-injection byte stores remain separate native test models, not fallback
+readers for another allocation contract. No Job format or installation is reset.
+Memory stays a development dependency; normal core/timers trees have no Memory.
+The Jobs test graph has one Memory/stable-structures (0.7.2)/Timers identity.
+This is native consumer persistence evidence, not installed Jobs canister upgrade,
+timer reconstruction, IC rollback or final Canic/IcyDB composition; those remain
+with [#11](https://github.com/dragginzgame/ic-jobs/issues/11) and
+[Memory #44](https://github.com/dragginzgame/ic-memory/issues/44).
+
+All 20 consumer tests pass separately at Rust 1.88 for core and timers.
+The complete `make ci` passes on final code, including native/Wasm Rust 1.88
+checks for both feature selections, strict Clippy, doctests and verified packaging.
+Current metadata is still 0.4.5; packaging uploads nothing. Maintained actual
+release/admission/recovery/publication substitute fixtures pass on Linux Bash 5.2/
+GNU Make 4.3 and genuine Bash 3.2.57/GNU Make 3.81. They cover selected-root
+absence/invalidity/reuse, refusal before parallel builds, admitted setup/check
+ordering and failure, offline/network cache failures, dirty-source refusal and
+saved-release resume without reinstallation. Canonical Rust-tool installer
+fixtures also pass on both Linux shell profiles. Selected cargo-edit 0.13.13 was
+installed into its new root; corrected offline reuse preserves executable inode,
+bytes and lockfile. Snapshot, pin, formatting, ShellCheck, workflow, docs and diff
+checks pass. Logs are retained under `/tmp/ic-jobs-adoption.4pCu8K/`.
+An initial exporter invocation refused its temporary clone's local remote; the
+remote identity was corrected before adoption. The first reuse probe revealed
+Cargo replacing a byte-identical executable, so setup now explicitly checks and
+reuses valid existing roots; the earlier log remains separate. Initial lint
+source annotations were corrected before final lint. No sibling edits, commit,
+push, release, publication, hook activation or live qualification occurred.
+Native macOS results above bind released 0.4.5, not this working-tree adoption.
+The patch classification follows unchanged Jobs public API, record and Rust floor:
+the Memory hard cut affects private test consumers only.
+
+The preceding **0.4.4** was pushed at
+`7470aebe60e10f84a5dd105eb96ee144865ac509`;
 the annotated `v0.4.4` object `07743ef1f17f86fcddc930f27796b165bf28cd4f`
 matches GitHub's tag reference, and the retained release plan is complete.
 Release-source [CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38037161776)
@@ -9,7 +80,7 @@ has passed Linux (`114169891050`); Apple Silicon (`114169890892`) and Intel
 (`114169891111`) were queued at the latest observation. These results qualify
 0.4.4 only. No crates.io observation was made for this release during continuation.
 
-Pending **0.4.5** adopts committed Shared Tooling **0.2.12** at
+Delivered **0.4.5** adopts committed Shared Tooling **0.2.12** at
 `a8ba9b461b831846eacf64452e6ddcd2acd000f1`, verified as public main, through
 the canonical exporter from `/tmp/ic-jobs-shared-0212.gyuP1R/source`.
 The clean detached source excludes sibling worktree edits; the selected snapshot
@@ -47,15 +118,16 @@ Current snapshot integrity, pin admission, actual release adapters, formatting,
 ShellCheck, workflow lint, documentation links and whitespace checks pass.
 An initial lint attempt stopped on an unresolved source-file annotation in the
 new fixture; the annotation was corrected before final lint qualification.
-The released lock remains unchanged at SHA-256
+The 0.4.4 lock remained unchanged during this pre-release batch at SHA-256
 `682325851ac31ad8e4ea1a0a6abd1501223d45dec059c9e70d98113089df259b`.
 This tooling-only patch changes no Rust API, record, dependency selection or
 compiler floor. No full local CI/release gate, Rust requalification, native macOS,
 live IC or hosted upload qualification was run for this source. No commit, push,
-release, publication or real hook activation was performed. Consumer immutable
-delivery and source-bound macOS acceptance keep
+release, publication or real hook activation was performed by the agent for
+the local batch. The maintainer subsequently delivered 0.4.5; matching-source
+Linux and both macOS results now complete acceptance for
 [#12](https://github.com/dragginzgame/ic-jobs/issues/12) and
-[#13](https://github.com/dragginzgame/ic-jobs/issues/13) open.
+[#13](https://github.com/dragginzgame/ic-jobs/issues/13).
 
 The preceding IC Jobs 0.4.3 was released at
 `7939c8a53add5ab019cc26e97bd93274b5ed3a43` and pushed by the maintainer.
@@ -157,11 +229,11 @@ This native declaration
 evidence does not establish IC stable-store persistence, allocation recovery,
 Canic/IcyDB composition, message rollback or upgrades. The addition extends
 compatible 0.4.4, subsequently delivered by the maintainer.
-The [Memory owner now reports local implementation](https://github.com/dragginzgame/ic-memory/issues/44#issuecomment-6095440378)
+The [Memory owner initially reported local implementation](https://github.com/dragginzgame/ic-memory/issues/44#issuecomment-6095440378)
 of the 0.34.0 shared pool, namespace grants and unmanaged exclusions. That work
-is uncommitted and not an immutable delivered minor; Jobs still selects 0.33.4.
-Adoption, final Canic/IcyDB/Jobs coordination and real IC recovery remain pending
-at #44/#11. Local upstream implementation reports do not establish Jobs acceptance.
+was then uncommitted; Jobs still selected 0.33.4. Delivery and native Jobs adoption
+are now recorded for pending 0.4.6 above. Final Canic/IcyDB/Jobs coordination and
+real IC recovery remain at #44/#11; earlier reports do not establish that evidence.
 
 The authorized [Make repair](https://github.com/dragginzgame/ic-jobs/issues/12)
 adopts committed Shared Tooling **0.2.9** at
@@ -182,8 +254,8 @@ also failed its new cleared-flags case before implementation, retained at
 in `MFLAGS` at its own Makefile boundary, before the shared includes. This
 explicit consumer-owned adapter is permitted by the baseline; no vendored
 guard was patched. The supplementary parser is now retired by the committed
-canonical repair and actual-consumer regressions recorded for pending 0.4.5 above.
-Shared #30 is closed; source-bound consumer acceptance keeps #12 open.
+canonical repair and actual-consumer regressions delivered in 0.4.5 above.
+Shared #30 is closed; source-bound consumer acceptance for #12 now passes.
 
 Focused release/publication, actual adapter, root/recursive-Make and formatting
 fixtures pass on Linux with Bash 5.2.21/GNU Make 4.3 and genuine

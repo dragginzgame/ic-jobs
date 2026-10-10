@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.6]
+
+- Adopt IC Memory 0.34 in the test consumers, using one host-owned allocation
+  pool and key-only opens. Exercise stable-cell cold reopens with retained job
+  payloads, deadlines and blocked effects
+  ([#11](https://github.com/dragginzgame/ic-jobs/issues/11),
+  [Memory #44](https://github.com/dragginzgame/ic-memory/issues/44)).
+- Adopt Shared Tooling 0.2.13. Prepare the selected cargo-edit installation after
+  release source/cache admission, preserve previous tool installations, and check
+  tools before parallel validation dispatch
+  ([#14](https://github.com/dragginzgame/ic-jobs/issues/14)).
+
 ## [0.4.5] - 2026-10-10
 
 - Adopt Shared Tooling 0.2.12 and remove the temporary Make flag parser. Canonical

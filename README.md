@@ -120,8 +120,10 @@ fixtures covering commit failures, reconstruction, receipt reconciliation and
 bounded recurring work. The notification fixture also exercises authorized
 management, bounded inspection/listing and committed wakeup decisions.
 Both fixtures contribute checked, key-only storage requests using the
-development dependency IC Memory. Host allocation and stable persistence remain
-pending the shared-pool contract; Jobs' library dependency graph is unchanged.
+development dependency IC Memory 0.34. A native host fixture bootstraps one pool
+and reopens stable cells, retaining payloads/deadlines and blocked effects.
+Real canister upgrade and timer reconstruction remain pending; Jobs' library
+dependency graph is unchanged.
 See [test consumers](docs/test-consumers.md) for their
 storage and timer boundaries.
 
@@ -133,10 +135,12 @@ release 0.2.1 passed native CI on all three hosts. See the
 live IC recovery remains pending.
 
 Common tooling is adopted from reviewed Shared Tooling revision
-`a8ba9b461b831846eacf64452e6ddcd2acd000f1` (0.2.12).
+`5864f468d39f8f9d1bd26fca1afe0e20f25f1b5e` (0.2.13).
 Run `make install-tools` explicitly to prepare the checkout-local host, IC and
 Rust tools; `make tools-check` verifies them offline. For an interactive shell,
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/bin` to PATH.
+Make additionally selects cargo-edit's versioned root for release commands;
+`make install-release-tools` prepares it and `make release-tools-check` admits it.
 The shared IC bundle contains Quill, ICP CLI, didc, ic-wasm and wasm-opt.
 After updating an older six-tool bundle, run `make install-ic-tools` explicitly,
 then `make ic-tools-check`; previous bundles and receipts are retained.

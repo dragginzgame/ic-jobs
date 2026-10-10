@@ -11,7 +11,9 @@ crates.io.
 Install the required host and Rust tools with `make install-tools`. The
 consumer's additional `make install-release-tools` installs pinned cargo-edit
 0.13.13 with its set-version feature; `make release-tools-check` checks the
-selected executable without downloads. Prepare Rust 1.88.0 and its Wasm target
+selected executable without downloads. Versioned cargo-edit roots preserve older
+installations; the selected root precedes other executables in Make's PATH.
+Prepare Rust 1.88.0 and its Wasm target
 as described in the README, alongside the development toolchain.
 
 Shared Make entrypoints require recipe execution and failure propagation.
@@ -34,9 +36,15 @@ metadata writes; no separate manual fetch is required. This preparation may use
 the registry but does not upgrade dependencies or rewrite the lockfile. Cargo's
 explicit offline environment/configuration remains authoritative; missing inputs
 then stop the release with its original fetch failure. Version reads, metadata
-checks and the validation gate remain offline. Commit the intended source through
-the contribution
-workflow; release commands require an existing source commit and refuse unrelated
+checks stay offline. After successful admission/fetch, preflight runs
+`make install-release-tools` followed by `make release-tools-check`; setup reuses
+the selected installation and does not replace older roots. Saved-release
+reconciliation precedes this preparation. Ordinary `make ci` never installs:
+it runs `validation-tools-check` before dispatching its checks/builds, including
+under parallel Make. `make test-release-tooling` also admits its formatter and
+release-tool prerequisites before starting the fixture. The validation gate remains
+offline. Commit the intended source through the contribution workflow; release
+commands require an existing source commit and refuse unrelated
 staged, unstaged or untracked work. The first tagged release, 0.1.1, advanced the
 initial 0.1.0 implementation with compatible delivery tooling and packaging fixes.
 The changelog records the initial implementation separately from those additions.

@@ -21,6 +21,7 @@ unset RELEASE_REMOTE RELEASE_BRANCH RELEASE_MAKE VERSION
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE
 unset TOOLING_GATE_FAILURE TOOLING_REGISTRY_HTTP TOOLING_REGISTRY_RESULT TOOLING_UPLOAD_RESULT
 unset TOOLING_FETCH_FAILURE
+unset TOOLING_INSTALL_FAILURE TOOLING_CHECK_FAILURE TOOLING_BUILD_EVENTS
 export RUSTUP_AUTO_INSTALL=0
 export TOOLING_REAL_CARGO
 TOOLING_REAL_CARGO="$(command -v cargo)"
@@ -54,6 +55,21 @@ new_repository() {
     mkdir -p "$repository"
     cp "$root"/{Cargo.toml,Cargo.lock,CHANGELOG.md,README.md,LICENSE,Makefile,.gitignore,rust-toolchain.toml} "$repository/"
     cp -R "$root/crates" "$root/scripts" "$root/make" "$root/ci" "$repository/"
+    cat >> "$repository/Makefile" <<'MAKE'
+
+# Substitute the existing installer/check effects, retaining actual routing.
+install-release-tools:
+	@test "$${TOOLING_INSTALL_FAILURE:-0}" = 0
+	@printf 'setup\n' >> .git/tool-events
+	@test -f .git/release-tool-ready || { printf 'installed\n' >> .git/tool-installs; touch .git/release-tool-ready; }
+release-tools-check:
+	@printf 'check\n' >> .git/tool-events
+	@test "$${TOOLING_CHECK_FAILURE:-0}" = 0 && test -f .git/release-tool-ready
+shared-tooling-check host-tools-check ic-tools-check format-tools-check:
+	@:
+check test-jobs test-consumers check-msrv check-wasm clippy docs-check package:
+	@printf 'unexpected build\n' >> .git/validation-events; exit 49
+MAKE
     cd "$repository"
     git init --quiet --initial-branch=main
     git config user.name 'Release tooling fixture'
@@ -81,6 +97,43 @@ refuse() {
         refusal_status=$?
     fi
 }
+
+# Exercise the actual selected-root check/reuse recipes. A matching executable
+# elsewhere cannot hide a missing selection; an invalid existing root is not
+# silently reinstalled. No installation is performed by this fixture.
+new_repository selected-tool
+cp "$root/Makefile" Makefile
+cat >> Makefile <<'MAKE'
+shared-tooling-check host-tools-check ic-tools-check format-tools-check:
+	@:
+check test-jobs test-consumers check-msrv check-wasm clippy docs-check package:
+	@printf 'unexpected build\n' >> .git/validation-events; exit 49
+MAKE
+# shellcheck disable=SC1091
+. ci/release-tools.env
+selected_root="$repository/.tools/rust/cargo-edit-$IC_JOBS_CARGO_EDIT_VERSION"
+mkdir -p "$repository/.tools/rust/cargo-edit-0.13.12/bin"
+printf 'previous installation\n' > "$repository/.tools/rust/cargo-edit-0.13.12/bin/retained"
+cp "$repository/.tools/rust/cargo-edit-0.13.12/bin/retained" "$fixture/previous-installation"
+refuse absent-selection make --no-print-directory release-tools-check
+refuse absent-parallel-ci make -j4 --no-print-directory ci
+[[ ! -e .git/validation-events && ! -e "$selected_root" ]]
+mkdir -p "$selected_root/bin"
+cat > "$selected_root/bin/cargo-set-version" <<'CARGO'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'cargo-edit-set-version %s\n' "$(cat .git/selected-version)"
+CARGO
+chmod +x "$selected_root/bin/cargo-set-version"
+printf '0.0.0\n' > .git/selected-version
+cp "$selected_root/bin/cargo-set-version" "$fixture/selected-executable"
+refuse invalid-selection make --no-print-directory release-tools-check
+refuse invalid-selection-setup make --no-print-directory install-release-tools
+cmp "$selected_root/bin/cargo-set-version" "$fixture/selected-executable"
+printf '%s\n' "$IC_JOBS_CARGO_EDIT_VERSION" > .git/selected-version
+CARGO_NET_OFFLINE=true make --no-print-directory install-release-tools release-tools-check > "$fixture/selected-reuse.log" 2>&1
+cmp "$selected_root/bin/cargo-set-version" "$fixture/selected-executable"
+cmp "$repository/.tools/rust/cargo-edit-0.13.12/bin/retained" "$fixture/previous-installation"
 
 # Exercise actual metadata preparation, commits, annotated tags and local atomic
 # pushes for every increment, without running the consumer's complete gate.
@@ -187,6 +240,7 @@ MAKE
         cmp "$unusual" "$fixture/source-untracked"
         [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" && ! -e .git/gate-events ]]
         [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e "$TOOLING_CACHE_READY" ]]
+        [[ ! -e .git/tool-events && ! -e .git/tool-installs ]]
         git restore --source=HEAD --staged --worktree -- README.md LICENSE
         rm "$unusual"
 
@@ -250,6 +304,23 @@ GIT
         cmp .git/index "$fixture/cache-index"
         for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
         [[ ! -e .git/gate-events && ! -e ".git/release-state/$candidate.plan" ]]
+        printf 'setup\ncheck\nsetup\ncheck\n' > "$fixture/expected-tools"
+        cmp .git/tool-events "$fixture/expected-tools"
+        [[ "$(wc -l < .git/tool-installs | tr -d ' ')" == 1 ]]
+        # Early admission under parallel Make must block the real ci dispatch.
+        mv .git/release-tool-ready "$fixture/selected-tool-ready"
+        refuse missing-parallel-ci make -j4 --no-print-directory ci
+        [[ ! -e .git/gate-events && ! -e .git/validation-events ]]
+        grep -F 'release-tools-check' "$fixture/missing-parallel-ci.log" > /dev/null
+        mv "$fixture/selected-tool-ready" .git/release-tool-ready
+        # Both preparation boundaries stop before gate or metadata mutation.
+        for failure in install check; do
+            if [[ "$failure" == install ]]; then controls=(TOOLING_INSTALL_FAILURE=1);
+            else controls=(TOOLING_CHECK_FAILURE=1); fi
+            refuse "failed-tool-$failure" env "${controls[@]}" make --no-print-directory release-patch
+            [[ ! -e .git/gate-events && -z "$(git tag)" ]]
+            for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
+        done
 
         refuse failed-gate env TOOLING_GATE_FAILURE=1 make --no-print-directory release-patch
         [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]]
@@ -273,6 +344,8 @@ GIT
     [[ "$(wc -l < .git/gate-events | tr -d ' ')" == 1 ]]
     make --no-print-directory release-resume "VERSION=$candidate" > "$fixture/resume-$kind.log" 2>&1
     [[ "$(wc -l < .git/gate-events | tr -d ' ')" == 1 ]]
+    # Reconciliation of delivered intent must not replay preparation.
+    [[ "$(wc -l < .git/tool-installs | tr -d ' ')" == 1 ]]
 done
 
 # The actual publication adapter and shared helpers use real local Git. Only

@@ -107,14 +107,20 @@ that refusal. A fresh native `MemoryRuntime` refuses opens before bootstrap;
 sealed requests alone do not grant committed allocation authority. Authority
 labels express ownership policy, not caller authentication.
 
-The fixtures still commit to their bounded byte store. The published IC Memory
-0.33 contract requires host authority ranges for actual allocation; the requested
-shared-pool hard cut is pending in
-[IC Memory #44](https://github.com/dragginzgame/ic-memory/issues/44).
-This dependency/declaration step neither implements that allocator nor establishes
-stable persistence or upgrades. The final host must gather declarations and
-recovered-metadata admission, bootstrap once, and open stores only after the
-allocation commit. Jobs' library acquires no storage dependency or lifecycle hook.
+The fault-injection consumers retain their bounded byte store. A separate native
+host fixture adopts delivered IC Memory 0.34 directly: one shared pool grants the
+two namespaces without component ranges or numeric IDs; the host bootstraps once
+before component adoption/open. Stable cells persist the same bounded snapshot
+bytes. Cold reopens retain allocation IDs, payloads and pending deadlines; reads
+restore through the existing `Job::restore` boundary. Running/Uncertain intent
+remains blocked, and cancellation persists across a subsequent cold reopen.
+Foreign-owner bootstrap fails without changing backing bytes or granting opens.
+This is actual stable-structure persistence on native VectorMemory, not an IC
+upgrade, message rollback, final Canic/IcyDB composition or live timer evidence.
+[IC Memory #44](https://github.com/dragginzgame/ic-memory/issues/44) retains those
+coordination requirements. No old allocation API or fallback remains in Jobs'
+consumers; no existing Job format or retained installation is reset. Jobs' library
+acquires no storage dependency or lifecycle hook.
 
 ## Proposed durable canister consumer
 
@@ -122,8 +128,8 @@ The next composition requested by the maintainer is a small canister consumer
 with a management API and actual upgrade recovery. Its implementation and
 qualification are tracked in [#11](https://github.com/dragginzgame/ic-jobs/issues/11).
 This section records the intended canister architecture. The management flow is
-exercised natively above; Candid endpoints, stable-memory persistence and actual
-IC timer reconstruction remain unimplemented.
+exercised natively above; Candid endpoints, canister storage integration and
+actual IC timer reconstruction remain unimplemented.
 
 The consumer API should authorize task creation/scheduling, job inspection,
 bounded queue listing, pending cancellation and bounded dispatch of eligible

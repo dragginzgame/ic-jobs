@@ -12,6 +12,9 @@ root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
+# shellcheck disable=SC1091
+. "$root/ci/release-tools.env"
+export PATH="$root/.tools/rust/cargo-edit-$IC_JOBS_CARGO_EDIT_VERSION/bin:$PATH"
 reader="$root/scripts/ci/read-cargo-workspace-version.sh"
 local_lock_packages() {
     # This repository permits only workspace-owned local packages. Cargo's
@@ -39,8 +42,6 @@ case "$operation" in
         # Refuse conflicting pending notes before a gate or preparation intent.
         awk -v version="${RELEASE_VERSION:?}" -v previous="$RELEASE_PREVIOUS" -v date="${RELEASE_DATE:?}" \
             -f scripts/ci/finalize-release-changelog.awk CHANGELOG.md > /dev/null
-        cargo set-version --help >/dev/null
-        cargo sort --help >/dev/null
         # Standard releases prepare the admitted graph before offline validation.
         # Cargo still honours an explicit offline environment/configuration.
         cargo fetch --locked || {
@@ -49,6 +50,11 @@ case "$operation" in
             echo 'prepare the selected graph with cargo fetch --locked; explicit offline settings still apply' >&2
             exit "$status"
         }
+        # The runner has already reconciled saved release intent. Prepare only
+        # this consumer's selected metadata executable after source/cache admission.
+        "${RELEASE_MAKE:-make}" --no-print-directory install-release-tools
+        "${RELEASE_MAKE:-make}" --no-print-directory release-tools-check
+        cargo sort --help >/dev/null
         ;;
     prepare)
         current_version="$(bash "$reader" Cargo.toml)"

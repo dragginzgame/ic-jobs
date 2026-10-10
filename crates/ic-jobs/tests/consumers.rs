@@ -1,7 +1,8 @@
 //! Small application-owned consumers using only the public Jobs API.
 //!
-//! Byte replacement models an atomic commit; reconstruction discards all volatile
-//! state. These native fixtures do not model IC message rollback or live timers.
+//! Byte replacement models an atomic commit for fault injection; a host fixture
+//! reopens actual stable cells on VectorMemory. These native fixtures do not
+//! model IC message rollback, installed upgrades or live timers.
 
 use std::{error::Error, fmt, io};
 
@@ -10,8 +11,10 @@ use ic_jobs::{
     RetryPolicy, Schedule, Scheduler,
 };
 use ic_memory::{
+    GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryManagerConfig,
     MemoryRequest, MemoryRuntime, RuntimeOpenError, SchemaMetadata, SealedDeclarationSnapshot,
-    StaticMemoryDeclarationError, ic_stable_structures::VectorMemory,
+    StaticMemoryDeclarationError,
+    ic_stable_structures::{Cell, VectorMemory},
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
@@ -496,12 +499,9 @@ impl Maintenance {
 fn consumer_memory_requests_compose_without_granting_open_authority() -> Result<()> {
     let notifications = Notifications::memory_request()?;
     let maintenance = Maintenance::memory_request()?;
-    let composed =
-        SealedDeclarationSnapshot::new(&[], &[], &[notifications.clone(), maintenance.clone()])?;
-    let reordered = SealedDeclarationSnapshot::new(&[], &[], &[maintenance, notifications])?;
+    let composed = SealedDeclarationSnapshot::new(&[notifications.clone(), maintenance.clone()])?;
+    let reordered = SealedDeclarationSnapshot::new(&[maintenance, notifications])?;
     assert_eq!(composed, reordered);
-    assert!(composed.registered_declarations().is_empty());
-    assert!(composed.registered_ranges().is_empty());
     assert_eq!(composed.requests().len(), 2);
     assert_ne!(
         composed.requests()[0].authority(),
@@ -513,7 +513,7 @@ fn consumer_memory_requests_compose_without_granting_open_authority() -> Result<
     let runtime = MemoryRuntime::new(VectorMemory::default())?;
     for request in composed.requests() {
         assert!(matches!(
-            runtime.open_memory_by_key(request.stable_key().as_str()),
+            runtime.open_memory(request.stable_key().as_str()),
             Err(RuntimeOpenError::NotBootstrapped)
         ));
     }
@@ -533,7 +533,7 @@ fn consumer_memory_collision_refuses_without_changing_retained_jobs() -> Result<
         SchemaMetadata::default(),
     )?;
     assert!(matches!(
-        SealedDeclarationSnapshot::new(&[], &[], &[requested.clone(), foreign]),
+        SealedDeclarationSnapshot::new(&[requested.clone(), foreign]),
         Err(StaticMemoryDeclarationError::DuplicateRequest { stable_key })
             if stable_key == *requested.stable_key()
     ));
@@ -541,6 +541,136 @@ fn consumer_memory_collision_refuses_without_changing_retained_jobs() -> Result<
     assert_eq!(maintenance.store.bytes, maintenance_bytes);
     assert_eq!(notifications.load()?.0[0].next_due_ns(), Some(100));
     assert_eq!(maintenance.load()?.0.next_due_ns(), Some(100));
+    Ok(())
+}
+
+#[test]
+fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> Result<()> {
+    let requests = [
+        Notifications::memory_request()?,
+        Maintenance::memory_request()?,
+    ];
+    let declarations = SealedDeclarationSnapshot::new(&requests)?;
+    let pool = MemoryAllocationPool::new(
+        vec![
+            MemoryAuthority::new("test.notifications", "test.notifications.")?,
+            MemoryAuthority::new("test.maintenance", "test.maintenance.")?,
+        ],
+        vec![],
+    )?;
+    let config = MemoryManagerConfig::new(1)?;
+    for uncertain in [false, true] {
+        let backing = VectorMemory::default();
+        let mut sender = Notifications::new()?;
+        sender.enqueue(
+            JobId(3),
+            200,
+            Notification {
+                recipient: "bob".into(),
+                body: "Later".into(),
+            },
+        )?;
+        let delivery = sender.prepare(100)?.unwrap();
+        if uncertain {
+            sender.finish(delivery.attempt, 101, Outcome::Uncertain)?;
+        }
+        let mut maintenance = Maintenance::new(MissedRunPolicy::Skip)?;
+        maintenance.wake(125)?;
+        let ids;
+        {
+            let mut host = MemoryRuntime::new_with_config(backing.clone(), config)?;
+            host.bootstrap(&declarations, &pool, &GenericAllocationPolicy)?;
+            ids = [
+                host.memory_id(requests[0].stable_key().as_str())?,
+                host.memory_id(requests[1].stable_key().as_str())?,
+            ];
+            assert_ne!(ids[0], ids[1]);
+            for (request, bytes) in requests
+                .iter()
+                .zip([&sender.store.bytes, &maintenance.store.bytes])
+            {
+                // The host opens only after commitment. Components verify their
+                // requirements without bootstrapping or selecting physical IDs.
+                host.verify_authority(
+                    &SealedDeclarationSnapshot::new(std::slice::from_ref(request))?,
+                    request.authority(),
+                )?;
+                Cell::init(
+                    host.open_memory(request.stable_key().as_str())?,
+                    bytes.clone(),
+                );
+            }
+        }
+        drop(sender);
+        drop(maintenance);
+        // A foreign claim cannot commit or open either store, nor change bytes.
+        let before = backing.borrow().clone();
+        let foreign = SealedDeclarationSnapshot::new(&[MemoryRequest::new(
+            "test.maintenance",
+            requests[0].stable_key().as_str(),
+            SchemaMetadata::default(),
+        )?])?;
+        {
+            let mut rejected = MemoryRuntime::new_with_config(backing.clone(), config)?;
+            assert!(
+                rejected
+                    .bootstrap(&foreign, &pool, &GenericAllocationPolicy)
+                    .is_err()
+            );
+            assert!(matches!(
+                rejected.open_memory(requests[0].stable_key().as_str()),
+                Err(RuntimeOpenError::NotBootstrapped)
+            ));
+        }
+        assert_eq!(*backing.borrow(), before);
+        // Discard runtime, cells and consumer state. Reopen retained cells from
+        // the same backing, including the original payload and blocked attempt.
+        for reopen in 0..2 {
+            let mut host = MemoryRuntime::new_with_config(backing.clone(), config)?;
+            host.bootstrap(&declarations, &pool, &GenericAllocationPolicy)?;
+            assert_eq!(host.memory_id(requests[0].stable_key().as_str())?, ids[0]);
+            assert_eq!(host.memory_id(requests[1].stable_key().as_str())?, ids[1]);
+            let mut queue = Cell::init(
+                host.open_memory(requests[0].stable_key().as_str())?,
+                Vec::<u8>::new(),
+            );
+            let state = Cell::init(
+                host.open_memory(requests[1].stable_key().as_str())?,
+                Vec::<u8>::new(),
+            );
+            let mut restored = Notifications {
+                store: Store {
+                    bytes: queue.get().clone(),
+                    writes_before_failure: None,
+                },
+            };
+            let restored_maintenance = Maintenance {
+                store: Store {
+                    bytes: state.get().clone(),
+                    writes_before_failure: None,
+                },
+            };
+            assert_eq!(restored.outstanding()?, vec![delivery.clone()]);
+            assert_eq!(restored.prepare(150)?, None);
+            assert!(!restored.reconcile(delivery.attempt, &Destination::default(), 150)?);
+            assert_eq!(restored_maintenance.load()?.0.next_due_ns(), Some(130));
+            assert_eq!(restored_maintenance.load()?.1.completed_runs, 1);
+            assert_eq!(
+                restored.next_due_ns()?,
+                if reopen == 0 { Some(200) } else { None }
+            );
+            if reopen == 0 {
+                restored.manage(
+                    NOTIFICATION_MANAGER,
+                    150,
+                    ManagementCommand::Cancel(JobId(3)),
+                )?;
+                queue.set(restored.store.bytes);
+                // Unrelated consumer bytes remain intact after the queue commit.
+                assert_eq!(state.get(), &restored_maintenance.store.bytes);
+            }
+        }
+    }
     Ok(())
 }
 
