@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.1]
+## [0.5.1] - 2026-10-10
 
 - Add a manually triggered canister-recovery workflow for Linux and both macOS
   architectures. Retain source/graph selections, the tested Wasm, test output and
