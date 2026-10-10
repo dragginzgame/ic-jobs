@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.3]
+## [0.5.3] - 2026-10-10
 
 - Align the recovery harness and selected CLI on Testkit 0.32.2 for the updated
   consumer dependency graph. Rerun `make install-testkit-tools` before live
