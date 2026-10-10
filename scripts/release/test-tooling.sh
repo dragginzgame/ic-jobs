@@ -8,10 +8,13 @@ root="${BASH_SOURCE[0]}"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/jobs-release-tooling.XXXXXX")"
+fixture_complete=false
 finish() {
     local status=$?
+    [[ "$fixture_complete" == true || "$status" != 0 ]] || status=1
     if [[ "$status" == 0 ]]; then rm -rf "$fixture";
     else echo "Failed release tooling fixture retained: $fixture" >&2; fi
+    exit "$status"
 }
 trap finish EXIT
 trap 'printf "error: release tooling failed at %s:%s\n" "${BASH_SOURCE[0]}" "$LINENO" >&2' ERR
@@ -24,6 +27,43 @@ unset TOOLING_FETCH_FAILURE
 unset TOOLING_INSTALL_FAILURE TOOLING_CHECK_FAILURE TOOLING_BUILD_EVENTS
 unset TOOLING_COMMON_CHECK_FAILURE
 export RUSTUP_AUTO_INSTALL=0
+
+# Exercise each actual Jobs fixture's EXIT boundary without dispatching its body.
+# Bash 3.2 reports zero for nounset here unless cleanup requires completion.
+mkdir -p "$fixture/exit-source/scripts/release" "$fixture/exit-source/scripts/ci"
+export TOOLING_EXIT_PATH="$fixture/exit-path"
+for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evidence.sh; do
+    for failure in nounset command nonzero premature completed failed-completion; do
+        # shellcheck disable=SC2016 # Expanded only in the disposable fixture.
+        case "$failure" in
+            nounset) injection='unset TOOLING_UNBOUND; printf "%s\n" "$TOOLING_UNBOUND"'; expected=1 ;;
+            command) injection='false'; expected=1 ;;
+            nonzero) injection='exit 23'; expected=23 ;;
+            premature) injection='exit 0'; expected=1 ;;
+            completed) injection='fixture_complete=true; exit 0'; expected=0 ;;
+            failed-completion) injection='fixture_complete=true; exit 23'; expected=23 ;;
+        esac
+        TOOLING_INJECTION="$injection" awk '
+            { print }
+            /^trap finish EXIT$/ {
+                print "printf \"%s\\n\" \"$fixture\" > \"$TOOLING_EXIT_PATH\""
+                print ENVIRON["TOOLING_INJECTION"]
+                print "exit 99"
+                injected=1
+            }
+            END { if (!injected) exit 1 }
+        ' "$root/$relative" > "$fixture/exit-source/$relative"
+        status=0
+        TMPDIR="$fixture" "$BASH" "$fixture/exit-source/$relative" \
+            > "$fixture/exit-${relative##*/}-$failure.log" 2>&1 || status=$?
+        [[ "$status" == "$expected" ]]
+        retained="$(cat "$TOOLING_EXIT_PATH")"
+        [[ -n "$retained" ]]
+        if [[ "$expected" == 0 ]]; then [[ ! -e "$retained" ]]
+        else [[ -d "$retained" ]]; fi
+    done
+done
+
 export TOOLING_REAL_CARGO
 TOOLING_REAL_CARGO="$(command -v cargo)"
 mkdir "$fixture/cache-bin"
@@ -140,6 +180,24 @@ printf '%s\n' "$IC_JOBS_CARGO_EDIT_VERSION" > .git/selected-version
 CARGO_NET_OFFLINE=true make --no-print-directory install-release-tools release-tools-check > "$fixture/selected-reuse.log" 2>&1
 cmp "$selected_root/bin/cargo-set-version" "$fixture/selected-executable"
 cmp "$repository/.tools/rust/cargo-edit-0.13.12/bin/retained" "$fixture/previous-installation"
+
+# Missing required release metadata is a failure even on Bash 3.2. Original
+# files and the failed selected-commit snapshot remain available for inspection.
+new_repository metadata-errors
+commit_source
+mkdir "$fixture/metadata-errors-temp"
+refuse incomplete-prepare env -u RELEASE_VERSION RELEASE_PREVIOUS="$base_version" \
+    TMPDIR="$fixture/metadata-errors-temp" bash scripts/release/metadata.sh prepare
+[[ "$refusal_status" == 1 && -z "$(git status --porcelain)" ]]
+backups=("$fixture/metadata-errors-temp"/jobs-release-backup.*)
+[[ ${#backups[@]} == 1 && -d "${backups[0]}" ]]
+for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "${backups[0]}/$path"; done
+refuse incomplete-committed-check env -u RELEASE_VERSION RELEASE_COMMIT="$(git rev-parse HEAD)" \
+    TMPDIR="$fixture/metadata-errors-temp" bash scripts/release/metadata.sh check
+[[ "$refusal_status" == 1 && -z "$(git status --porcelain)" ]]
+snapshots=("$fixture/metadata-errors-temp"/jobs-committed-metadata.*)
+[[ ${#snapshots[@]} == 1 && -d "${snapshots[0]}" ]]
+for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "${snapshots[0]}/$path"; done
 
 # Exercise actual metadata preparation, commits, annotated tags and local atomic
 # pushes for every increment, without running the consumer's complete gate.
@@ -446,3 +504,4 @@ refuse uncertain-upload-now-present env TOOLING_REGISTRY_HTTP=200 bash scripts/r
 [[ "$(wc -l < "$TOOLING_UPLOAD_EVENTS" | tr -d ' ')" == 1 ]]
 [[ -z "$(git status --porcelain)" ]]
 echo 'Release and publication fixtures passed (real local Git; substitute gate and registry/upload effects)'
+fixture_complete=true

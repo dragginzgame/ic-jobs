@@ -69,6 +69,7 @@ case "$operation" in
         cleanup() {
             local status=$? path restore_failed=false
             trap - EXIT
+            [[ "$complete" == true || "$status" != 0 ]] || status=1
             if [[ "$complete" != true ]]; then
                 for path in "${files[@]}"; do
                     if ! cp -p "$backup/$path" "$path"; then
@@ -108,6 +109,7 @@ case "$operation" in
         ;;
     check|commit-check)
         metadata_root=.
+        check_complete=false
         if [[ -n "${RELEASE_COMMIT:-}" ]]; then
             [[ "$RELEASE_COMMIT" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]
             object_type="$(git cat-file -t "$RELEASE_COMMIT")"
@@ -115,6 +117,7 @@ case "$operation" in
             metadata_root="$(mktemp -d "${TMPDIR:-/tmp}/jobs-committed-metadata.XXXXXX")"
             cleanup_committed_metadata() {
                 local status=$?
+                [[ "$check_complete" == true || "$status" != 0 ]] || status=1
                 if [[ "$status" == 0 ]]; then
                     rm -rf "$metadata_root"
                 else
@@ -147,6 +150,7 @@ case "$operation" in
             [[ -z "${RELEASE_COMMIT:-}" ]]
             git diff --quiet -- Cargo.toml Cargo.lock CHANGELOG.md
         fi
+        check_complete=true
         ;;
     *) echo 'usage: metadata.sh version|preflight|prepare|check|commit-check' >&2; exit 2 ;;
 esac

@@ -62,8 +62,19 @@ make install-consumer-server
 make test-canister
 ```
 
+To qualify the selected Binaryen optimizer against the same five live recovery
+scenarios, explicitly prepare it with `make install-ic-tools`, then run
+`make test-canister-optimized`. This tests the original Wasm and its `-O3`, `-Os`
+and `-Oz` outputs using the input's declared Wasm features. It
+retains every input/output, hash, optimizer log and per-variant test/server log.
+Failures stop before later variants and retain earlier evidence. This target
+does not change the normal `build-consumer` artifact or select a production
+optimization policy; ordinary CI still compiles without launching PocketIC.
+
 The canonical Shared Cargo installer owns the pinned Testkit CLI selection in
-[ci/testkit-tools.env](../../ci/testkit-tools.env). Testkit owns PocketIC setup,
+[ci/testkit-tools.env](../../ci/testkit-tools.env). This exact CLI version matches
+the selected library in `Cargo.lock`; rerun `make install-testkit-tools` when
+changing the selection. Testkit owns PocketIC setup,
 offline admission and server lifecycle; this repo has no second server installer
 or pin catalog. Normal checks install nothing. `test-canister` checks the CLI and
 server before executing tests and uses Cargo metadata to locate the built Wasm,
@@ -71,10 +82,11 @@ including a caller-selected target directory. Linux x86-64 and both macOS
 architectures use Testkit's supported server selections. Host Testkit/Host crates
 remain outside the canister and public Jobs normal Wasm dependency graphs.
 
-After [the recovery workflow](../../.github/workflows/recovery.yml) is delivered
+After [the updated recovery workflow](../../.github/workflows/recovery.yml) is delivered
 to `main`, select **Actions → Canister recovery → Run workflow** and choose the
-branch to qualify. This manual trigger runs all five tests on Linux, Apple Silicon
-and Intel macOS. Ordinary push/PR CI still compiles the harness without starting
+branch to qualify. This manual trigger runs all five tests on the original and
+three optimized variants on Linux, Apple Silicon and Intel macOS.
+Ordinary push/PR CI still compiles the harness without starting
 PocketIC. See [GitHub's manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
 
 Each host uploads a `jobs-recovery-<host>-<run>-<attempt>` artifact for 14 days on

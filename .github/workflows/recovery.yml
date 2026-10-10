@@ -59,7 +59,7 @@ jobs:
           make consumer-server-check 2>&1 | tee "$RUNNER_TEMP/tools-pocketic-check.log"
       - name: Qualify live canister recovery
         id: live
-        run: make test-canister 2>&1 | tee "$RUNNER_TEMP/jobs-recovery/test.log"
+        run: make test-canister-optimized 2>&1 | tee "$RUNNER_TEMP/jobs-recovery/test.log"
       - name: Record live gate outcome
         if: ${{ always() && steps.checkout.outcome == 'success' }}
         env:

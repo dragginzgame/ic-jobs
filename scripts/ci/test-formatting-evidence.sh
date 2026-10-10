@@ -8,10 +8,13 @@ root="${BASH_SOURCE[0]}"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/jobs-formatting-evidence.XXXXXX")"
+fixture_complete=false
 finish() {
     local status=$?
+    [[ "$fixture_complete" == true || "$status" != 0 ]] || status=1
     if [[ "$status" == 0 ]]; then rm -rf "$fixture";
     else echo "Formatting evidence fixture retained: $fixture" >&2; fi
+    exit "$status"
 }
 trap finish EXIT
 mkdir "$fixture/temp" "$fixture/repository" "$fixture/unpacked"
@@ -51,6 +54,10 @@ cat > "$consumer/.tools/rust/bin/formatting-fixture-cargo" <<'CARGO'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ "$CARGO_NET_OFFLINE" == true && "$RUSTUP_AUTO_INSTALL" == 0 ]]
+[[ "${MAKEFLAGS:-}" =~ --jobserver-(auth|fds)=([0-9]+),([0-9]+) ]]
+reader="${BASH_REMATCH[2]}"; writer="${BASH_REMATCH[3]}"
+: <&"$reader"
+: >&"$writer"
 case "$*" in
     'sort --version') echo "cargo-sort ${FORMAT_EVIDENCE_VERSION:?}"; exit 0 ;;
     'fmt --version') exit 0 ;;
@@ -74,8 +81,10 @@ export FORMAT_EVIDENCE_VERSION="$SHARED_TOOLING_CARGO_SORT_VERSION"
 export FORMAT_EVIDENCE_EVENTS="$fixture/events"
 : > "$FORMAT_EVIDENCE_EVENTS"
 status=0
+parallel=(-j2)
+if make --help | grep -q -- --jobserver-style; then parallel+=(--jobserver-style=pipe); fi
 RUNNER_TEMP="$fixture/temp" FORMAT_EVIDENCE_FAIL=sort \
-    make --no-print-directory -C "$consumer" fmt-check FORMAT_CARGO=formatting-fixture-cargo \
+    make --no-print-directory "${parallel[@]}" -C "$consumer" fmt-check FORMAT_CARGO=formatting-fixture-cargo \
     > "$fixture/make-failure" 2>&1 || status=$?
 [[ "$status" == 2 ]]
 printf 'sort --workspace --check\n' > "$fixture/expected-events"
@@ -88,7 +97,7 @@ grep -Flx sorter-error "${logs[@]}" > "$fixture/sorter-logs"
 sorter_log="$(cat "$fixture/sorter-logs")"
 grep -Fx retained-sorter-diff "$sorter_log" > /dev/null
 : > "$FORMAT_EVIDENCE_EVENTS"
-RUNNER_TEMP="$fixture/temp" make --no-print-directory -C "$consumer" \
+RUNNER_TEMP="$fixture/temp" make --no-print-directory "${parallel[@]}" -C "$consumer" \
     fmt-check FORMAT_CARGO=formatting-fixture-cargo > "$fixture/make-success"
 printf 'sort --workspace --check\nfmt --all -- --check\n' > "$fixture/expected-events"
 cmp "$fixture/expected-events" "$FORMAT_EVIDENCE_EVENTS"
@@ -113,3 +122,4 @@ remaining=("$fixture/temp"/formatting.*)
 [[ ${#remaining[@]} == 2 ]]
 for log in "${logs[@]}"; do [[ -f "$log" ]]; done
 echo 'Formatting failure propagation and local archive retention passed (no hosted upload)'
+fixture_complete=true

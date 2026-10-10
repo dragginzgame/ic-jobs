@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.2]
+
+- Align the recovery harness and its selected CLI on Testkit 0.32.1. Rerun
+  `make install-testkit-tools` before live qualification
+  ([#11](https://github.com/dragginzgame/ic-jobs/issues/11)).
+- Adopt Shared Tooling 0.3.4: preserve Cargo's parallel-build coordination and
+  reject unavailable setup prerequisites before downloads. Incomplete Bash 3.2
+  validation and metadata checks fail while retaining originals and evidence
+  ([#16](https://github.com/dragginzgame/ic-jobs/issues/16)).
+- Select Binaryen 133 in the common tools; rerun `make install-ic-tools`.
+  Explicit `test-canister-optimized` and the manual recovery workflow test the
+  original and `-O3`, `-Os`, `-Oz` canisters with retained per-variant evidence.
+  Normal canister builds remain unchanged
+  ([#11](https://github.com/dragginzgame/ic-jobs/issues/11)).
+
 ## [0.5.1] - 2026-10-10
 
 - Add a manually triggered canister-recovery workflow for Linux and both macOS

@@ -11,7 +11,7 @@ export PATH := $(CURDIR)/.tools/rust/cargo-edit-$(shell . ci/release-tools.env &
 help:
 	@echo "Focused: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
 	@echo "Consumer: check-consumer (native, Wasm, harness compilation); build-consumer (Wasm artifact)"
-	@echo "Explicit IC qualification: install-testkit-tools; install-consumer-server; test-canister"
+	@echo "Explicit IC qualification: install-testkit-tools; install-consumer-server; test-canister[-optimized]"
 	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-release-commands"
 	@echo "Tooling fixtures: version, release-tools-check, test-release-tooling, test-formatting-evidence"
 	@echo "Registry preparation: package (offline), publish-check (registry dry run; no upload)"
@@ -31,66 +31,66 @@ install-release-tools:
 		fi
 
 release-tools-check:
-	@. ci/release-tools.env && test -x "$(CURDIR)/.tools/rust/cargo-edit-$$IC_JOBS_CARGO_EDIT_VERSION/bin/cargo-set-version" && actual="$$(cargo set-version --version)" && test "$$actual" = "cargo-edit-set-version $$IC_JOBS_CARGO_EDIT_VERSION" || \
+	+@. ci/release-tools.env && test -x "$(CURDIR)/.tools/rust/cargo-edit-$$IC_JOBS_CARGO_EDIT_VERSION/bin/cargo-set-version" && actual="$$(cargo set-version --version)" && test "$$actual" = "cargo-edit-set-version $$IC_JOBS_CARGO_EDIT_VERSION" || \
 		{ echo 'Missing or mismatched cargo-edit; run make install-release-tools' >&2; exit 1; }
 
 install-hooks:
 	bash scripts/dev/install-git-hooks.sh
 
 check:
-	cargo check -p ic-jobs --all-targets --all-features --locked --offline
+	+cargo check -p ic-jobs --all-targets --all-features --locked --offline
 
 test-jobs:
-	cargo test -p ic-jobs --test jobs --all-features --locked --offline
+	+cargo test -p ic-jobs --test jobs --all-features --locked --offline
 
 test-consumers:
-	cargo +1.88.0 test -p ic-jobs --test consumers --no-default-features --locked --offline
-	cargo +1.88.0 test -p ic-jobs --test consumers --all-features --locked --offline
+	+cargo +1.88.0 test -p ic-jobs --test consumers --no-default-features --locked --offline
+	+cargo +1.88.0 test -p ic-jobs --test consumers --all-features --locked --offline
 
-.PHONY: check-consumer build-consumer install-testkit-tools testkit-tools-check install-consumer-server consumer-server-check test-canister
+.PHONY: check-consumer build-consumer install-testkit-tools testkit-tools-check install-consumer-server consumer-server-check test-canister test-canister-optimized
 check-consumer:
-	cargo +1.88.0 test -p jobs-test-consumer --locked --offline
+	+cargo +1.88.0 test -p jobs-test-consumer --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
-	cargo +1.88.0 test -p jobs-canister-tests --locked --offline --no-run
-	cargo clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
-	cargo clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
+	+cargo +1.88.0 test -p jobs-canister-tests --locked --offline --no-run
+	+cargo clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
+	+cargo clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
 
 build-consumer:
-	cargo +1.88.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
+	+cargo +1.88.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
 
 install-testkit-tools:
-	@. ci/testkit-tools.env && bash scripts/dev/install-rust-tools.sh --package ic-testkit --version "$$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release
+	+@. ci/testkit-tools.env && bash scripts/dev/install-rust-tools.sh --package ic-testkit --version "$$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release
 
 testkit-tools-check:
-	@. ci/testkit-tools.env && bash scripts/dev/install-rust-tools.sh --package ic-testkit --version "$$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release --check
+	+@. ci/testkit-tools.env && bash scripts/dev/install-rust-tools.sh --package ic-testkit --version "$$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release --check
 
 install-consumer-server: testkit-tools-check
-	@. ci/testkit-tools.env && cli="$$(bash scripts/dev/install-rust-tools.sh --package ic-testkit --version "$$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release --check)" && "$$cli" setup
+	+@. ci/testkit-tools.env && cli="$$(bash scripts/dev/install-rust-tools.sh --package ic-testkit --version "$$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release --check)" && "$$cli" setup
 
 consumer-server-check: testkit-tools-check
-	@. ci/testkit-tools.env && cli="$$(bash scripts/dev/install-rust-tools.sh --package ic-testkit --version "$$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release --check)" && "$$cli" check
+	+@. ci/testkit-tools.env && cli="$$(bash scripts/dev/install-rust-tools.sh --package ic-testkit --version "$$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release --check)" && "$$cli" check
 
 # Only this explicitly selected target launches PocketIC. Admission precedes
 # artifact compilation; normal CI compiles the harness without executing it.
-test-canister: consumer-server-check
+test-canister test-canister-optimized: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
-	cargo +1.88.0 test -p jobs-canister-tests --test recovery --locked --offline --no-run
-	bash scripts/ci/test-canister.sh
+	+cargo +1.88.0 test -p jobs-canister-tests --test recovery --locked --offline --no-run
+	+bash scripts/ci/test-canister.sh $(if $(filter test-canister-optimized,$@),--optimized)
 
 check-msrv:
-	cargo +1.88.0 check -p ic-jobs --lib --locked --offline
-	cargo +1.88.0 check -p ic-jobs --lib --all-features --locked --offline
+	+cargo +1.88.0 check -p ic-jobs --lib --locked --offline
+	+cargo +1.88.0 check -p ic-jobs --lib --all-features --locked --offline
 
 check-wasm:
-	cargo +1.88.0 check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline
-	cargo +1.88.0 check -p ic-jobs --lib --all-features --target wasm32-unknown-unknown --locked --offline
+	+cargo +1.88.0 check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline
+	+cargo +1.88.0 check -p ic-jobs --lib --all-features --target wasm32-unknown-unknown --locked --offline
 
 clippy:
-	cargo clippy -p ic-jobs --all-targets --all-features --locked --offline -- -D warnings
+	+cargo clippy -p ic-jobs --all-targets --all-features --locked --offline -- -D warnings
 
 docs-check:
-	RUSTDOCFLAGS="-D warnings" cargo doc -p ic-jobs --all-features --locked --offline --no-deps
-	cargo test -p ic-jobs --doc --all-features --locked --offline
+	+RUSTDOCFLAGS="-D warnings" cargo doc -p ic-jobs --all-features --locked --offline --no-deps
+	+cargo test -p ic-jobs --doc --all-features --locked --offline
 
 shared-tooling-check:
 	bash scripts/ci/verify-shared-tooling-snapshot.sh
@@ -99,22 +99,22 @@ check-doc-links:
 	perl scripts/ci/check-documentation-links.pl --root . *.md docs/*.md docs/principles/*.md docs/status/*.md rules/*.md audits/*.md tasks/*.md apps/job-consumer/README.md
 
 check-pins:
-	bash scripts/ci/check-dependency-pins.sh --cargo-inheritance
+	+bash scripts/ci/check-dependency-pins.sh --cargo-inheritance
 
 check-release-commands:
 	bash scripts/ci/check-release-commands.sh . make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh
 
 test-release-tooling: release-tools-check format-tools-check
-	bash scripts/release/test-tooling.sh
+	+bash scripts/release/test-tooling.sh
 
 test-formatting-evidence:
-	bash scripts/ci/test-formatting-evidence.sh
+	+bash scripts/ci/test-formatting-evidence.sh
 
 package:
-	cargo package -p ic-jobs --all-features --locked --offline --allow-dirty
+	+cargo package -p ic-jobs --all-features --locked --offline --allow-dirty
 
 publish-check:
-	cargo publish -p ic-jobs --all-features --locked --registry crates-io --allow-dirty --dry-run
+	+cargo publish -p ic-jobs --all-features --locked --registry crates-io --allow-dirty --dry-run
 
 publish:
 	+@bash scripts/release/publish.sh "$(RELEASE_REMOTE)"
@@ -145,13 +145,13 @@ release-verify:
 	+CARGO_NET_OFFLINE=true VALIDATION_FAILURE_LOG_DIR="$$(git rev-parse --git-path release-state)/validation-failures" bash scripts/ci/run-validation-targets.sh --fail-fast ci
 
 release-prepare-version:
-	@bash scripts/release/metadata.sh prepare
+	+@bash scripts/release/metadata.sh prepare
 
 release-prepared-check release-committed-check release-tagged-check release-push-check:
-	@bash scripts/release/metadata.sh check
+	+@bash scripts/release/metadata.sh check
 
 release-commit-check:
-	@bash scripts/release/metadata.sh commit-check
+	+@bash scripts/release/metadata.sh commit-check
 
 release-files:
 	@printf '%s\0' Cargo.toml Cargo.lock CHANGELOG.md

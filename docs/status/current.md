@@ -1,5 +1,128 @@
 # Current handoff
 
+Pending compatible **0.5.2** now adopts Shared Tooling **0.3.4** at
+`169d77b8440568c5200eede971625126181f7bb2`. The canonical exporter refreshed
+the same 79 selected files from a clean detached checkout under
+`/tmp/ic-jobs-shared-034.Gx5D82/shared`. The common pin matrix selects Binaryen
+133; explicit `make install-ic-tools` and offline admission pass. Repeated setup
+with downloads disabled reuses the selected set. The previous `ic-set.a1yAq4`
+Binaryen 132 bundle's original pins/receipt remain identical and its bytes verify.
+
+`make test-canister-optimized` qualifies the original consumer Wasm and independent
+`-O3`, `-Os`, `-Oz` outputs through the existing five live recovery tests. The
+manual recovery workflow selects this target on all three native hosts. Inputs,
+outputs, hashes, optimizer identity/logs and each variant's test/server logs are
+retained, with failures stopping before later variants. Normal `build-consumer`
+and the original-only `test-canister` remain available. No production optimizer
+policy, Job API, storage authority or Rust 1.88 floor changes are introduced.
+
+The incoming graph is preserved, including its newer Metrics **0.5.3** selection:
+Memory **0.35.2**, Timers **0.17.2**, Testkit **0.32.1** and four Host crates
+**0.12.3**. The incoming lock SHA-256 remains
+`541050654749edfbf664ced622d6f386769c0342fe39eeb2d7a264c4d12c3253`.
+Full local `make ci` passes. Final affected shell/workflow/docs checks pass.
+All five live scenarios pass for all four variants on Linux under current
+Bash/Make and genuine Bash 3.2.57/Make 3.81, with parallel Make and no jobserver
+warnings. An incomplete wrapper returns failure on both shells.
+
+Evidence lives under `/tmp/ic-jobs-shared-034.Gx5D82/`: `ci.log`, `metadata.json`,
+`live-current.log`, `live-bash32.log`, source hashes and tool receipts. Each live
+attempt retains its actual Wasm and per-variant results. The Bash 3.2 attempt is
+`jobs-recovery.AwYGvw/`; original Wasm SHA-256 is
+`58c59e5d46c15eed68e92a4199d88a9dfe1eb39b299142c9150a3e805ca8127f`.
+Source hashes match after CI and live runs. The preliminary feature probe
+succeeded without extra feature flags; its initially asserted refusal was
+incorrect and is retained with an explanatory summary. Final optimization uses
+the input's declared features. Previous graph evidence below is not relabelled.
+
+Shared 0.3.4 [exact-source CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38054347275)
+passes Linux and lint/security; both macOS jobs are queued. Delivered Jobs 0.5.1
+CI also passes Linux with both macOS jobs queued. Native macOS optimized execution
+and hosted recovery upload remain pending. No commit, push, release, publication
+or hosted dispatch occurred; package metadata remains 0.5.1.
+
+## Earlier pending 0.5.2 qualification at Shared 0.3.3
+
+IC Jobs **0.5.1** is pushed at
+`cfbe3ed6eccf6370f0d1b92abd34d928f6febd26`, matching public main. Its
+[CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38051154299) passes Linux;
+both macOS jobs remain queued at the latest observation. The manual recovery
+workflow is delivered. Registry publication was not independently checked.
+
+Pending compatible **0.5.2** aligns the selected Testkit CLI with the maintainer's
+updated **0.32.1** harness library. Rerun `make install-testkit-tools` before live
+qualification. Reviewed Testkit commit `ff5da12c27bf0835586892ada8e443117229290b`
+and published registry sources. Rust source is unchanged from 0.32.0; the Host 0.12 and
+PocketIC 16.1.0 contracts remain selected. Jobs has no direct Host dependency.
+Its public API, JobRecord, consumer storage, scheduling policy and Rust 1.88 floor
+remain unchanged; no consumer API rewrite or stored-data reset is required.
+
+The same patch adopts committed Shared Tooling **0.3.3** at
+`d63f0cfaba8ab2961d6012064adbf051c1898bc1`, exporting 79 selected files from clean
+detached `/tmp/ic-jobs-shared-033.hHIiH9/shared`. The added README-freshness task is
+advisory; no schedule or new CI gate is activated. Newer dirty Binaryen changes
+are excluded and executable pins stay unchanged. The exporter initially refused
+a mismatched source-remote suffix before mutation; that refusal and the corrected
+export are retained in `refresh.log` and `refresh-final.log` under that directory.
+
+Shared's setup preflight now admits the complete platform/pins and available Rust
+toolchain before downloads. Its Make includes and Jobs-owned Cargo, selected-tool
+and metadata recipes preserve jobserver descriptors under the existing execution
+guard. The production validation runner, both Jobs fixtures and both metadata
+cleanup paths require explicit completion before successful exit/cleanup.
+Actual released Jobs Bash 3.2 reproductions returned zero for incomplete work:
+fixture nounset also deleted evidence, and absent RELEASE_VERSION falsely passed
+prepare/selected-commit checks. Corrected checks return failure, preserve original
+metadata and retain snapshots; original nonzero statuses remain unchanged.
+[#16](https://github.com/dragginzgame/ic-jobs/issues/16) records these findings.
+
+Actual Jobs release/publication substitute fixtures and parallel formatting
+descriptor checks pass on current Bash/Make and genuine Linux Bash 3.2.57/Make
+3.81. Canonical command, host-tool and validation-runner fixtures pass on both
+profiles from that exact source. Real parallel Cargo/selected-tool probes no
+longer emit closed-jobserver warnings. Logs and before/after exit probes are under
+`/tmp/ic-jobs-shared-033.hHIiH9/`. Producer
+[exact-source CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38052409053)
+passes Linux and lint/security; both macOS jobs remain queued.
+
+The incoming catalog/lock changes are preserved: Memory **0.35.2**, Timers
+**0.17.2**, Metrics **0.5.2**, Testkit **0.32.1** and all four Host crates **0.12.3**.
+Locked cache preparation and selected CLI/server admission pass. The lockfile
+remains byte-for-byte equal to the incoming selection, with SHA-256
+`833011b09c294fd687da7e4f36cbcb42b9a2ed13af0e783a5e9247603fc8224e`.
+
+Full local `make ci` passes on this graph, including separate Rust 1.88 core and
+timers native/Wasm checks, native consumers, linked consumer Wasm and host harness,
+strict Clippy, docs and packaging. All five live Linux recovery scenarios pass
+through the selected 0.32.1 CLI under Bash 3.2/Make 3.81 with parallel Make and no
+jobserver warnings. Evidence is retained under
+`/tmp/ic-jobs-shared-033.hHIiH9/graph-0321/`: `ci.log`, `live-bash32.log`,
+`metadata.json`, the Testkit selection receipt and `qualified-source.sha256` bind
+the execution inputs. Source hashes match after both CI and live execution.
+The attempt `jobs-recovery.mGfY08/` retains the tested Wasm and server logs; its
+Wasm SHA-256 is
+`c3c4842cb4deb31c2af71fe723e3989385508c6a9436b8363541889a7ab31856`.
+Final source hashes and the patch additionally bind this handoff update; the
+selected new task is also retained separately as `readme-freshness.md`.
+
+Earlier Testkit 0.32.0 qualification remains separately bound in
+`/tmp/ic-jobs-testkit-032.8VWsoX/`, and the first Shared 0.3.3 gate/live runs are
+retained at `/tmp/ic-jobs-shared-033.hHIiH9/{ci.log,live-bash32.log}`. The lockfile
+advanced concurrently before final handoff, detected by the source binding check.
+The new CLI pin, cache preparation, complete CI and live gate were then qualified
+afresh under `graph-0321/`; earlier evidence is not relabelled as this graph.
+
+[#11](https://github.com/dragginzgame/ic-jobs/issues/11) remains open for hosted
+recovery execution/artifact acceptance and native host qualification;
+[#15](https://github.com/dragginzgame/ic-jobs/issues/15) awaits delivered macOS CI.
+The new [#16](https://github.com/dragginzgame/ic-jobs/issues/16) correction also
+awaits delivery and native host qualification.
+These Linux results do not establish either macOS host or hosted upload behavior.
+No sibling edits, commit, release, push, publication or hosted dispatch occurred.
+Package metadata remains 0.5.1.
+
+## Earlier 0.5.1 workflow evidence before delivery
+
 IC Jobs **0.5.0** is pushed at
 `b4b7fb6f0e0b8221126019ff29f0eb332c91eb3e`, matching public main. The annotated
 `v0.5.0` object `09a3eab5c3e4ce8ffc90e58835b1f4f934f01aa9` matches GitHub;
