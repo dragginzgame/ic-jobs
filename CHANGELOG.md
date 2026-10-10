@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.4.7]
+## [0.4.7] - 2026-10-10
 
 - Add an unpublished canister consumer with authorized task management, stable
   queue storage, timer reconstruction and independent delivery receipts. Add an
