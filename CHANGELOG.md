@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.4]
+## [0.5.4] - 2026-10-10
 
 - Select the Testkit CLI directly from `Cargo.lock` for setup, offline admission
   and recovery qualification; remove its duplicate version pin. Rerun
