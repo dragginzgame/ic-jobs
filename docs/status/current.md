@@ -1,5 +1,72 @@
 # Current handoff
 
+IC Jobs **0.4.7** is pushed at
+`b7833ab0f32008f787167e5ca0b4f84aeb2b4694`, matching public main. The annotated
+`v0.4.7` object `73330d87bc4c8ba68807372f123213b57aa445eb` matches GitHub and
+the retained release plan is complete. The maintainer reports it live; registry
+publication was not independently checked. Its
+[CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38045779398) failed on
+Linux because consumer Clippy uses Rust 1.99's Wasm target, which the workflow
+prepared only for Rust 1.88. The local workflow now prepares both targets.
+Both released macOS jobs remain queued at the latest observation.
+
+Pending **0.5.0** adopts committed Shared Tooling **0.3.0** at
+`88a73139a0f083344c41a6f6f4b5c3a8aca7dc1d` through its canonical exporter from
+clean detached `/tmp/ic-jobs-qualification.l4gwGK/shared` (78 selected files).
+Newer dirty sibling edits were excluded. Common setup/check now orders the full
+host, five IC and three Rust toolsets before selected cargo-edit. CI and admitted
+release preflight use the same complete path; source/candidate admission and
+locked fetch still precede release setup. Previous installations and saved-release
+reconciliation are retained. Ordinary checks install nothing; optional Testkit
+CLI/server setup remains separate. This is a breaking tooling contract and
+requires a minor release; package metadata remains 0.4.7.
+[#15](https://github.com/dragginzgame/ic-jobs/issues/15) tracks delivery.
+
+The Testkit CLI now matches the selected 0.31.0 library. Memory 0.34.1, Timers
+0.16.7 and the incoming lock selection are preserved, with lock SHA-256
+`8f3c8e0964cbad6428dfab246fbef259e67ed5367623dd6da4d370747c83ecc2`.
+The public Jobs API, JobRecord format and Rust 1.88 floor are unchanged;
+Host/Testkit dependencies remain outside the canister graph.
+
+All five **live Linux PocketIC 16.1.0** scenarios now pass: authenticated task
+management and real timer delivery across upgrades, synchronous storage/identity/
+timer rollback, lost sender results with independent receipt disposition and no
+duplicate delivery, invalid-record upgrade refusal with controller-snapshot
+recovery, and overdue CatchUp/Skip reconstruction. Rejection assertions require
+the actual canister-trap error. Snapshot recovery uses Testkit's bounded retry
+for installation rate limits only; its job deadline exceeds the maximum cooldown.
+Two earlier attempts hit the snapshot recovery installation limit and remain
+retained separately. The passing log is
+`/tmp/ic-jobs-qualification.l4gwGK/live-owner-retry.log`; failed logs are
+`live.log` and `live-corrected.log` in the same directory. Exact live-source
+hashes are in `live-source-final.sha256`. The linked Rust 1.88 Wasm SHA-256 is
+`c6bfe0357a2ad1ec3f413f59a9dbdc9cc29d3e872ad5396f5761c0fe6da70ded`.
+[#11's qualification comment](https://github.com/dragginzgame/ic-jobs/issues/11#issuecomment-6096833997)
+records the evidence and remaining delivery requirement.
+
+The full local `make ci` passes in `ci.log`, including separate Rust 1.88
+core/timers native/Wasm checks, native consumer tests, linked Wasm and host harness
+compilation, strict Clippy, docs and packaging. Subsequent fixture-only changes
+were rechecked with Bash 5/Make 4.3 and genuine Linux Bash 3.2.57/Make 3.81 in
+`release-fixtures-final.log` and `release-fixtures-bash32.log`. They exercise
+ordered setup/check, reuse, failures, release reconciliation and refusal before
+parallel builds for every missing common tool set. Canonical host/routing fixtures
+pass on both shell profiles. ShellCheck, workflow lint, formatting, snapshot,
+pin and documentation checks pass. Repeated real setup/check preserves executable
+bytes/inodes and receipts (`reuse.log`, `reuse-before.sha256` and inode records).
+All these logs are under `/tmp/ic-jobs-qualification.l4gwGK/`; `qualified.patch`
+and `qualified-source.sha256` bind the full CI invocation before the final fixture
+checks and handoff update, while `final-source.sha256` records the final tree.
+
+Producer [exact-source CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38044218125)
+passes Linux, Apple Silicon and lint/security; Intel remains in progress at the
+latest observation. Jobs delivery and native macOS qualification of this working
+tree remain pending. Linux live evidence does not establish those host results or
+final Canic/IcyDB composition. No sibling edits, commit, release, push or
+publication occurred. Both owning issues remain open for source-bound delivery.
+
+## Earlier 0.4.7 implementation evidence before delivery
+
 IC Jobs **0.4.6** is pushed at
 `33463211e61b007777aeac0699bd5ea2b01820a9`, matching public main. The annotated
 `v0.4.6` object `a557c0f8738be6a6b82d3e4f1ae5dee06643e386` matches GitHub,

@@ -15,9 +15,9 @@ repository = "https://github.com/dragginzgame/ic-jobs"
 candid = "0.10"
 ic-cdk = "0.20"
 ic-jobs = { path = "crates/ic-jobs" }
-ic-memory = "0.34"
+ic-memory = "0.35"
 ic-testkit = "0.31"
-ic-timers = "0.16"
+ic-timers = "0.17"
 jobs-test-consumer = { path = "apps/job-consumer" }
 serde = "1.0"
 serde_json = "1.0"

@@ -51,9 +51,9 @@ case "$operation" in
             exit "$status"
         }
         # The runner has already reconciled saved release intent. Prepare only
-        # this consumer's selected metadata executable after source/cache admission.
-        "${RELEASE_MAKE:-make}" --no-print-directory install-release-tools
-        "${RELEASE_MAKE:-make}" --no-print-directory release-tools-check
+        # the complete selected toolset after source/cache admission.
+        "${RELEASE_MAKE:-make}" --no-print-directory install-tools
+        "${RELEASE_MAKE:-make}" --no-print-directory tools-check
         cargo sort --help >/dev/null
         ;;
     prepare)

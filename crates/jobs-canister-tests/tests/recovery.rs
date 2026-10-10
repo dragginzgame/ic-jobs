@@ -2,7 +2,8 @@
 
 use candid::{CandidType, Principal, utils::ArgumentEncoder};
 use ic_testkit::pic::{
-    CandidCallExt, PocketIc, PocketIcBuilder, PocketIcBuilderExt, PocketIcStartupConfig,
+    CandidCallExt, CanisterInstallExt, ErrorCode, PocketIc, PocketIcBuilder, PocketIcBuilderExt,
+    PocketIcStartupConfig, RetryPolicy,
 };
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
 use serde::de::DeserializeOwned;
@@ -186,7 +187,10 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
         "fixture_trap_after_create",
         (increment(fixture.now() + 30_000_000_000, 9),),
     );
-    assert!(failed.is_err());
+    assert_eq!(
+        failed.unwrap_err().reject_response().unwrap().error_code,
+        ErrorCode::CanisterCalledTrap
+    );
     assert_eq!(fixture.summary(fixture.sender), before);
     let page: Vec<View> = fixture
         .query(fixture.sender, "list", (None::<u64>, 8_u8))
@@ -217,7 +221,10 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
         "fixture_dispatch_trap_result",
         (input,),
     );
-    assert!(failed.is_err());
+    assert_eq!(
+        failed.unwrap_err().reject_response().unwrap().error_code,
+        ErrorCode::CanisterCalledTrap
+    );
     let page: Vec<View> = fixture
         .query(fixture.sender, "list", (None::<u64>, 8_u8))
         .unwrap();
@@ -269,7 +276,7 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
 fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
     let fixture = Fixture::new();
     let id: u64 = fixture
-        .update("create", (increment(fixture.now() + 60_000_000_000, 1),))
+        .update("create", (increment(fixture.now() + 3_600_000_000_000, 1),))
         .unwrap();
     // The controller's independent snapshot remains the explicit recovery owner.
     fixture.pic.stop_canister(fixture.sender, None).unwrap();
@@ -281,29 +288,45 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
     fixture
         .update::<(), _>("fixture_corrupt_record", (id,))
         .unwrap();
-    assert!(
+    assert!(matches!(
         fixture
             .query::<View, _>(fixture.sender, "inspect", (id,))
-            .is_err()
-    );
-    assert!(
-        fixture
-            .pic
-            .upgrade_canister(
-                fixture.sender,
-                fixture.wasm.clone(),
-                candid::encode_args(()).unwrap(),
-                None
-            )
-            .is_err()
-    );
+            .unwrap_err(),
+        Error::Job(_)
+    ));
+    let rejected = fixture
+        .pic
+        .upgrade_canister(
+            fixture.sender,
+            fixture.wasm.clone(),
+            candid::encode_args(()).unwrap(),
+            None,
+        )
+        .unwrap_err();
+    assert_eq!(rejected.error_code, ErrorCode::CanisterCalledTrap);
     fixture.pic.stop_canister(fixture.sender, None).unwrap();
     fixture
         .pic
         .load_canister_snapshot(fixture.sender, None, backup.id)
         .unwrap();
     fixture.pic.start_canister(fixture.sender, None).unwrap();
-    fixture.upgrade(fixture.sender);
+    // Snapshot loading consumes installation resources too. Testkit owns the
+    // bounded rate-limit retry; every other rejection must fail immediately.
+    // The job's one-hour deadline exceeds the maximum thirty-minute cooldown.
+    fixture
+        .pic
+        .retry_install_code(
+            RetryPolicy::try_new(4, Duration::from_secs(600)).unwrap(),
+            || {
+                fixture.pic.upgrade_canister(
+                    fixture.sender,
+                    fixture.wasm.clone(),
+                    candid::encode_args(()).unwrap(),
+                    None,
+                )
+            },
+        )
+        .unwrap();
     assert_eq!(fixture.view(id).status, Status::Pending);
     assert_eq!(fixture.summary(fixture.sender).counter, 0);
 }

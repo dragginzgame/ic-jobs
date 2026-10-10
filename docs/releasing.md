@@ -8,13 +8,13 @@ crates.io.
 
 ## Preparation
 
-Install the required host and Rust tools with `make install-tools`. The
-consumer's additional `make install-release-tools` installs pinned cargo-edit
+Install the complete host, IC and Rust toolsets with `make install-tools`. Its
+ordered consumer extension `make install-release-tools` installs pinned cargo-edit
 0.13.13 with its set-version feature; `make release-tools-check` checks the
 selected executable without downloads. Versioned cargo-edit roots preserve older
 installations; the selected root precedes other executables in Make's PATH.
-Prepare Rust 1.88.0 and its Wasm target
-as described in the README, alongside the development toolchain.
+Prepare Rust 1.88.0 and its Wasm target as described in the README, alongside
+the development toolchain and its Wasm target for consumer Clippy.
 
 Shared Make entrypoints require recipe execution and failure propagation.
 Remove `-i`, `--ignore-errors`, `-n`, `-t`, `-q` and inherited equivalents;
@@ -37,7 +37,7 @@ the registry but does not upgrade dependencies or rewrite the lockfile. Cargo's
 explicit offline environment/configuration remains authoritative; missing inputs
 then stop the release with its original fetch failure. Version reads, metadata
 checks stay offline. After successful admission/fetch, preflight runs
-`make install-release-tools` followed by `make release-tools-check`; setup reuses
+`make install-tools` followed by `make tools-check`; setup reuses
 the selected installation and does not replace older roots. Saved-release
 reconciliation precedes this preparation. Ordinary `make ci` never installs:
 it runs `validation-tools-check` before dispatching its checks/builds, including

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0]
+
+- **Breaking tooling:** Adopt Shared Tooling 0.3.0. `install-tools` prepares the
+  complete host, IC and Rust toolsets in order, then selected cargo-edit;
+  `tools-check` admits the same selections offline. Host setup always includes
+  ripgrep with PCRE2 and cloc; the optional selection flags are removed. Rerun
+  `make install-tools` before validation. CI and admitted release preflight use
+  the same complete setup/check path
+  ([#15](https://github.com/dragginzgame/ic-jobs/issues/15)).
+- Align the explicit recovery harness's Testkit CLI with its selected 0.31.0
+  library. PocketIC provisioning remains a separate explicit setup step.
+- Require actual canister-trap rejections in recovery checks and use Testkit's
+  bounded installation-rate-limit retry after controller snapshot loading
+  ([#11](https://github.com/dragginzgame/ic-jobs/issues/11)).
+- Prepare the development Wasm target in CI for the consumer's Clippy check.
+
 ## [0.4.7] - 2026-10-10
 
 - Add an unpublished canister consumer with authorized task management, stable

@@ -27,16 +27,12 @@ jobs:
           persist-credentials: false
       - name: Prepare development and minimum toolchains
         run: |
-          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
+          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy --target wasm32-unknown-unknown
           rustup toolchain install 1.88.0 --profile minimal --target wasm32-unknown-unknown
-          source ci/tool-versions.env
-          cargo install cargo-sort --version "$SHARED_TOOLING_CARGO_SORT_VERSION" --locked
-          make install-host-tools
-          make install-release-tools
-      - name: Prepare reviewed IC tools
-        run: make install-ic-tools
-      - name: Check prepared IC tools offline
-        run: make ic-tools-check
+      - name: Prepare the complete selected toolset
+        run: make install-tools
+      - name: Check prepared tools offline
+        run: make tools-check
       - name: Prepare selected dependency cache
         run: cargo fetch --locked
       - name: Validate the selected graph

@@ -1,12 +1,11 @@
 .DEFAULT_GOAL := help
 export RELEASE_DELIVERY ?= direct
+LOCAL_TOOL_INSTALL_TARGETS := install-release-tools
+LOCAL_TOOL_CHECK_TARGETS := release-tools-check
 include make/tools.mk
 include make/release.mk
 include make/rust-format.mk
 export PATH := $(CURDIR)/.tools/rust/cargo-edit-$(shell . ci/release-tools.env && printf '%s' "$$IC_JOBS_CARGO_EDIT_VERSION")/bin:$(PATH)
-
-install-tools: install-rust-tools install-release-tools
-tools-check: rust-tools-check release-tools-check
 
 .PHONY: help version install-hooks install-release-tools release-tools-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling test-formatting-evidence package publish-check publish ci
 help:
@@ -120,7 +119,7 @@ publish:
 	+@bash scripts/release/publish.sh "$(RELEASE_REMOTE)"
 
 .PHONY: validation-tools-check
-validation-tools-check: host-tools-check ic-tools-check format-tools-check release-tools-check
+validation-tools-check: tools-check format-tools-check
 
 # Ordered recursive calls preserve admission before dependent work under -j.
 ci: shared-tooling-check

@@ -1,16 +1,16 @@
 # Shared Tooling snapshot v1
-# version	0.2.13
+# version	0.3.0
 format	1
 source	https://github.com/dragginzgame/shared-tooling
-revision	5864f468d39f8f9d1bd26fca1afe0e20f25f1b5e
-file	6cb3d310a5184a99fdf2a07786c7011cefde1432758723415229be0e1dc8f553	-	DRAGGINZGAME.md
+revision	88a73139a0f083344c41a6f6f4b5c3a8aca7dc1d
+file	e5d128419ea122da0d5654fa4c9f7ba772b12a3e104ad9796c38da856b52df78	-	DRAGGINZGAME.md
 file	05838a36f21bb4299617ae8965687791062c94d768181f5f97676cc577382153	-	rules/contributions.md
 file	b5a6e8fb723a861b722834675e27b4b16f3d296112622c1b40cdc8714f575404	-	rules/changelogs.md
 file	84db20c3fa0b7a524bcd10b875a11100ed00be27c9f329ce93c79f5ab8f1f40d	-	rules/cargo-dependencies.md
 file	289473e702bd636cbf545afffdd837979dfc41fc0a530e31e110f8b88d01d337	-	rules/rust-workspaces.md
 file	4692d760ea97861b52c183bb69e24c929d9baf7c292795c61d65ea3166368787	-	rules/dependency-pinning.md
 file	dae76214fb4c8c698530b141a418ceab44f4c14fc8452b7a545bfe2e0c0c84fd	-	rules/git-hooks.md
-file	d0e3e07844d06f46ffe01d406ffb29624b31079c1402b899262aabb718cbb436	-	rules/agent-maintenance.md
+file	c8a327fff520f3bb0cdabf1a402b3bcb6de6831d7992f6685fe4dccf292f0d51	-	rules/agent-maintenance.md
 file	7c63c133b3b35bc7648f0269271a2cbf5f36916e9ab79ca89185e2c34e017140	-	tasks/README.md
 file	eb2419a5762a3cb02f25811d93becb6b18ca520df0bc3448ea35dfa187a034b4	-	tasks/cargo-machete.md
 file	b20211ec1c39ef262c8ab266b207db43c44cd1474acde18297586590c7885810	-	tasks/msrv.md
@@ -44,20 +44,20 @@ file	9315c9faffa4f36cfab496342535bf49d728ddd2111e8e127cbc44b3fac89ce7	-	docs/pri
 file	2b3961ce271d95c2b8d93dcd92cfee42481aa9cb3d5d4eae0d867f2b52fa69fb	-	docs/principles/reviewable-changes.md
 file	90eb28392912af63593a3773eff903c5ef77ebab2b9199e3c720be25a3fcbbbf	-	docs/principles/rust-code-hygiene.md
 file	457fd38e0073c91ba470b918d4facd9faac3c5200ebd38c97e9d6b76acdaea55	-	docs/principles/simplicity-and-maintainability.md
-file	fca5ca58e703ce88ad5cf94a38a0fc675302dd25793f0985335d672eecad78e9	-	docs/consuming-snapshots.md
+file	0d1078a9b81eda0e042f04f30c7661ed42c9cae1250092073904784c4c6cecdd	-	docs/consuming-snapshots.md
 file	15315edad497b9b165671c3f57e9f56e6ba1d206bbc635eb0ff51afaa8456bb3	-	docs/provenance.md
 file	96082282847ad61680223226755ff5cc21582e0749eccb191db8a0417b84ca10	-	docs/verification-helpers.md
 file	67cc50a0c95ad7d9d50b4a50ec2969ce3455c7fdefc4a4a61e00f3a68a7d501c	-	docs/ic-tools.md
-file	2904aaea5ca282ae5abecc10038bd0a75db41171bc5e70e2b4633c1dd61d0bdf	-	docs/local-setup.md
+file	4a3b37c719dff29a05afa1b056fe2e3dc1b174711617aadaee46300855c5ecd6	-	docs/local-setup.md
 file	a906686771b89c83b9382a29e73c185fde6658093b704cea1d62ac028c78cc04	-	ci/ic-tools.tsv
 file	82892e25292fe47c26035a0031aa4ad1996fcf181732163e75039bd657f2f84b	-	ci/tool-versions.env
-file	99361c3376288d7f6775a1d4b89cce22aab0e6a9af398df63c76ada9ba46e5f9	-	docs/supported-hosts.md
+file	a88c7fc0977a47d28c1a66d66ee8b976f7b0ece0225da01a64fc8dce813187dd	-	docs/supported-hosts.md
 file	4c981184847462ab3c01cac087e28309f8e054253fd95c7bbe56f643877aa708	x	scripts/ci/verify-file-checksum.sh
 file	71d1c69a25f190bc4b2b1df66d3359f172638371caa722142e820a8294d1938e	x	scripts/ci/verify-shared-tooling-snapshot.sh
 file	1063002468575e2f821cfec71524bde06a64634bf30455d64d2d9fed872969d6	-	docs/tag-maintenance.md
 file	431f4a40037fc341bec1d53416b440b3bcd4b6af5cd45210e390c82abb08b475	-	scripts/distribution/governance-files.txt
-file	49c3ea9db43f37ea293be61a1031c61bdf00745ae58bc66b76afcea07f9a2128	-	make/tools.mk
-file	74134f6567746b2071ecfca28829b0ea4da69ed207b958b38fd181e722a3aea9	x	scripts/dev/install-host-tools.sh
+file	6cf19a762faa691a73ac42ee861024bd1d24aa0c7262642fc2ff52f33a6d1364	-	make/tools.mk
+file	34f49533932b09926348b0ce11f558ca673d290eeea207327529a995e282bf82	x	scripts/dev/install-host-tools.sh
 file	f41ba134d2838df094d373c70ba254f6bc2f1184914eee06119062708f2d6797	x	scripts/dev/install-ic-tools.sh
 file	cfeec3e70a6160dc04d384bf3509da6cae838f7856cf905068b14c7cd069744a	x	scripts/dev/install-rust-tools.sh
 file	c1fcf72754976d3d2e5203226e97ef5f50eff4b5c0dabeb2a9b00cfcf0326645	x	scripts/dev/install-git-hooks.sh
@@ -78,6 +78,6 @@ file	f1a92a42f6e5000b40c8f44a5f89fa8c5b254f204bcc9f2af8d2bbf5f123ec15	-	make/rel
 file	5f435b99ccce8beb9c735934a2d5e10622fc48e54460a4fff91fdfa335b48049	-	make/rust-format.mk
 file	cebc0fa4ee9944550350a492a3bc1084e28820e2c915e20351c336d87ce0359f	-	make/execution.mk
 file	4ff0a961d5fb8639edf798d64bbe3abc0fcd83c6f703d7a6875c6f5174e76201	x	scripts/ci/run-formatting.sh
-file	00e0ed34684017a20cfc1a970480f693dce145baf8b85a742f45613443f7898a	-	.github/actions/retain-failure-evidence/action.yml
+file	13dbb6e80cb1a7f7dd83197318873ece86110c2c4551266225d6354ed972292f	-	.github/actions/retain-failure-evidence/action.yml
 file	5be336cb3e8045b2d2d536542a94944b376ee812b03f786a90b9d962ab697f13	x	scripts/ci/archive-evidence.sh
-file	d7feda634703b4e0acb9e5406deccca2b81b821dfa738b714708b82a2c2e9bc3	x	scripts/ci/select-tool-evidence.sh
+file	511f775a9dd7d0248541fa5f80a41d17718d1a7d8f25bb1b4f92502fd23c4e72	x	scripts/ci/select-tool-evidence.sh

@@ -135,24 +135,28 @@ The package requires Rust 1.88 (edition 2024), including the optional IC Timers
 path. Development formatting uses
 Rust 1.99.0. Linux and macOS Intel/Apple Silicon host workflows are maintained;
 release 0.2.1 passed native CI on all three hosts. See the
-[current handoff](docs/status/current.md) for source-bound qualification;
-live IC recovery remains pending.
+[current handoff](docs/status/current.md) for source-bound native and live
+PocketIC recovery qualification.
 
 Common tooling is adopted from reviewed Shared Tooling revision
-`5864f468d39f8f9d1bd26fca1afe0e20f25f1b5e` (0.2.13).
+`88a73139a0f083344c41a6f6f4b5c3a8aca7dc1d` (0.3.0).
 Run `make install-tools` explicitly to prepare the checkout-local host, IC and
-Rust tools; `make tools-check` verifies them offline. For an interactive shell,
+Rust tools in order, then selected cargo-edit; `make tools-check` verifies the
+same complete set offline. Host tools include jq, yq, ripgrep with PCRE2 and cloc;
+Rust tools include cargo-sort, cargo-sort-derives and candid-extractor. For an interactive shell,
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/bin` to PATH.
 Make additionally selects cargo-edit's versioned root for release commands;
 `make install-release-tools` prepares it and `make release-tools-check` admits it.
 The shared IC bundle contains Quill, ICP CLI, didc, ic-wasm and wasm-opt.
 After updating an older six-tool bundle, run `make install-ic-tools` explicitly,
 then `make ic-tools-check`; previous bundles and receipts are retained.
-PocketIC provisioning belongs to IC Testkit. Jobs has no server caller; a future
-application recovery harness must use its selected Testkit setup/check contract.
+PocketIC provisioning belongs to IC Testkit. The unpublished
+[consumer harness](apps/job-consumer/README.md) uses its separately selected
+Testkit setup/check contract; common setup and ordinary CI do not launch it.
 System prerequisites are Git, Bash, Make, Perl, curl, tar and rustup;
 see [local setup](docs/local-setup.md). Install `wasm32-unknown-unknown`
-explicitly before Wasm checks. `make install-hooks` enables the reviewed
+explicitly on both Rust 1.88.0 and 1.99.0 before the consumer's build and Clippy
+checks. `make install-hooks` enables the reviewed
 formatting hook after formatter preparation.
 
 The public repository is [dragginzgame/ic-jobs](https://github.com/dragginzgame/ic-jobs).

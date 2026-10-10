@@ -22,6 +22,7 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY G
 unset TOOLING_GATE_FAILURE TOOLING_REGISTRY_HTTP TOOLING_REGISTRY_RESULT TOOLING_UPLOAD_RESULT
 unset TOOLING_FETCH_FAILURE
 unset TOOLING_INSTALL_FAILURE TOOLING_CHECK_FAILURE TOOLING_BUILD_EVENTS
+unset TOOLING_COMMON_CHECK_FAILURE
 export RUSTUP_AUTO_INSTALL=0
 export TOOLING_REAL_CARGO
 TOOLING_REAL_CARGO="$(command -v cargo)"
@@ -58,6 +59,8 @@ new_repository() {
     cat >> "$repository/Makefile" <<'MAKE'
 
 # Substitute the existing installer/check effects, retaining actual routing.
+install-host-tools install-ic-tools install-rust-tools:
+	@printf '%s\n' '$@' >> .git/tool-events
 install-release-tools:
 	@test "$${TOOLING_INSTALL_FAILURE:-0}" = 0
 	@printf 'setup\n' >> .git/tool-events
@@ -65,7 +68,10 @@ install-release-tools:
 release-tools-check:
 	@printf 'check\n' >> .git/tool-events
 	@test "$${TOOLING_CHECK_FAILURE:-0}" = 0 && test -f .git/release-tool-ready
-shared-tooling-check host-tools-check ic-tools-check format-tools-check:
+host-tools-check ic-tools-check rust-tools-check:
+	@printf '%s\n' '$@' >> .git/tool-events
+	@test "$${TOOLING_COMMON_CHECK_FAILURE:-}" != '$@'
+shared-tooling-check format-tools-check:
 	@:
 check test-jobs test-consumers check-consumer check-msrv check-wasm clippy docs-check package:
 	@printf 'unexpected build\n' >> .git/validation-events; exit 49
@@ -104,7 +110,7 @@ refuse() {
 new_repository selected-tool
 cp "$root/Makefile" Makefile
 cat >> Makefile <<'MAKE'
-shared-tooling-check host-tools-check ic-tools-check format-tools-check:
+shared-tooling-check host-tools-check ic-tools-check rust-tools-check format-tools-check:
 	@:
 check test-jobs test-consumers check-msrv check-wasm clippy docs-check package:
 	@printf 'unexpected build\n' >> .git/validation-events; exit 49
@@ -299,12 +305,14 @@ GIT
         [[ ! -e ".git/release-state/$candidate.plan" ]]
         "${preflight[@]}" CARGO_NET_OFFLINE=false bash scripts/release/metadata.sh preflight
         [[ -f "$TOOLING_CACHE_READY" ]]
-        "${preflight[@]}" CARGO_NET_OFFLINE=true bash scripts/release/metadata.sh preflight
+        "${preflight[@]}" CARGO_NET_OFFLINE=true MAKEFLAGS=-j4 bash scripts/release/metadata.sh preflight
         [[ "$(wc -l < "$TOOLING_FETCH_EVENTS" | tr -d ' ')" == 4 ]]
         cmp .git/index "$fixture/cache-index"
         for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
         [[ ! -e .git/gate-events && ! -e ".git/release-state/$candidate.plan" ]]
-        printf 'setup\ncheck\nsetup\ncheck\n' > "$fixture/expected-tools"
+        for _ in 1 2; do
+            printf 'install-host-tools\ninstall-ic-tools\ninstall-rust-tools\nsetup\nhost-tools-check\nic-tools-check\nrust-tools-check\ncheck\n'
+        done > "$fixture/expected-tools"
         cmp .git/tool-events "$fixture/expected-tools"
         [[ "$(wc -l < .git/tool-installs | tr -d ' ')" == 1 ]]
         # Early admission under parallel Make must block the real ci dispatch.
@@ -313,6 +321,14 @@ GIT
         [[ ! -e .git/gate-events && ! -e .git/validation-events ]]
         grep -F 'release-tools-check' "$fixture/missing-parallel-ci.log" > /dev/null
         mv "$fixture/selected-tool-ready" .git/release-tool-ready
+        # Every common tool set is also admitted before parallel build dispatch;
+        # ordinary admission refuses missing tools without preparing them.
+        for toolset in host ic rust; do
+            refuse "missing-$toolset-parallel-ci" env TOOLING_COMMON_CHECK_FAILURE="$toolset-tools-check" \
+                make -j4 --no-print-directory ci
+            [[ ! -e .git/validation-events && ! -e .git/gate-events ]]
+            [[ "$(wc -l < .git/tool-installs | tr -d ' ')" == 1 ]]
+        done
         # Both preparation boundaries stop before gate or metadata mutation.
         for failure in install check; do
             if [[ "$failure" == install ]]; then controls=(TOOLING_INSTALL_FAILURE=1);
