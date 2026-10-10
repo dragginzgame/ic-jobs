@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.5]
+## [0.5.5] - 2026-10-10
 
 - Qualify the actual pre-commit hook and Jobs formatting in native CI, including
   failed Git observations, manifest sorting and preservation of staged/working
