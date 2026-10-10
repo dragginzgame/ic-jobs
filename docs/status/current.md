@@ -1,5 +1,107 @@
 # Current handoff
 
+Pending compatible **0.5.4** now adopts committed Shared **0.3.7** at
+`34e5ad7aac3599306c9572bb547f2239d09df1a3`, through its canonical exporter with
+the existing 79-file selection. Shared rejects failed Cargo-tool activation
+assertions explicitly on Bash 3.2. Jobs' three tooling fixtures, release metadata
+adapter and live Wasm-file admission use explicit mandatory failures too.
+Contradicting an observed status now stops the fixture and retains evidence;
+release version mismatches stop before cache/setup or metadata mutation.
+Existing setup, release and recovery command contracts remain compatible.
+
+The incoming root selection is preserved byte-for-byte: Memory **0.35.3**, Timers
+**0.17.4**, Metrics **0.5.4**, Testkit **0.33.0** and all four Host crates
+**0.12.6**. Lock SHA-256 is
+`3923304ae00bfe855ce268d25ec035b23783d66877b24c919a62c159c30055d9`.
+Reviewed public Host release `5f356effea97fbc31dfcca5b9f1b2834f35325a9`;
+the four published Rust source trees match 0.12.5 and retain Rust 1.88.0.
+Host remains transitive through the host harness and absent from both normal
+core/canister Wasm graphs. Job records, effect disposition and consumer storage
+authority retain their established contracts.
+
+Both validation workflows keep only the latest run per workflow/ref, preserving
+all three native hosts. These incoming workflow changes satisfy Shared's new
+policy; cancelled hosts do not qualify their source. Delivered Jobs **0.5.3**
+at `d4468fb423c97550c74a2e87a02f8b3e70361ef5` now has passing
+[CI on all three hosts](https://github.com/dragginzgame/ic-jobs/actions/runs/38059981517).
+That evidence belongs to the delivered graph, not this local repair.
+
+Actual Jobs fixtures pass on current Bash/Make and genuine Linux Bash 3.2.57/
+Make 3.81. They cover failed status assertions with retained evidence, original
+nonzero statuses, version refusal before effects and invalid Wasm admission
+before attempt/server dispatch. Canonical exact-source installer fixtures pass
+on both profiles with substitute Cargo. Real selected Testkit CLI/server setup
+and admission reuse the prepared 0.33.0/16.1.0 installation. Full local `make ci`
+passes, including separate Rust 1.88 core/timers native/Wasm checks and packaging.
+All five live scenarios pass afresh on each original and Binaryen 133 `-O3`,
+`-Os`, `-Oz` output under parallel Bash 3.2/Make 3.81 without jobserver warnings.
+
+Evidence: `/tmp/ic-jobs-shared-037.FdcYDN/`, including the incoming graph/patch,
+snapshot refresh, before reproductions, Jobs/producer fixture logs, package
+source review, CLI admission, `ci.log`, `live-bash32.log` and source hashes.
+Live attempt `jobs-recovery.YPdQlo/` retains exact variant/server/tool artifacts;
+original Wasm SHA-256 remains
+`5101fe9b88e51d030ec52a3b3fa818625598a8257c6d8c6389aaf45d5e38707d`.
+Source hashes match after CI/live. Final handoff checks/hashes follow separately.
+Earlier evidence below remains bound to its original inputs. Local adoption and
+assertion repair are recorded in [#17](https://github.com/dragginzgame/ic-jobs/issues/17)
+and [#16](https://github.com/dragginzgame/ic-jobs/issues/16); native macOS acceptance
+of the new source and hosted optimized recovery acceptance remain pending.
+Package metadata remains 0.5.3; no commit, push, release, publication, sibling edit
+or hosted dispatch occurred.
+
+## Earlier pending 0.5.4 qualification at Shared 0.3.6
+
+Public Jobs **0.5.3** is at `d4468fb423c97550c74a2e87a02f8b3e70361ef5`.
+Pending compatible **0.5.4** adopts Shared **0.3.6** at
+`0604bfd730ec7ec288cd2cfdad217a0d42bf256b` through the canonical exporter,
+retaining the same 79-file selection. Testkit setup, offline admission and the
+live/manual recovery callers now select the CLI directly from `Cargo.lock`;
+the duplicate environment-file pin is removed. Existing Make targets retain
+their contracts. Rerun `make install-testkit-tools` after a locked Testkit change.
+Shared owns parsing, strict admission, installation and selection receipts;
+Testkit still owns PocketIC provisioning and lifecycle.
+
+The incoming manifest/lock is preserved: Memory **0.35.3**, Timers **0.17.4**,
+Metrics **0.5.4**, Testkit **0.33.0** and four Host crates **0.12.5**. Lock SHA-256
+is `2eb1cc33741697393e9b49eb6fe9c93aafc477e8901a089db385a93c2e0cbe8b`.
+Host remains transitive in the host harness, outside the Jobs/canister graph.
+Testkit's scoped transport-reset classification does not change the direct
+PocketIC harness or its typed trap assertions. Jobs APIs, stored records,
+consumer authority, uncertain-effect blocking and Rust 1.88 remain unchanged.
+
+Real cold CLI setup and CLI/server admission pass; repeated CLI setup/admission
+reuse the installation with Cargo installation and downloads disabled. The old
+0.32.2 slot and receipt still verify. Actual Jobs caller fixtures reject changed,
+unprepared lock selections before Cargo/PocketIC dispatch on both shell profiles.
+Canonical hook/installer fixtures and Jobs' actual hook/formatting admission pass
+on current Bash/Make and genuine Linux Bash 3.2.57/Make 3.81. These producer
+fixtures use substitute build tools; actual installation and live results are
+recorded separately.
+
+Full local `make ci` passes, including separate Rust 1.88 core/timers native/Wasm
+checks and packaging. All five live recovery scenarios pass on each original and
+Binaryen 133 `-O3`, `-Os`, `-Oz` output under parallel Bash 3.2/Make 3.81, without
+jobserver warnings. Source hashes match after CI and live execution. Evidence is
+retained under `/tmp/ic-jobs-shared-036.bgUa2J/`: `ci.log`, `live-bash32.log`,
+`qualified-source.sha256`, CLI selection, incoming graph and focused fixture logs.
+Attempt `jobs-recovery.AXXHen/` retains actual Wasm/hashes and per-variant logs;
+original Wasm SHA-256 is
+`5101fe9b88e51d030ec52a3b3fa818625598a8257c6d8c6389aaf45d5e38707d`.
+Final documentation changes are checked and hashed separately after qualification.
+
+[#17](https://github.com/dragginzgame/ic-jobs/issues/17) records this local repair;
+[#11](https://github.com/dragginzgame/ic-jobs/issues/11) retains hosted recovery
+and native macOS acceptance. Earlier evidence below is not relabelled. Historical
+complete-toolset acceptance in [#15](https://github.com/dragginzgame/ic-jobs/issues/15)
+is closed against the three passing native hosts at Jobs 0.5.0. The newer
+[0.5.3 CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38059981517)
+passes Linux; both macOS jobs are running. The 0.5.2 macOS jobs were cancelled,
+so [#16](https://github.com/dragginzgame/ic-jobs/issues/16) retains native-host
+acceptance. Package metadata remains 0.5.3; this batch is local and uncommitted.
+
+## Earlier 0.5.3 qualification before delivery
+
 Pending compatible **0.5.3** aligns the selected Testkit CLI to the incoming
 **0.32.2** harness library; rerun `make install-testkit-tools`. The existing
 Shared 0.3.5 snapshot refresh remains local, with all 79 selected file hashes

@@ -10,13 +10,11 @@ trap 'status=$?; [[ "$complete" == true || "$status" != 0 ]] || status=1; exit "
 
 # Caller explicitly selects this live gate. The canonical Cargo-tool checker and
 # Testkit own executable selection and PocketIC admission/lifecycle respectively.
-# shellcheck disable=SC1091
-. ci/testkit-tools.env
 cli="$(bash scripts/dev/install-rust-tools.sh --package ic-testkit \
-    --version "$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release --check)"
+    --lockfile Cargo.lock --bin ic-testkit-server --profile release --check)"
 target="$(cargo +1.88.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
 input="$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
-[[ -f "$input" && ! -L "$input" ]]
+[[ -f "$input" && ! -L "$input" ]] || exit 1
 variants=(original)
 if [[ $# == 1 ]]; then
     bin="$(bash scripts/dev/install-ic-tools.sh --check)"
@@ -25,7 +23,7 @@ fi
 evidence="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/jobs-recovery.XXXXXX")"
 printf 'Live recovery evidence: %s\n' "$evidence"
 cp "$input" "$evidence/jobs_test_consumer.wasm"
-cp Cargo.lock .shared-tooling.snapshot ci/testkit-tools.env "$evidence/"
+cp Cargo.lock .shared-tooling.snapshot "$evidence/"
 cp "${cli%/bin/*}/selection.json" "$evidence/testkit-selection.json"
 {
     git rev-parse HEAD

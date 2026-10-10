@@ -2,7 +2,7 @@
 
 Apply the reviewed [Dragginzgame baseline](DRAGGINZGAME.md) first.
 Its exact revision is recorded in [.shared-tooling.snapshot](.shared-tooling.snapshot):
-`a744d7f1990b9e1451ef45cd6d495de00a141cd3`.
+`34e5ad7aac3599306c9572bb547f2239d09df1a3`.
 This file is the local overlay. Read [the current handoff](docs/status/current.md).
 
 - Scope is this workspace; other sibling repositories remain read-only.
@@ -11,9 +11,9 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
 - Every restore path uses the validated Job::restore boundary. Keep error
   transitions unchanged and uncertain effects blocked until explicit disposition.
 - New storage/scheduling policy must have a concrete consumer requirement.
-- Use focused package checks during implementation and `make ci` before delivering
-  completed code changes. Release execution and live PocketIC qualification remain
-  explicitly selected effects; native checks do not establish IC recovery.
+- Use focused package checks automatically during authorized implementation.
+  `make ci`, release gates and live PocketIC qualification are complete gates
+  selected explicitly or by configured CI.
 - Rust floor: 1.88 for both core and optional timers. Qualify both separately.
 - Host workflows support Linux and macOS Intel/Apple Silicon. Bind native
   qualification to its tested source; IC recovery evidence remains pending and

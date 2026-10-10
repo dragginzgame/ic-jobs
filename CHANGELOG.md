@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.4]
+
+- Select the Testkit CLI directly from `Cargo.lock` for setup, offline admission
+  and recovery qualification; remove its duplicate version pin. Rerun
+  `make install-testkit-tools` after changing the locked Testkit version
+  ([#17](https://github.com/dragginzgame/ic-jobs/issues/17)).
+- Adopt Shared Tooling 0.3.6: pre-commit stops on failed Git tree observations,
+  preserving staging and working files
+  ([shared #106](https://github.com/dragginzgame/shared-tooling/issues/106)).
+- Adopt Shared Tooling 0.3.7: reject failed Cargo-tool activation, release
+  metadata, Wasm-input and fixture checks on Bash 3.2, retaining failed evidence
+  ([shared #107](https://github.com/dragginzgame/shared-tooling/issues/107),
+  [#16](https://github.com/dragginzgame/ic-jobs/issues/16)).
+- Cancel superseded CI runs while preserving the host matrix on the latest run
+  ([shared #108](https://github.com/dragginzgame/shared-tooling/issues/108)).
+
+- Keep only the newest CI run per workflow and branch or PR, cancelling older
+  queued and running checks while retaining the existing host matrix and gates
+  ([Shared #108](https://github.com/dragginzgame/shared-tooling/issues/108)).
+
 ## [0.5.3] - 2026-10-10
 
 - Align the recovery harness and selected CLI on Testkit 0.32.2 for the updated

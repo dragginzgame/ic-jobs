@@ -71,10 +71,12 @@ Failures stop before later variants and retain earlier evidence. This target
 does not change the normal `build-consumer` artifact or select a production
 optimization policy; ordinary CI still compiles without launching PocketIC.
 
-The canonical Shared Cargo installer owns the pinned Testkit CLI selection in
-[ci/testkit-tools.env](../../ci/testkit-tools.env). This exact CLI version matches
-the selected library in `Cargo.lock`; rerun `make install-testkit-tools` when
-changing the selection. Testkit owns PocketIC setup,
+The canonical Shared Cargo installer selects the published Testkit CLI directly
+from the single `ic-testkit` package in [Cargo.lock](../../Cargo.lock), using
+`--lockfile Cargo.lock` for both explicit setup and offline admission. There is
+no separate CLI version pin. Rerun `make install-testkit-tools` when changing the
+locked library selection; malformed, ambiguous or unsupported package selections
+fail before installation. Testkit owns PocketIC setup,
 offline admission and server lifecycle; this repo has no second server installer
 or pin catalog. Normal checks install nothing. `test-canister` checks the CLI and
 server before executing tests and uses Cargo metadata to locate the built Wasm,

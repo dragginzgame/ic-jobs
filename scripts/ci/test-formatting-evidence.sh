@@ -35,11 +35,11 @@ status=0
 RUNNER_TEMP="$fixture/temp" bash "$root/scripts/ci/run-formatting.sh" --check \
     bash -ec 'echo retained-formatter-diff; echo formatter-error >&2; exit 23' \
     > "$fixture/output" 2>&1 || status=$?
-[[ "$status" == 23 ]]
-[[ "$(wc -l < "$fixture/output" | tr -d ' ')" == 2 ]]
+[[ "$status" == 23 ]] || exit 1
+[[ "$(wc -l < "$fixture/output" | tr -d ' ')" == 2 ]] || exit 1
 grep -Fx 'Checking formatting... FAILED (exit 23)' "$fixture/output" > /dev/null
 logs=("$fixture/temp"/formatting.*)
-[[ ${#logs[@]} == 1 && -f "${logs[0]}" ]]
+[[ ${#logs[@]} == 1 && -f "${logs[0]}" ]] || exit 1
 grep -Fx retained-formatter-diff "${logs[0]}" > /dev/null
 grep -Fx formatter-error "${logs[0]}" > /dev/null
 
@@ -53,8 +53,8 @@ cp "$root/scripts/ci/"{check-format-tools,check-make-execution,run-formatting}.s
 cat > "$consumer/.tools/rust/bin/formatting-fixture-cargo" <<'CARGO'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "$CARGO_NET_OFFLINE" == true && "$RUSTUP_AUTO_INSTALL" == 0 ]]
-[[ "${MAKEFLAGS:-}" =~ --jobserver-(auth|fds)=([0-9]+),([0-9]+) ]]
+[[ "$CARGO_NET_OFFLINE" == true && "$RUSTUP_AUTO_INSTALL" == 0 ]] || exit 1
+[[ "${MAKEFLAGS:-}" =~ --jobserver-(auth|fds)=([0-9]+),([0-9]+) ]] || exit 1
 reader="${BASH_REMATCH[2]}"; writer="${BASH_REMATCH[3]}"
 : <&"$reader"
 : >&"$writer"
@@ -86,14 +86,14 @@ if make --help | grep -q -- --jobserver-style; then parallel+=(--jobserver-style
 RUNNER_TEMP="$fixture/temp" FORMAT_EVIDENCE_FAIL=sort \
     make --no-print-directory "${parallel[@]}" -C "$consumer" fmt-check FORMAT_CARGO=formatting-fixture-cargo \
     > "$fixture/make-failure" 2>&1 || status=$?
-[[ "$status" == 2 ]]
+[[ "$status" == 2 ]] || exit 1
 printf 'sort --workspace --check\n' > "$fixture/expected-events"
 cmp "$fixture/expected-events" "$FORMAT_EVIDENCE_EVENTS"
 grep -Fx 'Checking formatting... FAILED (exit 23)' "$fixture/make-failure" > /dev/null
 logs=("$fixture/temp"/formatting.*)
-[[ ${#logs[@]} == 2 ]]
+[[ ${#logs[@]} == 2 ]] || exit 1
 grep -Flx sorter-error "${logs[@]}" > "$fixture/sorter-logs"
-[[ "$(wc -l < "$fixture/sorter-logs" | tr -d ' ')" == 1 ]]
+[[ "$(wc -l < "$fixture/sorter-logs" | tr -d ' ')" == 1 ]] || exit 1
 sorter_log="$(cat "$fixture/sorter-logs")"
 grep -Fx retained-sorter-diff "$sorter_log" > /dev/null
 : > "$FORMAT_EVIDENCE_EVENTS"
@@ -110,7 +110,7 @@ EVIDENCE_TEMP_ROOT="$fixture/temp" EVIDENCE_REPOSITORY_ROOT="$fixture/repository
     RUNNER_TEMP="$fixture/temp" GITHUB_OUTPUT="$fixture/archive-output" \
     bash "$fixture/collect.sh" > "$fixture/collection.log" 2>&1
 archive="$(sed -n 's/^path=//p' "$fixture/archive-output")"
-[[ -f "$archive" ]]
+[[ -f "$archive" ]] || exit 1
 tar -xzf "$archive" -C "$fixture/unpacked"
 for log in "${logs[@]}"; do cmp "$log" "$fixture/unpacked/${log##*/}"; done
 # Successful formatting reports one line and removes only its own temporary log.
@@ -119,7 +119,7 @@ RUNNER_TEMP="$fixture/temp" bash "$root/scripts/ci/run-formatting.sh" --write \
 printf 'Formatting... ok\n' > "$fixture/expected"
 cmp "$fixture/expected" "$fixture/success"
 remaining=("$fixture/temp"/formatting.*)
-[[ ${#remaining[@]} == 2 ]]
-for log in "${logs[@]}"; do [[ -f "$log" ]]; done
+[[ ${#remaining[@]} == 2 ]] || exit 1
+for log in "${logs[@]}"; do [[ -f "$log" ]] || exit 1; done
 echo 'Formatting failure propagation and local archive retention passed (no hosted upload)'
 fixture_complete=true

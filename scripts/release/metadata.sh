@@ -34,10 +34,10 @@ case "$operation" in
     version) bash "$reader" Cargo.toml ;;
     preflight)
         current_version="$(bash "$reader" Cargo.toml)"
-        [[ "$current_version" == "${RELEASE_PREVIOUS:?}" ]]
+        [[ "$current_version" == "${RELEASE_PREVIOUS:?}" ]] || exit 1
         admit_files
         for path in Cargo.toml Cargo.lock CHANGELOG.md; do
-            [[ -f "$path" && ! -L "$path" ]]
+            [[ -f "$path" && ! -L "$path" ]] || exit 1
         done
         # Refuse conflicting pending notes before a gate or preparation intent.
         awk -v version="${RELEASE_VERSION:?}" -v previous="$RELEASE_PREVIOUS" -v date="${RELEASE_DATE:?}" \
@@ -58,11 +58,11 @@ case "$operation" in
         ;;
     prepare)
         current_version="$(bash "$reader" Cargo.toml)"
-        [[ "$current_version" == "${RELEASE_PREVIOUS:?}" ]]
+        [[ "$current_version" == "${RELEASE_PREVIOUS:?}" ]] || exit 1
         backup="$(mktemp -d "${TMPDIR:-/tmp}/jobs-release-backup.XXXXXX")"
         files=(Cargo.toml Cargo.lock CHANGELOG.md)
         for path in "${files[@]}"; do
-            [[ -f "$path" && ! -L "$path" ]]
+            [[ -f "$path" && ! -L "$path" ]] || exit 1
             cp -p "$path" "$backup/$path"
         done
         complete=false
@@ -104,16 +104,16 @@ case "$operation" in
             -f scripts/ci/finalize-release-changelog.awk "$backup/CHANGELOG.md" > CHANGELOG.md
         cargo metadata --locked --offline --format-version 1 >/dev/null
         current_version="$(bash "$reader" Cargo.toml)"
-        [[ "$current_version" == "$RELEASE_VERSION" ]]
+        [[ "$current_version" == "$RELEASE_VERSION" ]] || exit 1
         complete=true
         ;;
     check|commit-check)
         metadata_root=.
         check_complete=false
         if [[ -n "${RELEASE_COMMIT:-}" ]]; then
-            [[ "$RELEASE_COMMIT" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]]
+            [[ "$RELEASE_COMMIT" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ ]] || exit 1
             object_type="$(git cat-file -t "$RELEASE_COMMIT")"
-            [[ "$object_type" == commit ]]
+            [[ "$object_type" == commit ]] || exit 1
             metadata_root="$(mktemp -d "${TMPDIR:-/tmp}/jobs-committed-metadata.XXXXXX")"
             cleanup_committed_metadata() {
                 local status=$?
@@ -133,7 +133,7 @@ case "$operation" in
                 tar -xf - -C "$metadata_root"
         fi
         current_version="$(bash "$reader" "$metadata_root/Cargo.toml")"
-        [[ "$current_version" == "${RELEASE_VERSION:?}" ]]
+        [[ "$current_version" == "${RELEASE_VERSION:?}" ]] || exit 1
         awk -v heading="## [$RELEASE_VERSION] - ${RELEASE_DATE:?}" \
             '$0 == heading { count++ } END { if (count != 1) exit 1 }' "$metadata_root/CHANGELOG.md"
         local_lock_packages "$metadata_root/Cargo.lock" > /dev/null
@@ -147,7 +147,7 @@ case "$operation" in
         fi
         admit_files
         if [[ "$operation" == commit-check ]]; then
-            [[ -z "${RELEASE_COMMIT:-}" ]]
+            [[ -z "${RELEASE_COMMIT:-}" ]] || exit 1
             git diff --quiet -- Cargo.toml Cargo.lock CHANGELOG.md
         fi
         check_complete=true

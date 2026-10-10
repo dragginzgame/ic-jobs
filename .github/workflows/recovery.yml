@@ -6,6 +6,11 @@ permissions:
 defaults:
   run:
     shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+concurrency:
+  # A newer run replaces queued and running checks for this workflow and ref.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   recovery:
     strategy:
@@ -28,7 +33,7 @@ jobs:
               "$(git rev-parse HEAD)" "$GITHUB_REF" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
             uname -sm
           } > "$evidence/source.txt"
-          cp Cargo.toml Cargo.lock rust-toolchain.toml ci/testkit-tools.env "$evidence/"
+          cp Cargo.toml Cargo.lock rust-toolchain.toml "$evidence/"
           cp .shared-tooling.snapshot "$evidence/shared-tooling.snapshot"
       - name: Prepare development and minimum toolchains
         run: |
@@ -49,9 +54,8 @@ jobs:
         run: |
           make install-testkit-tools 2>&1 | tee "$RUNNER_TEMP/tools-testkit-setup.log"
           make testkit-tools-check 2>&1 | tee "$RUNNER_TEMP/tools-testkit-check.log"
-          source ci/testkit-tools.env
           cli="$(bash scripts/dev/install-rust-tools.sh --package ic-testkit \
-            --version "$IC_JOBS_TESTKIT_VERSION" --bin ic-testkit-server --profile release --check)"
+            --lockfile Cargo.lock --bin ic-testkit-server --profile release --check)"
           cp "${cli%/bin/*}/selection.json" "$RUNNER_TEMP/jobs-recovery/testkit-selection.json"
       - name: Prepare and admit the Testkit-owned PocketIC bundle
         run: |
