@@ -1,5 +1,135 @@
 # Current handoff
 
+## Pending 0.5.6 — Shared 0.3.11 metadata correction
+
+Canonically adopted Shared **0.3.11** at
+`db143ae9ae140eb66826c413360723d23c078f66`, preserving the 82-file selection.
+Committed VERSION and snapshot annotation now agree; the owning version report
+[Shared #115](https://github.com/dragginzgame/shared-tooling/issues/115) is closed.
+Only snapshot identity/version metadata changes among selected shared inputs;
+all vendored file bytes and modes match the previously qualified revision.
+The other upstream change isolates diagnostics in its unselected regression
+fixture, leaving the installed validation runner unchanged.
+
+Pending Jobs stays compatible **0.5.6**. The incoming root lock, including Host
+0.12.10 and newly selected Memory 0.35.6, is preserved byte-for-byte. Its SHA-256
+is `b1f470fde4ccbc1673573a2deef986eaff04c5beb26346be45c961d930d7dc9f`.
+Memory 0.35.6 is the only dependency change since the prior qualified graph;
+the previous full CI/live passes used 0.35.5 and are not reassigned to it.
+This Shared metadata refresh needs focused integrity/documentation checks;
+snapshot integrity, local links, pin declarations, release-adapter checks and
+diff checks pass. The upstream isolated-diagnostic regression passes on current
+Bash and genuine Linux Bash 3.2; it uses substitute Make targets. All 82 vendored
+hashes and executable modes match the prior revision. New-source
+delivery/native acceptance remains in [#18](https://github.com/dragginzgame/ic-jobs/issues/18),
+hosted recovery acceptance in [#11](https://github.com/dragginzgame/ic-jobs/issues/11).
+Evidence: `/tmp/ic-jobs-shared-0311.5OZpsp/`.
+No sibling edit, dependency change, full gate, live run, commit, push, release,
+publication or hosted dispatch occurs in this metadata refresh.
+
+## Earlier pending 0.5.6 qualification at the .10-labelled Shared revision
+
+## Pending 0.5.6 — latest Shared revision and Host 0.12.10
+
+The compatible 0.5.6 batch continues on delivered Jobs 0.5.5
+`9b3abf4fdeb8438de218cba7543660c7eb908386`. Shared's reviewed commit labelled
+0.3.10 is `37af29b2f8fb4532744b600c5f85ce716a8b57cf`, adopted through the
+canonical exporter with the same 82-file selection. Its committed VERSION is
+still 0.3.9, so the canonical snapshot correctly retains that annotation; the
+owning metadata report is [Shared #115](https://github.com/dragginzgame/shared-tooling/issues/115).
+No annotation was patched locally. The release-command checker now handles
+relative/symlinked TMPDIR and anchors nested Make probes. The prior Jobs checker
+fails the relative-root reproduction; the new actual Jobs checker and canonical
+release fixture pass on current Bash and genuine Linux Bash 3.2.57/Make 3.81.
+Jobs has no dollar-prefixed derive macros requiring the new protection guidance.
+
+Selected all four published Host crates **0.12.10**, reviewed at released source
+`5074de1792f920112c6539629605a6624f573863`. Their published Rust trees match
+0.12.9 and retain Rust 1.88. Only the four Host records change from the incoming
+lock; unrelated dependency edges are preserved and admitted by locked Cargo
+metadata. Cargo's intermediate generated lock remains retained separately.
+Memory 0.35.5, Timers 0.17.6, Metrics 0.5.5, Testkit 0.33.1 and serde_json 1.0.152
+retain their selections. Selected lock SHA-256 is
+`d4879e3d2eb28712ec54595d1a225d651048846550571ad38a3e411d7928c981`.
+
+Evidence: `/tmp/ic-jobs-shared-0310.Obw28A/`. Focused relative/aliased temporary
+path qualification and fresh full `make ci` pass, including separate Rust 1.88
+core/timers native/Wasm checks, the host harness, docs and packaging. All five
+live recovery scenarios pass afresh for each original/Binaryen 133 optimized
+`-O3`, `-Os`, `-Oz` variant under parallel Bash 3.2/Make 3.81 without jobserver
+warnings. Source hashes match after CI/live, and normal core/canister Wasm
+graphs contain no Host crates. Attempt `/tmp/jobs-recovery.bO51Fc/` retains the
+exact variants/server/tool evidence; original Wasm SHA-256 is
+`62fed594a02659266d7bdec8d47bd2cfcd1fe591de6d5cb674ac9001c54df93c`.
+Final handoff documentation checks follow separately.
+
+Host .10 [CI](https://github.com/dragginzgame/ic-host-tooling/actions/runs/38120032068)
+now passes Linux, both macOS architectures and MSRV. Shared's exact-source
+[CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38120869060)
+passes Linux/lint while both macOS jobs remain running; earlier passes are not
+reassigned. The prior 0.3.9 qualification below
+remains bound to its source and graph. Jobs' fixture delivery/native acceptance
+remains in [#18](https://github.com/dragginzgame/ic-jobs/issues/18), hosted optimized
+recovery acceptance in [#11](https://github.com/dragginzgame/ic-jobs/issues/11).
+No package version mutation, sibling source edit, commit, push, release,
+publication or hosted dispatch occurred.
+
+## Earlier pending 0.5.6 qualification at Shared 0.3.9 / Host 0.12.9
+
+## Pending 0.5.6 — Shared setup/diagnostics and native fixture evidence
+
+Delivered Jobs **0.5.5** is `9b3abf4fdeb8438de218cba7543660c7eb908386`.
+Its [complete CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38072923082)
+passes Linux and native macOS Intel/Apple Silicon. This closes the delivered
+assertion/hook acceptance in [#16](https://github.com/dragginzgame/ic-jobs/issues/16)
+and [#17](https://github.com/dragginzgame/ic-jobs/issues/17).
+
+Pending compatible **0.5.6** adopts reviewed Shared **0.3.9** at
+`1ed2ca523186641e0e0cdf77e3cb10814c22a430` through the canonical exporter,
+preserving the 82-file selection. Rust-tool probes/installation now share the
+selected consumer's Cargo configuration; retained validation diagnostics use
+the same classifier as live output. Native CI selects the shared collector's
+existing `portable-fixtures` directory as TMPDIR. The maintained evidence test
+executes the actual workflow command with substituted failing Make, preserves
+its status 37 and verifies its inner fixture log in the actual local archive.
+Delivery/native acceptance of that repair remains in
+[#18](https://github.com/dragginzgame/ic-jobs/issues/18).
+
+The incoming lock selects Memory **0.35.5**, Timers **0.17.6**, Metrics **0.5.5**,
+Testkit **0.33.1**, four Host crates **0.12.9** and serde_json **1.0.152**;
+SHA-256 `7db925f4c9de0a9ab812856b88230bc817b1be24e09daff3a7f1ca82d9903cc0`.
+It is preserved. Published Host/Timers Rust trees match their prior releases,
+and Host retains Rust 1.88. Host's macOS portability fix is delivered at
+`8cc85c53cdd59701a7352f566425b3faf195a37b`; its
+[CI](https://github.com/dragginzgame/ic-host-tooling/actions/runs/38073002651)
+passes all native hosts and MSRV. Jobs' count checks already normalize padded
+counts; no equivalent source repair is needed. Host remains outside normal
+core/canister Wasm graphs. Job/storage/effect contracts retain consumer ownership.
+
+Evidence: `/tmp/ic-jobs-shared-039.cncWCY/`. Current-shell Shared installer/
+diagnostic fixtures and Jobs' actual workflow/archive regression pass, as do
+genuine Linux Bash 3.2.57 checks and the Jobs evidence fixture under Make 3.81.
+Outside-consumer admission reuses the actual selected Testkit 0.33.1 CLI.
+Fresh `make ci` passes, including separate Rust 1.88 core/timers native/Wasm,
+consumer/harness checks, Clippy, docs and packaging. All five live recovery
+scenarios pass on each original/Binaryen 133 `-O3`, `-Os`, `-Oz` variant under
+parallel Bash 3.2/Make 3.81 without jobserver warnings. Frozen source hashes match
+after both gates; final handoff checks follow separately.
+
+`live-bash32.log` retains the sandboxed PocketIC loopback-bind failure and its
+attempt `jobs-recovery.HjWpQA/`. The authorized local-server rerun passes in
+`live-local-server.log`, retaining attempt `/tmp/jobs-recovery.XbFAEv/` and exact
+variant/server/tool artifacts. Original Wasm SHA-256 is
+`62fed594a02659266d7bdec8d47bd2cfcd1fe591de6d5cb674ac9001c54df93c`.
+This is Linux live/shell evidence; native macOS acceptance of the new source
+remains separate. Earlier passing evidence below is bound to its own graph.
+Hosted optimized recovery acceptance remains in
+[#11](https://github.com/dragginzgame/ic-jobs/issues/11); no recovery workflow runs
+exist at inspection. Package versions remain 0.5.5. No sibling source edit,
+commit, push, release, publication or hosted dispatch occurred.
+
+## Historical preparation for 0.5.5
+
 Jobs **0.5.4** is delivered at `d5e5aaf6e8450072b90357c3ea3eba3913bc24d7`,
 matching public main and annotated `v0.5.4`. Its actual released graph includes
 Memory 0.35.4, Metrics 0.5.5, Testkit 0.33.1 and Host 0.12.7; earlier local

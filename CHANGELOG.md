@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.6]
+
+- Adopt Shared Tooling 0.3.11: Rust-tool setup and checks use the selected
+  consumer's Cargo configuration; retained validation summaries keep early
+  fatal, LLVM and missing-file diagnostics
+  ([Shared #101](https://github.com/dragginzgame/shared-tooling/issues/101),
+  [Shared #110](https://github.com/dragginzgame/shared-tooling/issues/110)).
+- Adopt the latest Shared release-command check, supporting relative and
+  symlinked temporary directories without losing nested Make checks
+  ([Shared #112](https://github.com/dragginzgame/shared-tooling/issues/112)).
+- Include failed native tooling fixtures and their inner logs in CI artifacts
+  ([#18](https://github.com/dragginzgame/ic-jobs/issues/18)).
+
 ## [0.5.5] - 2026-10-10
 
 - Qualify the actual pre-commit hook and Jobs formatting in native CI, including

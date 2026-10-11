@@ -22,12 +22,37 @@ yq -o json '.' "$root/.github/workflows/ci.yml" > "$fixture/workflow.json"
 yq -o json '.' "$root/.github/actions/retain-failure-evidence/action.yml" > "$fixture/collector.json"
 jq -e '
     .jobs.validate.steps as $steps |
-    [$steps | to_entries[] | select(.value.run == "make ci")] as $gates |
+    [$steps | to_entries[] | select(.value.name == "Validate the selected graph")] as $gates |
     [$steps | to_entries[] | select(.value.uses == "./.github/actions/retain-failure-evidence")] as $collectors |
     ($gates | length) == 1 and ($collectors | length) == 1 and
     $gates[0].value["continue-on-error"] != true and
     $collectors[0].key > $gates[0].key and $collectors[0].value.if == "failure()"
 ' "$fixture/workflow.json" > /dev/null
+
+# Execute the actual workflow gate with a failed fixture. Its temporary root
+# must be one the actual collector archives, and the child status must survive.
+jq -er '.jobs.validate.steps[] | select(.name == "Validate the selected graph") | .run' \
+    "$fixture/workflow.json" > "$fixture/gate.sh"
+temporary_selection="$(jq -er '.jobs.validate.steps[] | select(.name == "Validate the selected graph") | .env.TMPDIR' "$fixture/workflow.json")"
+# Substitute the literal GitHub expression, not a shell variable.
+# shellcheck disable=SC2016
+gate_temp="${temporary_selection//'${{ runner.temp }}'/$fixture/temp}"
+mkdir "$fixture/bin"
+cat > "$fixture/bin/make" <<'MAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == ci ]] || exit 45
+attempt="$(mktemp -d "$TMPDIR/jobs-release-tooling.XXXXXX")"
+printf 'retained-inner-fixture-failure\n' > "$attempt/failure.log"
+exit 37
+MAKE
+chmod +x "$fixture/bin/make"
+status=0
+PATH="$fixture/bin:$PATH" TMPDIR="$gate_temp" bash "$fixture/gate.sh" \
+    > "$fixture/gate-output" 2>&1 || status=$?
+[[ "$status" == 37 ]] || exit 1
+attempts=("$gate_temp/"*)
+[[ ${#attempts[@]} == 1 && -f "${attempts[0]}/failure.log" ]] || exit 1
 
 # Complete stdout and stderr survive the compact two-line presentation, along
 # with the wrapped command's original status.
@@ -113,6 +138,8 @@ archive="$(sed -n 's/^path=//p' "$fixture/archive-output")"
 [[ -f "$archive" ]] || exit 1
 tar -xzf "$archive" -C "$fixture/unpacked"
 for log in "${logs[@]}"; do cmp "$log" "$fixture/unpacked/${log##*/}"; done
+cmp "${attempts[0]}/failure.log" \
+    "$fixture/unpacked/portable-fixtures/${attempts[0]##*/}/failure.log"
 # Successful formatting reports one line and removes only its own temporary log.
 RUNNER_TEMP="$fixture/temp" bash "$root/scripts/ci/run-formatting.sh" --write \
     bash -c 'echo successful-formatter-detail' > "$fixture/success"
