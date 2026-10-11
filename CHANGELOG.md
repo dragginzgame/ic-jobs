@@ -8,6 +8,8 @@
   the selected Testkit CLI separately before recovery qualification
   ([#21](https://github.com/dragginzgame/ic-jobs/issues/21),
   [Shared #121](https://github.com/dragginzgame/shared-tooling/issues/121)).
+- Keep release-tool qualification compatible with common Rust setup preflight
+  ([#21](https://github.com/dragginzgame/ic-jobs/issues/21)).
 - Align the consumer memory guide with the selected IC Memory 0.35 family and
   distinguish completed recovery evidence from qualification of the current
   watchdog scenario ([#22](https://github.com/dragginzgame/ic-jobs/issues/22)).

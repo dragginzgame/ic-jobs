@@ -135,8 +135,19 @@ new_repository() {
 #!/usr/bin/env bash
 set -euo pipefail
 . ci/release-tools.env
-[[ "$*" == "--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release --check" ]] || exit 49
-printf '%s\n' "$TOOLING_REAL_CARGO_EDIT"
+case "${1:-}" in
+    --consumer)
+        [[ $# == 5 ]] || exit 49
+        [[ "$3" == --versions && "$5" == --preflight ]] || exit 49
+        consumer="$(cd -P . && printf '%s/.' "$PWD")"
+        consumer="${consumer%/.}"
+        [[ "$2" == "$consumer" && "$4" == "$consumer/ci/tool-versions.env" ]] || exit 49
+        printf 'rust-preflight\n' >> .git/tool-events ;;
+    --package)
+        [[ "$*" == "--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release --check" ]] || exit 49
+        printf '%s\n' "$TOOLING_REAL_CARGO_EDIT" ;;
+    *) exit 49 ;;
+esac
 INSTALLER
     cat >> "$repository/Makefile" <<'MAKE'
 
@@ -438,7 +449,7 @@ GIT
         for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
         [[ ! -e .git/gate-events && ! -e ".git/release-state/$candidate.plan" ]] || exit 1
         for _ in 1 2; do
-            printf 'install-host-tools\ninstall-ic-tools\ninstall-rust-tools\nsetup\nhost-tools-check\nic-tools-check\nrust-tools-check\ncheck\n'
+            printf 'rust-preflight\ninstall-host-tools\ninstall-ic-tools\ninstall-rust-tools\nsetup\nhost-tools-check\nic-tools-check\nrust-tools-check\ncheck\n'
         done > "$fixture/expected-tools"
         cmp .git/tool-events "$fixture/expected-tools"
         [[ "$(wc -l < .git/tool-installs | tr -d ' ')" == 1 ]] || exit 1

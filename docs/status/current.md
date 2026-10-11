@@ -2,6 +2,27 @@
 
 ## Pending 0.5.10 — Shared 0.6.0 and accurate consumer guidance
 
+The maintainer's CI attempt at prepared `48472b4` reached the release fixture,
+then failed because its substituted Rust installer admitted only cargo-edit
+checks, omitting the common `install-tools` preflight call. The fixture now
+admits only that declared consumer/catalog/preflight argument shape, records it
+before installation and retains refusal of unexpected dispatches. Its ordered
+setup assertion includes the preflight. The reported failed attempt remains at
+`/tmp/jobs-release-tooling.2NF9Hb`; the original CI log is preserved.
+
+The maintainer explicitly authorized **only `make test-release-tooling`** for
+this repair, overriding the earlier local exception for that focused target.
+It passes on Linux with the actual local Git fixtures and substituted complete
+gate, registry and upload effects; prerequisites admit the prepared cargo-edit
+and format tools. Shell parsing, snapshot/pin/link and whitespace checks pass.
+Evidence: `/tmp/ic-jobs-release-preflight-ron28ihb/`. This is a fixture-only
+compatible addition to 0.5.10 under
+[#21](https://github.com/dragginzgame/ic-jobs/issues/21). Full CI/native acceptance
+of the final source remains required. No real-index, package-version, lock or
+Git-ref changes, actual release/publication or new live gate are performed.
+
+### Earlier snapshot preparation and admission
+
 Canonically adopted committed Shared **0.6.0** at
 `75180980a0c4e4252d8a915aaecfaefd92bf9a4e` from an isolated clean source clone.
 The exporter retains all 83 selections, updates 12 existing files and adds the
