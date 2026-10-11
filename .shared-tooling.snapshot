@@ -1,8 +1,8 @@
 # Shared Tooling snapshot v1
-# version	0.6.1
+# version	0.6.2
 format	1
 source	https://github.com/dragginzgame/shared-tooling
-revision	731909525038c58d6f80b498e80f8630b11c685d
+revision	7f1ca16b0dfa98021d2671017ecb7de767409b0e
 file	e0e2b283d0bece7ad63bc21b0fca1495865ef04c0a522ac303c4d96cfd384685	-	DRAGGINZGAME.md
 file	8d32526932bdaf88a6c78ccc2358fb92a49bd89b7631572766deea51923d8f58	-	rules/contributions.md
 file	e7c1c56549860efff6a579913a1632eb19868d5e2e5e5e1ed2ba3ea7171db881	-	rules/changelogs.md
@@ -32,8 +32,8 @@ file	35fd87d36a09ed0971841abf28535d43470c713a82581c2251b924da1ab8f484	-	audits/f
 file	ffdca09602c44c8aff8fc2a17588b20eb6a56e2e71fb6d42ad75087fdd65819b	-	audits/complexity-and-technical-debt.md
 file	1b64cf2ba0393ab329ec29eb05a696d47ef5933f5ab9bff6e1fe4a7e7b294075	-	audits/module-surface-hardening.md
 file	b33ecebfb524f9af496c0f4f4b24650b97833e20f1fca56eedb8604a0660e109	-	audits/module-cleanup.md
-file	786abdd7653a2e49a3b9237438b4c516b37c1455f1f0845458d165cb69fedf66	-	docs/releases.md
-file	fc689ff5d636be1049a527f6cafa74a768005211dcbecb074b8b327d8e6bab04	x	scripts/ci/run-release.sh
+file	a11c5304d3bb8cd78af81b1c1f046c56e7f677bd0c9302a1f65e09cbffef6254	-	docs/releases.md
+file	e1d40984915456fb5b0837462f5ee9c88e1bd7798620b49d34a8e1926ae3cec0	x	scripts/ci/run-release.sh
 file	9e32385247296ce95d2b15b1290c64e6b6dff15716c1c139f21ab5e5128f4be3	x	scripts/ci/check-make-execution.sh
 file	37e028e2d9fee271ffdc06d06fc15d7a148ec524def3d9ed2afcd9910c0ec642	x	scripts/ci/next-release-version.sh
 file	e7f4c82566858b89b50c5c2f929097bdde85345a2c0c1bf553bb1170cc4f5960	-	scripts/ci/finalize-release-changelog.awk
@@ -48,7 +48,7 @@ file	fceba7f0b7e523517fa06c1e2cfed5965147a771b3348e99b3b743cf21466e51	-	docs/con
 file	15315edad497b9b165671c3f57e9f56e6ba1d206bbc635eb0ff51afaa8456bb3	-	docs/provenance.md
 file	063d456f2e8b07340537c4e2943e591c140fee85bfaecb256b893be2d915dae2	-	docs/verification-helpers.md
 file	bc9014d8e70a309cf2f65658a7c1ea29303375bbe5087150a4087a187efd9b41	-	docs/ic-tools.md
-file	6659598f12a44d58ed0ca1cef6bcabf0b275a6a9ecdd998734c70707b5403443	-	docs/local-setup.md
+file	87f826b16f1078f2d905cb02a8d78582d44654acfaa6b26492214ac4f07dad4c	-	docs/local-setup.md
 file	05da2ac2b805c7cf9597d4af75983efc1268d619a0fb1e42c7f6d3fdb481880b	-	ci/ic-tools.tsv
 file	82892e25292fe47c26035a0031aa4ad1996fcf181732163e75039bd657f2f84b	-	ci/tool-versions.env
 file	065c124c604efd5ab77967e2615ffe3f4d365fb941d806836947df0f7b11e25c	-	docs/supported-hosts.md

@@ -1,5 +1,45 @@
 # Current handoff
 
+## Pending 0.5.12 — Shared 0.6.2 and selected upstream patches
+
+Canonically adopted committed Shared **0.6.2** at
+`7f1ca16b0dfa98021d2671017ecb7de767409b0e` from the clean isolated source.
+The exporter retains all 84 selections and updates the release runner, release
+guide and local setup guide. Source conflicts report the exact saved/current
+commits and plan identity. Recovery remains a guarded maintainer procedure;
+ordinary adoption does not retire release plans or authorize release effects.
+Audit/Machete guidance now distinguishes their actual invocation contracts;
+Jobs has no such consumer target to change. Adoption remains with
+[#21](https://github.com/dragginzgame/ic-jobs/issues/21), with source changes in
+[Shared #126](https://github.com/dragginzgame/shared-tooling/issues/126) and
+[Shared #123](https://github.com/dragginzgame/shared-tooling/issues/123).
+
+The incoming lock already selects Memory **0.35.10**, Timers **0.17.11** and
+Host **0.13.5**, alongside Testkit 0.33.7 and Metrics 0.6.4. It is preserved
+byte-for-byte. Locked fetching prepares the selected source cache; locked offline
+metadata admits the graph. Published Memory, Timers and all four Host Rust trees
+match their preceding selected patches. Their declared floors remain 1.88;
+Metrics remains 1.85. No Jobs API, runtime, storage or MSRV change is needed.
+Snapshot integrity, pin declarations, 222 local references, Bash parsing and
+whitespace checks pass. Real offline `make tools-check` also passes the complete
+selected tool set, including cargo-edit admission; no installation or tool build
+is dispatched. These checks do not qualify core/timers builds or native
+and live behavior. Tests, builds, lint, complete CI and live execution remain
+excluded by the recorded local exception. Evidence:
+`/tmp/ic-jobs-0512-hwreyei3/`.
+
+Jobs **0.5.11** is delivered at
+`628c181f082475fba3e6d55a9b28b860f63d3d81`, matching public main and annotated
+`v0.5.11`. Its [native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38143101651)
+is running Linux with both macOS hosts queued. The preceding 0.5.10 run was
+cancelled before all-host acceptance. Exact-source
+[Shared 0.6.2 CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38143010876)
+passes lint/security; portable Linux/Apple Silicon are running and Intel queued.
+#21 remains open for final-source native acceptance. Earlier v0.5.9 recovery
+qualifies only its tested source/graph/snapshot, not this pending batch. Package
+versions stay 0.5.11; the real index and refs are untouched. No release,
+publication, new workflow dispatch or sibling edit is performed.
+
 ## Pending 0.5.11 — Shared 0.6.1 installer failure handling
 
 Canonically adopted committed Shared **0.6.1** at

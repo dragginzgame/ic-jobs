@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.12]
+
+- Adopt Shared Tooling 0.6.2 for clearer interrupted-release source conflicts
+  and guarded maintainer recovery guidance
+  ([#21](https://github.com/dragginzgame/ic-jobs/issues/21),
+  [Shared #126](https://github.com/dragginzgame/shared-tooling/issues/126)).
+- Refresh the locked graph to Memory 0.35.10, Timers 0.17.11 and Host 0.13.5;
+  retain the existing library contracts and Rust 1.88 floor.
+
 ## [0.5.11] - 2026-10-11
 
 - Adopt Shared Tooling 0.6.1 so Cargo-tool setup stops on lock, validation and
