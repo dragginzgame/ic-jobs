@@ -162,20 +162,25 @@ Rust tools in order, then selected cargo-edit; `make tools-check` verifies the
 same complete set offline. Host tools include jq, yq, ripgrep with PCRE2 and cloc;
 Rust tools include cargo-sort, cargo-sort-derives and candid-extractor. For an interactive shell,
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/common/bin` to PATH.
-Shared Tooling 0.5.0 stores verified host/IC bundles once per user while each
-checkout retains its own pinned selection through these paths. After adoption,
-run `make install-host-tools`, `make install-ic-tools`, `make host-tools-check`
-and `make ic-tools-check`; previous local bundles remain retained. Use the same
+Shared Tooling 0.6.0 stores verified host, IC and Cargo-built bundles once per user
+while each checkout retains its own pinned selection through these paths. Cargo
+reuse binds the exact compiler, native environment, published source and lock,
+target and profile. Tool builds use the shared standard environment; application
+compiler flags and wrappers remain local. After adoption, run
+`make install-tools` and `make tools-check`; previous installations remain
+retained. Use the same
 `SHARED_TOOLING_STORE` setting for setup, checks and evidence collection; see
 [storage configuration](docs/local-setup.md#shared-executable-storage).
-Common Rust tools use verified checkout-local slots at `.tools/rust/common/bin`;
-run `make install-rust-tools` and `make rust-tools-check` when first adopting that
-selection. The complete `install-tools`/`tools-check` aggregates cover both sets.
-Make additionally selects cargo-edit's versioned root for release commands;
-`make install-release-tools` prepares it and `make release-tools-check` admits it.
+Common Rust tools retain `.tools/rust/common/bin` as their command path.
+Jobs' pinned cargo-edit also uses the shared owner: `make install-release-tools`
+prepares its selected binary and `make release-tools-check` admits it. Release
+metadata uses the returned checked path. The older cargo-edit root is retained;
+rerun explicit setup before release commands on this snapshot.
 The shared IC bundle contains Quill, ICP CLI, didc, ic-wasm and wasm-opt.
 After updating an older six-tool bundle, run `make install-ic-tools` explicitly,
 then `make ic-tools-check`; previous bundles and receipts are retained.
+The separately lock-selected Testkit CLI also needs explicit
+`make install-testkit-tools` and `make testkit-tools-check` after this adoption.
 PocketIC provisioning belongs to IC Testkit. The unpublished
 [consumer harness](apps/job-consumer/README.md) uses its separately selected
 Testkit setup/check contract; common setup and ordinary CI do not launch it.

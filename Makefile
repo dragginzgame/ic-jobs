@@ -5,7 +5,7 @@ LOCAL_TOOL_CHECK_TARGETS := release-tools-check
 include make/tools.mk
 include make/release.mk
 include make/rust-format.mk
-export PATH := $(CURDIR)/.tools/rust/cargo-edit-$(shell . ci/release-tools.env && printf '%s' "$$IC_JOBS_CARGO_EDIT_VERSION")/bin:$(PATH)
+CARGO_EDIT_TOOL = bash scripts/dev/install-rust-tools.sh --package cargo-edit --version "$(shell . ci/release-tools.env && printf '%s' "$$IC_JOBS_CARGO_EDIT_VERSION")" --bin cargo-set-version --profile release
 
 .PHONY: help version install-hooks install-release-tools release-tools-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling test-formatting-evidence package publish-check publish ci
 help:
@@ -23,16 +23,10 @@ help:
 	@echo "Recovery: rerun the release target, or release-resume VERSION=X.Y.Z"
 
 install-release-tools:
-	+@. ci/release-tools.env && selected_root="$(CURDIR)/.tools/rust/cargo-edit-$$IC_JOBS_CARGO_EDIT_VERSION" && \
-		if test -e "$$selected_root" || test -L "$$selected_root"; then \
-			$(MAKE) --no-print-directory release-tools-check; \
-		else \
-			cargo install cargo-edit --version "=$$IC_JOBS_CARGO_EDIT_VERSION" --locked \
-				--no-default-features --features set-version --root "$$selected_root" --target-dir "$(CURDIR)/.tools/rust/build"; \
-		fi
+	+@$(CARGO_EDIT_TOOL) > /dev/null
 
 release-tools-check:
-	+@. ci/release-tools.env && test -x "$(CURDIR)/.tools/rust/cargo-edit-$$IC_JOBS_CARGO_EDIT_VERSION/bin/cargo-set-version" && actual="$$(cargo set-version --version)" && test "$$actual" = "cargo-edit-set-version $$IC_JOBS_CARGO_EDIT_VERSION" || \
+	+@. ci/release-tools.env && tool="$$( $(CARGO_EDIT_TOOL) --check )" && actual="$$("$$tool" set-version --version)" && test "$$actual" = "cargo-edit-set-version $$IC_JOBS_CARGO_EDIT_VERSION" || \
 		{ echo 'Missing or mismatched cargo-edit; run make install-release-tools' >&2; exit 1; }
 
 install-hooks:

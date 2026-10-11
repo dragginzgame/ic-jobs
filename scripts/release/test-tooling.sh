@@ -118,6 +118,12 @@ CARGO
 chmod +x "$fixture/cache-bin/cargo"
 export PATH="$fixture/cache-bin:$PATH"
 base_version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable "$root/Cargo.toml")"
+# Metadata fixtures still use the prepared, admitted version editor. They must
+# not discover an ambient Cargo subcommand or build a fresh tool in a copy.
+. "$root/ci/release-tools.env"
+export TOOLING_REAL_CARGO_EDIT
+TOOLING_REAL_CARGO_EDIT="$(bash "$root/scripts/dev/install-rust-tools.sh" --package cargo-edit \
+    --version "$IC_JOBS_CARGO_EDIT_VERSION" --bin cargo-set-version --profile release --check)"
 
 new_repository() {
     local name="$1"
@@ -125,6 +131,13 @@ new_repository() {
     mkdir -p "$repository"
     cp "$root"/{Cargo.toml,Cargo.lock,CHANGELOG.md,README.md,LICENSE,Makefile,.gitignore,rust-toolchain.toml} "$repository/"
     cp -R "$root/crates" "$root/apps" "$root/scripts" "$root/make" "$root/ci" "$repository/"
+    cat > "$repository/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
+#!/usr/bin/env bash
+set -euo pipefail
+. ci/release-tools.env
+[[ "$*" == "--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release --check" ]] || exit 49
+printf '%s\n' "$TOOLING_REAL_CARGO_EDIT"
+INSTALLER
     cat >> "$repository/Makefile" <<'MAKE'
 
 # Substitute the existing installer/check effects, retaining actual routing.
@@ -173,9 +186,9 @@ refuse() {
     fi
 }
 
-# Exercise the actual selected-root check/reuse recipes. A matching executable
-# elsewhere cannot hide a missing selection; an invalid existing root is not
-# silently reinstalled. No installation is performed by this fixture.
+# Exercise Jobs' setup/check routing through the shared owner's returned path.
+# Store/receipt admission belongs to Shared Tooling. Substitute that boundary
+# here, retaining the actual Make recipes and consumer version probe.
 new_repository selected-tool
 cp "$root/Makefile" Makefile
 cat >> Makefile <<'MAKE'
@@ -186,10 +199,20 @@ check test-jobs test-consumers check-msrv check-wasm clippy docs-check package:
 MAKE
 # shellcheck disable=SC1091
 . ci/release-tools.env
-selected_root="$repository/.tools/rust/cargo-edit-$IC_JOBS_CARGO_EDIT_VERSION"
+selected_root="$repository/.tools/rust/selected-fixture"
 mkdir -p "$repository/.tools/rust/cargo-edit-0.13.12/bin"
 printf 'previous installation\n' > "$repository/.tools/rust/cargo-edit-0.13.12/bin/retained"
 cp "$repository/.tools/rust/cargo-edit-0.13.12/bin/retained" "$fixture/previous-installation"
+cat > scripts/dev/install-rust-tools.sh <<'INSTALLER'
+#!/usr/bin/env bash
+set -euo pipefail
+. ci/release-tools.env
+expected="--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release"
+[[ "$*" == "$expected" || "$*" == "$expected --check" ]] || exit 49
+printf '%s\n' "$*" >> .git/release-selection-events
+[[ -f .git/selection-ready ]] || { echo 'fixture selection is unprepared' >&2; exit 42; }
+printf '%s/.tools/rust/selected-fixture/bin/cargo-set-version\n' "$PWD"
+INSTALLER
 refuse absent-selection make --no-print-directory release-tools-check
 refuse absent-parallel-ci make -j4 --no-print-directory ci
 [[ ! -e .git/validation-events && ! -e "$selected_root" ]] || exit 1
@@ -197,16 +220,23 @@ mkdir -p "$selected_root/bin"
 cat > "$selected_root/bin/cargo-set-version" <<'CARGO'
 #!/usr/bin/env bash
 set -euo pipefail
+[[ "$*" == 'set-version --version' ]] || exit 49
 printf 'cargo-edit-set-version %s\n' "$(cat .git/selected-version)"
 CARGO
 chmod +x "$selected_root/bin/cargo-set-version"
 printf '0.0.0\n' > .git/selected-version
+touch .git/selection-ready
 cp "$selected_root/bin/cargo-set-version" "$fixture/selected-executable"
 refuse invalid-selection make --no-print-directory release-tools-check
-refuse invalid-selection-setup make --no-print-directory install-release-tools
 cmp "$selected_root/bin/cargo-set-version" "$fixture/selected-executable"
 printf '%s\n' "$IC_JOBS_CARGO_EDIT_VERSION" > .git/selected-version
+: > .git/release-selection-events
 CARGO_NET_OFFLINE=true make --no-print-directory install-release-tools release-tools-check > "$fixture/selected-reuse.log" 2>&1
+printf '%s\n' \
+    "--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release" \
+    "--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release --check" \
+    > "$fixture/expected-release-selection-events"
+cmp .git/release-selection-events "$fixture/expected-release-selection-events"
 cmp "$selected_root/bin/cargo-set-version" "$fixture/selected-executable"
 cmp "$repository/.tools/rust/cargo-edit-0.13.12/bin/retained" "$fixture/previous-installation"
 

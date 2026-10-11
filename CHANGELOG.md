@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.10]
+
+- Adopt Shared Tooling 0.6.0: share verified Cargo-built tools, including Jobs'
+  pinned cargo-edit, and retain safe local failure evidence when shared-store
+  admission refuses. Rerun `make install-tools` and `make tools-check`; prepare
+  the selected Testkit CLI separately before recovery qualification
+  ([#21](https://github.com/dragginzgame/ic-jobs/issues/21),
+  [Shared #121](https://github.com/dragginzgame/shared-tooling/issues/121)).
+- Align the consumer memory guide with the selected IC Memory 0.35 family and
+  distinguish completed recovery evidence from qualification of the current
+  watchdog scenario ([#22](https://github.com/dragginzgame/ic-jobs/issues/22)).
+
 ## [0.5.9] - 2026-10-11
 
 - Adopt Shared Tooling 0.5.0 for shared verified host/IC bundles, checkout-local

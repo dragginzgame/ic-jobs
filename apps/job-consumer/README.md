@@ -98,7 +98,7 @@ remain outside the canister and public Jobs normal Wasm dependency graphs.
 
 After [the updated recovery workflow](../../.github/workflows/recovery.yml) is delivered
 to `main`, select **Actions → Canister recovery → Run workflow** and choose the
-branch to qualify. This manual trigger runs all six tests on the original and
+tag or branch to qualify. This manual trigger runs all six tests on the original and
 three optimized variants on Linux, Apple Silicon and Intel macOS.
 Ordinary push/PR CI still compiles the harness without starting
 PocketIC. See [GitHub's manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
@@ -120,5 +120,8 @@ controller-snapshot recovery. Deliberate `fixture_*` endpoints implement these
 faults in the unpublished Wasm rather than faking IC behavior with `cfg(test)`.
 Their API must never be copied into a production canister. Live execution and
 native macOS acceptance are recorded separately in the
-[handoff](../../docs/status/current.md); harness compilation alone does not close
-[#11](https://github.com/dragginzgame/ic-jobs/issues/11).
+[handoff](../../docs/status/current.md). Completed
+[#11](https://github.com/dragginzgame/ic-jobs/issues/11) acceptance covers the older
+five-scenario v0.5.6 harness; the current watchdog case requires its own live
+evidence in [#20](https://github.com/dragginzgame/ic-jobs/issues/20). Harness
+compilation alone does not establish that acceptance.

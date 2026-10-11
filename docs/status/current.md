@@ -1,6 +1,102 @@
 # Current handoff
 
-## Pending 0.5.9 — Shared 0.5.0 adoption and existing consumer boundary work
+## Pending 0.5.10 — Shared 0.6.0 and accurate consumer guidance
+
+Canonically adopted committed Shared **0.6.0** at
+`75180980a0c4e4252d8a915aaecfaefd92bf9a4e` from an isolated clean source clone.
+The exporter retains all 83 selections, updates 12 existing files and adds the
+required Cargo-build companion: 84 selected files. The baseline, standard Cargo
+build engine and failure action/selector advance together. Jobs' pinned
+cargo-edit setup/check and metadata execution now use the shared owner's returned
+checked path; previous installations remain retained. The release fixture covers
+consumer routing with substituted admission, and the CLI-refusal fixture copies
+all companions and isolates its store/compiler identity probes.
+
+The canonical [Shared #121](https://github.com/dragginzgame/shared-tooling/issues/121)
+repair archives admitted local evidence and selector diagnostics on refused store
+admission, uploads it, then fails incomplete collection. Jobs' existing action
+fixture now covers the local archive/final-failure sequence with substituted hosted
+upload. New fixture execution remains pending under
+[#21](https://github.com/dragginzgame/ic-jobs/issues/21).
+
+Before qualification, explicitly run `make install-tools` and `make tools-check`;
+prepare the separately selected CLI with `make install-testkit-tools` and
+`make testkit-tools-check` before recovery qualification. Those setup commands can
+build tools and are not run under the recorded local no-tests/builds/lint/full-CI/
+live exception. Snapshot integrity, pin declarations, documentation links, Bash
+parsing and whitespace checks pass; these do not establish execution. Tool
+admission, affected fixtures and all three native host gates remain required for
+the final source. Real offline `make tools-check` passes host/IC admission then
+refuses the unprepared shared cargo-sort selection (status 2). Separate
+`make release-tools-check` and `make testkit-tools-check` also refuse missing
+shared cargo-edit 0.13.13 and lock-selected Testkit 0.33.6 (status 2); neither
+falls back to an older installation or builds a tool. Check logs are retained.
+Exact-source
+[Shared CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38136593268)
+passes lint/security and Linux portable regression; both native macOS gates are
+running at inspection. Evidence: `/tmp/ic-jobs-0510-issues.yc882gx7/`.
+
+An incoming Cargo.lock edit during this batch is preserved separately as
+`late-incoming.lock` in that evidence directory. It selects Host 0.13.2, Memory
+0.35.8, Metrics 0.6.3, Testkit 0.33.6 and Timers 0.17.9; SHA-256:
+`a47f4a00ea2b6b4af393c6418db8eb5e1ed54b013503a0290e8afd090976c285`.
+Seven cached published Rust trees match their preceding versions; the new Timers
+source is absent from the cache at inspection. This graph requires separate
+qualification, including the maintained core/timers Rust 1.88 checks. Delivered
+v0.5.9 native/live results qualify its earlier graph and snapshot.
+
+The consumer guide now names the actual workspace Memory 0.35 family and leaves
+the patch selection with Cargo.lock. Both consumer guides distinguish completed
+v0.5.6 five-scenario acceptance from the current watchdog scenario's source-bound
+qualification. This documentation-only compatible patch is tracked in
+[#22](https://github.com/dragginzgame/ic-jobs/issues/22). The complete pending batch
+remains compatible **0.5.10**: Jobs API, runtime, stored formats and declared Rust
+floor are unchanged. Package versions and the real index/refs are unchanged;
+no commit, release, publication or new hosted dispatch is performed. Incoming handoff work is
+preserved. Evidence: `/tmp/ic-jobs-0510-guide.yvnjiftg/`.
+
+## Delivered 0.5.9 — acceptance remaining
+
+Jobs **0.5.9** is delivered at
+`b289e443d4955ffe17d9d97a232eb83432340395`, matching public main and the annotated
+`v0.5.9` tag. The checkout was clean at inspection. Complete local tool admission
+passes, including the formerly missing common Rust selection. A later IC
+admission refusal is retained and does not reproduce on the diagnostic recheck;
+its cause is not established. Evidence: `/tmp/ic-jobs-059-acceptance.aoug83g5/`.
+No installer or build is run by this inspection.
+
+[Current native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38133877061)
+passes Linux, native macOS Intel and Apple Silicon at this exact source. Each
+host reports the affected local archive-retention fixture passed, completing
+[#18](https://github.com/dragginzgame/ic-jobs/issues/18). This accepts the older
+Shared 0.5.0 adoption; new-source preparation/acceptance remains with
+[#21](https://github.com/dragginzgame/ic-jobs/issues/21).
+
+The maintainer explicitly selected the existing recovery workflow on `v0.5.9`.
+[Run 38134824424](https://github.com/dragginzgame/ic-jobs/actions/runs/38134824424)
+is dispatched at the exact delivered commit, covering the sixth watchdog
+scenario under [#20](https://github.com/dragginzgame/ic-jobs/issues/20). Acceptance
+requires inspecting uploaded evidence separately for all three hosts and all
+original/O3/Os/Oz variants. Old five-scenario v0.5.6 results do not qualify these
+inputs. This selection authorizes that hosted gate; local tests, builds, lint
+and full CI remain excluded by the recorded exception. No additional release
+effect or sibling source edit is performed.
+
+Linux recovery passes, with its uploaded archive inspected against exact
+v0.5.9 source/lock/toolchain/snapshot. All six maintained scenarios pass for
+original/Binaryen 133 O3/Os/Oz: **24 live results**, actual Wasm checksums and real
+PocketIC server logs verified. The
+[Linux archive](https://github.com/dragginzgame/ic-jobs/actions/runs/38134824424/artifacts/11700832504)
+SHA-256 matches GitHub's digest:
+`33a0ca96ae7894295a6ea98380d3617143869cb56cd6d768a3ffb4a16c2bc7e0`.
+Testkit 0.33.5/tool identities are admission receipts; executable payloads are
+not uploaded. The hidden attempt snapshot is omitted by upload; its workflow-level
+copy exactly matches released source. Intel recovery is running and Apple Silicon
+queued at inspection. Review: `linux-review.json` in the current evidence directory.
+Keep #20 open until both macOS archives are inspected; this does not qualify the
+pending snapshot or incoming graph.
+
+## Earlier 0.5.9 preparation — Shared 0.5.0 and consumer boundary work
 
 Canonically adopted Shared **0.5.0** at
 `a306180ce534227fcb98b882fba9a526d5d747e0` from an isolated clean source clone.

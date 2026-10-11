@@ -14,7 +14,6 @@ root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
 # shellcheck disable=SC1091
 . "$root/ci/release-tools.env"
-export PATH="$root/.tools/rust/cargo-edit-$IC_JOBS_CARGO_EDIT_VERSION/bin:$PATH"
 reader="$root/scripts/ci/read-cargo-workspace-version.sh"
 local_lock_packages() {
     # This repository permits only workspace-owned local packages. Cargo's
@@ -90,7 +89,9 @@ case "$operation" in
         trap cleanup EXIT
         trap 'exit 130' INT
         trap 'exit 143' TERM
-        cargo set-version --workspace --offline "${RELEASE_VERSION:?}"
+        tool="$(bash "$root/scripts/dev/install-rust-tools.sh" --package cargo-edit \
+            --version "$IC_JOBS_CARGO_EDIT_VERSION" --bin cargo-set-version --profile release --check)"
+        "$tool" set-version --workspace --offline "${RELEASE_VERSION:?}"
         # Only root metadata changes; members were sorted by the validation gate.
         cargo sort
         # Retain registry selections; advance every workspace-owned local row.

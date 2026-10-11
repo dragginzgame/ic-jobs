@@ -93,7 +93,8 @@ range-based bootstrap is added here.
 ## Consumer memory requests
 
 IC Memory is a development dependency selected from the root workspace catalog
-(`0.34`, locked to 0.34.1). Each fixture contributes one checked `MemoryRequest`
+(`0.35`; the exact patch is selected by `Cargo.lock`). Each fixture contributes
+one checked `MemoryRequest`
 with a distinct authority and permanent logical key: `test.notifications.queue.v1`
 for job records and immutable notification payloads, and
 `test.maintenance.state.v1` for the maintenance record, entries and counter.
@@ -108,7 +109,7 @@ sealed requests alone do not grant committed allocation authority. Authority
 labels express ownership policy, not caller authentication.
 
 The fault-injection consumers retain their bounded byte store. A separate native
-host fixture adopts delivered IC Memory 0.34 directly: one shared pool grants the
+host fixture adopts IC Memory 0.35 directly: one shared pool grants the
 two namespaces without component ranges or numeric IDs; the host bootstraps once
 before component adoption/open. Stable cells persist the same bounded snapshot
 bytes. Cold reopens retain allocation IDs, payloads and pending deadlines; reads
@@ -135,9 +136,11 @@ consumers' existing snapshots or any deployed format.
 compiles the separate Testkit harness and checks native/Wasm Clippy. Ordinary CI
 includes these checks without launching a server. Explicit Testkit CLI/server
 preparation and `make test-canister` select the live upgrade, rollback, watchdog
-and lost-result scenarios. Their implementation is present, but live execution
-and native macOS acceptance remain source-bound qualification work in
-[#11](https://github.com/dragginzgame/ic-jobs/issues/11). The original small native
+and lost-result scenarios. Completed
+[#11](https://github.com/dragginzgame/ic-jobs/issues/11) acceptance covers the older
+five-scenario v0.5.6 harness. Current inputs require their own source-bound
+execution and host evidence, including the additional watchdog scenario in
+[#20](https://github.com/dragginzgame/ic-jobs/issues/20). The original small native
 consumers remain focused models; they do not substitute for those IC observations.
 
 The queue now contains known no-effect local counter failures as terminal jobs,
@@ -146,5 +149,5 @@ real-watchdog scenario traps after its stable batch write, observes the actual
 canister trap log, checks rollback and an armed successor, and clears the fault
 without rearming before requiring subsequent progress. Failed and completed jobs
 must remain terminal after upgrade, with no duplicate committed local effect.
-This new case is implemented but unexecuted; prior five-scenario evidence does
-not qualify it. See [#20](https://github.com/dragginzgame/ic-jobs/issues/20).
+This case requires matching live execution evidence; prior five-scenario evidence
+does not qualify it. See [#20](https://github.com/dragginzgame/ic-jobs/issues/20).
