@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.12]
+## [0.5.12] - 2026-10-11
 
 - Adopt Shared Tooling 0.6.2 for clearer interrupted-release source conflicts
   and guarded maintainer recovery guidance
