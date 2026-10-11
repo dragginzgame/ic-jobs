@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.1]
+
+- Refresh the locked Timers selection to 0.17.14 and Metrics to 0.6.6. Their
+  published Rust sources, dependency declarations and compiler requirements match
+  the preceding patches; Jobs runtime, stored contracts and Rust 1.88 are unchanged.
+
 ## [0.6.0] - 2026-10-11
 
 - **Breaking:** Add durable pause/resume and schedule replacement for unstarted

@@ -1,6 +1,49 @@
 # Current handoff
 
-## Pending 0.6.0 — durable management implemented
+## Delivered 0.6.0 — native and live acceptance remaining
+
+Jobs **0.6.0** is delivered at `7d23a7919890db6d7b22d491b84372576fbf545f`,
+matching public main and the annotated `v0.6.0` target. Durable management and
+its seven-scenario recovery harness are delivered. The snapshot remains Shared
+**0.6.3** `4fd979d13c32adb3cb2f51f213ebfc4f98339b3d`, with all 84 selections.
+
+[Exact-source native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38152475233)
+passes Linux; Intel and Apple Silicon remain queued. The preceding
+[0.5.13 run](https://github.com/dragginzgame/ic-jobs/actions/runs/38149217014)
+passed Linux but both macOS jobs were cancelled. Keep
+[#21](https://github.com/dragginzgame/ic-jobs/issues/21) open for final-source
+three-host tooling acceptance and
+[#23](https://github.com/dragginzgame/ic-jobs/issues/23) open for native and live
+management acceptance. No failing current CI job is observed; queued/running
+checks do not establish a completed gate.
+
+The released graph now selects Memory **0.35.11**, Timers **0.17.13**, Testkit
+**0.34.0**, Host **0.14.1** and Metrics **0.6.5**. The focused preparation evidence
+below uses the earlier 0.5.13 graph and is not relabelled as qualification of
+these delivered dependencies. The existing recovery workflow is delivered and
+can qualify `v0.6.0` after explicit selection: seven live scenarios, original plus
+three optimized Wasm variants, on all three hosts. It prepares the exact locked
+Testkit CLI/server and records source, graph, artifacts and outcomes. Earlier
+v0.5.9 recovery cannot qualify this new stored contract or graph. The maintainer
+selected the described v0.6.0 workflow by asking to keep going.
+[Recovery run 38153167824](https://github.com/dragginzgame/ic-jobs/actions/runs/38153167824)
+is dispatched on the exact annotated tag: Linux is preparing tools, with both
+macOS hosts queued. No new live result is claimed before its evidence is inspected.
+
+The incoming dirty lock initially selected Metrics **0.6.5 -> 0.6.6**; a
+concurrent external update also selects Timers **0.17.13 -> 0.17.14**. Both are
+preserved. Source review verifies identical published Rust files and normalized
+manifest dependencies/features against their preceding patches. Floors remain
+Metrics 1.85 and Timers 1.88. Both cached archives match their selected registry
+checksums and unpacked file bytes. No Jobs adapter or runtime change is required;
+numbered compatible notes select **0.6.1** without changing package versions. This dirty graph is separate from v0.6.0 live/native
+qualification; it has not received new build, full-CI or live qualification.
+Evidence: `/tmp/ic-jobs-060-recovery-gerzjl79/` (dispatch/progress/Metrics review),
+`/tmp/ic-jobs-060-delivery-uzl5p5z4/` (delivery). No local tool install,
+index/ref/version change, release/publication, installation reset or sibling file
+change is performed.
+
+## 0.6.0 implementation — earlier focused qualification
 
 [#23](https://github.com/dragginzgame/ic-jobs/issues/23) now has core and consumer
 implementation. `Job::pause` retains Pending deadlines and retry evidence while
