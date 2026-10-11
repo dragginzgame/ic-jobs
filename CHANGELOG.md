@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.7]
+## [0.5.7] - 2026-10-11
 
 - Align the recovery harness and lock-selected CLI on Testkit 0.33.2. Rerun
   `make install-testkit-tools` before live recovery qualification
