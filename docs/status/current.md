@@ -1,5 +1,61 @@
 # Current handoff
 
+## Pending 0.5.8 — timer composition and current graph qualification
+
+Jobs **0.5.7** is delivered at
+`06ef135f8c2167438cce3c9dc9ab321e12cac653`, matching public main and annotated
+`v0.5.7`. The incoming lock advances only Timers 0.17.7 to **0.17.8** from that
+release, preserving Memory 0.35.7, Metrics 0.6.1, Testkit 0.33.3 and all four
+Host 0.13.0 crates. Lock SHA-256:
+`2e8905fbdd43663b294aa978f5be32059d812cfa1a80b0360535b9246723cdf6`.
+Published Timers 0.17.8 changes tests/docs only; Memory 0.35.7, Metrics 0.6.1
+and Testkit 0.33.3 Rust trees match their preceding published versions. Host
+0.13.0 removes a filesystem convenience function that Jobs does not call;
+the other three Host Rust trees match 0.12.10. Dependencies remain within the
+advertised Rust 1.88 floor, qualified separately for core/timers native/Wasm.
+
+Both maintained README guides now align direct timer owners with the actual
+Timers 0.17 workspace dependency and recommend its canonical
+`MeasurementSummary` re-export, removing stale Timers 0.16 / Metrics 0.3
+composition guidance. See [#19](https://github.com/dragginzgame/ic-jobs/issues/19).
+This selects compatible pending **0.5.8**; Job APIs, retained records, restore
+validation, scheduling and consumer authority are unchanged. Package versions
+remain 0.5.7. Evidence: `/tmp/ic-jobs-issues-057.RgKMfc/`. The offline CLI check
+refuses missing lock-selected Testkit 0.33.3; explicit setup then prepares it.
+
+Fresh full `make ci` passes, including actual tooling/hook fixtures, separate
+Rust 1.88 core/timers native/Wasm checks, consumers, Clippy, docs and packaging.
+All five maintained live scenarios pass on each original/Binaryen 133 O3/Os/Oz
+variant under parallel genuine Linux Bash 3.2.57/Make 3.81, without jobserver
+warnings. Frozen source/lock hashes match after both gates; final handoff
+documentation is checked separately. Live attempt `/tmp/jobs-recovery.nfnNMp/`
+retains actual Wasm/tool/server evidence; original Wasm SHA-256 is
+`ba7c64253062abd9e05bf95b67ddaa9a0aac565024f9ca422801e9a4a5a08a69`.
+Normal core/canister Wasm graphs contain no Host crates. The selected CLI's
+published installation graph also uses Host 0.13.0, with its own retained
+installation log and selection receipt. The README repair awaits delivery.
+
+The authorized [v0.5.6 recovery run](https://github.com/dragginzgame/ic-jobs/actions/runs/38123372599)
+now passes Linux and native Apple Silicon, with both uploaded archives inspected.
+The [Apple Silicon archive](https://github.com/dragginzgame/ic-jobs/actions/runs/38123372599/artifacts/11696709293)
+matches the exact tagged source/graph/snapshot, tool admission records, all four
+actual Wasm checksums and all 20 maintained live results, including real PocketIC
+logs. Archive SHA-256 matches GitHub's digest:
+`eca37eeab697990311e1e0d2c5ca0162c43770afc62acf68dbb55270fc0031bd`.
+Review: `hosted-apple-silicon-review.json` in the evidence directory above.
+Executable payloads are not uploaded; their identities remain admission receipts.
+Intel recovery is still queued; acceptance remains open. The hosted v0.5.6
+graph/evidence remains separate from the current local graph.
+The earlier v0.5.6 native Intel CI was cancelled by delivery of v0.5.7.
+Acceptance in [#18](https://github.com/dragginzgame/ic-jobs/issues/18) now awaits
+the [v0.5.7 native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38125188373),
+which passes Linux with both macOS jobs queued at inspection. Recovery
+acceptance remains in [#11](https://github.com/dragginzgame/ic-jobs/issues/11).
+No new hosted dispatch, sibling source edit, commit, push, release or publication
+is performed by this local batch.
+
+## Earlier preparation for delivered 0.5.7
+
 ## Pending 0.5.7 — Testkit preparation and recovery qualification
 
 Jobs **0.5.6** is delivered at

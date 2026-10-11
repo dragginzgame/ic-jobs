@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.8]
+
+- Correct timer composition guidance to IC Timers 0.17 and its canonical
+  measurement-summary re-export
+  ([#19](https://github.com/dragginzgame/ic-jobs/issues/19)). Select Timers 0.17.8
+  for the optional adapter and recovery consumer.
+
 ## [0.5.7] - 2026-10-11
 
 - Align the recovery harness and lock-selected CLI on Testkit 0.33.2. Rerun
