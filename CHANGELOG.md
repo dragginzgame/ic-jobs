@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.10]
+## [0.5.10] - 2026-10-11
 
 - Adopt Shared Tooling 0.6.0: share verified Cargo-built tools, including Jobs'
   pinned cargo-edit, and retain safe local failure evidence when shared-store
