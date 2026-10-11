@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.13]
+## [0.5.13] - 2026-10-11
 
 - Adopt Shared Tooling 0.6.3: normal direct-release commands restart superseded
   preparation from committed metadata, preserve the previous plan and rerun
