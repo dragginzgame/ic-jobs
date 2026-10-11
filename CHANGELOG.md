@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.8]
+## [0.5.8] - 2026-10-11
 
 - Correct timer composition guidance to IC Timers 0.17 and its canonical
   measurement-summary re-export
