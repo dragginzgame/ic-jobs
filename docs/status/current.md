@@ -1,5 +1,66 @@
 # Current handoff
 
+## Pending 0.5.7 — Testkit preparation and recovery qualification
+
+Jobs **0.5.6** is delivered at
+`e47bda833e91fe717d415dae9374d28b22fbba3a`, matching public main. Its
+[native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38121992741)
+passes Linux and native Apple Silicon; Intel remains queued. Delivery of the
+fixture-evidence repair in [#18](https://github.com/dragginzgame/ic-jobs/issues/18)
+is complete, with Intel acceptance still pending.
+
+The local qualification used Memory 0.35.6, Metrics 0.5.6, Timers 0.17.6,
+Testkit 0.33.2 and four Host 0.12.10 crates. SHA-256:
+`a416f6cd6b3bf1a68975207ad9494da12e33dfc5e33138cd7a6e6a8fac7d4e34`.
+Only Testkit changes from the delivered lock. Published Testkit 0.33.2 Rust
+source matches 0.33.1 and retains Rust 1.88. The actual offline check correctly
+refuses the missing 0.33.2 CLI, then explicit setup prepares and admits the
+selected CLI and existing Testkit-owned PocketIC bundle. Earlier CLI slots and
+evidence are preserved. The compatible graph/tool selection chooses pending
+0.5.7, retaining Job APIs, consumer authority and stored-record contracts.
+
+Evidence: `/tmp/ic-jobs-issues-056.15LnzE/`. Fresh full `make ci` on that graph
+passes, including separate Rust 1.88 core/timers native/Wasm checks, the consumer/
+harness, Clippy, docs and packaging. All five live recovery scenarios pass on
+each original/Binaryen 133 `-O3`, `-Os`, `-Oz` variant under parallel genuine
+Linux Bash 3.2.57/Make 3.81 without jobserver warnings. Attempt
+`/tmp/jobs-recovery.x5QDFi/` retains exact variant/server/tool artifacts; original
+Wasm SHA-256 is `46e408d1e14029cb478e9e1d030cc6c0935868f7455ee44c69a3b57749842b89`.
+Frozen source hashes match after both gates; final handoff checks follow separately.
+Normal core/canister Wasm graphs contain no Host crates. The selected CLI's own
+published installation graph uses Host 0.12.9, independently of Jobs' 0.12.10 graph.
+
+A later incoming lock edit during hosted monitoring selects Metrics 0.6.0 and
+Timers 0.17.7, retaining the other selections. It is preserved separately as
+`late-incoming.lock` in the evidence directory; SHA-256
+`8ffa757375434bdec2a98137b81f88bebf7ba38c2687f4ff23cd82244cd36096`.
+The CI/live results above do not qualify this later graph. Its cache preparation,
+source review and affected qualification remain required before delivery.
+
+The maintainer explicitly authorized hosted recovery on annotated `v0.5.6`.
+Tag identity is verified against delivered `e47bda833e91fe717d415dae9374d28b22fbba3a`.
+[Run 38123372599](https://github.com/dragginzgame/ic-jobs/actions/runs/38123372599)
+passes Linux; both macOS jobs remain queued. The Linux archive
+([artifact 11696247627](https://github.com/dragginzgame/ic-jobs/actions/runs/38123372599/artifacts/11696247627))
+is inspected: exact tagged source, lock and snapshot match; all five maintained
+scenarios pass on each original/O3/Os/Oz artifact, with recomputed Wasm checksums
+and real PocketIC server logs. Archive SHA-256 matches GitHub's digest:
+`ff1589010173536cb7104847b2793d58f57c5b6bb1a3ac6192ac5543ffc4bac0`.
+Original hosted Wasm SHA-256:
+`013bc01255287fe62672f7fb88e018071f8411cd66a3ab678af083265bea9665`.
+The uploaded Testkit CLI/Binaryen records are admission receipts; executable
+payloads are not uploaded. Its released graph selects Testkit 0.33.1; the local
+0.33.2 evidence is separate. Review: `hosted-linux-review.json` in the evidence
+directory above.
+Hosted optimized recovery acceptance remains in
+[#11](https://github.com/dragginzgame/ic-jobs/issues/11) until actual native
+execution and uploaded artifact inspection complete. Neither queued jobs nor
+local Linux execution qualify the macOS recovery gate.
+Package versions remain 0.5.6. No sibling source edit, commit, push, release or
+publication is performed by this local batch.
+
+## Earlier preparation for delivered 0.5.6
+
 ## Pending 0.5.6 — Shared 0.3.11 metadata correction
 
 Canonically adopted Shared **0.3.11** at

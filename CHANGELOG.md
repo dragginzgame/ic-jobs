@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.7]
+
+- Align the recovery harness and lock-selected CLI on Testkit 0.33.2. Rerun
+  `make install-testkit-tools` before live recovery qualification
+  ([#11](https://github.com/dragginzgame/ic-jobs/issues/11)).
+
 ## [0.5.6] - 2026-10-11
 
 - Adopt Shared Tooling 0.3.11: Rust-tool setup and checks use the selected
