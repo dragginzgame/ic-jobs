@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.11]
+
+- Adopt Shared Tooling 0.6.1 so Cargo-tool setup stops on lock, validation and
+  activation failures, preserves the original status and retains failed attempts.
+  Refresh selections with `make install-tools` and `make tools-check`; prepare
+  the selected Testkit CLI separately before recovery qualification
+  ([#21](https://github.com/dragginzgame/ic-jobs/issues/21),
+  [Shared #120](https://github.com/dragginzgame/shared-tooling/issues/120)).
+
 ## [0.5.10] - 2026-10-11
 
 - Adopt Shared Tooling 0.6.0: share verified Cargo-built tools, including Jobs'

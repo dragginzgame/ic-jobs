@@ -1,6 +1,76 @@
 # Current handoff
 
-## Pending 0.5.10 — Shared 0.6.0 and accurate consumer guidance
+## Pending 0.5.11 — Shared 0.6.1 installer failure handling
+
+Canonically adopted committed Shared **0.6.1** at
+`731909525038c58d6f80b498e80f8630b11c685d`, verified as current public main.
+The clean isolated source/exporter preserves all 84 selections and updates only
+the Rust installer, Cargo-build helper and store companion. The installer now
+propagates lock/validation/activation failures explicitly even where Bash disables
+errexit, preserves the original failure status and retains failed attempts.
+Activation requires acquired store and checkout locks. No Jobs-owned installer,
+vendored patch, API/storage/runtime or Rust-floor change is added. Pending notes
+stay compatible **0.5.11**, with adoption/acceptance in
+[#21](https://github.com/dragginzgame/ic-jobs/issues/21) and source ownership in
+[Shared #120](https://github.com/dragginzgame/shared-tooling/issues/120).
+
+Snapshot integrity, dependency declarations, documentation links, Bash parsing
+and whitespace checks pass. Offline `make tools-check` passes host/IC admission,
+then refuses unprepared shared cargo-sort (status 2). The changed Cargo-build
+policy is part of exact selection identity; old installations are retained and
+never used as a fallback. Explicit `make install-tools` and `make tools-check`
+are required before qualification, with separately selected Testkit setup/check
+before live recovery. Cargo-tool preparation builds remain excluded by the
+recorded local exception unless selected explicitly. No new tests, lint, full
+gate or live execution is performed. Exact-source
+[Shared CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38141614488)
+passes lint/security; Linux portable regression is running, both macOS hosts
+queued. Evidence: `/tmp/ic-jobs-0510-live-d0nt184y/`.
+
+The incoming lock is preserved byte-for-byte. It advances Host 0.13.3 to 0.13.4,
+Memory 0.35.8 to 0.35.9 and Metrics 0.6.3 to 0.6.4. A later incoming edit also
+advances Testkit 0.33.6 to 0.33.7; current SHA-256:
+`5137f879026b9cdc353da93786316f414a33377fd0ce7ae1b93aa409e0da87e4`.
+Both incoming selections are retained separately in the evidence directory.
+Six cached published Rust trees match the preceding versions. Host FS adds a
+private regular-lock-file opener and factors existing descriptor admission;
+Jobs does not call that new API. Advertised dependency floors remain at or below
+1.88, but this incoming graph requires its own qualification. Package versions,
+real index and refs are unchanged; no commit, release/publication or new hosted
+dispatch is performed.
+
+## Delivered 0.5.10 — native acceptance remaining
+
+Jobs **0.5.10** is delivered at
+`7dfe1a38a200d3ede2f86f25c93992abf2d5f284`, matching public main and annotated
+`v0.5.10`. The delivered Shared 0.6.0 adoption includes the repaired release
+fixture preflight and accurate consumer memory/recovery guidance. Documentation
+acceptance completes [#22](https://github.com/dragginzgame/ic-jobs/issues/22).
+[Native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38140477458)
+passes Linux; Intel is running, Apple Silicon queued. Source-bound all-host
+adoption acceptance remains with #21; the pending 0.6.1 snapshot and dirty graph
+are separate inputs.
+
+The explicitly authorized
+[v0.5.9 recovery](https://github.com/dragginzgame/ic-jobs/actions/runs/38134824424)
+now passes all three hosts. Both remaining macOS archives are inspected alongside
+the earlier Linux archive against exact source
+`b289e443d4955ffe17d9d97a232eb83432340395`: source/lock/toolchain/snapshot match,
+all six maintained scenarios pass for original/Binaryen 133 O3/Os/Oz (**72 live
+results**), actual Wasm checksums and genuine PocketIC logs verify. This completes
+[#20](https://github.com/dragginzgame/ic-jobs/issues/20). The
+[Intel archive](https://github.com/dragginzgame/ic-jobs/actions/runs/38134824424/artifacts/11701927162)
+SHA-256 is `08279f8e4c5f224ace6dbf122a5c9bd83483971e62716560eaa47e7ba6a44d47`;
+the [Apple Silicon archive](https://github.com/dragginzgame/ic-jobs/actions/runs/38134824424/artifacts/11702183331)
+SHA-256 is `e6bab29bb44fdc0a9c2a0eb633089144b5783caf232f0ebf3979803577f13bab`.
+Both match GitHub digests. Executable payloads are not uploaded; identities remain
+admission receipts. Hidden attempt snapshots are omitted; workflow-level copies
+match exact released source. Combined review: `all-hosts-review.json` in the
+current evidence directory. Maintained Rust trees match 0.5.10, but these results
+qualify the tested v0.5.9 graph/snapshot only. No redispatch or local live gate is
+performed.
+
+## Earlier 0.5.10 preparation — Shared 0.6.0 and consumer guidance
 
 The maintainer's CI attempt at prepared `48472b4` reached the release fixture,
 then failed because its substituted Rust installer admitted only cargo-edit

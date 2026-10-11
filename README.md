@@ -162,7 +162,7 @@ Rust tools in order, then selected cargo-edit; `make tools-check` verifies the
 same complete set offline. Host tools include jq, yq, ripgrep with PCRE2 and cloc;
 Rust tools include cargo-sort, cargo-sort-derives and candid-extractor. For an interactive shell,
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/common/bin` to PATH.
-Shared Tooling 0.6.0 stores verified host, IC and Cargo-built bundles once per user
+Shared Tooling 0.6.1 stores verified host, IC and Cargo-built bundles once per user
 while each checkout retains its own pinned selection through these paths. Cargo
 reuse binds the exact compiler, native environment, published source and lock,
 target and profile. Tool builds use the shared standard environment; application
