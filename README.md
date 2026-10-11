@@ -9,7 +9,8 @@ The crate supports:
 - one-shot deadlines, fixed-rate intervals and recurrence after completion;
 - skipping missed intervals or catching up one occurrence at a time;
 - per-occurrence retry budgets with capped exponential backoff;
-- cancellation of pending work and exact attempt correlation;
+- durable pause/resume, unstarted-occurrence rescheduling, pending/paused
+  cancellation and exact attempt correlation;
 - validated record reconstruction and explicit uncertain-effect reconciliation;
 - bounded batch scheduling with earliest-deadline selection and dispatch intent;
 - an optional adapter to the existing IC Timers watchdog runtime.
@@ -96,13 +97,28 @@ This is a workload calculation, not a measured throughput or delivery guarantee.
 
 ## Timer integration
 
+`Job::pause` retains the pending deadline and retry evidence but removes dispatch
+eligibility. `Job::resume` restores that deadline, applying the existing policy
+to overdue work. `Job::reschedule` replaces the schedule from the current
+unstarted occurrence forward, preserving job/effect identity, sequence and
+payload. Paused work stays paused. An occurrence that allocated an attempt cannot
+be rescheduled; Running and Uncertain work must use explicit outcome disposition.
+After each successful management operation, commit the record with the due-time
+index before reconciling the consumer's timer.
+
+The 0.6 JobRecord contract adds `schedule_origin` and `last_outcome_ns` and the
+Paused state. Update exhaustive matches and codecs. The maintainer approved
+retirement/reset of the disposable 0.5 test installations; the canister fixture
+uses a distinct current memory key and fresh state, with no old-record reader.
+See [#23](https://github.com/dragginzgame/ic-jobs/issues/23).
+
 Enable `features = ["timers"]` to use `ic_jobs::timers`. The application owns one
 volatile watchdog registration, calls IC Timers initialization in its lifecycle,
 and passes its earliest pending job deadline to `timers::reconcile`.
 A bounded callback returns `timers::complete_batch` with the actual completion
 classification and the newly derived deadline.
 
-Reconcile after inserting or cancelling jobs. After upgrades, restore records
+Reconcile after inserting or managing jobs. After upgrades, restore records
 and reconstruct the watchdog synchronously before downstream hooks.
 Unresolved effects have no dispatch deadline; applications own a separate
 reconciliation workflow for those effects.

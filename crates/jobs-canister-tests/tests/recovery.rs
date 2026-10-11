@@ -338,6 +338,25 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
     );
     assert_eq!(fixture.view(absent).status, Status::Running);
     assert!(fixture.update::<(), _>("cancel", (absent,)).is_err());
+    assert!(fixture.update::<(), _>("pause", (absent,)).is_err());
+    assert!(fixture.update::<(), _>("resume", (absent,)).is_err());
+    assert!(
+        fixture
+            .update::<(), _>("reschedule", (absent, Timing::Once(fixture.now())))
+            .is_err()
+    );
+    fixture
+        .update::<(), _>("fixture_mark_uncertain", (absent,))
+        .unwrap();
+    let before = fixture.view(absent);
+    assert!(fixture.update::<(), _>("pause", (absent,)).is_err());
+    assert!(fixture.update::<(), _>("resume", (absent,)).is_err());
+    assert!(
+        fixture
+            .update::<(), _>("reschedule", (absent, Timing::Once(fixture.now())))
+            .is_err()
+    );
+    assert_eq!(fixture.view(absent), before);
     assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
 }
 
@@ -422,9 +441,20 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
             )
             .unwrap();
         ids.push(id);
+        fixture.update::<(), _>("pause", (id,)).unwrap();
     }
     fixture.upgrade(fixture.sender);
     fixture.pic.advance_time(Duration::from_secs(13));
+    for id in &ids {
+        assert_eq!(fixture.view(*id).status, Status::Paused);
+        assert_eq!(fixture.view(*id).occurrence, 0);
+    }
+    assert_eq!(fixture.summary(fixture.sender).counter, 0);
+    assert!(!fixture.summary(fixture.sender).armed);
+    fixture.upgrade(fixture.sender);
+    for id in &ids {
+        fixture.update::<(), _>("resume", (*id,)).unwrap();
+    }
     fixture.until(|| fixture.view(ids[0]).occurrence == 1 && fixture.view(ids[1]).occurrence >= 1);
     assert!(fixture.view(ids[0]).due_ns.unwrap() > fixture.now());
     for id in ids {
@@ -437,4 +467,87 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
         fixture.pic.tick();
     }
     assert_eq!(fixture.summary(fixture.sender).counter, before);
+}
+
+#[test]
+#[ignore = "explicit PocketIC qualification; run make test-canister"]
+fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
+    let fixture = Fixture::new();
+    let id: u64 = fixture
+        .update("create", (increment(fixture.now() + 30_000_000_000, 5),))
+        .unwrap();
+    for method in ["pause", "resume"] {
+        let denied: Result<(), Error> = fixture.pic.update_candid_as_or_panic(
+            fixture.sender,
+            Principal::anonymous(),
+            method,
+            (id,),
+        );
+        assert_eq!(denied, Err(Error::Unauthorized));
+    }
+    let denied: Result<(), Error> = fixture.pic.update_candid_as_or_panic(
+        fixture.sender,
+        Principal::anonymous(),
+        "reschedule",
+        (id, Timing::Once(0)),
+    );
+    assert_eq!(denied, Err(Error::Unauthorized));
+    fixture.update::<(), _>("pause", (id,)).unwrap();
+    assert_eq!(fixture.view(id).status, Status::Paused);
+    assert_eq!(fixture.summary(fixture.sender).next_due_ns, None);
+    assert!(!fixture.summary(fixture.sender).armed);
+    fixture.upgrade(fixture.sender);
+    fixture.pic.advance_time(Duration::from_secs(40));
+    for _ in 0..3 {
+        fixture.pic.tick();
+    }
+    assert_eq!(fixture.summary(fixture.sender).counter, 0);
+    let later = fixture.now() + 100_000_000_000;
+    fixture
+        .update::<(), _>("reschedule", (id, Timing::Once(later)))
+        .unwrap();
+    let paused = fixture.view(id);
+    assert_eq!(paused.status, Status::Paused);
+    assert_eq!((paused.sequence, paused.occurrence), (0, 0));
+    fixture.upgrade(fixture.sender);
+    assert_eq!(fixture.view(id), paused);
+    fixture.update::<(), _>("resume", (id,)).unwrap();
+    assert_eq!(fixture.summary(fixture.sender).next_due_ns, Some(later));
+    assert!(fixture.summary(fixture.sender).armed);
+    let due = fixture.now() + 15_000_000_000;
+    fixture
+        .update::<(), _>("reschedule", (id, Timing::Once(due)))
+        .unwrap();
+    let before = fixture.view(id);
+    let summary = fixture.summary(fixture.sender);
+    let failed = fixture.pic.update_candid_as::<(), _>(
+        fixture.sender,
+        fixture.manager,
+        "fixture_trap_after_reschedule",
+        (id, Timing::Once(fixture.now() + 5_000_000_000)),
+    );
+    assert_eq!(
+        failed.unwrap_err().reject_response().unwrap().error_code,
+        ErrorCode::CanisterCalledTrap
+    );
+    assert_eq!(fixture.view(id), before);
+    assert_eq!(fixture.summary(fixture.sender), summary);
+    let failed = fixture.pic.update_candid_as::<(), _>(
+        fixture.sender,
+        fixture.manager,
+        "fixture_trap_after_pause",
+        (id,),
+    );
+    assert_eq!(
+        failed.unwrap_err().reject_response().unwrap().error_code,
+        ErrorCode::CanisterCalledTrap
+    );
+    assert_eq!(fixture.view(id), before);
+    assert_eq!(fixture.summary(fixture.sender), summary);
+    fixture.upgrade(fixture.sender);
+    fixture.pic.advance_time(Duration::from_secs(20));
+    fixture.until(|| fixture.view(id).status == Status::Completed);
+    assert_eq!(fixture.summary(fixture.sender).counter, 5);
+    assert_eq!(fixture.view(id).sequence, 1);
+    assert!(!fixture.summary(fixture.sender).armed);
 }

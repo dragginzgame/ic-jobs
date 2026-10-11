@@ -29,6 +29,21 @@ completion, missed-run policies, bounded retries, pending cancellation and exact
 attempt correlation. Persist the canonical `JobRecord` beside the application
 payload and reconstruct it through `Job::restore`.
 
+`pause` suspends pending work durably; `resume` restores its original deadline
+and missed-run policy. `reschedule` replaces scheduling intent from an unstarted
+occurrence forward, retaining job/effect identity and dispatch sequence. Paused
+work stays paused, and cancellation accepts it. Rescheduling an attempted
+occurrence refuses, including retry waiting. Running and Uncertain effects remain
+blocked until explicit disposition. Management does not change payloads or retry
+budgets. Commit each record and its due-time index before reconciling a timer.
+
+**0.6 stored-record hard cut:** update exhaustive state/error matches and codecs
+for Paused, `schedule_origin` and `last_outcome_ns`. Retire/reset 0.5 snapshots
+under the consumer's explicit disposition before creating current state; there is
+no compatibility reader or automatic reset. The repository's maintainer approved
+that disposition for its disposable test installations
+([#23](https://github.com/dragginzgame/ic-jobs/issues/23)).
+
 ## Scheduling a batch
 
 `Scheduler` borrows a bounded batch of application-owned jobs, derives its next

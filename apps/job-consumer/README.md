@@ -8,12 +8,15 @@ authentication, payload, lifecycle or direct CDK timer ownership.
 The manager principal is supplied at installation and persisted. Management
 calls use the actual IC caller before reading or mutating the queue. `create`
 allocates an identity, `inspect` reads one job, `list` returns up to eight jobs
-after an exclusive ID cursor, `cancel` cancels Pending work, and `dispatch_due`
+after an exclusive ID cursor, `cancel` cancels Pending/Paused work, and `dispatch_due`
 starts at most two eligible attempts. All task history is retained: IDs cannot
-be reused. There is no force-run or arbitrary rescheduling command.
+be reused. `pause` suspends pending work; `resume` restores its original deadline
+and policy. `reschedule` replaces timing from an unstarted occurrence forward,
+preserving identity/payload and keeping paused work paused. Already-attempted,
+blocked and terminal work refuses rescheduling. There is no force-run command.
 
 One Memory host bootstraps the `test.jobs.` namespace and opens the permanent
-`test.jobs.consumer.v1` key. One stable cell retains the bounded JSON snapshot:
+`test.jobs.consumer.management.v1` key. One stable cell retains the bounded JSON snapshot:
 manager/receiver configuration, ID authority, JobRecords, immutable payloads,
 counter and receipts. The queue holds at most 32 jobs and 32 receipts, each
 delivery payload is at most 256 UTF-8 bytes, and serialized state is at most
@@ -21,7 +24,10 @@ delivery payload is at most 256 UTF-8 bytes, and serialized state is at most
 separate unbounded due index is needed. Every decoded record crosses
 `Job::restore`, including future work. Invalid retained state refuses recovery;
 installation cannot overwrite existing state. This is a new test installation
-format, not a replacement reader for any existing deployment.
+format, not a replacement reader for any existing deployment. The maintainer
+approved retirement/reset of the disposable 0.5 installations for this hard cut;
+create fresh 0.6 fixtures. Upgrading old retained state is unsupported and must
+not reuse its discriminator or allocation as though its format were unchanged.
 
 `Increment` performs a local counter effect and completes its job in one stable
 replacement. A counter overflow has no effect and permanently fails that job,
@@ -44,7 +50,7 @@ authentication and receiver authentication are independent of correlation IDs.
 `init` creates state. `post_upgrade` bootstraps/open-validates retained memory,
 restores the complete bounded queue, initializes Timers and reconstructs the
 consumer's single watchdog. No provider handles or closures are persisted.
-Successful create/cancel/dispatch/completion rederives its deadline; no Pending
+Successful create/management/dispatch/completion rederives its deadline; no Pending
 work leaves it inactive. Reconciliation failure traps the same synchronous
 segment as the stable write, preventing a falsely successful persisted schedule.
 External-call continuations have separate message boundaries.
@@ -74,7 +80,7 @@ make install-consumer-server
 make test-canister
 ```
 
-To qualify the selected Binaryen optimizer against the same six live recovery
+To qualify the selected Binaryen optimizer against the same seven live recovery
 scenarios, explicitly prepare it with `make install-ic-tools`, then run
 `make test-canister-optimized`. This tests the original Wasm and its `-O3`, `-Os`
 and `-Oz` outputs using the input's declared Wasm features. It
@@ -98,7 +104,7 @@ remain outside the canister and public Jobs normal Wasm dependency graphs.
 
 After [the updated recovery workflow](../../.github/workflows/recovery.yml) is delivered
 to `main`, select **Actions → Canister recovery → Run workflow** and choose the
-tag or branch to qualify. This manual trigger runs all six tests on the original and
+tag or branch to qualify. This manual trigger runs all seven tests on the original and
 three optimized variants on Linux, Apple Silicon and Intel macOS.
 Ordinary push/PR CI still compiles the harness without starting
 PocketIC. See [GitHub's manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
@@ -116,12 +122,15 @@ The live harness covers management authorization, wakeup changes, real local and
 external timer delivery, upgrade retention, overdue policies, synchronous
 write/timer rollback, lost sender-result traps with retained destination receipts,
 absent-receipt blocking and invalid-record upgrade refusal with explicit
-controller-snapshot recovery. Deliberate `fixture_*` endpoints implement these
+controller-snapshot recovery. Management coverage adds paused/rescheduled
+upgrade retention, authorization, wakeup stop/rearm, overdue resume policies and
+real trap rollback after management and timer reconciliation. Deliberate `fixture_*` endpoints implement these
 faults in the unpublished Wasm rather than faking IC behavior with `cfg(test)`.
 Their API must never be copied into a production canister. Live execution and
 native macOS acceptance are recorded separately in the
 [handoff](../../docs/status/current.md). Completed
 [#11](https://github.com/dragginzgame/ic-jobs/issues/11) acceptance covers the older
-five-scenario v0.5.6 harness; the current watchdog case requires its own live
-evidence in [#20](https://github.com/dragginzgame/ic-jobs/issues/20). Harness
+five-scenario v0.5.6 harness; completed [#20](https://github.com/dragginzgame/ic-jobs/issues/20)
+acceptance covers the six-case v0.5.9 harness. Current management/storage inputs
+require their own live evidence in [#23](https://github.com/dragginzgame/ic-jobs/issues/23). Harness
 compilation alone does not establish that acceptance.

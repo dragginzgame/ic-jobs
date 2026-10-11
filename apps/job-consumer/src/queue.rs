@@ -16,7 +16,7 @@ const MAX_JOBS: usize = 32;
 const MAX_BYTES: usize = 24 * 1024;
 const MAX_MESSAGE: usize = 256;
 pub(crate) const BATCH: usize = 2;
-const KEY: &str = "test.jobs.consumer.v1";
+const KEY: &str = "test.jobs.consumer.management.v1";
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -53,6 +53,29 @@ fn task_valid(task: &Task) -> bool {
     match task {
         Task::Increment(_) => true,
         Task::Deliver { message, .. } => message.len() <= MAX_MESSAGE,
+    }
+}
+
+fn schedule(timing: Timing) -> Schedule {
+    match timing {
+        Timing::Once(at_ns) => Schedule::Once { at_ns },
+        Timing::FixedRate {
+            first_ns,
+            every_ns,
+            catch_up,
+        } => Schedule::FixedRate {
+            first_at_ns: first_ns,
+            every_ns,
+            missed: if catch_up {
+                MissedRunPolicy::CatchUp
+            } else {
+                MissedRunPolicy::Skip
+            },
+        },
+        Timing::AfterCompletion { first_ns, every_ns } => Schedule::AfterCompletion {
+            first_at_ns: first_ns,
+            every_ns,
+        },
     }
 }
 
@@ -166,22 +189,7 @@ impl<M: Memory> Queue<M> {
         if !task_valid(&input.task) {
             return Err(Error::InvalidInput);
         }
-        let schedule = match input.timing {
-            Timing::Once(at_ns) => Schedule::Once { at_ns },
-            Timing::FixedRate {
-                first_ns,
-                every_ns,
-                catch_up,
-            } => Schedule::FixedRate {
-                first_at_ns: first_ns,
-                every_ns,
-                missed: if catch_up {
-                    MissedRunPolicy::CatchUp
-                } else {
-                    MissedRunPolicy::Skip
-                },
-            },
-        };
+        let schedule = schedule(input.timing);
         let id = snapshot.next_id;
         snapshot.next_id = id.checked_add(1).ok_or(Error::Capacity)?;
         snapshot.jobs.push(Entry {
@@ -218,6 +226,26 @@ impl<M: Memory> Queue<M> {
     }
 
     pub(crate) fn cancel(&mut self, id: u64, now: u64) -> Result<(), Error> {
+        self.manage(id, |job| job.cancel(now))
+    }
+
+    pub(crate) fn pause(&mut self, id: u64, now: u64) -> Result<(), Error> {
+        self.manage(id, |job| job.pause(now))
+    }
+
+    pub(crate) fn resume(&mut self, id: u64, now: u64) -> Result<(), Error> {
+        self.manage(id, |job| job.resume(now))
+    }
+
+    pub(crate) fn reschedule(&mut self, id: u64, timing: Timing, now: u64) -> Result<(), Error> {
+        self.manage(id, |job| job.reschedule(schedule(timing), now))
+    }
+
+    fn manage(
+        &mut self,
+        id: u64,
+        operation: impl FnOnce(&mut Job) -> Result<(), ic_jobs::JobError>,
+    ) -> Result<(), Error> {
         let mut snapshot = self.load()?;
         let entry = snapshot
             .jobs
@@ -225,7 +253,7 @@ impl<M: Memory> Queue<M> {
             .find(|entry| entry.job.id == JobId(u128::from(id)))
             .ok_or(Error::UnknownJob)?;
         let mut job = Job::restore(entry.job).map_err(job_error)?;
-        job.cancel(now).map_err(job_error)?;
+        operation(&mut job).map_err(job_error)?;
         entry.job = job.record();
         self.commit(snapshot)
     }
@@ -427,6 +455,7 @@ fn view(entry: Entry) -> Result<View, Error> {
         task: entry.task,
         status: match entry.job.state {
             JobState::Pending { .. } => Status::Pending,
+            JobState::Paused { .. } => Status::Paused,
             JobState::Running { .. } => Status::Running,
             JobState::Uncertain { .. } => Status::Uncertain,
             JobState::Completed => Status::Completed,

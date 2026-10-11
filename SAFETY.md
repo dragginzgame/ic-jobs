@@ -44,12 +44,14 @@ checks structural invariants; it is not a signature, schema migration, trusted
 history proof or a byte-format versioning protocol. Consumers own their selected
 codec and any retained storage-format contract.
 
-Pending retries must record completion at or after the occurrence's scheduled
+Pending/paused retries must record completion at or after the occurrence's scheduled
 time. A zero-attempt successor must follow a completed recurring occurrence,
-with its deadline matching the recorded completion and scheduling policy.
+with its deadline matching the recorded outcome timestamp and scheduling policy,
+unless an explicit unstarted-occurrence reschedule establishes a new cadence
+origin. Management time must not replace outcome/backoff evidence.
 Successful one-shot work cannot be reconstructed as a fresh pending occurrence.
-The first occurrence retains the original schedule deadline through dispatch,
-uncertainty, retries and cancellation. Cancellation timestamps must remain
+The first occurrence of each scheduling policy retains that policy's original
+deadline through dispatch, uncertainty, retries and cancellation. Cancellation timestamps must remain
 consistent with the preceding completed occurrence; cancellation may still
 precede the next due time.
 
@@ -58,6 +60,21 @@ each dispatch batch, indexed query, payload, outstanding-call set and retained
 history. Skip advances from the current schedule to the first aligned deadline
 strictly after successful completion. AfterCompletion waits from that completion.
 Retry backoff does not change the logical occurrence's original scheduled time.
+
+Paused work retains its deadline and retry evidence but has no dispatch deadline.
+Resume preserves the original policy and does not grant repeat permission or
+allocate an attempt. Rescheduling replaces only an unstarted occurrence's future
+cadence, preserving logical effect identity, sequence, payload and retry budget.
+Already-attempted, Running, Uncertain and terminal work cannot be rescheduled.
+Failed management leaves the complete record unchanged. The consumer commits
+management and due-index changes before reconciling its watchdog.
+
+The 0.6 record changes are an incompatible stored contract. Consumers must
+explicitly dispose of old snapshots before fresh current state; no old reader,
+default-filled metadata or migration engine is supplied. The maintainer approved
+retirement/reset of this repository's disposable 0.5 test installations. The
+canister fixture uses a distinct storage key; old bytes are not interpreted under
+the current layout, and this change does not erase retained memory itself.
 
 `Scheduler` borrows a bounded candidate batch of validated `Job` values. It
 derives pending deadlines afresh, starts one earliest due job through `Job::start`,

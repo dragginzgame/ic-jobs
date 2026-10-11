@@ -99,6 +99,30 @@ fn cancel(id: u64) -> Result<(), Error> {
     Ok(())
 }
 
+#[ic_cdk::update]
+fn pause(id: u64) -> Result<(), Error> {
+    authorize()?;
+    with_queue(|queue| queue.pause(id, ic_cdk::api::time()))?;
+    reconcile();
+    Ok(())
+}
+
+#[ic_cdk::update]
+fn resume(id: u64) -> Result<(), Error> {
+    authorize()?;
+    with_queue(|queue| queue.resume(id, ic_cdk::api::time()))?;
+    reconcile();
+    Ok(())
+}
+
+#[ic_cdk::update]
+fn reschedule(id: u64, timing: crate::api::Timing) -> Result<(), Error> {
+    authorize()?;
+    with_queue(|queue| queue.reschedule(id, timing, ic_cdk::api::time()))?;
+    reconcile();
+    Ok(())
+}
+
 #[ic_cdk::query]
 fn summary() -> Result<Summary, Error> {
     authorize()?;
@@ -221,6 +245,18 @@ fn fixture_trap_watchdog_batch(enabled: bool) -> Result<(), Error> {
 fn fixture_trap_after_create(input: Create) {
     required(create(input));
     ic_cdk::trap("fixture: trap after stable write and watchdog reconciliation");
+}
+
+#[ic_cdk::update]
+fn fixture_trap_after_pause(id: u64) {
+    required(pause(id));
+    ic_cdk::trap("fixture: trap after paused write and watchdog reconciliation");
+}
+
+#[ic_cdk::update]
+fn fixture_trap_after_reschedule(id: u64, timing: crate::api::Timing) {
+    required(reschedule(id, timing));
+    ic_cdk::trap("fixture: trap after rescheduled write and watchdog reconciliation");
 }
 
 #[ic_cdk::update]

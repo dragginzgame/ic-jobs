@@ -1,112 +1,89 @@
 # Current handoff
 
-## Pending 0.5.13 — Shared 0.6.3 release restart
+## Pending 0.6.0 — durable management implemented
 
-Canonically adopted committed Shared **0.6.3** at
-`4fd979d13c32adb3cb2f51f213ebfc4f98339b3d` from the clean isolated source.
-Preview/export retains all 84 selections, updating seven shared files: baseline,
-maintenance rules/tasks, adoption/release guidance and release runner. Normal
-direct-release commands can restart superseded `prepare` intent from a newer
-clean descendant commit, after admitting the saved destination, metadata and
-absence of staging evidence. The original plan is archived unchanged; the current
-version and requested increment select the candidate with fresh preflight/full
-validation. Exact resume, unchanged-source preparation and later effects retain
-their existing reconciliation. No actual release or plan retirement is run.
-Tracking: [#21](https://github.com/dragginzgame/ic-jobs/issues/21),
-[Shared #126](https://github.com/dragginzgame/shared-tooling/issues/126).
+[#23](https://github.com/dragginzgame/ic-jobs/issues/23) now has core and consumer
+implementation. `Job::pause` retains Pending deadlines and retry evidence while
+excluding dispatch. `resume` retains the original deadline and Skip/CatchUp
+policy; overdue catch-up remains consumer-bounded. `reschedule` replaces intent
+from an unstarted occurrence forward, retaining job/payload/effect identity,
+sequence and retry policy. Paused work stays paused; cancellation accepts it.
+Attempted occurrences refuse rescheduling, and Running/Uncertain effects remain
+blocked until existing explicit disposition. Errors preserve records and committed
+bytes, with the existing transition precedence retained.
 
-Jobs' adapter is reviewed against the preparation contract: it changes only local
-release metadata, with no staging or external effects. The local release guide
-now states the temporary backup's abrupt-kill limits and requires reconciliation
-of all three metadata files before a committed restart disposition. There is no
-durable metadata journal to infer or discard. Published Jobs API, runtime,
-storage and Rust 1.88 are unchanged; notes extend compatible **0.5.13**. The
-accepted 0.6 management proposal remains separate and awaits snapshot disposition.
+The current JobRecord has an explicit `schedule_origin` and independent
+`last_outcome_ns`: management time cannot rewrite retry or recurrence evidence.
+All reconstruction still crosses `Job::restore`. The canister consumer adds
+manager-authenticated pause/resume/reschedule, commits the complete validated
+queue before watchdog reconciliation, and uses the distinct
+`test.jobs.consumer.management.v1` key. The maintainer explicitly confirmed only
+disposable 0.5 test installations exist and approved their retirement/reset.
+Create fresh 0.6 fixtures; no old reader, migration, automatic reset or old-key
+reuse is implemented. No deployed installation was reset by this work.
 
-Snapshot integrity, pin declarations, documentation links, Bash parsing and
-whitespace checks pass. Installer/build-policy bytes are unchanged from 0.6.2;
-its prepared common/cargo-edit admission evidence is retained. The separately
-selected Testkit 0.33.8 CLI remains unprepared at its last offline check. Tests,
-builds, lint, full CI and live execution remain excluded by the recorded local
-exception; static checks do not establish release-restart/native execution.
-Exact-source [Shared CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38145666246)
-passes lint/security, with Linux running and both macOS hosts queued. Delivered
-[Jobs 0.5.12 CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38144542439)
-now passes Linux and Apple Silicon; Intel remains queued, so #21 stays open.
-The Shared 0.6.2 run was cancelled before Intel acceptance. Evidence:
-`/tmp/ic-jobs-shared-063-bpd6yvgr/`. Incoming lock, prior notes/handoff and all
-product source, manifests, real index and refs are preserved. No tool install,
-release/publication, new hosted dispatch or sibling edit is performed.
+The maintainer explicitly selected focused Rust qualification for this batch,
+overriding the earlier no-tests/builds/lint exception only for these focused
+checks. Linux qualification passes on Rust **1.88.0** independently for core and
+optional timers: 20 consumer-composition tests, 23 core / 24 timer-enabled job
+tests, and six new management tests in both configurations. Core and optional
+timers also pass the separate Wasm floor checks. `make check-consumer` passes
+nine native stable-consumer tests, the Rust 1.88 release Wasm build, recovery
+harness compilation and warnings-denied native/Wasm consumer Clippy. Core Clippy,
+warnings-denied rustdoc and both doctests pass on development Rust 1.99.0.
+The first consumer attempt failed because the new key omitted Memory's required
+`.vN` suffix; the original log is retained and the corrected distinct key passes.
+Evidence: `/tmp/ic-jobs-060-427glpry/`.
 
-## Accepted 0.6 direction — durable management contract review
+The harness now has seven ignored live scenarios, adding authenticated management,
+paused/rescheduled upgrade retention, wakeup stop/rearm, overdue resume policies,
+management trap rollback and blocked external-work refusal. Compilation does not
+qualify those live effects. Full local CI/release gates, native macOS and new live
+PocketIC remain unselected/pending; prior v0.5.9 recovery does not qualify the new
+record or harness. Keep #23 open for delivered-source native/live acceptance.
+Package versions remain **0.5.13**; only numbered pending notes select **0.6.0**.
+The real index, refs, manifests and lockfile are preserved. No commit, release,
+publication, hosted dispatch, sibling edit or installation reset was performed.
 
-The maintainer expects to use pause/resume and pending rescheduling. The concrete
-consumer requirement, proposed eligibility/identity rules, record constraints and
-qualification are tracked in
-[#23](https://github.com/dragginzgame/ic-jobs/issues/23). Prove management through
-the existing unpublished canister consumer; storage, authorization, lifecycle,
-payloads and watchdog registration remain consumer-owned.
+## Delivered 0.5.13 — Shared 0.6.3 acceptance remaining
 
-Recommended resume retains the original deadline and Skip/CatchUp policy; the
-maintainer's preference is pending. Proposed schedule replacement affects an
-unstarted occurrence and future cadence, preserves identity/sequence/payload,
-keeps paused work paused, and refuses already-attempted occurrences. Pausing
-known-safe retry waiting preserves its original backoff evidence. Running and
-Uncertain effects remain blocked until the existing explicit disposition path.
-These are proposed semantics, not supported library APIs yet.
+Jobs **0.5.13** is delivered at
+`5fa4c500dc6a40a15fd27260dfed1d581cd054eb`, matching public main and the annotated
+`v0.5.13` target. The 84-file snapshot adopts committed Shared **0.6.3**
+`4fd979d13c32adb3cb2f51f213ebfc4f98339b3d` canonically. Normal direct release
+commands can archive superseded preparation from a clean descendant commit and
+select the increment from current metadata with fresh validation. Exact resume
+and later effect reconciliation retain their existing contracts. Local guidance
+records temporary metadata backup's abrupt-kill limits; there is no durable
+metadata journal or consumer fork. Adoption evidence remains at
+`/tmp/ic-jobs-shared-063-bpd6yvgr/`.
 
-Record design requires separate management and outcome timing plus an explicit
-cadence anchor: current restore uses `updated_ns` to verify exact retry and
-recurrence deadlines, and occurrence counts currently identify both logical
-effects and cadence position. Do not overwrite those facts or weaken restore
-checks to admit management changes. The maintainer is being asked whether any
-0.5 snapshots remain in use or the disposable test installations can be
-explicitly retired/reset. The stored contract, memory key and implementation
-remain untouched pending that disposition; no dual reader/default-filled old
-model or migration mechanism is authorized. Existing 0.5.13 notes remain current
-until implemented incompatible public/record changes justify 0.6.0.
+[Exact-source Jobs CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38149217014)
+passes Linux; Intel and Apple Silicon are queued at inspection. Keep
+[#21](https://github.com/dragginzgame/ic-jobs/issues/21) open for both remaining
+hosts on this final delivered adoption. [Shared 0.6.3 CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38145666246)
+passes lint/security, Linux and Intel; Apple Silicon is running. Linked producer
+tracking is [Shared #126](https://github.com/dragginzgame/shared-tooling/issues/126).
+These results bind the delivered source, not the dirty 0.6 management batch.
 
-The recorded local no-tests/builds/lint/full-CI/live exception remains in force.
-This batch records the agreed direction and actionable prerequisite, with source
-review only; no product code, manifest version, index/ref, release, hosted dispatch
-or sibling change is performed. Evidence:
-`/tmp/ic-jobs-06-management-wfmpitt5/`.
+The delivered lock selects Memory 0.35.10, Timers 0.17.12, Testkit 0.33.8 and Host
+0.13.5 (Metrics 0.6.4). Published Testkit Rust sources match 0.33.7; Timers changes
+only its own private test provider, not the dependency compiled into Jobs. The
+separately selected Testkit 0.33.8 CLI remains unprepared at its last offline check.
+Run explicit `make install-testkit-tools` and `make testkit-tools-check` before
+selecting new live recovery; no CLI/server install is selected by focused harness
+compilation. Graph-review evidence remains at `/tmp/ic-jobs-0513-iue1y6cz/`.
+The older v0.5.9 live evidence stays bound to its original graph/source.
 
-## Pending 0.5.13 — selected Timers/Testkit patches
+## Delivered 0.5.12 — three-host native acceptance
 
-The incoming lock selects Timers **0.17.12** and Testkit **0.33.8** and is
-preserved byte-for-byte. Locked fetching prepares the selected sources; locked
-offline metadata admits this graph. Published Testkit Rust sources match 0.33.7.
-Timers changes only its private `cfg(test)` provider: removed futures are dropped
-after releasing the task-map borrow, permitting destructor timer access
-([Timers #45](https://github.com/dragginzgame/ic-timers/issues/45)). This provider
-is not compiled into Jobs' dependency, and no Jobs production/native behavior
-change is claimed. Jobs needs no adapter, API, storage or error-transition change.
-Both dependency floors remain 1.88. Shared 0.6.2 remains current.
-
-The real offline `make testkit-tools-check` refuses the missing/invalid selected
-0.33.8 CLI (status 2), without building, downloading or using an older selection.
-Run `make install-testkit-tools`, then `make testkit-tools-check` before selecting
-recovery qualification. CLI builds remain excluded by the recorded local
-no-tests/builds/lint/full-CI/live exception. Core/timers Rust 1.88 and final native
-qualification remain required for this graph. Evidence:
-`/tmp/ic-jobs-0513-iue1y6cz/`. Package versions remain 0.5.12; the real index,
-refs, incoming lock and sibling files are preserved. No release/publication or
-new hosted dispatch is performed.
-
-## Delivered 0.5.12 — native adoption acceptance remaining
-
-Jobs **0.5.12** is delivered at
-`08cf421e9dd5dd3ae12d446ef8a4dfe5baed4a8b`, matching public main and annotated
-`v0.5.12`. The Shared 0.6.2 adoption and Memory/Timers/Host patch selections are
-delivered. Its [native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38144542439)
-is running Linux with Intel/Apple Silicon queued. The preceding 0.5.11 run is
-cancelled and does not establish all-host acceptance. Keep
-[#21](https://github.com/dragginzgame/ic-jobs/issues/21) open until all three
-hosts pass on the final delivered source; another release cancels superseded
-native runs. [Shared 0.6.2 CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38143010876)
-passes lint/security, Linux and Apple Silicon; Intel remains queued. The older
-v0.5.9 live recovery evidence stays bound to its tested graph and source.
+Jobs **0.5.12** at `08cf421e9dd5dd3ae12d446ef8a4dfe5baed4a8b` now
+[passes all three native hosts](https://github.com/dragginzgame/ic-jobs/actions/runs/38144542439).
+Its full logs include release/formatting/consumer fixtures and separate core/timers
+Rust 1.88 native/Wasm checks. This qualifies its Shared 0.6.2 adoption, not the
+subsequently delivered 0.6.3 snapshot or current management changes. #21 retains
+final 0.5.13-source acceptance. Logs are retained with current evidence at
+`/tmp/ic-jobs-060-427glpry/jobs-0512-ci.log`.
 
 ## Pending 0.5.12 — Shared 0.6.2 and selected upstream patches
 

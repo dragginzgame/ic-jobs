@@ -1,0 +1,294 @@
+//! Durable management keeps effect identity and independent timing evidence.
+use ic_jobs::{
+    Job, JobError, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule,
+    Scheduler,
+};
+
+fn restore(job: &Job) -> Job {
+    let bytes = serde_json::to_vec(&job.record()).unwrap();
+    Job::restore(serde_json::from_slice::<JobRecord>(&bytes).unwrap()).unwrap()
+}
+
+fn recurring(missed: MissedRunPolicy) -> Job {
+    Job::new(
+        JobId(7),
+        Schedule::FixedRate {
+            first_at_ns: 100,
+            every_ns: 10,
+            missed,
+        },
+        RetryPolicy {
+            max_attempts: 3,
+            initial_delay_ns: 10,
+            max_delay_ns: 20,
+        },
+    )
+    .unwrap()
+}
+
+#[test]
+fn pause_restore_resume_preserves_overdue_policy_and_scheduler_exclusion() {
+    for missed in [MissedRunPolicy::Skip, MissedRunPolicy::CatchUp] {
+        let mut job = recurring(missed);
+        job.pause(50).unwrap();
+        let mut jobs = [restore(&job)];
+        assert_eq!(Scheduler::new(&mut jobs).next_due_ns(), None);
+        assert_eq!(Scheduler::new(&mut jobs).start_next(200), Ok(None));
+        jobs[0].resume(200).unwrap();
+        assert_eq!(restore(&jobs[0]).next_due_ns(), Some(100));
+        let attempt = jobs[0].start(200).unwrap();
+        assert_eq!((attempt.execution.occurrence, attempt.sequence), (0, 1));
+        jobs[0].finish(attempt, 200, Outcome::Success).unwrap();
+        assert_eq!(
+            restore(&jobs[0]).next_due_ns(),
+            Some(if missed == MissedRunPolicy::Skip {
+                210
+            } else {
+                110
+            })
+        );
+        jobs[0].pause(201).unwrap();
+        jobs[0].resume(300).unwrap();
+        assert_eq!(restore(&jobs[0]).record().last_outcome_ns, Some(200));
+        jobs[0].pause(300).unwrap();
+        jobs[0].cancel(301).unwrap();
+        assert_eq!(restore(&jobs[0]).record().state, JobState::Cancelled);
+    }
+}
+
+#[test]
+fn retry_pause_retains_backoff_and_refuses_rescheduling_after_an_attempt() {
+    let mut job = recurring(MissedRunPolicy::CatchUp);
+    let attempt = job.start(100).unwrap();
+    job.finish(attempt, 100, Outcome::RetryableFailure).unwrap();
+    job.pause(105).unwrap();
+    job = restore(&job);
+    let before = job.record();
+    assert_eq!(
+        job.reschedule(Schedule::Once { at_ns: 0 }, 105),
+        Err(JobError::AlreadyAttempted)
+    );
+    assert_eq!(job.record(), before);
+    job.resume(106).unwrap();
+    job = restore(&job);
+    assert_eq!(job.next_due_ns(), Some(110));
+    assert_eq!(job.start(109), Err(JobError::NotDue));
+    let second = job.start(110).unwrap();
+    assert_eq!(second.execution, attempt.execution);
+    assert_eq!(second.sequence, 2);
+    job.finish(second, 110, Outcome::RetryableFailure).unwrap();
+    job.pause(120).unwrap();
+    job.resume(200).unwrap();
+    assert_eq!(restore(&job).next_due_ns(), Some(130));
+    assert_eq!(job.record().last_outcome_ns, Some(110));
+    let mut corrupt = job.record();
+    corrupt.last_outcome_ns = Some(111);
+    assert_eq!(Job::restore(corrupt).unwrap_err(), JobError::InvalidRecord);
+}
+
+#[test]
+fn rescheduling_preserves_history_and_rebases_only_the_current_cadence() {
+    for paused in [false, true] {
+        for replacement in [
+            Schedule::Once { at_ns: 250 },
+            Schedule::FixedRate {
+                first_at_ns: 250,
+                every_ns: 20,
+                missed: MissedRunPolicy::CatchUp,
+            },
+            Schedule::FixedRate {
+                first_at_ns: 250,
+                every_ns: 20,
+                missed: MissedRunPolicy::Skip,
+            },
+            Schedule::AfterCompletion {
+                first_at_ns: 250,
+                every_ns: 20,
+            },
+        ] {
+            let mut job = recurring(MissedRunPolicy::CatchUp);
+            let previous = job.start(100).unwrap();
+            job.finish(previous, 100, Outcome::Success).unwrap();
+            if paused {
+                job.pause(150).unwrap();
+            }
+            job.reschedule(replacement, 200).unwrap();
+            job = restore(&job);
+            let record = job.record();
+            assert_eq!(
+                (
+                    record.id,
+                    record.occurrence,
+                    record.schedule_origin,
+                    record.sequence,
+                    record.attempts
+                ),
+                (JobId(7), 1, 1, 1, 0)
+            );
+            assert_eq!(record.last_outcome_ns, Some(100));
+            assert_eq!(job.next_due_ns(), if paused { None } else { Some(250) });
+            if paused {
+                job.resume(210).unwrap();
+            }
+            assert_eq!(job.start(249), Err(JobError::NotDue));
+            let next = job.start(300).unwrap();
+            assert_eq!((next.execution.occurrence, next.sequence), (1, 2));
+            assert_eq!(
+                job.finish(previous, 300, Outcome::Success),
+                Err(JobError::StaleAttempt)
+            );
+            job.finish(next, 300, Outcome::Success).unwrap();
+            job = restore(&job);
+            match replacement {
+                Schedule::Once { .. } => assert_eq!(job.record().state, JobState::Completed),
+                Schedule::FixedRate {
+                    missed: MissedRunPolicy::CatchUp,
+                    ..
+                } => assert_eq!(job.next_due_ns(), Some(270)),
+                Schedule::FixedRate { .. } => assert_eq!(job.next_due_ns(), Some(310)),
+                Schedule::AfterCompletion { .. } => assert_eq!(job.next_due_ns(), Some(320)),
+            }
+        }
+    }
+}
+
+#[test]
+fn fresh_rescheduling_retains_identity_and_overflow_keeps_the_active_attempt() {
+    for paused in [false, true] {
+        for replacement in [
+            Schedule::Once { at_ns: 250 },
+            Schedule::FixedRate {
+                first_at_ns: 250,
+                every_ns: 20,
+                missed: MissedRunPolicy::CatchUp,
+            },
+            Schedule::FixedRate {
+                first_at_ns: 250,
+                every_ns: 20,
+                missed: MissedRunPolicy::Skip,
+            },
+            Schedule::AfterCompletion {
+                first_at_ns: 250,
+                every_ns: 20,
+            },
+        ] {
+            let mut job =
+                Job::new(JobId(7), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE).unwrap();
+            if paused {
+                job.pause(50).unwrap();
+            }
+            job.reschedule(replacement, 200).unwrap();
+            job = restore(&job);
+            assert_eq!(job.record().sequence, 0);
+            assert_eq!(job.record().occurrence, 0);
+            assert_eq!(job.record().last_outcome, None);
+            if paused {
+                assert_eq!(job.next_due_ns(), None);
+                job.resume(200).unwrap();
+            }
+            assert_eq!(job.next_due_ns(), Some(250));
+            let attempt = job.start(250).unwrap();
+            assert_eq!(
+                (
+                    attempt.execution.job,
+                    attempt.execution.occurrence,
+                    attempt.sequence
+                ),
+                (JobId(7), 0, 1)
+            );
+            job.finish(attempt, 250, Outcome::Success).unwrap();
+            assert_eq!(restore(&job).record(), job.record());
+        }
+    }
+    let mut job = recurring(MissedRunPolicy::CatchUp);
+    job.reschedule(
+        Schedule::AfterCompletion {
+            first_at_ns: u64::MAX,
+            every_ns: 1,
+        },
+        0,
+    )
+    .unwrap();
+    job = restore(&job);
+    let attempt = job.start(u64::MAX).unwrap();
+    let before = job.record();
+    assert_eq!(
+        job.finish(attempt, u64::MAX, Outcome::Success),
+        Err(JobError::DeadlineOverflow)
+    );
+    assert_eq!(job.record(), before);
+    assert_eq!(restore(&job).record(), before);
+}
+
+#[test]
+fn management_refuses_blocked_work_invalid_policies_and_backward_clocks_without_mutation() {
+    let mut job = recurring(MissedRunPolicy::Skip);
+    job.pause(50).unwrap();
+    let before = job.record();
+    assert_eq!(job.resume(49), Err(JobError::TimeWentBackwards));
+    assert_eq!(
+        job.reschedule(
+            Schedule::FixedRate {
+                first_at_ns: 1,
+                every_ns: 0,
+                missed: MissedRunPolicy::Skip
+            },
+            50
+        ),
+        Err(JobError::ZeroInterval)
+    );
+    assert_eq!(job.record(), before);
+    job.resume(50).unwrap();
+    let attempt = job.start(100).unwrap();
+    for uncertain in [false, true] {
+        if uncertain {
+            job.finish(attempt, 101, Outcome::Uncertain).unwrap();
+        }
+        let before = job.record();
+        assert_eq!(job.pause(102), Err(JobError::InFlight));
+        assert_eq!(job.resume(102), Err(JobError::InFlight));
+        assert_eq!(
+            job.reschedule(Schedule::Once { at_ns: 0 }, 102),
+            Err(JobError::InFlight)
+        );
+        assert_eq!(job.cancel(102), Err(JobError::InFlight));
+        assert_eq!(job.record(), before);
+        assert_eq!(restore(&job).record(), before);
+    }
+    job.resolve(attempt, 103, Outcome::PermanentFailure)
+        .unwrap();
+    let before = job.record();
+    assert_eq!(job.pause(104), Err(JobError::NotPending));
+    assert_eq!(job.resume(104), Err(JobError::NotPaused));
+    assert_eq!(
+        job.reschedule(Schedule::Once { at_ns: 200 }, 104),
+        Err(JobError::NotPending)
+    );
+    assert_eq!(job.record(), before);
+}
+
+#[test]
+fn restore_rejects_missing_management_fields_and_inconsistent_anchors() {
+    let job = recurring(MissedRunPolicy::Skip);
+    let mut encoded = serde_json::to_value(job.record()).unwrap();
+    encoded.as_object_mut().unwrap().remove("schedule_origin");
+    assert!(serde_json::from_value::<JobRecord>(encoded).is_err());
+    let mut invalid = job.record();
+    invalid.schedule_origin = 1;
+    assert_eq!(Job::restore(invalid).unwrap_err(), JobError::InvalidRecord);
+    invalid = job.record();
+    invalid.last_outcome_ns = Some(0);
+    assert_eq!(Job::restore(invalid).unwrap_err(), JobError::InvalidRecord);
+    let mut once = Job::new(
+        JobId(1),
+        Schedule::Once { at_ns: u64::MAX },
+        RetryPolicy::NONE,
+    )
+    .unwrap();
+    once.pause(u64::MAX).unwrap();
+    once = restore(&once);
+    once.resume(u64::MAX).unwrap();
+    let attempt = once.start(u64::MAX).unwrap();
+    once.finish(attempt, u64::MAX, Outcome::Success).unwrap();
+    assert_eq!(restore(&once).record().state, JobState::Completed);
+}

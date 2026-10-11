@@ -120,7 +120,8 @@ This is actual stable-structure persistence on native VectorMemory, not an IC
 upgrade, message rollback, final Canic/IcyDB composition or live timer evidence.
 [IC Memory #44](https://github.com/dragginzgame/ic-memory/issues/44) retains those
 coordination requirements. No old allocation API or fallback remains in Jobs'
-consumers; no existing Job format or retained installation is reset. Jobs' library
+consumers. That memory-adoption batch did not change the Job format or reset
+retained installations; the management hard cut below has its own disposition. Jobs' library
 acquires no storage dependency or lifecycle hook.
 
 ## Durable canister consumer
@@ -136,7 +137,12 @@ consumers' existing snapshots or any deployed format.
 compiles the separate Testkit harness and checks native/Wasm Clippy. Ordinary CI
 includes these checks without launching a server. Explicit Testkit CLI/server
 preparation and `make test-canister` select the live upgrade, rollback, watchdog
-and lost-result scenarios. Completed
+and lost-result scenarios. Durable management now covers pause/resume,
+unstarted-occurrence rescheduling, wakeup reconstruction and real management trap
+rollback. The approved 0.6 hard cut retires/resets disposable 0.5 canister fixtures;
+its distinct current memory key does not interpret old snapshots. Qualification
+of the new seven-case harness remains with
+[#23](https://github.com/dragginzgame/ic-jobs/issues/23). Completed
 [#11](https://github.com/dragginzgame/ic-jobs/issues/11) acceptance covers the older
 five-scenario v0.5.6 harness. Current inputs require their own source-bound
 execution and host evidence, including the additional watchdog scenario in

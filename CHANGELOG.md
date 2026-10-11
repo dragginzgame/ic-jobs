@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0]
+
+- **Breaking:** Add durable pause/resume and schedule replacement for unstarted
+  occurrences. Update exhaustive state/error matches and stored JobRecord codecs
+  for the new paused state, cadence origin and independent outcome timestamp.
+  Retire/reset the approved disposable 0.5 test installations before creating
+  fresh 0.6 consumer state; there is no old-format reader or migration path
+  ([#23](https://github.com/dragginzgame/ic-jobs/issues/23)).
+- Preserve deadlines, retry evidence and effect identities through management;
+  running/uncertain effects remain blocked. Extend the existing consumer and
+  qualification harness to management persistence, wakeup changes and rollback
+  ([#23](https://github.com/dragginzgame/ic-jobs/issues/23)).
+
 ## [0.5.13] - 2026-10-11
 
 - Adopt Shared Tooling 0.6.3: normal direct-release commands restart superseded

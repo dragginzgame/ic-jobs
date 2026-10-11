@@ -40,6 +40,13 @@ pub enum Timing {
         /// Catch up two occurrences per batch; otherwise skip missed intervals.
         catch_up: bool,
     },
+    /// Wait after each successful completion.
+    AfterCompletion {
+        /// First occurrence's deadline.
+        first_ns: u64,
+        /// Positive delay after completion.
+        every_ns: u64,
+    },
 }
 
 /// Task creation request. Identities are allocated by the retained queue.
@@ -56,6 +63,8 @@ pub struct Create {
 pub enum Status {
     /// Pending work with a durable deadline.
     Pending,
+    /// Suspended pending work, with no armed dispatch deadline.
+    Paused,
     /// Outstanding committed attempt, never replayed during restore.
     Running,
     /// Unknown effect, blocked until receipt reconciliation.

@@ -36,6 +36,11 @@ pub enum JobState {
         /// Next dispatch deadline, including retry backoff.
         due_ns: u64,
     },
+    /// Pending work is suspended; its retained deadline grants no dispatch.
+    Paused {
+        /// Original pending deadline, including any retry backoff.
+        due_ns: u64,
+    },
     /// Dispatch intent exists; its result has not been recorded.
     Running {
         /// Time at which this attempt started.
@@ -72,6 +77,7 @@ pub enum Outcome {
 /// Decode within your storage boundary and pass through [Job::restore].
 /// The application owns atomic writes, access control and retained-history identity.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct JobRecord {
     /// Application-assigned job identity.
     pub id: JobId,
@@ -81,8 +87,10 @@ pub struct JobRecord {
     pub retry: RetryPolicy,
     /// Number of dispatches allocated so far.
     pub sequence: u64,
-    /// Number of successful recurring occurrences.
+    /// Logical occurrence ordinal; successful recurrence advances it, never management.
     pub occurrence: u64,
+    /// Logical occurrence at which the current scheduling policy began.
+    pub schedule_origin: u64,
     /// Dispatch count for the current occurrence.
     pub attempts: u32,
     /// Original deadline of the current occurrence, before retry backoff.
@@ -93,6 +101,8 @@ pub struct JobRecord {
     pub updated_ns: u64,
     /// Latest recorded outcome; this is not a full execution history.
     pub last_outcome: Option<Outcome>,
+    /// Timestamp of that outcome, independent of later management transitions.
+    pub last_outcome_ns: Option<u64>,
 }
 
 /// Checked transitions of one application-owned durable job.
@@ -119,6 +129,10 @@ pub enum JobError {
     NotDue,
     /// This operation requires pending work.
     NotPending,
+    /// Resuming requires paused work.
+    NotPaused,
+    /// The current occurrence already allocated an attempt and cannot be rescheduled.
+    AlreadyAttempted,
     /// The supplied completion does not identify the active dispatch.
     StaleAttempt,
     /// The job has an unresolved effect and cannot be cancelled.
@@ -139,6 +153,8 @@ impl fmt::Display for JobError {
             Self::InvalidRecord => "inconsistent stored job record",
             Self::NotDue => "job is not due",
             Self::NotPending => "job is not pending",
+            Self::NotPaused => "job is not paused",
+            Self::AlreadyAttempted => "current occurrence has already been attempted",
             Self::StaleAttempt => "completion does not match the active attempt",
             Self::InFlight => "job has an unresolved effect",
             Self::TimeWentBackwards => "time precedes the previous transition",
@@ -161,6 +177,7 @@ impl Job {
             retry,
             sequence: 0,
             occurrence: 0,
+            schedule_origin: 0,
             attempts: 0,
             scheduled_ns: schedule.first(),
             state: JobState::Pending {
@@ -168,6 +185,7 @@ impl Job {
             },
             updated_ns: 0,
             last_outcome: None,
+            last_outcome_ns: None,
         }))
     }
 
@@ -180,8 +198,14 @@ impl Job {
         record.retry.validate()?;
         let invalid = || Err(JobError::InvalidRecord);
         if record.attempts > record.retry.max_attempts
+            || record.schedule_origin > record.occurrence
             || record.scheduled_ns < record.schedule.first()
-            || (record.occurrence == 0 && record.scheduled_ns != record.schedule.first())
+            || (record.occurrence == record.schedule_origin
+                && record.scheduled_ns != record.schedule.first())
+            || record.last_outcome.is_some() != record.last_outcome_ns.is_some()
+            || record
+                .last_outcome_ns
+                .is_some_and(|time| time > record.updated_ns)
             || record.sequence < u64::from(record.attempts)
             || record
                 .sequence
@@ -191,7 +215,9 @@ impl Job {
             return invalid();
         }
         match record.schedule {
-            Schedule::Once { at_ns } if record.occurrence != 0 || record.scheduled_ns != at_ns => {
+            Schedule::Once { at_ns }
+                if record.occurrence != record.schedule_origin || record.scheduled_ns != at_ns =>
+            {
                 return invalid();
             }
             Schedule::FixedRate {
@@ -201,8 +227,9 @@ impl Job {
             } => {
                 let delta = record.scheduled_ns - first_at_ns;
                 if !delta.is_multiple_of(every_ns)
-                    || delta / every_ns < record.occurrence
-                    || (missed == MissedRunPolicy::CatchUp && delta / every_ns != record.occurrence)
+                    || delta / every_ns < record.occurrence - record.schedule_origin
+                    || (missed == MissedRunPolicy::CatchUp
+                        && delta / every_ns != record.occurrence - record.schedule_origin)
                 {
                     return invalid();
                 }
@@ -212,7 +239,8 @@ impl Job {
                 every_ns,
             } if record
                 .occurrence
-                .checked_mul(every_ns)
+                .checked_sub(record.schedule_origin)
+                .and_then(|n| n.checked_mul(every_ns))
                 .and_then(|n| first_at_ns.checked_add(n))
                 .is_none_or(|n| n > record.scheduled_ns) =>
             {
@@ -225,7 +253,10 @@ impl Job {
                 || record.attempts != 0
                 || record.last_outcome.is_some()
                 || record.scheduled_ns != record.schedule.first()
-                || !matches!(record.state, JobState::Pending { .. } | JobState::Cancelled)
+                || !matches!(
+                    record.state,
+                    JobState::Pending { .. } | JobState::Paused { .. } | JobState::Cancelled
+                )
             {
                 return invalid();
             }
@@ -234,37 +265,39 @@ impl Job {
         {
             return invalid();
         }
-        let completion_floor_ns = if record.sequence > 0 && record.attempts == 0 {
-            let every_ns = match record.schedule {
-                Schedule::FixedRate { every_ns, .. }
-                | Schedule::AfterCompletion { every_ns, .. } => every_ns,
-                Schedule::Once { .. } => return invalid(),
+        let completion_floor_ns =
+            if record.occurrence > record.schedule_origin && record.attempts == 0 {
+                let every_ns = match record.schedule {
+                    Schedule::FixedRate { every_ns, .. }
+                    | Schedule::AfterCompletion { every_ns, .. } => every_ns,
+                    Schedule::Once { .. } => return invalid(),
+                };
+                // The next deadline minus its interval is the prior completion
+                // (AfterCompletion) or its earliest possible time (FixedRate).
+                let floor = record
+                    .scheduled_ns
+                    .checked_sub(every_ns)
+                    .ok_or(JobError::InvalidRecord)?;
+                if record.last_outcome_ns.is_none_or(|time| time < floor) {
+                    return invalid();
+                }
+                Some(floor)
+            } else {
+                None
             };
-            // The next deadline minus its interval is the prior completion
-            // (AfterCompletion) or its earliest possible time (FixedRate).
-            let floor = record
-                .scheduled_ns
-                .checked_sub(every_ns)
-                .ok_or(JobError::InvalidRecord)?;
-            if record.updated_ns < floor {
-                return invalid();
-            }
-            Some(floor)
-        } else {
-            None
-        };
         match record.state {
-            JobState::Pending { due_ns } => {
+            JobState::Pending { due_ns } | JobState::Paused { due_ns } => {
                 if due_ns < record.scheduled_ns
                     || (record.attempts == 0 && due_ns != record.scheduled_ns)
                     || (record.attempts > 0
                         && (record.attempts >= record.retry.max_attempts
-                            || record.updated_ns < record.scheduled_ns
-                            || record.last_outcome != Some(Outcome::RetryableFailure)
                             || record
-                                .updated_ns
-                                .checked_add(record.retry.delay(record.attempts))
-                                != Some(due_ns)))
+                                .last_outcome_ns
+                                .is_none_or(|time| time < record.scheduled_ns)
+                            || record.last_outcome != Some(Outcome::RetryableFailure)
+                            || record.last_outcome_ns.and_then(|time| {
+                                time.checked_add(record.retry.delay(record.attempts))
+                            }) != Some(due_ns)))
                 {
                     return invalid();
                 }
@@ -273,7 +306,10 @@ impl Job {
                     // pending record. Reuse the transition's deadline calculation.
                     if record
                         .schedule
-                        .successor(completion_floor_ns, record.updated_ns)
+                        .successor(
+                            completion_floor_ns,
+                            record.last_outcome_ns.ok_or(JobError::InvalidRecord)?,
+                        )
                         .ok()
                         != Some(Some(record.scheduled_ns))
                     {
@@ -293,11 +329,15 @@ impl Job {
                     || started_ns < record.scheduled_ns
                     || started_ns > record.updated_ns
                     || (matches!(record.state, JobState::Running { .. })
+                        && record.last_outcome_ns.is_some_and(|time| time > started_ns))
+                    || (matches!(record.state, JobState::Running { .. })
                         && started_ns != record.updated_ns)
                     || (matches!(record.state, JobState::Running { .. })
                         && record.last_outcome != previous_outcome)
                     || (matches!(record.state, JobState::Uncertain { .. })
-                        && record.last_outcome != Some(Outcome::Uncertain))
+                        && (record.last_outcome != Some(Outcome::Uncertain)
+                            || record.last_outcome_ns != Some(record.updated_ns)
+                            || record.last_outcome_ns.is_none_or(|time| time < started_ns)))
                 {
                     return invalid();
                 }
@@ -307,6 +347,7 @@ impl Job {
                     || record.attempts == 0
                     || record.updated_ns < record.scheduled_ns
                     || record.last_outcome != Some(Outcome::Success)
+                    || record.last_outcome_ns != Some(record.updated_ns)
                 {
                     return invalid();
                 }
@@ -314,6 +355,7 @@ impl Job {
             JobState::Failed => {
                 if record.attempts == 0
                     || record.updated_ns < record.scheduled_ns
+                    || record.last_outcome_ns != Some(record.updated_ns)
                     || !(record.last_outcome == Some(Outcome::PermanentFailure)
                         || (record.last_outcome == Some(Outcome::RetryableFailure)
                             && record.attempts == record.retry.max_attempts))
@@ -448,6 +490,7 @@ impl Job {
         let mut next = self.0;
         next.updated_ns = now_ns;
         next.last_outcome = Some(outcome);
+        next.last_outcome_ns = Some(now_ns);
         match outcome {
             Outcome::Success => {
                 if let Some(deadline) = next.schedule.successor(next.scheduled_ns, now_ns)? {
@@ -483,14 +526,86 @@ impl Job {
         Ok(())
     }
 
-    /// Cancel pending work. An unresolved effect must be reconciled first.
+    /// Suspend pending work without changing its deadline, identity or retry evidence.
+    ///
+    /// Persist the paused record before reconciling the consumer's wakeup. A
+    /// paused job has no dispatch deadline, including after reconstruction.
+    pub fn pause(&mut self, now_ns: u64) -> Result<(), JobError> {
+        self.check_time(now_ns)?;
+        let due_ns = match self.0.state {
+            JobState::Pending { due_ns } => due_ns,
+            JobState::Running { .. } | JobState::Uncertain { .. } => {
+                return Err(JobError::InFlight);
+            }
+            _ => return Err(JobError::NotPending),
+        };
+        self.0.state = JobState::Paused { due_ns };
+        self.0.updated_ns = now_ns;
+        Ok(())
+    }
+
+    /// Resume the retained deadline and policy without allocating an attempt.
+    ///
+    /// Overdue work remains overdue; existing Skip/CatchUp semantics and the
+    /// application's bounded dispatch budget apply. Retry backoff is not reset.
+    pub fn resume(&mut self, now_ns: u64) -> Result<(), JobError> {
+        self.check_time(now_ns)?;
+        let due_ns = match self.0.state {
+            JobState::Paused { due_ns } => due_ns,
+            JobState::Running { .. } | JobState::Uncertain { .. } => {
+                return Err(JobError::InFlight);
+            }
+            _ => return Err(JobError::NotPaused),
+        };
+        self.0.state = JobState::Pending { due_ns };
+        self.0.updated_ns = now_ns;
+        Ok(())
+    }
+
+    /// Replace scheduling intent from the current unstarted occurrence forward.
+    ///
+    /// Keep the job, logical occurrence, dispatch sequence, retry policy and
+    /// latest outcome. Paused work stays paused. Already-attempted occurrences
+    /// cannot be rescheduled, including known-safe retry waiting. Payloads remain
+    /// consumer-owned and must retain their effect identity.
+    pub fn reschedule(&mut self, schedule: Schedule, now_ns: u64) -> Result<(), JobError> {
+        self.check_time(now_ns)?;
+        let paused = match self.0.state {
+            JobState::Pending { .. } => false,
+            JobState::Paused { .. } => true,
+            JobState::Running { .. } | JobState::Uncertain { .. } => {
+                return Err(JobError::InFlight);
+            }
+            _ => return Err(JobError::NotPending),
+        };
+        if self.0.attempts != 0 {
+            return Err(JobError::AlreadyAttempted);
+        }
+        schedule.validate()?;
+        self.0.schedule = schedule;
+        self.0.schedule_origin = self.0.occurrence;
+        self.0.scheduled_ns = schedule.first();
+        self.0.state = if paused {
+            JobState::Paused {
+                due_ns: schedule.first(),
+            }
+        } else {
+            JobState::Pending {
+                due_ns: schedule.first(),
+            }
+        };
+        self.0.updated_ns = now_ns;
+        Ok(())
+    }
+
+    /// Cancel pending or paused work. An unresolved effect must be reconciled first.
     pub fn cancel(&mut self, now_ns: u64) -> Result<(), JobError> {
         self.check_time(now_ns)?;
         match self.0.state {
             JobState::Running { .. } | JobState::Uncertain { .. } => {
                 return Err(JobError::InFlight);
             }
-            JobState::Pending { .. } => {}
+            JobState::Pending { .. } | JobState::Paused { .. } => {}
             _ => return Err(JobError::NotPending),
         }
         self.0.state = JobState::Cancelled;

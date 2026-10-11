@@ -18,6 +18,135 @@ fn increment(at: u64) -> Create {
 }
 
 #[test]
+fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen() {
+    let memory = VectorMemory::default();
+    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
+    let id = queue
+        .create(Create {
+            timing: Timing::FixedRate {
+                first_ns: 100,
+                every_ns: 10,
+                catch_up: true,
+            },
+            task: Task::Increment(2),
+        })
+        .unwrap();
+    assert_eq!(queue.dispatch(100).unwrap().1, 1);
+    queue.pause(id, 101).unwrap();
+    assert_eq!(queue.summary().unwrap(), (None, 2, 0));
+    drop(queue);
+    let mut queue = Queue::open(memory.clone(), None).unwrap();
+    assert_eq!(queue.inspect(id).unwrap().status, Status::Paused);
+    assert_eq!(queue.dispatch(400).unwrap(), (vec![], 0));
+    queue
+        .reschedule(
+            id,
+            Timing::AfterCompletion {
+                first_ns: 500,
+                every_ns: 10,
+            },
+            400,
+        )
+        .unwrap();
+    let before = queue.inspect(id).unwrap();
+    assert_eq!((before.sequence, before.occurrence), (1, 1));
+    assert_eq!(before.task, Task::Increment(2));
+    assert_eq!(before.status, Status::Paused);
+    drop(queue);
+    let mut queue = Queue::open(memory, None).unwrap();
+    assert_eq!(queue.inspect(id).unwrap(), before);
+    queue.resume(id, 450).unwrap();
+    assert_eq!(queue.summary().unwrap().0, Some(500));
+    assert_eq!(queue.dispatch(499).unwrap().1, 0);
+    assert_eq!(queue.dispatch(500).unwrap().1, 1);
+    assert_eq!(queue.summary().unwrap(), (Some(510), 4, 0));
+    assert_eq!(
+        (
+            queue.inspect(id).unwrap().sequence,
+            queue.inspect(id).unwrap().occurrence
+        ),
+        (2, 2)
+    );
+    queue.pause(id, 500).unwrap();
+    queue.cancel(id, 501).unwrap();
+    assert_eq!(queue.inspect(id).unwrap().status, Status::Cancelled);
+    assert_eq!(queue.summary().unwrap().0, None);
+}
+
+#[test]
+fn resume_preserves_overdue_policy_and_bounded_batch() {
+    for catch_up in [false, true] {
+        let memory = VectorMemory::default();
+        let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
+        let id = queue
+            .create(Create {
+                timing: Timing::FixedRate {
+                    first_ns: 100,
+                    every_ns: 10,
+                    catch_up,
+                },
+                task: Task::Increment(1),
+            })
+            .unwrap();
+        queue.pause(id, 50).unwrap();
+        drop(queue);
+        let mut queue = Queue::open(memory, None).unwrap();
+        queue.resume(id, 200).unwrap();
+        assert_eq!(queue.summary().unwrap().0, Some(100));
+        assert_eq!(queue.dispatch(200).unwrap().1, if catch_up { 2 } else { 1 });
+        assert_eq!(
+            queue.summary().unwrap().0,
+            Some(if catch_up { 120 } else { 210 })
+        );
+    }
+}
+
+#[test]
+fn refused_management_preserves_stable_bytes_and_blocked_delivery() {
+    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+    let id = queue
+        .create(Create {
+            timing: Timing::Once(0),
+            task: Task::Deliver {
+                destination: Principal::self_authenticating(b"receiver"),
+                message: "retained".into(),
+            },
+        })
+        .unwrap();
+    let (deliveries, _) = queue.dispatch(0).unwrap();
+    for uncertain in [false, true] {
+        if uncertain {
+            queue.finish(&deliveries[0], 1, Outcome::Uncertain).unwrap();
+        }
+        let before = queue.cell.get().clone();
+        assert!(queue.pause(id, 2).is_err());
+        assert!(queue.resume(id, 2).is_err());
+        assert!(queue.reschedule(id, Timing::Once(100), 2).is_err());
+        assert_eq!(*queue.cell.get(), before);
+        assert_eq!(queue.dispatch(2).unwrap().1, 0);
+        assert_eq!(*queue.cell.get(), before);
+    }
+    let pending = queue.create(increment(100)).unwrap();
+    let before = queue.cell.get().clone();
+    assert_eq!(queue.pause(999, 2), Err(Error::UnknownJob));
+    assert!(queue.resume(pending, 2).is_err());
+    assert!(
+        queue
+            .reschedule(
+                pending,
+                Timing::FixedRate {
+                    first_ns: 200,
+                    every_ns: 0,
+                    catch_up: true
+                },
+                2
+            )
+            .is_err()
+    );
+    assert_eq!(*queue.cell.get(), before);
+}
+
+#[test]
 fn retained_queue_restores_payloads_deadlines_cancellation_and_id_authority() {
     let memory = VectorMemory::default();
     let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
