@@ -82,10 +82,25 @@ It updates only `Cargo.toml`, local workspace rows in `Cargo.lock` and
 the selected branch and that tag. Dependencies are not upgraded.
 
 If validation or preflight fails, correct the source and rerun the normal release
-command. After preparation starts, the runner retains exact release intent and
-reconciles it on the next normal invocation. Use `release-resume` to select only
-that saved release. Preserve logs, plans and build artifacts, and resolve a
-conflicting remote observation before retrying; do not force-push or recreate tags.
+command. At unchanged HEAD, interrupted preparation resumes its exact saved
+release. A normal direct-release command can instead restart preparation after a
+newer clean descendant commit records its metadata disposition, provided the
+saved attempt has no staging evidence and its destination still agrees. The
+runner archives the original plan, computes the requested increment from current
+metadata and repeats preflight and complete validation. `release-resume` remains
+exact-source recovery; staging and later phases retain exact effect reconciliation.
+See the [shared restart contract](releases.md#source-changes-after-saved-preparation-intent).
+
+Jobs' preparation adapter changes only `Cargo.toml`, local workspace versions in
+`Cargo.lock` and `CHANGELOG.md`; it does not stage or perform external effects.
+It copies originals to a temporary backup before mutation and restores them on
+handled failure. That backup is not a durable transaction journal: an abrupt kill
+can leave partial metadata, and successful preparation removes its own backup.
+Inspect any retained backup and reconcile all three metadata files before
+committing a disposition for restart. A clean commit must represent the intended
+current metadata, not merely silence a dirty-tree check. Preserve logs, plans and
+build artifacts, and resolve conflicting remote observations before retrying;
+do not force-push or recreate tags.
 
 ## crates.io publication
 

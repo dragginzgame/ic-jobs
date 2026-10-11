@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.13]
+
+- Adopt Shared Tooling 0.6.3: normal direct-release commands restart superseded
+  preparation from committed metadata, preserve the previous plan and rerun
+  complete validation
+  ([#21](https://github.com/dragginzgame/ic-jobs/issues/21),
+  [Shared #126](https://github.com/dragginzgame/shared-tooling/issues/126)).
+- Refresh the locked graph to Timers 0.17.12 and Testkit 0.33.8. The Timers
+  patch corrects its private native test provider; Jobs' production timer
+  behavior is unchanged
+  ([Timers #45](https://github.com/dragginzgame/ic-timers/issues/45)). Rerun
+  `make install-testkit-tools` and `make testkit-tools-check` before recovery
+  qualification.
+
 ## [0.5.12] - 2026-10-11
 
 - Adopt Shared Tooling 0.6.2 for clearer interrupted-release source conflicts
