@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.9]
+## [0.5.9] - 2026-10-11
 
 - Adopt Shared Tooling 0.5.0 for shared verified host/IC bundles, checkout-local
   common Rust-tool slots, coordinated hook/PATH selection and retained
