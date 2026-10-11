@@ -58,6 +58,13 @@ candidate batch from the application's due-time index. The reported deadline
 covers only that batch; the storage owner supplies any wider queue's earliest
 deadline to IC Timers.
 
+A batch limit bounds one callback, not the entire catch-up backlog. For example,
+86,400 pending one-second occurrences need at least 43,200 batches with a
+two-attempt limit. Earliest-deadline selection can delay newer jobs until that
+historical work drains. Prefer `Skip` for maintenance that does not need every
+occurrence; use `CatchUp` only with an application-owned backlog/cycle budget.
+This is a workload calculation, not a measured throughput or delivery guarantee.
+
 A restored Running job remains Running. Uncertain effects block dispatch until
 the application establishes the result or explicitly determines that repetition
 is safe. `ExecutionId` identifies the logical effect across retries; `Attempt`
@@ -68,6 +75,14 @@ Enable the `timers` feature for the optional IC Timers adapter. Applications own
 the volatile watchdog, lifecycle initialization, bounded callbacks and any
 consumer-owned asynchronous delivery continuation. This crate supplies no stable
 storage, global queue, handler registry or exactly-once effects.
+
+Timer completion classifies the dispatch callback, separately from each job's
+effect outcome. A bounded batch can succeed while recording a known job failure
+or preparing an external attempt whose result is still unknown. Report no work
+for an empty batch. A watchdog recovery successor restores a callback opportunity;
+it cannot make a permanently failing handler progress. Dispose of known no-effect
+handler failures through the job's exact attempt, retaining fail-closed handling
+for corrupt storage and unresolved external effects.
 
 The optional adapter uses IC Timers 0.17. Align direct timer dependencies and all
 timer owners in the canister to that package identity. For exchanged measurement

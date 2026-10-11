@@ -270,12 +270,16 @@ impl<M: Memory> Queue<M> {
                 .ok_or(Error::InvalidStorage)?;
             match &snapshot.jobs[index].task {
                 Task::Increment(amount) => {
-                    snapshot.counter = snapshot
-                        .counter
-                        .checked_add(*amount)
-                        .ok_or(Error::InvalidInput)?;
+                    // Known local failure has no effect; dispose of this job
+                    // without rolling back unrelated work in the same batch.
+                    let outcome = if let Some(counter) = snapshot.counter.checked_add(*amount) {
+                        snapshot.counter = counter;
+                        Outcome::Success
+                    } else {
+                        Outcome::PermanentFailure
+                    };
                     jobs[index]
-                        .finish(attempt, now, Outcome::Success)
+                        .finish(attempt, now, outcome)
                         .map_err(job_error)?;
                 }
                 Task::Deliver {

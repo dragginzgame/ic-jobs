@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.9]
+
+- Adopt Shared Tooling 0.5.0 for shared verified host/IC bundles, checkout-local
+  common Rust-tool slots, coordinated hook/PATH selection and retained
+  installation evidence. Contributors should rerun `make install-tools` and
+  `make tools-check`, and use `.tools/rust/common/bin` on their shell PATH
+  ([#21](https://github.com/dragginzgame/ic-jobs/issues/21)).
+- Keep formatting-adoption checks working with relative temporary directories
+  ([Shared #116](https://github.com/dragginzgame/shared-tooling/issues/116)).
+- Contain known local counter failures in the test consumer: fail the exact job
+  without rolling back unrelated bounded work or repeatedly trapping its watchdog
+  ([#20](https://github.com/dragginzgame/ic-jobs/issues/20)).
+- Add native batch-order/reconstruction coverage and a real-watchdog rollback,
+  surviving-wakeup and subsequent-progress qualification case
+  ([#20](https://github.com/dragginzgame/ic-jobs/issues/20)).
+- Clarify catch-up backlog costs and the distinction between timer callback
+  completion and individual job outcomes. Empty consumer batches report no work.
+
 ## [0.5.8] - 2026-10-11
 
 - Correct timer composition guidance to IC Timers 0.17 and its canonical

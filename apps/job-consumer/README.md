@@ -24,7 +24,10 @@ installation cannot overwrite existing state. This is a new test installation
 format, not a replacement reader for any existing deployment.
 
 `Increment` performs a local counter effect and completes its job in one stable
-replacement. `Deliver` persists Running intent before calling an independent
+replacement. A counter overflow has no effect and permanently fails that job,
+including recurrence, without undoing unrelated attempts in the bounded batch.
+Storage or transition failures still refuse the complete batch. `Deliver`
+persists Running intent before calling an independent
 receiver. The synchronous watchdog only prepares a bounded batch; an application
 continuation performs each external call. An exact matching receipt records
 Success. Other responses remain Uncertain. No automatic retries are configured.
@@ -46,6 +49,15 @@ work leaves it inactive. Reconciliation failure traps the same synchronous
 segment as the stable write, preventing a falsely successful persisted schedule.
 External-call continuations have separate message boundaries.
 
+The shared batch budget is two attempts, including failed local attempts and
+prepared deliveries. Watchdog work counts those handled attempts rather than
+confirmed external effects, and an empty batch reports NoWork. CatchUp can still
+require many later callbacks and delay newer deadlines; the batch limit is not
+a backlog or cycle budget. Prefer Skip when only the current maintenance state
+matters. The manager-only `fixture_trap_watchdog_batch` fault control traps after
+the stable batch write and before any delivery escapes. Clearing it does not
+rearm the timer, so the live recovery case must use the previously armed successor.
+
 Run focused native/Wasm/host compilation with `make check-consumer`. Native
 VectorMemory checks qualify cold reopening, bounded CatchUp/Skip batches,
 refused writes, identity retention, exact receipt disposition and corrupt-record
@@ -62,7 +74,7 @@ make install-consumer-server
 make test-canister
 ```
 
-To qualify the selected Binaryen optimizer against the same five live recovery
+To qualify the selected Binaryen optimizer against the same six live recovery
 scenarios, explicitly prepare it with `make install-ic-tools`, then run
 `make test-canister-optimized`. This tests the original Wasm and its `-O3`, `-Os`
 and `-Oz` outputs using the input's declared Wasm features. It
@@ -86,7 +98,7 @@ remain outside the canister and public Jobs normal Wasm dependency graphs.
 
 After [the updated recovery workflow](../../.github/workflows/recovery.yml) is delivered
 to `main`, select **Actions → Canister recovery → Run workflow** and choose the
-branch to qualify. This manual trigger runs all five tests on the original and
+branch to qualify. This manual trigger runs all six tests on the original and
 three optimized variants on Linux, Apple Silicon and Intel macOS.
 Ordinary push/PR CI still compiles the harness without starting
 PocketIC. See [GitHub's manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).

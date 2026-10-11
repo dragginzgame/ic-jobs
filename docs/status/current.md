@@ -1,5 +1,118 @@
 # Current handoff
 
+## Pending 0.5.9 — Shared 0.5.0 adoption and existing consumer boundary work
+
+Canonically adopted Shared **0.5.0** at
+`a306180ce534227fcb98b882fba9a526d5d747e0` from an isolated clean source clone.
+The preview preserved consumer files and the real index, and identified one
+required companion, `scripts/dev/tool-store.sh`. Explicit export retains all
+82 prior selections and adds that helper: 83 files, with nine existing files
+updated from the prepared 0.4.1 snapshot. Baseline, host/IC installers, evidence
+selector and storage documentation advance together. The existing failure
+action delegates to that selector, so no Jobs-specific storage manager is added.
+Tracking: [#21](https://github.com/dragginzgame/ic-jobs/issues/21), with upstream
+storage ownership in [Shared #120](https://github.com/dragginzgame/shared-tooling/issues/120).
+
+Real `make install-host-tools` and `make install-ic-tools` reuse verified bundles
+in the default per-user store. Checkout-local `.tools/host/bin` and
+`.tools/ic/bin` remain the command paths; repository references bind each exact
+bundle generation. Previous physical local bundles remain byte-identical.
+`make tools-check` passes host and IC admission, then refuses the missing common
+Rust set with status 2. Preparing `.tools/rust/common/bin` requires Cargo builds
+and remains pending under the recorded maintainer validation exception; no
+Rust installer, tests, builds, lint, full gate or live qualification is run.
+When that preparation is selected, run `make install-rust-tools` followed by
+`make tools-check`. Selected Testkit CLI paths and PocketIC ownership remain
+unchanged. Use the same `SHARED_TOOLING_STORE` setting for setup, checking and
+collection if overriding the documented default.
+
+Evidence: `/tmp/ic-jobs-shared-050.d1d7kbng/`, including preview/export logs,
+real setup/check logs, prior-bundle hashes and source/index preservation records.
+Snapshot integrity, dependency declarations, document links, Bash parsing and
+whitespace checks pass separately from execution qualification. No native
+macOS, hook/archive regression or new six-scenario recovery acceptance is
+claimed for this working tree. The earlier 0.4.1 preview/adoption evidence remains
+at `/tmp/ic-jobs-shared-041.mvQ7qn/`; the previously reported Shared-only retention
+fixture mismatch is corrected in 0.5.0 source, without claiming a passing hosted
+gate. Exact-source [Shared CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38132790945)
+remains pending at inspection.
+
+This contributor-tooling adoption stays compatible for Jobs: pending release
+remains **0.5.9**, together with the already applied consumer boundary work in
+[#20](https://github.com/dragginzgame/ic-jobs/issues/20). Library API, runtime,
+stored formats and Rust 1.88 floor are unchanged. Incoming consumer/harness
+source and Cargo.lock are preserved. Package versions, real index and Git refs
+are unchanged; no commit, push, release, publication, hosted dispatch or sibling
+source edit is performed. Required consumer qualification and delivery remain
+with the owning issues; prior v0.5.6 recovery results do not qualify new inputs.
+
+## Delivered 0.5.8 — composition fix and hosted recovery acceptance
+
+Jobs **0.5.8** is delivered at
+`06f359debe22afe0c2bd0d3017e0a26e0d7f4e3a`, matching public main and annotated
+`v0.5.8`. Both README guides match the qualified composition repair in
+[#19](https://github.com/dragginzgame/ic-jobs/issues/19), now accepted. Delivered
+dependency selections match the preceding locally qualified graph except local
+package versions. That evidence remains bound to its tested source; fresh
+[0.5.8 Linux CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38127816171)
+also passes. Native Apple Silicon CI is running, Intel queued. Both queued
+macOS jobs in the previous 0.5.7 run were cancelled by this delivery; native
+tooling acceptance remains in [#18](https://github.com/dragginzgame/ic-jobs/issues/18).
+
+The explicitly authorized [v0.5.6 hosted recovery run](https://github.com/dragginzgame/ic-jobs/actions/runs/38123372599)
+passes all three hosts: Linux, native macOS Intel and Apple Silicon. All three
+uploaded archives are inspected against exact source
+`e47bda833e91fe717d415dae9374d28b22fbba3a` and its graph/snapshot/tool records;
+all 60 maintained live results and actual Wasm checksums verify, with real
+PocketIC server logs. This completes consumer/recovery acceptance in
+[#11](https://github.com/dragginzgame/ic-jobs/issues/11). The final
+[Intel archive](https://github.com/dragginzgame/ic-jobs/actions/runs/38123372599/artifacts/11698965883)
+SHA-256 matches GitHub's digest:
+`04644fa518c14cdcb207a38936f4371082af9bac1fb4b58598ba864f32a9e6c7`.
+Executable payloads are not uploaded; their identities are admission receipts.
+Review evidence: `/tmp/ic-jobs-058-acceptance.dRGBRq/`, including
+`hosted-all-hosts-review.json`. Core, consumer and harness Rust source remains
+unchanged since the hosted tag; its older graph is not relabelled as 0.5.8.
+
+This acceptance update changes only the handoff. No new dependency selection,
+full local gate, live execution, hosted dispatch, sibling edit, commit, push,
+release or publication is performed.
+
+## Earlier preparation for delivered 0.5.8
+
+## Pending 0.5.9 — Jobs/Timers failure boundary
+
+Released Jobs **0.5.8** is `06f359debe22afe0c2bd0d3017e0a26e0d7f4e3a`.
+The maintainer authorized the boundary-audit improvements from the Timers session.
+The unpublished consumer now records a known no-effect counter overflow as the
+exact job's PermanentFailure, retaining unrelated work and the shared two-attempt
+batch bound. Native coverage checks both failure orders, another overdue job,
+terminal recurrence and reconstruction. Empty watchdog batches report NoWork;
+handled attempts remain distinct from confirmed external effects.
+
+The existing live harness adds a sixth scenario: actual watchdog work writes a
+stable batch then traps, the host observes the real trap log and rolled-back
+records/effects, and clearing the fault without rearming requires the surviving
+successor to progress. It also checks the next global deadline and terminal
+state after upgrade. Original/Binaryen O3/Os/Oz runs select this case through the
+existing harness, without another server, provider or qualification path.
+Prior five-scenario evidence does not qualify these new inputs.
+
+Both maintained guides and the safety boundary explain that a callback batch
+limit is not a backlog/cycle or fairness guarantee. Skip/CatchUp semantics and
+earliest-deadline ordering are unchanged. The compatible pending **0.5.9** changes
+the unpublished consumer and qualification/guidance only; library APIs, JobRecord
+fields, storage formats, dependency selections and package versions remain
+unchanged. No Timers runtime change is needed.
+
+Tracking: [#20](https://github.com/dragginzgame/ic-jobs/issues/20), including
+qualification of the new watchdog scenario. The completed five-case hosted
+acceptance in [#11](https://github.com/dragginzgame/ic-jobs/issues/11) does not
+qualify this changed harness.
+Tests, builds, lint and live qualification were not run by this Timers session;
+the maintainer's validation exception remains in force. Source/diff and document
+checks do not establish execution. No commit, release or publication was performed.
+
 ## Pending 0.5.8 — timer composition and current graph qualification
 
 Jobs **0.5.7** is delivered at

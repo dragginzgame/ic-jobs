@@ -87,6 +87,13 @@ candidate selection through their storage owner's due-time index and keep that
 index current after each transition. Use the batch deadline for IC Timers when
 it covers the earliest pending work, or obtain the global deadline from the index.
 
+A batch limit bounds one callback, not the entire catch-up backlog. For example,
+86,400 pending one-second occurrences need at least 43,200 batches with a
+two-attempt limit. Earliest-deadline selection can delay newer jobs until that
+historical work drains. Prefer `Skip` for maintenance that does not need every
+occurrence; use `CatchUp` only with an application-owned backlog/cycle budget.
+This is a workload calculation, not a measured throughput or delivery guarantee.
+
 ## Timer integration
 
 Enable `features = ["timers"]` to use `ic_jobs::timers`. The application owns one
@@ -104,6 +111,14 @@ Watchdog callbacks cannot await. External delivery needs a persisted intent and
 a consumer-owned continuation/outbox; do not put async work inside the synchronous
 watchdog callback. All owners in a final canister must resolve one IC Timers
 package identity. No direct CDK timers are used here.
+
+Timer completion classifies the dispatch callback, separately from each job's
+effect outcome. A bounded batch can succeed while recording a known job failure
+or preparing an external attempt whose result is still unknown. Report no work
+for an empty batch. A watchdog recovery successor restores a callback opportunity;
+it cannot make a permanently failing handler progress. Dispose of known no-effect
+handler failures through the job's exact attempt, retaining fail-closed handling
+for corrupt storage and unresolved external effects.
 
 The optional adapter selects IC Timers 0.17. Applications using its public timer
 types must align their direct timer dependency to 0.17. For exchanged measurement
@@ -142,11 +157,20 @@ PocketIC recovery qualification.
 
 Common tooling is adopted through the reviewed
 [Shared Tooling snapshot](.shared-tooling.snapshot).
-Run `make install-tools` explicitly to prepare the checkout-local host, IC and
+Run `make install-tools` explicitly to prepare and select the host, IC and
 Rust tools in order, then selected cargo-edit; `make tools-check` verifies the
 same complete set offline. Host tools include jq, yq, ripgrep with PCRE2 and cloc;
 Rust tools include cargo-sort, cargo-sort-derives and candid-extractor. For an interactive shell,
-prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/bin` to PATH.
+prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/common/bin` to PATH.
+Shared Tooling 0.5.0 stores verified host/IC bundles once per user while each
+checkout retains its own pinned selection through these paths. After adoption,
+run `make install-host-tools`, `make install-ic-tools`, `make host-tools-check`
+and `make ic-tools-check`; previous local bundles remain retained. Use the same
+`SHARED_TOOLING_STORE` setting for setup, checks and evidence collection; see
+[storage configuration](docs/local-setup.md#shared-executable-storage).
+Common Rust tools use verified checkout-local slots at `.tools/rust/common/bin`;
+run `make install-rust-tools` and `make rust-tools-check` when first adopting that
+selection. The complete `install-tools`/`tools-check` aggregates cover both sets.
 Make additionally selects cargo-edit's versioned root for release commands;
 `make install-release-tools` prepares it and `make release-tools-check` admits it.
 The shared IC bundle contains Quill, ICP CLI, didc, ic-wasm and wasm-opt.

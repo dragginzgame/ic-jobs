@@ -71,11 +71,11 @@ grep -Fx formatter-error "${logs[0]}" > /dev/null
 # Exercise Jobs' actual Makefile and selected includes, substituting only Cargo
 # in this disposable checkout. A sorter failure must stop the later rustfmt call.
 consumer="$fixture/jobs"
-mkdir -p "$consumer/scripts/ci" "$consumer/.tools/rust/bin"
+mkdir -p "$consumer/scripts/ci" "$consumer/.tools/rust/common/bin"
 cp "$root/Makefile" "$consumer/"
 cp -R "$root/make" "$root/ci" "$consumer/"
 cp "$root/scripts/ci/"{check-format-tools,check-make-execution,run-formatting}.sh "$consumer/scripts/ci/"
-cat > "$consumer/.tools/rust/bin/formatting-fixture-cargo" <<'CARGO'
+cat > "$consumer/.tools/rust/common/bin/formatting-fixture-cargo" <<'CARGO'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ "$CARGO_NET_OFFLINE" == true && "$RUSTUP_AUTO_INSTALL" == 0 ]] || exit 1
@@ -98,7 +98,7 @@ case "$*" in
     *) exit 45 ;;
 esac
 CARGO
-chmod +x "$consumer/.tools/rust/bin/formatting-fixture-cargo"
+chmod +x "$consumer/.tools/rust/common/bin/formatting-fixture-cargo"
 # The pin catalog is selected from the resolved consumer root at runtime.
 # shellcheck disable=SC1091
 . "$root/ci/tool-versions.env"

@@ -72,6 +72,15 @@ The timers feature reconstructs one consumer-owned watchdog and projects next
 deadlines into the canonical runtime. The callback remains synchronous and
 bounded. Timer handles/claims are volatile and are never persisted as job authority.
 
+A callback budget does not bound the number of future catch-up callbacks or
+guarantee fairness to newer jobs. Earliest pending deadlines remain authoritative;
+applications select Skip when replaying every missed occurrence has no value.
+Timer callback success is not confirmation of an external job effect. Known
+no-effect handler failures may be explicitly recorded as PermanentFailure without
+stopping unrelated jobs; storage corruption and uncertain effects must retain
+their separate fail-closed boundaries. A recovered watchdog can otherwise repeat
+the same failing callback indefinitely without committing progress.
+
 Native tests qualify pure scheduling, transitions and reconstruction. They do
 not prove IC message rollback, real upgrades, provider delivery, instruction/cycle
 behavior or database integration. A final application needs its own PocketIC

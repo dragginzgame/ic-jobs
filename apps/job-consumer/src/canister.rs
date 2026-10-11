@@ -1,4 +1,7 @@
-use std::{cell::RefCell, time::Duration};
+use std::{
+    cell::{Cell, RefCell},
+    time::Duration,
+};
 
 use ic_jobs::{Outcome, timers};
 use ic_memory::ic_stable_structures::DefaultMemoryImpl;
@@ -14,6 +17,8 @@ use crate::{
 thread_local! {
     static QUEUE: RefCell<Option<Queue<DefaultMemoryImpl>>> = const { RefCell::new(None) };
     static WATCHDOG: RefCell<Option<WatchdogRegistration>> = const { RefCell::new(None) };
+    // Fault control belongs only to this unpublished qualification canister.
+    static TRAP_WATCHDOG_BATCH: Cell<bool> = const { Cell::new(false) };
 }
 
 fn required<T>(result: Result<T, impl std::fmt::Debug>) -> T {
@@ -138,11 +143,22 @@ async fn deliver(delivery: Delivery) {
 
 fn wake() -> WatchdogRunResult {
     let (deliveries, work) = required(with_queue(|queue| queue.dispatch(ic_cdk::api::time())));
+    if work > 0 && TRAP_WATCHDOG_BATCH.with(Cell::get) {
+        // A stable write in this segment is not independently committed. No
+        // external delivery escapes before this deliberate rollback boundary.
+        ic_cdk::trap("fixture: watchdog trap after stable batch write");
+    }
     for delivery in deliveries {
         ic_cdk::futures::spawn(deliver(delivery));
     }
     let (due, _, _) = required(with_queue(|queue| queue.summary()));
-    timers::complete_batch(TimerCompletion::success(work), due)
+    let completion = if work == 0 {
+        TimerCompletion::no_work()
+    } else {
+        // Work units count handled attempts, not successful external effects.
+        TimerCompletion::success(work)
+    };
+    timers::complete_batch(completion, due)
 }
 
 #[ic_cdk::update]
@@ -194,6 +210,13 @@ async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
 
 // These explicitly named fault controls exist only in this unpublished test
 // canister. They use real IC traps; there is no production cfg(test) substitute.
+#[ic_cdk::update]
+fn fixture_trap_watchdog_batch(enabled: bool) -> Result<(), Error> {
+    authorize()?;
+    TRAP_WATCHDOG_BATCH.with(|fault| fault.set(enabled));
+    Ok(())
+}
+
 #[ic_cdk::update]
 fn fixture_trap_after_create(input: Create) {
     required(create(input));

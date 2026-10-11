@@ -17,18 +17,18 @@ finish() {
     exit "$status"
 }
 trap finish EXIT
-mkdir -p "$fixture/scripts/dev" "$fixture/scripts/ci" "$fixture/.tools/rust/bin"
+mkdir -p "$fixture/scripts/dev" "$fixture/scripts/ci" "$fixture/.tools/rust/common/bin"
 cp "$root/Makefile" "$fixture/"
 cp -R "$root/make" "$root/ci" "$fixture/"
 cp "$root/scripts/dev/install-rust-tools.sh" "$fixture/scripts/dev/"
 cp "$root/scripts/ci/"{check-make-execution,verify-file-checksum,test-canister}.sh "$fixture/scripts/ci/"
-cat > "$fixture/.tools/rust/bin/cargo" <<'CARGO'
+cat > "$fixture/.tools/rust/common/bin/cargo" <<'CARGO'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$JOBS_CONSUMER_TOOLING_EVENTS"
 echo 'unexpected Cargo dispatch before CLI admission' >&2
 exit 49
 CARGO
-chmod +x "$fixture/.tools/rust/bin/cargo"
+chmod +x "$fixture/.tools/rust/common/bin/cargo"
 export JOBS_CONSUMER_TOOLING_EVENTS="$fixture/events"
 : > "$fixture/events"
 
@@ -59,7 +59,7 @@ LOCK
         args=()
         [[ "$mode" != optimized ]] || args=(--optimized)
         status=0
-        (cd "$fixture" && PATH="$fixture/.tools/rust/bin:$PATH" \
+        (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" \
             "$BASH" scripts/ci/test-canister.sh ${args[@]+"${args[@]}"}) \
             > "$fixture/$version-wrapper-$mode.log" 2>&1 || status=$?
         [[ "$status" == 1 ]] || exit 1
@@ -79,7 +79,7 @@ cat > "$fixture/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
 #!/usr/bin/env bash
 printf '%s\n' "$JOBS_CONSUMER_CLI"
 INSTALLER
-cat > "$fixture/.tools/rust/bin/cargo" <<'CARGO'
+cat > "$fixture/.tools/rust/common/bin/cargo" <<'CARGO'
 #!/usr/bin/env bash
 printf 'metadata\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
 printf '{"target_directory":"%s"}\n' "$JOBS_CONSUMER_WASM_TARGET"
@@ -98,7 +98,7 @@ for kind in absent symlink directory; do
     [[ "$kind" != directory ]] || mkdir "$input"
     : > "$fixture/events"
     status=0
-    (cd "$fixture" && PATH="$fixture/.tools/rust/bin:$PATH" RUNNER_TEMP="$fixture/evidence" \
+    (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" RUNNER_TEMP="$fixture/evidence" \
         "$BASH" scripts/ci/test-canister.sh) > "$fixture/wasm-$kind.log" 2>&1 || status=$?
     [[ "$status" == 1 && "$(cat "$fixture/events")" == metadata ]] || exit 1
     [[ -z "$(ls -A "$fixture/evidence")" && "$(cat "$fixture/input")" == 'retained Wasm input' ]] || exit 1

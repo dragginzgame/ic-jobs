@@ -96,15 +96,57 @@ fn skip_and_refused_mutations_preserve_committed_bytes() {
     assert_eq!(*queue.cell.get(), before);
     assert_eq!(queue.cancel(999, 125), Err(Error::UnknownJob));
     assert_eq!(*queue.cell.get(), before);
-    queue
-        .create(Create {
-            timing: Timing::Once(126),
+}
+
+#[test]
+fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
+    for failed_first in [false, true] {
+        let memory = VectorMemory::default();
+        let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
+        queue.create(increment(0)).unwrap();
+        assert_eq!(queue.dispatch(0).unwrap(), (vec![], 1));
+
+        let failed = Create {
+            timing: Timing::FixedRate {
+                first_ns: 100,
+                every_ns: 10,
+                catch_up: true,
+            },
             task: Task::Increment(u64::MAX),
-        })
-        .unwrap();
-    let before = queue.cell.get().clone();
-    assert_eq!(queue.dispatch(126), Err(Error::InvalidInput));
-    assert_eq!(*queue.cell.get(), before);
+        };
+        let healthy = Create {
+            timing: Timing::Once(100),
+            task: Task::Increment(2),
+        };
+        let (failed, healthy) = if failed_first {
+            (
+                queue.create(failed).unwrap(),
+                queue.create(healthy).unwrap(),
+            )
+        } else {
+            let healthy = queue.create(healthy).unwrap();
+            (queue.create(failed).unwrap(), healthy)
+        };
+        let remaining = queue.create(increment(100)).unwrap();
+        assert_eq!(queue.dispatch(100).unwrap(), (vec![], 2));
+        assert_eq!(queue.summary().unwrap(), (Some(100), 3, 0));
+        assert_eq!(queue.inspect(failed).unwrap().status, Status::Failed);
+        assert_eq!(queue.inspect(healthy).unwrap().status, Status::Completed);
+        assert_eq!(queue.inspect(remaining).unwrap().status, Status::Pending);
+        let failed_record = queue.inspect(failed).unwrap();
+        assert_eq!(failed_record.sequence, 1);
+        assert_eq!(failed_record.occurrence, 0);
+        assert_eq!(failed_record.due_ns, None);
+
+        drop(queue);
+        let mut restored = Queue::open(memory, None).unwrap();
+        assert_eq!(restored.inspect(failed).unwrap(), failed_record);
+        assert_eq!(restored.dispatch(100).unwrap(), (vec![], 1));
+        assert_eq!(restored.summary().unwrap(), (None, 4, 0));
+        assert_eq!(restored.inspect(failed).unwrap(), failed_record);
+        assert_eq!(restored.dispatch(200).unwrap(), (vec![], 0));
+        assert_eq!(restored.summary().unwrap(), (None, 4, 0));
+    }
 }
 
 #[test]

@@ -206,6 +206,76 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
 
 #[test]
 #[ignore = "explicit PocketIC qualification; run make test-canister"]
+fn watchdog_batch_trap_rolls_back_then_recovers_without_repeating_local_effects() {
+    let fixture = Fixture::new();
+    let due = fixture.now() + 10_000_000_000;
+    let healthy: u64 = fixture.update("create", (increment(due, 1),)).unwrap();
+    let failed: u64 = fixture
+        .update("create", (increment(due, u64::MAX),))
+        .unwrap();
+    let later_due = due + 30_000_000_000;
+    let later: u64 = fixture
+        .update("create", (increment(later_due, 4),))
+        .unwrap();
+    let healthy_before = fixture.view(healthy);
+    let failed_before = fixture.view(failed);
+    fixture
+        .update::<(), _>("fixture_trap_watchdog_batch", (true,))
+        .unwrap();
+    fixture.pic.advance_time(Duration::from_secs(10));
+    // Observe a real trap, not merely a dispatched callback awaiting execution.
+    let marker = b"fixture: watchdog trap after stable batch write";
+    fixture.until(|| {
+        fixture
+            .pic
+            .fetch_canister_logs(fixture.sender, Principal::anonymous())
+            .unwrap()
+            .iter()
+            .any(|record| {
+                record
+                    .content
+                    .windows(marker.len())
+                    .any(|part| part == marker)
+            })
+    });
+    assert_eq!(fixture.view(healthy), healthy_before);
+    assert_eq!(fixture.view(failed), failed_before);
+    let rolled_back = fixture.summary(fixture.sender);
+    assert_eq!(rolled_back.counter, 0);
+    assert_eq!(rolled_back.next_due_ns, Some(due));
+    assert!(rolled_back.armed);
+
+    // This control does not rearm the timer: recovery must use its survivor.
+    fixture
+        .update::<(), _>("fixture_trap_watchdog_batch", (false,))
+        .unwrap();
+    fixture.pic.advance_time(Duration::from_secs(2));
+    fixture.until(|| fixture.view(healthy).status == Status::Completed);
+    assert_eq!(fixture.view(failed).status, Status::Failed);
+    assert_eq!(fixture.view(healthy).sequence, 1);
+    assert_eq!(fixture.view(failed).sequence, 1);
+    let recovered = fixture.summary(fixture.sender);
+    assert_eq!(recovered.counter, 1);
+    assert_eq!(recovered.next_due_ns, Some(later_due));
+    assert!(recovered.armed);
+    assert_eq!(fixture.view(later).status, Status::Pending);
+
+    fixture.pic.advance_time(Duration::from_secs(40));
+    fixture.until(|| fixture.view(later).status == Status::Completed);
+    assert_eq!(fixture.summary(fixture.sender).counter, 5);
+    assert!(!fixture.summary(fixture.sender).armed);
+    fixture.upgrade(fixture.sender);
+    fixture.pic.advance_time(Duration::from_secs(3));
+    for _ in 0..12 {
+        fixture.pic.tick();
+    }
+    assert_eq!(fixture.summary(fixture.sender).counter, 5);
+    assert_eq!(fixture.view(failed).status, Status::Failed);
+    assert!(!fixture.summary(fixture.sender).armed);
+}
+
+#[test]
+#[ignore = "explicit PocketIC qualification; run make test-canister"]
 fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() {
     let fixture = Fixture::new();
     let input = Create {

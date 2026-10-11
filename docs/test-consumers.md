@@ -139,3 +139,12 @@ and lost-result scenarios. Their implementation is present, but live execution
 and native macOS acceptance remain source-bound qualification work in
 [#11](https://github.com/dragginzgame/ic-jobs/issues/11). The original small native
 consumers remain focused models; they do not substitute for those IC observations.
+
+The queue now contains known no-effect local counter failures as terminal jobs,
+while keeping the two-attempt bound and corrupt-record refusal. The additional
+real-watchdog scenario traps after its stable batch write, observes the actual
+canister trap log, checks rollback and an armed successor, and clears the fault
+without rearming before requiring subsequent progress. Failed and completed jobs
+must remain terminal after upgrade, with no duplicate committed local effect.
+This new case is implemented but unexecuted; prior five-scenario evidence does
+not qualify it. See [#20](https://github.com/dragginzgame/ic-jobs/issues/20).
