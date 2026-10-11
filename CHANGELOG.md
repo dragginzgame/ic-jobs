@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.6.0]
+## [0.6.0] - 2026-10-11
 
 - **Breaking:** Add durable pause/resume and schedule replacement for unstarted
   occurrences. Update exhaustive state/error matches and stored JobRecord codecs
