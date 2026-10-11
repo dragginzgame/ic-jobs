@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.6]
+## [0.5.6] - 2026-10-11
 
 - Adopt Shared Tooling 0.3.11: Rust-tool setup and checks use the selected
   consumer's Cargo configuration; retained validation summaries keep early
