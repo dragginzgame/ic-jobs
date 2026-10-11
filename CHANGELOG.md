@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.6.1]
+## [0.6.1] - 2026-10-11
 
 - Refresh the locked Timers selection to 0.17.14 and Metrics to 0.6.6. Their
   published Rust sources, dependency declarations and compiler requirements match
