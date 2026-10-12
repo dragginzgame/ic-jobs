@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.0]
+## [0.8.0] - 2026-10-12
 
 - **Breaking:** require nonzero recurring intervals and checked, immutable retry
   configuration. `Job::new` now returns `Job` directly; update constructors and
