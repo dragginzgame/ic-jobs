@@ -14,16 +14,11 @@ fn recurring(missed: MissedRunPolicy) -> Job {
         JobId(7),
         Schedule::FixedRate {
             first_at_ns: 100,
-            every_ns: 10,
+            every_ns: std::num::NonZeroU64::new(10).unwrap(),
             missed,
         },
-        RetryPolicy {
-            max_attempts: 3,
-            initial_delay_ns: 10,
-            max_delay_ns: 20,
-        },
+        RetryPolicy::new(3, 10, 20).unwrap(),
     )
-    .unwrap()
 }
 
 #[test]
@@ -93,17 +88,17 @@ fn rescheduling_preserves_history_and_rebases_only_the_current_cadence() {
             Schedule::Once { at_ns: 250 },
             Schedule::FixedRate {
                 first_at_ns: 250,
-                every_ns: 20,
+                every_ns: std::num::NonZeroU64::new(20).unwrap(),
                 missed: MissedRunPolicy::CatchUp,
             },
             Schedule::FixedRate {
                 first_at_ns: 250,
-                every_ns: 20,
+                every_ns: std::num::NonZeroU64::new(20).unwrap(),
                 missed: MissedRunPolicy::Skip,
             },
             Schedule::AfterCompletion {
                 first_at_ns: 250,
-                every_ns: 20,
+                every_ns: std::num::NonZeroU64::new(20).unwrap(),
             },
         ] {
             let mut job = recurring(MissedRunPolicy::CatchUp);
@@ -159,21 +154,20 @@ fn fresh_rescheduling_retains_identity_and_overflow_keeps_the_active_attempt() {
             Schedule::Once { at_ns: 250 },
             Schedule::FixedRate {
                 first_at_ns: 250,
-                every_ns: 20,
+                every_ns: std::num::NonZeroU64::new(20).unwrap(),
                 missed: MissedRunPolicy::CatchUp,
             },
             Schedule::FixedRate {
                 first_at_ns: 250,
-                every_ns: 20,
+                every_ns: std::num::NonZeroU64::new(20).unwrap(),
                 missed: MissedRunPolicy::Skip,
             },
             Schedule::AfterCompletion {
                 first_at_ns: 250,
-                every_ns: 20,
+                every_ns: std::num::NonZeroU64::new(20).unwrap(),
             },
         ] {
-            let mut job =
-                Job::new(JobId(7), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE).unwrap();
+            let mut job = Job::new(JobId(7), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE);
             if paused {
                 job.pause(50).unwrap();
             }
@@ -204,7 +198,7 @@ fn fresh_rescheduling_retains_identity_and_overflow_keeps_the_active_attempt() {
     job.reschedule(
         Schedule::AfterCompletion {
             first_at_ns: u64::MAX,
-            every_ns: 1,
+            every_ns: std::num::NonZeroU64::new(1).unwrap(),
         },
         0,
     )
@@ -226,17 +220,6 @@ fn management_refuses_blocked_work_invalid_policies_and_backward_clocks_without_
     job.pause(50).unwrap();
     let before = job.record();
     assert_eq!(job.resume(49), Err(JobError::TimeWentBackwards));
-    assert_eq!(
-        job.reschedule(
-            Schedule::FixedRate {
-                first_at_ns: 1,
-                every_ns: 0,
-                missed: MissedRunPolicy::Skip
-            },
-            50
-        ),
-        Err(JobError::ZeroInterval)
-    );
     assert_eq!(job.record(), before);
     job.resume(50).unwrap();
     let attempt = job.start(100).unwrap();
@@ -283,8 +266,7 @@ fn restore_rejects_missing_management_fields_and_inconsistent_anchors() {
         JobId(1),
         Schedule::Once { at_ns: u64::MAX },
         RetryPolicy::NONE,
-    )
-    .unwrap();
+    );
     once.pause(u64::MAX).unwrap();
     once = restore(&once);
     once.resume(u64::MAX).unwrap();
@@ -322,13 +304,8 @@ fn restore_rejects_running_retry_before_retained_backoff() {
     let mut edge = Job::new(
         JobId(9),
         Schedule::Once { at_ns: 0 },
-        RetryPolicy {
-            max_attempts: 2,
-            initial_delay_ns: 1,
-            max_delay_ns: 1,
-        },
-    )
-    .unwrap();
+        RetryPolicy::new(2, 1, 1).unwrap(),
+    );
     let first = edge.start(0).unwrap();
     edge.finish(first, u64::MAX - 1, Outcome::RetryableFailure)
         .unwrap();
@@ -365,16 +342,16 @@ fn restore_checks_retained_successor_after_cancellation_or_dispatch() {
     for schedule in [
         Schedule::AfterCompletion {
             first_at_ns: 100,
-            every_ns: 10,
+            every_ns: std::num::NonZeroU64::new(10).unwrap(),
         },
         Schedule::FixedRate {
             first_at_ns: 100,
-            every_ns: 10,
+            every_ns: std::num::NonZeroU64::new(10).unwrap(),
             missed: MissedRunPolicy::Skip,
         },
     ] {
         for running in [false, true] {
-            let mut job = Job::new(JobId(8), schedule, RetryPolicy::NONE).unwrap();
+            let mut job = Job::new(JobId(8), schedule, RetryPolicy::NONE);
             let first = job.start(100).unwrap();
             job.finish(first, 200, Outcome::Success).unwrap();
             assert_eq!(job.next_due_ns(), Some(210));
@@ -407,7 +384,7 @@ fn repeated_rebasing_preserves_history_and_counter_exhaustion() {
             job.reschedule(
                 Schedule::AfterCompletion {
                     first_at_ns,
-                    every_ns: 10,
+                    every_ns: std::num::NonZeroU64::new(10).unwrap(),
                 },
                 200,
             )

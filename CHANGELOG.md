@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0]
+
+- **Breaking:** require nonzero recurring intervals and checked, immutable retry
+  configuration. `Job::new` now returns `Job` directly; update constructors and
+  exhaustive error matches. Malformed configuration fails decoding, while valid
+  retained records keep their existing serialized shape and require no reset
+  ([#28](https://github.com/dragginzgame/ic-jobs/issues/28)).
+- **Breaking:** select IC Timers 0.21 for the optional adapter and its Metrics
+  0.8 summary type. Align direct dependencies; failed first reconciliation now
+  leaves the registration slot empty so retry can install its supplied callback.
+- Select Testkit 0.35 for the native recovery harness. Jobs uses its maintained
+  PocketIC API and needs no dependency on the artifact APIs moved to IC Build.
+
 ## [0.7.5] - 2026-10-12
 
 - Adopt Shared Tooling 0.9.4: preserve installer failures while releasing locks,

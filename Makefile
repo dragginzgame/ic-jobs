@@ -37,7 +37,7 @@ check:
 	+cargo check -p ic-jobs --all-targets --all-features --locked --offline
 
 test-jobs:
-	+cargo test -p ic-jobs --test jobs --test management --test transition_restore --all-features --locked --offline
+	+cargo test -p ic-jobs --test jobs --test management --test transition_restore --test configuration --all-features --locked --offline
 
 test-consumers:
 	+cargo +1.88.0 test -p ic-jobs --test consumers --no-default-features --locked --offline

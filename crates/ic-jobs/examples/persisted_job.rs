@@ -6,7 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         JobId(1),
         Schedule::Once { at_ns: 100 },
         RetryPolicy::NONE,
-    )?];
+    )];
     let (attempt, intent) = Scheduler::new(&mut jobs)
         .start_next(100)?
         .ok_or(JobError::NotDue)?;

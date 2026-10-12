@@ -48,16 +48,16 @@ fn public_transition_histories_remain_restorable_and_failures_preserve_records()
         Schedule::Once { at_ns: 100 },
         Schedule::AfterCompletion {
             first_at_ns: 100,
-            every_ns: 10,
+            every_ns: std::num::NonZeroU64::new(10).unwrap(),
         },
         Schedule::FixedRate {
             first_at_ns: 100,
-            every_ns: 10,
+            every_ns: std::num::NonZeroU64::new(10).unwrap(),
             missed: MissedRunPolicy::CatchUp,
         },
         Schedule::FixedRate {
             first_at_ns: 100,
-            every_ns: 10,
+            every_ns: std::num::NonZeroU64::new(10).unwrap(),
             missed: MissedRunPolicy::Skip,
         },
     ];
@@ -67,10 +67,6 @@ fn public_transition_histories_remain_restorable_and_failures_preserve_records()
         Operation::Resume,
         Operation::Cancel,
         Operation::Reschedule(Schedule::Once { at_ns: 0 }),
-        Operation::Reschedule(Schedule::AfterCompletion {
-            first_at_ns: 100,
-            every_ns: 0,
-        }),
     ];
     operations.extend(schedules.map(Operation::Reschedule));
     for outcome in [
@@ -86,15 +82,8 @@ fn public_transition_histories_remain_restorable_and_failures_preserve_records()
     let mut visited = BTreeSet::new();
     let mut states = HashSet::new();
     for schedule in schedules {
-        for retry in [
-            RetryPolicy::NONE,
-            RetryPolicy {
-                max_attempts: 3,
-                initial_delay_ns: 5,
-                max_delay_ns: 10,
-            },
-        ] {
-            let record = Job::new(JobId(1), schedule, retry).unwrap().record();
+        for retry in [RetryPolicy::NONE, RetryPolicy::new(3, 5, 10).unwrap()] {
+            let record = Job::new(JobId(1), schedule, retry).record();
             states.insert(discriminant(&record.state));
             visited.insert(serde_json::to_vec(&record).unwrap());
             frontier.push(record);

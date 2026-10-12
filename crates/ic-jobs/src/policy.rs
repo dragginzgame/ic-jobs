@@ -1,3 +1,5 @@
+use std::num::NonZeroU64;
+
 use serde::{Deserialize, Serialize};
 
 use crate::JobError;
@@ -12,6 +14,13 @@ pub enum MissedRunPolicy {
 }
 
 /// An absolute schedule. All timestamps and durations are nanoseconds.
+///
+/// Recurring intervals are nonzero; absolute deadlines may be zero.
+///
+/// ```compile_fail
+/// use ic_jobs::Schedule;
+/// let schedule = Schedule::AfterCompletion { first_at_ns: 0, every_ns: 0 };
+/// ```
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Schedule {
     /// Run one occurrence.
@@ -24,7 +33,7 @@ pub enum Schedule {
         /// First occurrence's deadline.
         first_at_ns: u64,
         /// Positive interval between scheduled occurrences.
-        every_ns: u64,
+        every_ns: NonZeroU64,
         /// Policy for overdue occurrences.
         missed: MissedRunPolicy,
     },
@@ -33,20 +42,11 @@ pub enum Schedule {
         /// First occurrence's deadline.
         first_at_ns: u64,
         /// Positive delay after successful completion.
-        every_ns: u64,
+        every_ns: NonZeroU64,
     },
 }
 
 impl Schedule {
-    pub(crate) fn validate(self) -> Result<(), JobError> {
-        match self {
-            Self::FixedRate { every_ns: 0, .. } | Self::AfterCompletion { every_ns: 0, .. } => {
-                Err(JobError::ZeroInterval)
-            }
-            _ => Ok(()),
-        }
-    }
-
     pub(crate) const fn first(self) -> u64 {
         match self {
             Self::Once { at_ns } => at_ns,
@@ -63,21 +63,21 @@ impl Schedule {
     ) -> Result<Option<u64>, JobError> {
         let next = match self {
             Self::Once { .. } => return Ok(None),
-            Self::AfterCompletion { every_ns, .. } => finished_ns.checked_add(every_ns),
+            Self::AfterCompletion { every_ns, .. } => finished_ns.checked_add(every_ns.get()),
             Self::FixedRate {
                 every_ns,
                 missed: MissedRunPolicy::CatchUp,
                 ..
-            } => scheduled_ns.checked_add(every_ns),
+            } => scheduled_ns.checked_add(every_ns.get()),
             Self::FixedRate {
                 every_ns,
                 missed: MissedRunPolicy::Skip,
                 ..
             } => {
-                let steps = (finished_ns - scheduled_ns) / every_ns;
+                let steps = (finished_ns - scheduled_ns) / every_ns.get();
                 steps
                     .checked_add(1)
-                    .and_then(|steps| steps.checked_mul(every_ns))
+                    .and_then(|steps| steps.checked_mul(every_ns.get()))
                     .and_then(|delta| scheduled_ns.checked_add(delta))
             }
         };
@@ -89,14 +89,23 @@ impl Schedule {
 ///
 /// Exponential delays double after each failure and stop growing at the cap.
 /// The same execution identity is retained across retries.
+///
+/// Construct with [RetryPolicy::new] or [RetryPolicy::NONE]. Fields cannot be
+/// replaced after validation.
+///
+/// ```compile_fail
+/// use ic_jobs::RetryPolicy;
+/// let policy = RetryPolicy { max_attempts: 0, initial_delay_ns: 1, max_delay_ns: 1 };
+/// ```
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(try_from = "RetryPolicyFields")]
 pub struct RetryPolicy {
     /// Total allowed attempts, including the initial dispatch. Must be positive.
-    pub max_attempts: u32,
+    max_attempts: u32,
     /// Positive first retry delay.
-    pub initial_delay_ns: u64,
+    initial_delay_ns: u64,
     /// Maximum retry delay, at least the initial delay.
-    pub max_delay_ns: u64,
+    max_delay_ns: u64,
 }
 
 impl RetryPolicy {
@@ -107,15 +116,39 @@ impl RetryPolicy {
         max_delay_ns: 1,
     };
 
-    pub(crate) fn validate(self) -> Result<(), JobError> {
-        if self.max_attempts == 0
-            || self.initial_delay_ns == 0
-            || self.max_delay_ns < self.initial_delay_ns
-        {
+    /// Check an immutable retry budget and delays, in nanoseconds.
+    ///
+    /// The attempt budget and initial delay must be positive, and the maximum
+    /// delay must be at least the initial delay. Deserialization uses this check.
+    pub const fn new(
+        max_attempts: u32,
+        initial_delay_ns: u64,
+        max_delay_ns: u64,
+    ) -> Result<Self, JobError> {
+        if max_attempts == 0 || initial_delay_ns == 0 || max_delay_ns < initial_delay_ns {
             Err(JobError::InvalidRetryPolicy)
         } else {
-            Ok(())
+            Ok(Self {
+                max_attempts,
+                initial_delay_ns,
+                max_delay_ns,
+            })
         }
+    }
+
+    /// Total allowed attempts, including the initial dispatch.
+    pub const fn max_attempts(self) -> u32 {
+        self.max_attempts
+    }
+
+    /// First retry delay, in nanoseconds.
+    pub const fn initial_delay_ns(self) -> u64 {
+        self.initial_delay_ns
+    }
+
+    /// Maximum retry delay, in nanoseconds.
+    pub const fn max_delay_ns(self) -> u64 {
+        self.max_delay_ns
     }
 
     pub(crate) fn delay(self, failed_attempts: u32) -> u64 {
@@ -124,5 +157,26 @@ impl RetryPolicy {
         self.initial_delay_ns
             .saturating_mul(factor)
             .min(self.max_delay_ns)
+    }
+}
+
+// Decode the existing numeric object shape, then admit it through the same
+// constructor used by ordinary callers. This projection cannot escape publicly.
+#[derive(Deserialize)]
+struct RetryPolicyFields {
+    max_attempts: u32,
+    initial_delay_ns: u64,
+    max_delay_ns: u64,
+}
+
+impl TryFrom<RetryPolicyFields> for RetryPolicy {
+    type Error = JobError;
+
+    fn try_from(fields: RetryPolicyFields) -> Result<Self, Self::Error> {
+        Self::new(
+            fields.max_attempts,
+            fields.initial_delay_ns,
+            fields.max_delay_ns,
+        )
     }
 }

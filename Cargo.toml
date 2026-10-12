@@ -16,8 +16,8 @@ candid = "0.10"
 ic-cdk = "0.20"
 ic-jobs = { path = "crates/ic-jobs" }
 ic-memory = "0.35"
-ic-testkit = "0.34"
-ic-timers = "0.19"
+ic-testkit = "0.35"
+ic-timers = "0.21"
 jobs-test-consumer = { path = "apps/job-consumer" }
 serde = "1.0"
 serde_json = "1.0"

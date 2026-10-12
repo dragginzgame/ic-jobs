@@ -156,12 +156,8 @@ impl Notifications {
                 job: Job::new(
                     JobId(1),
                     Schedule::Once { at_ns: 100 },
-                    RetryPolicy {
-                        max_attempts: 2,
-                        initial_delay_ns: 10,
-                        max_delay_ns: 10,
-                    },
-                )?
+                    RetryPolicy::new(2, 10, 10).unwrap(),
+                )
                 .record(),
                 payload: Notification {
                     recipient: "alice".into(),
@@ -203,7 +199,7 @@ impl Notifications {
             .into());
         }
         snapshots.push(NotificationSnapshot {
-            job: Job::new(id, Schedule::Once { at_ns }, RetryPolicy::NONE)?.record(),
+            job: Job::new(id, Schedule::Once { at_ns }, RetryPolicy::NONE).record(),
             payload,
         });
         self.store.write(&snapshots)
@@ -440,11 +436,11 @@ impl Maintenance {
                     JobId(2),
                     Schedule::FixedRate {
                         first_at_ns: 100,
-                        every_ns: 10,
+                        every_ns: std::num::NonZeroU64::new(10).unwrap(),
                         missed,
                     },
                     RetryPolicy::NONE,
-                )?
+                )
                 .record(),
                 expires_ns: vec![90, 100, 125, 200],
                 completed_runs: 0,
@@ -998,7 +994,7 @@ fn notification_queue_rejects_reused_identities_and_excess_work() -> Result<()> 
 
     let mut snapshots: Vec<NotificationSnapshot> = sender.store.read()?;
     snapshots.push(NotificationSnapshot {
-        job: Job::new(JobId(5), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE)?.record(),
+        job: Job::new(JobId(5), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE).record(),
         payload,
     });
     sender.store.write(&snapshots)?;
@@ -1016,7 +1012,7 @@ fn notification_queue_rejects_reused_identities_and_excess_work() -> Result<()> 
 
     // A corrupt future record must also block dispatch of the valid due record.
     snapshots[3].job =
-        Job::new(JobId(4), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE)?.record();
+        Job::new(JobId(4), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE).record();
     snapshots[3].job.state = JobState::Completed;
     sender.store.write(&snapshots)?;
     let before = sender.store.bytes.clone();

@@ -1,3 +1,5 @@
+use std::num::NonZeroU64;
+
 use candid::Principal;
 use ic_jobs::{
     Attempt, ExecutionId, Job, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy,
@@ -56,8 +58,8 @@ fn task_valid(task: &Task) -> bool {
     }
 }
 
-fn schedule(timing: Timing) -> Schedule {
-    match timing {
+fn schedule(timing: Timing) -> Result<Schedule, Error> {
+    Ok(match timing {
         Timing::Once(at_ns) => Schedule::Once { at_ns },
         Timing::FixedRate {
             first_ns,
@@ -65,7 +67,7 @@ fn schedule(timing: Timing) -> Schedule {
             catch_up,
         } => Schedule::FixedRate {
             first_at_ns: first_ns,
-            every_ns,
+            every_ns: NonZeroU64::new(every_ns).ok_or(Error::InvalidInput)?,
             missed: if catch_up {
                 MissedRunPolicy::CatchUp
             } else {
@@ -74,9 +76,9 @@ fn schedule(timing: Timing) -> Schedule {
         },
         Timing::AfterCompletion { first_ns, every_ns } => Schedule::AfterCompletion {
             first_at_ns: first_ns,
-            every_ns,
+            every_ns: NonZeroU64::new(every_ns).ok_or(Error::InvalidInput)?,
         },
-    }
+    })
 }
 
 fn decode(bytes: &[u8]) -> Result<Snapshot, Error> {
@@ -189,13 +191,11 @@ impl<M: Memory> Queue<M> {
         if !task_valid(&input.task) {
             return Err(Error::InvalidInput);
         }
-        let schedule = schedule(input.timing);
+        let schedule = schedule(input.timing)?;
         let id = snapshot.next_id;
         snapshot.next_id = id.checked_add(1).ok_or(Error::Capacity)?;
         snapshot.jobs.push(Entry {
-            job: Job::new(JobId(u128::from(id)), schedule, RetryPolicy::NONE)
-                .map_err(job_error)?
-                .record(),
+            job: Job::new(JobId(u128::from(id)), schedule, RetryPolicy::NONE).record(),
             task: input.task,
         });
         self.commit(snapshot)?;
@@ -226,25 +226,27 @@ impl<M: Memory> Queue<M> {
     }
 
     pub(crate) fn cancel(&mut self, id: u64, now: u64) -> Result<(), Error> {
-        self.manage(id, |job| job.cancel(now))
+        self.manage(id, |job| job.cancel(now).map_err(job_error))
     }
 
     pub(crate) fn pause(&mut self, id: u64, now: u64) -> Result<(), Error> {
-        self.manage(id, |job| job.pause(now))
+        self.manage(id, |job| job.pause(now).map_err(job_error))
     }
 
     pub(crate) fn resume(&mut self, id: u64, now: u64) -> Result<(), Error> {
-        self.manage(id, |job| job.resume(now))
+        self.manage(id, |job| job.resume(now).map_err(job_error))
     }
 
     pub(crate) fn reschedule(&mut self, id: u64, timing: Timing, now: u64) -> Result<(), Error> {
-        self.manage(id, |job| job.reschedule(schedule(timing), now))
+        self.manage(id, |job| {
+            job.reschedule(schedule(timing)?, now).map_err(job_error)
+        })
     }
 
     fn manage(
         &mut self,
         id: u64,
-        operation: impl FnOnce(&mut Job) -> Result<(), ic_jobs::JobError>,
+        operation: impl FnOnce(&mut Job) -> Result<(), Error>,
     ) -> Result<(), Error> {
         let mut snapshot = self.load()?;
         let entry = snapshot
@@ -253,7 +255,7 @@ impl<M: Memory> Queue<M> {
             .find(|entry| entry.job.id == JobId(u128::from(id)))
             .ok_or(Error::UnknownJob)?;
         let mut job = Job::restore(entry.job).map_err(job_error)?;
-        operation(&mut job).map_err(job_error)?;
+        operation(&mut job)?;
         entry.job = job.record();
         self.commit(snapshot)
     }
@@ -433,17 +435,19 @@ impl<M: Memory> Queue<M> {
     }
 
     // Deliberate corruption endpoint in an unpublished qualification artifact.
-    // Normal readers, including post_upgrade, still reject this at Job::restore.
+    // Normal readers, including post_upgrade, reject malformed configuration
+    // during bounded decoding before the aggregate Job::restore boundary.
     pub(crate) fn corrupt_record(&mut self, id: u64) -> Result<(), Error> {
-        let mut snapshot = self.load()?;
-        let entry = snapshot
+        let snapshot = self.load()?;
+        let index = snapshot
             .jobs
-            .iter_mut()
-            .find(|entry| entry.job.id == JobId(u128::from(id)))
+            .iter()
+            .position(|entry| entry.job.id == JobId(u128::from(id)))
             .ok_or(Error::UnknownJob)?;
-        entry.job.retry.max_attempts = 0;
+        let mut encoded = serde_json::to_value(snapshot).map_err(|_| Error::InvalidStorage)?;
+        encoded["jobs"][index]["job"]["retry"]["max_attempts"] = 0.into();
         self.cell
-            .set(serde_json::to_vec(&snapshot).map_err(|_| Error::InvalidStorage)?);
+            .set(serde_json::to_vec(&encoded).map_err(|_| Error::InvalidStorage)?);
         Ok(())
     }
 }

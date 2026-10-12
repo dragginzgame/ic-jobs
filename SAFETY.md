@@ -44,6 +44,15 @@ checks structural invariants; it is not a signature, schema migration, trusted
 history proof or a byte-format versioning protocol. Consumers own their selected
 codec and any retained storage-format contract.
 
+Recurring intervals cannot be zero in a `Schedule`. `RetryPolicy` construction
+and deserialization share the same positive-budget/delay and cap checks. These
+local configuration guarantees do not establish a valid `JobRecord` history:
+all decoded aggregates still require `Job::restore`. Malformed configuration
+fails at decoding; valid 0.7 records retain their existing serialized shape and
+need no reset for the 0.8 source API cut. The consumer's bounded JSON codec is
+qualified against independently frozen 0.7.5 records and a reopened stable cell;
+consumers with other codecs own their retained-byte qualification.
+
 Retained retry completions must be at or after the occurrence's scheduled time.
 Pending/paused retries retain a representable backoff deadline even when cancelled.
 A running retry must start at or after the preceding retry deadline.

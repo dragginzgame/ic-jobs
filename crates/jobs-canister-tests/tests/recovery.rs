@@ -381,7 +381,7 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
         fixture
             .query::<View, _>(fixture.sender, "inspect", (id,))
             .unwrap_err(),
-        Error::Job(_)
+        Error::InvalidStorage
     ));
     let rejected = fixture
         .pic

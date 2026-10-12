@@ -115,8 +115,6 @@ pub struct Job(JobRecord);
 /// A rejected configuration, stored record or state transition.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum JobError {
-    /// A recurring interval was zero.
-    ZeroInterval,
     /// Retry budget or delays were invalid.
     InvalidRetryPolicy,
     /// A timestamp calculation exceeded the nanosecond range.
@@ -146,7 +144,6 @@ pub enum JobError {
 impl fmt::Display for JobError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let message = match self {
-            Self::ZeroInterval => "recurring interval must be positive",
             Self::InvalidRetryPolicy => "invalid retry budget or delay",
             Self::DeadlineOverflow => "job deadline overflow",
             Self::CounterExhausted => "job counter exhausted",
@@ -168,10 +165,10 @@ impl std::error::Error for JobError {}
 
 impl Job {
     /// Create a pending job with an application-assigned identity.
-    pub fn new(id: JobId, schedule: Schedule, retry: RetryPolicy) -> Result<Self, JobError> {
-        schedule.validate()?;
-        retry.validate()?;
-        Ok(Self(JobRecord {
+    ///
+    /// Schedule intervals and retry configuration are checked before construction.
+    pub const fn new(id: JobId, schedule: Schedule, retry: RetryPolicy) -> Self {
+        Self(JobRecord {
             id,
             schedule,
             retry,
@@ -186,7 +183,7 @@ impl Job {
             updated_ns: 0,
             last_outcome: None,
             last_outcome_ns: None,
-        }))
+        })
     }
 
     /// Validate a decoded record without changing its execution state.
@@ -194,10 +191,8 @@ impl Job {
     /// Running and uncertain records remain blocked after reconstruction.
     /// Restoring does not grant permission to repeat an external effect.
     pub fn restore(record: JobRecord) -> Result<Self, JobError> {
-        record.schedule.validate()?;
-        record.retry.validate()?;
         let invalid = || Err(JobError::InvalidRecord);
-        if record.attempts > record.retry.max_attempts
+        if record.attempts > record.retry.max_attempts()
             || record.schedule_origin > record.occurrence
             || record.scheduled_ns < record.schedule.first()
             || (record.occurrence == record.schedule_origin
@@ -211,7 +206,7 @@ impl Job {
             // budget. Rescheduling preserves that history; use the total
             // occurrence count, with wide arithmetic for large valid records.
             || u128::from(record.sequence)
-                > u128::from(record.occurrence) * u128::from(record.retry.max_attempts)
+                > u128::from(record.occurrence) * u128::from(record.retry.max_attempts())
                     + u128::from(record.attempts)
             || record
                 .sequence
@@ -232,10 +227,10 @@ impl Job {
                 missed,
             } => {
                 let delta = record.scheduled_ns - first_at_ns;
-                if !delta.is_multiple_of(every_ns)
-                    || delta / every_ns < record.occurrence - record.schedule_origin
+                if !delta.is_multiple_of(every_ns.get())
+                    || delta / every_ns.get() < record.occurrence - record.schedule_origin
                     || (missed == MissedRunPolicy::CatchUp
-                        && delta / every_ns != record.occurrence - record.schedule_origin)
+                        && delta / every_ns.get() != record.occurrence - record.schedule_origin)
                 {
                     return invalid();
                 }
@@ -246,7 +241,7 @@ impl Job {
             } if record
                 .occurrence
                 .checked_sub(record.schedule_origin)
-                .and_then(|n| n.checked_mul(every_ns))
+                .and_then(|n| n.checked_mul(every_ns.get()))
                 .and_then(|n| first_at_ns.checked_add(n))
                 .is_none_or(|n| n > record.scheduled_ns) =>
             {
@@ -284,7 +279,7 @@ impl Job {
             // (AfterCompletion) or its earliest possible time (FixedRate).
             let floor = record
                 .scheduled_ns
-                .checked_sub(every_ns)
+                .checked_sub(every_ns.get())
                 .ok_or(JobError::InvalidRecord)?;
             if record.last_outcome_ns.is_none_or(|time| time < floor) {
                 return invalid();
@@ -308,7 +303,7 @@ impl Job {
                 if due_ns < record.scheduled_ns
                     || (record.attempts == 0 && due_ns != record.scheduled_ns)
                     || (record.attempts > 0
-                        && (record.attempts >= record.retry.max_attempts
+                        && (record.attempts >= record.retry.max_attempts()
                             || record
                                 .last_outcome_ns
                                 .is_none_or(|time| time < record.scheduled_ns)
@@ -372,14 +367,14 @@ impl Job {
                     || record.last_outcome_ns != Some(record.updated_ns)
                     || !(record.last_outcome == Some(Outcome::PermanentFailure)
                         || (record.last_outcome == Some(Outcome::RetryableFailure)
-                            && record.attempts == record.retry.max_attempts))
+                            && record.attempts == record.retry.max_attempts()))
                 {
                     return invalid();
                 }
             }
             JobState::Cancelled => {
                 if record.attempts > 0
-                    && (record.attempts >= record.retry.max_attempts
+                    && (record.attempts >= record.retry.max_attempts()
                         || record.last_outcome != Some(Outcome::RetryableFailure)
                         || record
                             .last_outcome_ns
@@ -460,7 +455,7 @@ impl Job {
             .attempts
             .checked_add(1)
             .ok_or(JobError::CounterExhausted)?;
-        if attempts > self.0.retry.max_attempts {
+        if attempts > self.0.retry.max_attempts() {
             return Err(JobError::InvalidRecord);
         }
         self.0.sequence = sequence;
@@ -525,7 +520,7 @@ impl Job {
                     next.state = JobState::Completed;
                 }
             }
-            Outcome::RetryableFailure if next.attempts < next.retry.max_attempts => {
+            Outcome::RetryableFailure if next.attempts < next.retry.max_attempts() => {
                 let due_ns = now_ns
                     .checked_add(next.retry.delay(next.attempts))
                     .ok_or(JobError::DeadlineOverflow)?;
@@ -601,7 +596,6 @@ impl Job {
         if self.0.attempts != 0 {
             return Err(JobError::AlreadyAttempted);
         }
-        schedule.validate()?;
         self.0.schedule = schedule;
         self.0.schedule_origin = self.0.occurrence;
         self.0.scheduled_ns = schedule.first();

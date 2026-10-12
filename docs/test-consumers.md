@@ -157,3 +157,15 @@ without rearming before requiring subsequent progress. Failed and completed jobs
 must remain terminal after upgrade, with no duplicate committed local effect.
 This case requires matching live execution evidence; prior five-scenario evidence
 does not qualify it. See [#20](https://github.com/dragginzgame/ic-jobs/issues/20).
+
+The 0.8 configuration cut is qualified against records emitted by archived Jobs
+0.7.5 source `060fb9d226389bab702132ba23f42bd0b887a690`. The core fixture
+[configuration tests](../crates/ic-jobs/tests/configuration.rs) restore and
+re-encode the frozen records exactly. The stable consumer reopens its frozen
+JSON snapshot and the release-produced complete stable-memory image (including
+allocation/cell headers) under the existing memory key, retaining Running/Uncertain
+external intent and paused work while healthy pending work proceeds. Raw zero
+intervals return `InvalidInput` without committing; storage corruption remains
+a queue-wide refusal. The fault artifact mutates encoded bytes so checked
+configuration cannot provide an unchecked construction path. These native
+checks do not establish live IC upgrade qualification.

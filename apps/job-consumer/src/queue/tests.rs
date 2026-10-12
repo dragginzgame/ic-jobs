@@ -400,13 +400,8 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
     let mut retry = Job::new(
         JobId(2),
         Schedule::Once { at_ns: 100 },
-        RetryPolicy {
-            max_attempts: 3,
-            initial_delay_ns: 10,
-            max_delay_ns: 20,
-        },
-    )
-    .unwrap();
+        RetryPolicy::new(3, 10, 20).unwrap(),
+    );
     let first = retry.start(100).unwrap();
     retry.finish(first, 100, Outcome::RetryableFailure).unwrap();
     let mut cancelled_retry = Job::restore(retry.record()).unwrap();
@@ -422,11 +417,10 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
         JobId(2),
         Schedule::AfterCompletion {
             first_at_ns: 100,
-            every_ns: 10,
+            every_ns: NonZeroU64::new(10).unwrap(),
         },
         RetryPolicy::NONE,
-    )
-    .unwrap();
+    );
     let first = recurring.start(100).unwrap();
     recurring.finish(first, 200, Outcome::Success).unwrap();
     let mut cancelled_recurring = Job::restore(recurring.record()).unwrap();
@@ -463,4 +457,126 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
         ));
         assert_eq!(Cell::init(memory, Vec::<u8>::new()).get(), &bytes);
     }
+}
+
+#[test]
+fn released_075_snapshot_reopens_without_reset_and_retains_blocked_effects() {
+    // Produced with archived release 060fb9d226389bab702132ba23f42bd0b887a690
+    // before changing configuration types. Keep the established memory key/codec.
+    let bytes = include_bytes!("fixtures/snapshot-075.json").to_vec();
+    let memory = VectorMemory::default();
+    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
+    queue.cell.set(bytes.clone());
+    drop(queue);
+    let mut queue = Queue::open(memory.clone(), None).unwrap();
+    assert_eq!(queue.cell.get(), &bytes);
+    assert_eq!(serde_json::to_vec(&queue.load().unwrap()).unwrap(), bytes);
+    assert_eq!(queue.summary().unwrap(), (Some(200), 0, 0));
+    let running = queue.inspect(1).unwrap();
+    let uncertain = queue.inspect(2).unwrap();
+    assert_eq!(running.status, Status::Running);
+    assert_eq!(uncertain.status, Status::Uncertain);
+    assert_eq!(queue.inspect(3).unwrap().status, Status::Paused);
+    assert_eq!(
+        queue.outstanding(1).unwrap().message,
+        "retained external intent"
+    );
+    assert_eq!(
+        queue.outstanding(2).unwrap().message,
+        "uncertain external effect"
+    );
+    assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1));
+    assert_eq!(queue.summary().unwrap(), (Some(210), 5, 0));
+    assert_eq!(queue.inspect(1).unwrap(), running);
+    assert_eq!(queue.inspect(2).unwrap(), uncertain);
+    drop(queue);
+    let queue = Queue::open(memory, None).unwrap();
+    assert_eq!(queue.inspect(1).unwrap(), running);
+    assert_eq!(queue.inspect(2).unwrap(), uncertain);
+}
+
+#[test]
+fn raw_invalid_intervals_preserve_storage_and_unknown_job_precedence() {
+    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+    let id = queue.create(increment(100)).unwrap();
+    for timing in [
+        Timing::FixedRate {
+            first_ns: 0,
+            every_ns: 0,
+            catch_up: false,
+        },
+        Timing::AfterCompletion {
+            first_ns: 0,
+            every_ns: 0,
+        },
+    ] {
+        let before = queue.cell.get().clone();
+        assert_eq!(
+            queue.create(Create {
+                timing: timing.clone(),
+                task: Task::Increment(1)
+            }),
+            Err(Error::InvalidInput)
+        );
+        assert_eq!(
+            queue.reschedule(id, timing.clone(), 0),
+            Err(Error::InvalidInput)
+        );
+        assert_eq!(queue.reschedule(999, timing, 0), Err(Error::UnknownJob));
+        assert_eq!(queue.cell.get(), &before);
+    }
+    queue.corrupt_record(id).unwrap();
+    let before = queue.cell.get().clone();
+    assert_eq!(queue.dispatch(100), Err(Error::InvalidStorage));
+    assert_eq!(
+        queue.reschedule(
+            999,
+            Timing::AfterCompletion {
+                first_ns: 0,
+                every_ns: 0
+            },
+            0
+        ),
+        Err(Error::InvalidStorage)
+    );
+    assert_eq!(queue.cell.get(), &before);
+}
+
+#[test]
+fn released_075_stable_memory_image_opens_with_the_same_allocation_and_cell() {
+    // Sparse nonzero runs are a lossless fixture representation of the old
+    // producer's complete VectorMemory, including allocator and cell headers.
+    #[derive(Deserialize)]
+    struct FrozenMemory {
+        producer: String,
+        pages: u64,
+        runs: Vec<(u64, String)>,
+        snapshot: String,
+    }
+    let frozen: FrozenMemory =
+        serde_json::from_str(include_str!("fixtures/stable-image-075.json")).unwrap();
+    assert_eq!(frozen.producer, "060fb9d226389bab702132ba23f42bd0b887a690");
+    let memory = VectorMemory::default();
+    assert_eq!(memory.grow(frozen.pages), 0);
+    for (offset, encoded) in frozen.runs {
+        assert_eq!(encoded.len() % 2, 0);
+        let bytes = (0..encoded.len())
+            .step_by(2)
+            .map(|index| u8::from_str_radix(&encoded[index..index + 2], 16).unwrap())
+            .collect::<Vec<_>>();
+        memory.write(offset, &bytes);
+    }
+    let mut queue = Queue::open(memory.clone(), None).unwrap();
+    assert_eq!(queue.cell.get(), frozen.snapshot.as_bytes());
+    assert_eq!(queue.summary().unwrap(), (Some(200), 0, 0));
+    assert_eq!(queue.inspect(1).unwrap().status, Status::Uncertain);
+    // MemoryRuntime republishes its allocation ledger on reopen. The existing
+    // allocation and Jobs cell stay retained; no fresh installation is selected.
+    assert_eq!(memory.size(), frozen.pages);
+    assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1));
+    assert_eq!(queue.inspect(1).unwrap().status, Status::Uncertain);
+    drop(queue);
+    let queue = Queue::open(memory, None).unwrap();
+    assert_eq!(queue.summary().unwrap(), (Some(210), 5, 0));
+    assert_eq!(queue.inspect(1).unwrap().status, Status::Uncertain);
 }

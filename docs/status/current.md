@@ -1,6 +1,140 @@
 # Current handoff
 
-## Pending 0.7.5 — final preparation and Shared 0.9.4
+## Upstream review — incoming 0.8 graph, Shared adoption pending
+
+Verified current public tagged Testkit **0.35.0** at
+`ad5bdfa5221ec25743fbc56e028fb958f2a6a558` and Timers **0.21.0** at
+`a6b518722438d2f7e2dccd7ccfef07debc35b5b3`. Both registry records are
+non-yanked and declare Rust **1.88.0**. Incoming Cargo.toml/Cargo.lock already
+select those releases; preserved them without dependency reselection. The
+selected graph now contains **Host 0.15.1 / Memory 0.35.19 / Metrics 0.8.0 /
+Testkit 0.35.0 / Timers 0.21.0**. Earlier qualification below remains bound to
+its original graph and does not qualify these new inputs.
+
+Testkit's generic artifact/Cargo/Wasm APIs moved to IC Build and its unused
+Host-tools re-export is gone. Jobs' harness uses neither surface; its PocketIC
+imports and selected server CLI contract remain supported, so no IC Build or
+direct Host-tools dependency is needed. Timers' reconciliation signatures stay
+supported, but first creation now publishes the consumer slot only after the
+requested state succeeds; failure cleans up new authority/captures and leaves
+an empty slot for retry's supplied callback. Existing authority remains on later
+failure. The public measurement summary selects Metrics **0.8**. Aligned both
+package/root guides and pending **0.8.0** notes with the incoming family and
+semantics; the checked Jobs configuration/storage contract is unchanged.
+
+Focused current-graph Linux checks pass after explicit `cargo fetch --locked`:
+Rust **1.88** core/optional timers native/Wasm checks, both application-consumer
+suites, all **14** stable-consumer tests (including release-produced memory
+reopen), release consumer Wasm, native recovery harness compilation only and
+warnings-denied native/Wasm consumer/harness Clippy. The common runner checkpoints
+all five selected manifest/lock/toolchain/snapshot/Make inputs. All runtime/test
+source bytes were preserved through the check; published source and registry
+observations are separately retained. New live execution and final-source
+macOS qualification remain pending. No source changes or new tests were made
+for this upstream review.
+
+Shared's public main is **0.9.7** at
+`4d10a06d50e44d302f00d5b7b706cac5f9b0127c`. A clean committed-source canonical
+preview keeps the **87-file** selection, with four updates and no additions or
+retirement: release/setup/host documentation and the Cargo-tool build helper.
+Its stricter boolean `net.offline` admission changes the build-policy digest.
+Actual adoption would require explicit Rust-tool setup to select the new policy;
+old builds remain retained. PR identity hardening is outside Jobs' selected
+direct-release adapter. Artifact-visibility discovery is relevant to upload
+readback workflows; Jobs only uploads evidence and has no such download call.
+No extra helper or PR policy is needed here. The real snapshot remains reviewed
+**0.9.4**; this was a preview, not adoption or tool installation.
+
+Evidence: `target/qualification/upstream-review.xejqfsaq/`: incoming lock and
+preservation hashes, public main/tag and registry responses, isolated committed
+Shared source, canonical preview and focused logs/checkpoints. Initial preview
+refused the isolated clone's local remote; the isolated remote was set to the
+manifest's public identity and repeat preview passed. Real HEAD/index/refs, own
+**0.7.5** versions and sibling files remain unchanged. No complete local gate,
+release/publication, live workflow dispatch or executable installation was run.
+
+## Pending 0.8.0 — checked configuration and original Timers 0.20 evidence
+
+The maintainer explicitly selected implementation of
+[#28](https://github.com/dragginzgame/ic-jobs/issues/28). Recurring intervals now
+use standard `NonZeroU64`; absolute deadlines remain u64, including zero.
+Retry configuration is immutable and checked once by `RetryPolicy::new`;
+deserialization invokes that same constructor. Accessors expose its numeric
+values, and `NONE` retains the previous no-retry policy. `Job::new` is infallible
+because its inputs are already checked. Update interval/retry literals, remove
+constructor result handling and update exhaustive error matches as documented
+in the root/package guides. Pending **0.8.0** is required by this source API cut
+and the exposed Timers dependency family.
+
+Adopts registry **Timers 0.20.0**, matching non-yanked registry checksum
+`bab1d6a188038e5e70dd447f3062df9e83b1702bc1f014ac2687e6cd00b4e30f`
+and tagged source `01031c912058089756aed87fafa4918476c12bd4`. Jobs delegates to
+the unchanged reconciliation helper; direct timer registration, storage,
+payloads, handler dispatch, clocks and lifecycle remain consumer-owned. Final
+applications must align all direct Timers dependencies to one 0.20 identity.
+Incoming **Memory 0.35.18 / Testkit 0.34.7** selections were preserved, alongside
+**Host 0.14.10 / Metrics 0.7.3**. Explicit locked fetch prepared that exact graph.
+Own workspace versions remain **0.7.5**; Shared **0.9.4** and its 87-file snapshot
+remain unchanged.
+
+Valid retained record layout and the stable consumer key/codec are unchanged.
+Malformed local configuration is refused during decoding; every decoded
+aggregate still passes `Job::restore` for history/timing/counter checks. Runtime
+errors for representable inputs, failed-transition immutability and blocked
+Running/Uncertain effects remain. The raw consumer API rejects zero intervals
+with typed `InvalidInput` without commit, after storage/identity admission.
+Qualification-only corruption mutates encoded bytes; it does not provide an
+unchecked configuration constructor. The live recovery expectation now uses
+the typed `InvalidStorage` decode failure.
+
+Independent archived **0.7.5** source
+`060fb9d226389bab702132ba23f42bd0b887a690` produced **354** frozen mixed-history
+records before implementation. Every record restores and re-encodes exactly.
+The stable consumer reopens its frozen snapshot and complete old stable-memory
+image, including allocator/cell headers, without installation/reset. Existing
+Jobs bytes, effect identities, payloads and blocked effects remain retained while
+healthy work proceeds. An initial assertion that the whole backing image stays
+unchanged was too strong: independently rerunning the old producer confirms
+MemoryRuntime already republishes its ledger on reopen (592 backing-byte changes
+with Jobs cell unchanged). The corrected proof admits that established owner
+behavior while requiring retained allocation/cell data. Sparse hex runs encode
+all old-image bytes losslessly; they are fixture data, not a product codec.
+
+Focused Linux qualification passes: Rust **1.88** core and optional timers
+separately, both native/Wasm minimum checks, actual Make job route, both application
+consumer suites, **14** stable-consumer tests, release Wasm, native harness
+compilation without execution, warnings-denied native/Wasm Clippy, rustdoc and
+five doctests (including two compile-fail checks), formatting, links, declaration/
+snapshot and release-Make checks. Final consumer coverage was requalified after
+adding the old-memory image; unchanged core inputs retain their earlier passing
+evidence. Checkpoints cover manifests/lock/toolchain/snapshot/Make/Rust sources,
+compiled package README and frozen fixture bytes.
+
+Evidence: `target/qualification/jobs-080.i92pbmwe/`: archived producer/generator
+source and isolated target, producer logs, original record/snapshot/image data,
+failed test attempts, `qualified-Cargo.lock`, input checkpoints, both focused
+runner directories and preservation records. Initial failures were test
+expectations: blocked `start` retains `NotPending`, and memory reopen republishes
+its ledger. No failed production behavior was hidden or old evidence relabelled.
+
+Delivery and exact final-source native Linux/Intel/Apple Silicon acceptance for
+#28 remain pending. New live PocketIC evidence remains unselected; the existing
+v0.7.1 observations stay bound to their old source/graph. No full local CI,
+workflow dispatch, package bump, staging, commit, ref update, release, push,
+publication or sibling edit was performed.
+
+## Delivered 0.7.5 — current acceptance observation
+
+The maintainer delivered **0.7.5** at
+`060fb9d226389bab702132ba23f42bd0b887a690`; own package metadata and dated release
+notes now match. [CI run 38271757772](https://github.com/dragginzgame/ic-jobs/actions/runs/38271757772)
+has successful Linux qualification; Apple Silicon and Intel remain queued at
+inspection. [#26](https://github.com/dragginzgame/ic-jobs/issues/26) and
+[#27](https://github.com/dragginzgame/ic-jobs/issues/27) remain open for their exact
+all-host acceptance. The following sections retain the preparation evidence
+from before delivery; their then-current versions/graphs are historical.
+
+## Delivered 0.7.5 — preparation evidence and Shared 0.9.4
 
 The compatible batch contains the completed
 [#26](https://github.com/dragginzgame/ic-jobs/issues/26) counter-validation repair
@@ -64,7 +198,7 @@ is queued at inspection; Linux/Bash fixtures do not establish native macOS.
 User delivery selects the configured complete gate; new live execution remains
 separate. No automatic release or publication is authorized by finishing notes.
 
-## Pending 0.7.5 — restore dispatch-count validation
+## Delivered 0.7.5 — restore dispatch-count validation
 
 Reproduced and repaired [#26](https://github.com/dragginzgame/ic-jobs/issues/26):
 `Job::restore` admitted a first occurrence claiming more dispatches than allocated

@@ -28,7 +28,7 @@ let mut job = Job::new(
     JobId(1),
     Schedule::Once { at_ns: 100 },
     RetryPolicy::NONE,
-)?;
+);
 let attempt = job.start(100)?;
 // Persist job.record() and the immutable payload before dispatching the effect.
 job.finish(attempt, 101, Outcome::Success)?;
@@ -54,6 +54,38 @@ destination-side idempotency key. `Attempt` identifies a particular dispatch,
 allowing stale replies to be rejected. Never reuse a job ID or change an
 occurrence's payload under the same effect identity.
 
+## Checked configuration (0.8)
+
+Recurring `Schedule` intervals use `std::num::NonZeroU64`; absolute deadlines
+still use `u64` and may be zero. Build retry budgets with
+`RetryPolicy::new(max_attempts, initial_delay_ns, max_delay_ns)?`, or use
+`RetryPolicy::NONE`. Read the immutable values with `max_attempts()`,
+`initial_delay_ns()` and `max_delay_ns()`.
+
+```rust
+use std::num::NonZeroU64;
+use ic_jobs::{Job, JobId, RetryPolicy, Schedule};
+
+let interval = NonZeroU64::new(10).unwrap();
+let retry = RetryPolicy::new(3, 5, 20)?;
+let job = Job::new(JobId(1), Schedule::AfterCompletion {
+    first_at_ns: 0,
+    every_ns: interval,
+}, retry);
+assert_eq!(job.next_due_ns(), Some(0));
+# Ok::<(), ic_jobs::JobError>(())
+```
+
+This is a source API cut: replace numeric interval literals and retry struct
+literals, remove `?`/`unwrap()` from `Job::new`, and update exhaustive error matches
+for the removed `ZeroInterval` variant. Raw inputs must reject zero before
+constructing a schedule. Invalid retry configuration returns
+`JobError::InvalidRetryPolicy`; invalid serialized configuration fails decoding.
+Every decoded `JobRecord` still passes through `Job::restore` to check its history.
+Valid retained records keep their numeric fields, variant names and JSON bytes;
+this cut requires no stable-memory reset. See
+[#28](https://github.com/dragginzgame/ic-jobs/issues/28).
+
 ## Scheduling a batch
 
 `Scheduler` borrows a bounded batch of validated, application-owned jobs. It
@@ -64,8 +96,8 @@ most one due attempt per call. Equal deadlines follow the supplied batch order.
 use ic_jobs::{Job, JobId, RetryPolicy, Schedule, Scheduler};
 
 let mut jobs = [
-    Job::new(JobId(1), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE)?,
-    Job::new(JobId(2), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE)?,
+    Job::new(JobId(1), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE),
+    Job::new(JobId(2), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE),
 ];
 let next_wakeup = Scheduler::new(&mut jobs).next_due_ns();
 assert_eq!(next_wakeup, Some(100));
@@ -136,10 +168,16 @@ it cannot make a permanently failing handler progress. Dispose of known no-effec
 handler failures through the job's exact attempt, retaining fail-closed handling
 for corrupt storage and unresolved external effects.
 
-The optional adapter selects IC Timers 0.19. Applications using its public timer
-types must align their direct timer dependency to 0.19. For exchanged measurement
+The optional adapter selects IC Timers 0.21. Applications using its public timer
+types must align their direct timer dependency to 0.21. For exchanged measurement
 summaries, use `ic_timers::MeasurementSummary` to share Timers' selected Metrics
 package identity.
+
+Timers 0.21 publishes a new watchdog registration only after its requested
+initial state succeeds. A failed first reconciliation leaves the consumer slot
+empty and releases the new callback; retry can install the callback supplied
+by that retry. Later failures retain existing authority. The instruction-summary
+type selects Metrics 0.8; use the Timers re-export when exchanging summaries.
 
 ## Scope and validation
 
