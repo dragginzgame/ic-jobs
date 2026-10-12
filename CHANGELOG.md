@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.0]
+## [0.7.0] - 2026-10-12
 
 - **Breaking:** Select IC Timers 0.18 for the optional timer adapter. Consumers
   using its exposed timer types must update their IC Timers dependency to 0.18;
