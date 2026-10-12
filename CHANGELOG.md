@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.1]
+## [0.8.1] - 2026-10-12
 
 - Adopt Shared Tooling 0.9.7: reject non-boolean Cargo offline configuration
   before tool setup or admission while respecting explicit environment overrides.
