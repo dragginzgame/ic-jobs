@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.4]
+
+- Adopt Shared Tooling 0.9.0: snapshot refresh and verification share one
+  validated manifest reader, rejecting NUL bytes and emitting no records for
+  malformed input. Existing snapshots need no conversion
+  ([#21](https://github.com/dragginzgame/ic-jobs/issues/21),
+  [Shared #133](https://github.com/dragginzgame/shared-tooling/issues/133)).
+- Support structured workspace LOC reports through `cloc.sh --json`, alongside
+  the existing human-readable output.
+
 ## [0.7.3] - 2026-10-12
 
 - Adopt Shared Tooling 0.8.3: reject malformed snapshot fields, retain build

@@ -1,6 +1,56 @@
 # Current handoff
 
-## Shared 0.8.3 adoption — pending Jobs 0.7.3
+## Shared 0.9.0 adoption — pending Jobs 0.7.4
+
+Canonically adopted committed/public Shared **0.9.0**
+`aec7a149f581a42b9531fc747b46024fc0314fcf` from a clean isolated checkout.
+The committed VERSION is 0.9.0. Three payloads update: consuming guidance,
+snapshot verifier and workspace LOC helper. All **87 roots/payloads** remain;
+none are added or retired. Baseline bytes, tool pins and consumer Make recipes
+are unchanged; AGENTS records the exact reviewed source. Refresh and integrity
+verification now use the same syntax reader, also used by the central fleet
+reporter. NUL bytes refuse before record splitting; malformed input emits no
+admitted records. `--read-manifest FILE` establishes syntax only, with payload
+integrity, source attribution and prior ownership still separate. Existing v1
+snapshots require no conversion. Owner:
+[Shared #133](https://github.com/dragginzgame/shared-tooling/issues/133).
+
+Focused Jobs checks pass: actual common/release/format tool admission, snapshot,
+pins, release Make adapters, disposable release/publication recovery,
+formatting/evidence retention, consumer CLI/Wasm refusal and validation-input
+drift, real formatting-hook preservation and formatting. No cache preparation
+or tool installation is needed for this batch. Exact-source upstream snapshot
+admission/export/conflict/retry, workspace LOC and manifest-reader/tooling LOC
+integration fixtures pass under Bash 5 and genuine **Bash 3.2.57**, including
+child shells. Both actual repeat previews retain all 87 payloads. ShellCheck,
+documentation links and whitespace pass.
+
+The adopted `cloc.sh --json` runs against Jobs in both shells and produces
+identical structured results. Numeric totals match the existing `make cloc`
+human projection: 1,473 runtime lines, 3,549 test lines, 72 test functions.
+Fleet reporting stays central; no sibling reporter, fixture or consumer Make
+flag is added. Evidence: `/tmp/ic-jobs-shared-090-m2hkqgiz/` (before/preservation
+identities, export/preview logs, per-command results and LOC agreement report).
+
+Jobs **0.7.3** is now delivered at
+`44a28d79ae8a5247a1b3cbd44a7f81fc6ffd4157`; its finalized notes are preserved.
+This compatible contributor-only batch starts pending **0.7.4** notes. Library
+API/runtime/storage, Rust **1.88**, own package versions, Cargo.lock, native
+45-minute budget, transition coverage, Make route, HEAD/index/refs remain
+unchanged. Earlier Rust/live qualification remains bound to its saved inputs.
+No new package Rust build/tests, full local CI, live qualification, dispatch,
+release/publication or sibling edit is selected by this adoption.
+
+Delivered Jobs [native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38243360179)
+and exact-source Shared [CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38246537047)
+are queued at inspection. Local Linux Bash execution does not qualify native
+macOS. [#21](https://github.com/dragginzgame/ic-jobs/issues/21) stays open for
+delivery and final-source native acceptance; the delivered 45-minute repair
+under [#25](https://github.com/dragginzgame/ic-jobs/issues/25) still awaits its
+source-bound native result. The previously inspected 84 v0.7.1 live results
+remain separate from this tooling source.
+
+## Earlier Shared 0.8.3 adoption — delivered with Jobs 0.7.3
 
 Canonically adopted committed Shared **0.8.3** at
 `8cca7e67b03ce6e701b6e7dcec2e9753eb98337e` from a clean isolated source.
