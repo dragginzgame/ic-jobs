@@ -1,5 +1,96 @@
 # Current handoff
 
+## Shared 0.6.6 and Host 0.14.3 inspection
+
+Verified public Shared main at **0.6.6**
+`a15eb9d406d287697df9bc8fa96db8cda6721a71` and Host **0.14.3** main/annotated tag
+at `543b137458feba0f6dfd3e458b680fb2be3d9e6d`. Shared now selects
+`cargo-sort-derives` **0.14.1**, repairing literal `$crate` replacement for direct
+and conditional derives. Its contributor build requires Rust 1.88 or newer;
+Jobs' core/timers floor is unchanged. Jobs' formatter does not run derive sorting,
+and no affected macros or workaround markers are found in its crates/consumer.
+No Jobs Rust edit or workaround retirement is needed.
+
+The canonical read-only preview from an isolated clean source passes against
+the incoming uncommitted 0.6.5 adoption: three existing selections would change
+(`ci/tool-versions.env`, local setup and hook rules), with no new companions or
+selection removals. This inspection does not export or prepare the new CLI.
+The snapshot remains Shared **0.6.5**, with **86 selections**; adopting 0.6.6
+must explicitly prepare/check the new common tool selection before qualification.
+Existing tools and receipts are retained.
+
+The incoming lock already selects all four Host crates **0.14.3**. Published Rust
+trees and normalized manifests match 0.14.2 apart from package versions; declared
+floors remain **1.88**. All selected archive checksums match the lock, and unpacked
+Rust/manifests match those archives. Locked offline metadata admits the graph.
+Host stays native-only through Testkit, with no direct Jobs dependency or adapter
+change needed. The lock is preserved byte-for-byte. Pending compatible **0.7.1**
+notes include this existing selection; package versions remain **0.7.0**.
+
+[Shared exact-source CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38220477204)
+and [Host exact-source CI](https://github.com/dragginzgame/ic-host-tooling/actions/runs/38219424683)
+are queued at inspection. Source/metadata review does not establish new builds or
+native/live qualification. No tests, compilation, lint, full gate, tool install,
+workflow dispatch, publication, index/ref mutation or sibling edit is performed
+by this inspection. Evidence: `/tmp/ic-jobs-upstream-066-34q14fyp/`.
+Only pending notes and this handoff are updated; all incoming adoption work is
+preserved.
+
+## Pending 0.7.1 — Shared Tooling 0.6.5
+
+Jobs **0.7.0** is delivered at `09497fc523874bf673224c3b87925d05cc2a0311`,
+matching public main and its annotated tag. The incoming checkout was clean.
+The accepted Shared update now adopts committed **0.6.5** at
+`42f2091768b5f71c98a684d3dab563f408ca2dd9`, verified as public main, from an
+isolated clean source. The canonical exporter preserves 84 selections, adds
+`make/consumer.mk` and `docs/make-interface.md`, and updates 14 existing files:
+**86 selections**. AGENTS records the exact reviewed revision; shared copies
+are unmodified after export.
+
+Jobs uses the common Make entrypoint for setup, formatting, hooks, snapshot
+verification and releases. Equivalent local hook/snapshot recipes and separate
+includes are replaced; the default goal, cargo-edit extension, direct delivery,
+product gates and metadata/publication adapters remain consumer-owned. Fixture
+exports include the new Make input. The new shared hook passes prepared-tool
+selection context scoped to its exact exported worktree; the Rust installer
+admits it only for checks against exported pins/compiler.
+
+CI and release verification checkpoint the workspace manifests, lock, toolchain,
+snapshot, Makefile and tool catalogs through the shared validation runner.
+Nested gates in this checkout retain the original checkpoint. Changed, missing
+or unreadable inputs block later stages and retain identities/logs. The actual
+Jobs CI route is qualified in disposable changed/missing-lock cases: substitute
+tool admission completes, the first stage fails its checkpoint, and no later
+product validation is dispatched. No full product CI or PocketIC runs in these
+cases. Existing independent fixtures qualify shared nesting and failure status.
+
+Release recovery fixtures now keep one recipe per target, retain actual shared
+ordered setup and release routing, and substitute installer/gate/registry/upload
+effects. Product metadata transforms and local Git/bare-remote recovery remain
+real. Successful logs must contain no recipe-override warnings. Linux focused
+qualification passes: actual offline complete tool admission (no installation),
+formatting and hook preservation/installation in disposable copies, consumer CLI
+and Wasm refusal, changed/missing-input blocking, release Make adapters and the
+release/publication recovery fixture. ShellCheck with sourced companions,
+snapshot, declarations, links and whitespace also pass. Retained earlier
+attempts include the missing fixture delivery/version adapters, a missing sort
+pin in the new drift fixture, and an incomplete ShellCheck invocation; corrected
+checks pass. Evidence: `/tmp/ic-jobs-shared-064-5adcvig8/`.
+
+Pending notes select compatible **0.7.1** with
+[#21](https://github.com/dragginzgame/ic-jobs/issues/21) and Shared
+[#130](https://github.com/dragginzgame/shared-tooling/issues/130),
+[#129](https://github.com/dragginzgame/shared-tooling/issues/129) and
+[#128](https://github.com/dragginzgame/shared-tooling/issues/128). No Jobs API,
+runtime, stored format, compiler floor or dependency change is made. Core/timers
+retain Rust **1.88**; package versions and lock remain **0.7.0**. Full CI/release
+gates, native macOS and new live qualification for this adoption are not selected.
+[Delivered 0.7.0 CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38217166313)
+passes Linux; Intel is running and Apple Silicon queued. This qualifies its
+0.6.3 snapshot, not the pending 0.6.5 adoption. Keep #21 open for final-source
+acceptance. No real index/ref/version change, commit, release/publication,
+hosted dispatch, installation reset or sibling edit is performed.
+
 ## Upstream inspection — incoming Timers 0.18 selects Jobs 0.7.0
 
 The incoming manifest already selects **Timers 0.18**, and the incoming lock

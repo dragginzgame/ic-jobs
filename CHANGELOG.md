@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.1]
+
+- Adopt Shared Tooling 0.6.5 and its common Make entrypoint for setup, formatting,
+  hooks, snapshot verification and releases. Admit prepared Rust tools during
+  staged formatting and stop later validation stages if selected inputs change
+  ([#21](https://github.com/dragginzgame/ic-jobs/issues/21),
+  [Shared #130](https://github.com/dragginzgame/shared-tooling/issues/130),
+  [Shared #129](https://github.com/dragginzgame/shared-tooling/issues/129)).
+- Qualify release recovery through the shared recipes without duplicate recipe
+  warnings or suppressing diagnostics
+  ([Shared #128](https://github.com/dragginzgame/shared-tooling/issues/128)).
+- Refresh the locked Host crates to 0.14.3 through Testkit; published Rust
+  sources, dependencies and the Rust 1.88 floor match 0.14.2.
+
 ## [0.7.0] - 2026-10-12
 
 - **Breaking:** Select IC Timers 0.18 for the optional timer adapter. Consumers

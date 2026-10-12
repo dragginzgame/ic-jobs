@@ -1,7 +1,9 @@
 # IC Jobs release and publication
 
 IC Jobs uses the reviewed [Shared Tooling release contract](releases.md) with
-consumer-owned Cargo metadata and validation. IC Jobs selects direct release
+consumer-owned Cargo metadata and validation. The reviewed
+[common Make entrypoint](make-interface.md) owns setup, formatting, hooks,
+snapshot verification and release routing. IC Jobs selects direct release
 delivery only: remote `origin`, branch `main`, annotated tag `vX.Y.Z`. All three
 SemVer commands use the same runner and complete gate. They do not publish to
 crates.io.
@@ -43,7 +45,12 @@ reconciliation precedes this preparation. Ordinary `make ci` never installs:
 it runs `validation-tools-check` before dispatching its checks/builds, including
 under parallel Make. `make test-release-tooling` also admits its formatter and
 release-tool prerequisites before starting the fixture. The validation gate remains
-offline. Commit the intended source through the contribution workflow; release
+offline. CI and release validation checkpoint all workspace manifests, the lock,
+toolchain, snapshot, Makefile and selected tool catalogs. A changed, missing or
+unreadable input stops later stages and retains input identities and logs. Nested
+validation in this checkout keeps the original checkpoint. Prepare the current
+inputs and restart the complete gate after a refusal; prior validation cannot be
+reused. Commit the intended source through the contribution workflow; release
 commands require an existing source commit and refuse unrelated
 staged, unstaged or untracked work. The first tagged release, 0.1.1, advanced the
 initial 0.1.0 implementation with compatible delivery tooling and packaging fixes.

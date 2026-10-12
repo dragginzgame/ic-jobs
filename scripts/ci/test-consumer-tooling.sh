@@ -122,4 +122,78 @@ for kind in absent symlink directory; do
     elif [[ "$kind" == directory ]]; then rmdir "$input"; fi
 done
 echo 'Invalid Wasm input refuses before attempt/server dispatch (real wrapper; substitute metadata/CLI)'
+
+# Run Jobs' actual CI route only through its first admission stage. Substitute
+# tool effects and mutate a selected input there; the logger must block all
+# subsequent product checks without compilation, installation or server effects.
+cp "$root/"{Cargo.toml,.shared-tooling.snapshot,rust-toolchain.toml} "$fixture/"
+for member in crates/ic-jobs apps/job-consumer crates/jobs-canister-tests; do
+    mkdir -p "$fixture/$member"
+    cp "$root/$member/Cargo.toml" "$fixture/$member/"
+done
+cp "$root/scripts/ci/"{run-validation-targets,check-format-tools}.sh "$fixture/scripts/ci/"
+cat > "$fixture/scripts/ci/verify-shared-tooling-snapshot.sh" <<'VERIFY'
+#!/usr/bin/env bash
+exit 0
+VERIFY
+for toolset in host ic rust; do
+    cat > "$fixture/scripts/dev/install-$toolset-tools.sh" <<'ADMISSION'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${@: -1}" == --check ]] || exit 49
+case "${0##*/}" in
+    install-host-tools.sh)
+        printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+        if [[ "$JOBS_CONSUMER_INPUT_DRIFT" == changed ]]; then
+            printf '\n# concurrent selected graph edit\n' >> "$PWD/Cargo.lock"
+        else
+            rm "$PWD/Cargo.lock"
+        fi ;;
+    install-rust-tools.sh)
+        if [[ "$1" == --package ]]; then
+            printf '%s/.tools/rust/common/bin/fixture-version-editor\n' "$PWD"
+        fi ;;
+esac
+ADMISSION
+done
+# shellcheck disable=SC1091
+. "$root/ci/release-tools.env"
+# shellcheck disable=SC1091
+. "$root/ci/tool-versions.env"
+export JOBS_CONSUMER_RELEASE_VERSION="$IC_JOBS_CARGO_EDIT_VERSION"
+export JOBS_CONSUMER_SORT_VERSION="$SHARED_TOOLING_CARGO_SORT_VERSION"
+cat > "$fixture/.tools/rust/common/bin/fixture-version-editor" <<'EDITOR'
+#!/usr/bin/env bash
+[[ "$*" == 'set-version --version' ]] || exit 49
+printf 'cargo-edit-set-version %s\n' "$JOBS_CONSUMER_RELEASE_VERSION"
+EDITOR
+cat > "$fixture/.tools/rust/common/bin/cargo" <<'CARGO'
+#!/usr/bin/env bash
+case "$*" in
+    'sort --version') printf 'cargo-sort %s\n' "$JOBS_CONSUMER_SORT_VERSION" ;;
+    'fmt --version') exit 0 ;;
+    *) printf 'unexpected Cargo effect\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"; exit 49 ;;
+esac
+CARGO
+chmod +x "$fixture/.tools/rust/common/bin/fixture-version-editor"
+for drift in changed missing; do
+    cp "$root/Cargo.lock" "$fixture/Cargo.lock"
+    : > "$fixture/events"
+    status=0
+    JOBS_CONSUMER_INPUT_DRIFT="$drift" VALIDATION_LOG_DIR="$fixture/$drift-logs" \
+        make --no-print-directory -j2 -C "$fixture" ci \
+        > "$fixture/ci-$drift.log" 2>&1 || status=$?
+    [[ "$status" == 2 && "$(cat "$fixture/events")" == admission ]] || exit 1
+    logs=("$fixture/$drift-logs"/validation.*)
+    [[ ${#logs[@]} == 1 ]] || exit 1
+    [[ "$(wc -l < "${logs[0]}/timings.tsv" | tr -d ' ')" == 2 ]] || exit 1
+    grep -F $'validation-tools-check\tFAIL\t' "${logs[0]}/timings.tsv" > /dev/null
+    [[ -f "${logs[0]}/inputs.json" && -f "${logs[0]}/0-after-inputs.json" ]] || exit 1
+    if [[ "$drift" == changed ]]; then
+        grep -F 'validation input changed: Cargo.lock' "$fixture/ci-$drift.log" > /dev/null
+    else
+        grep -F 'cannot observe validation input Cargo.lock' "$fixture/ci-$drift.log" > /dev/null
+    fi
+done
+echo 'Changed/missing graph inputs stop Jobs CI after admission with retained checkpoints (substitute tool effects; no product validation)'
 fixture_complete=true

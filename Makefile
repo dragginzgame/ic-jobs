@@ -2,10 +2,14 @@
 export RELEASE_DELIVERY ?= direct
 LOCAL_TOOL_INSTALL_TARGETS := install-release-tools
 LOCAL_TOOL_CHECK_TARGETS := release-tools-check
-include make/tools.mk
-include make/release.mk
-include make/rust-format.mk
+override SHARED_TOOLING_ROOT := $(CURDIR)
+include make/consumer.mk
 CARGO_EDIT_TOOL = bash scripts/dev/install-rust-tools.sh --package cargo-edit --version "$(shell . ci/release-tools.env && printf '%s' "$$IC_JOBS_CARGO_EDIT_VERSION")" --bin cargo-set-version --profile release
+VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
+	--input .shared-tooling.snapshot --input Makefile --input ci/tool-versions.env \
+	--input ci/ic-tools.tsv --input ci/release-tools.env \
+	--input crates/ic-jobs/Cargo.toml --input apps/job-consumer/Cargo.toml \
+	--input crates/jobs-canister-tests/Cargo.toml
 
 .PHONY: help version install-hooks install-release-tools release-tools-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling test-formatting-evidence package publish-check publish ci
 help:
@@ -28,9 +32,6 @@ install-release-tools:
 release-tools-check:
 	+@. ci/release-tools.env && tool="$$( $(CARGO_EDIT_TOOL) --check )" && actual="$$("$$tool" set-version --version)" && test "$$actual" = "cargo-edit-set-version $$IC_JOBS_CARGO_EDIT_VERSION" || \
 		{ echo 'Missing or mismatched cargo-edit; run make install-release-tools' >&2; exit 1; }
-
-install-hooks:
-	bash scripts/dev/install-git-hooks.sh
 
 check:
 	+cargo check -p ic-jobs --all-targets --all-features --locked --offline
@@ -87,9 +88,6 @@ docs-check:
 	+RUSTDOCFLAGS="-D warnings" cargo doc -p ic-jobs --all-features --locked --offline --no-deps
 	+cargo test -p ic-jobs --doc --all-features --locked --offline
 
-shared-tooling-check:
-	bash scripts/ci/verify-shared-tooling-snapshot.sh
-
 check-doc-links:
 	perl scripts/ci/check-documentation-links.pl --root . *.md docs/*.md docs/principles/*.md docs/status/*.md rules/*.md audits/*.md tasks/*.md apps/job-consumer/README.md
 
@@ -97,7 +95,7 @@ check-pins:
 	+bash scripts/ci/check-dependency-pins.sh --cargo-inheritance
 
 check-release-commands:
-	bash scripts/ci/check-release-commands.sh . make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh
+	bash scripts/ci/check-release-commands.sh . make/consumer.mk make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh
 
 test-release-tooling: release-tools-check format-tools-check
 	+bash scripts/release/test-tooling.sh
@@ -128,8 +126,11 @@ validation-tools-check: tools-check format-tools-check
 
 # Ordered recursive calls preserve admission before dependent work under -j.
 ci: shared-tooling-check
-	+$(MAKE) --no-print-directory validation-tools-check
-	+$(MAKE) --no-print-directory check-doc-links check-pins check-release-commands test-release-tooling test-formatting-evidence test-consumer-tooling formatting-hook-check fmt-check check test-jobs test-consumers check-consumer check-msrv check-wasm clippy docs-check package
+	+bash scripts/ci/run-validation-targets.sh --fail-fast $(VALIDATION_INPUTS) \
+		validation-tools-check check-doc-links check-pins check-release-commands \
+		test-release-tooling test-formatting-evidence test-consumer-tooling \
+		formatting-hook-check fmt-check check test-jobs test-consumers \
+		check-consumer check-msrv check-wasm clippy docs-check package
 
 .PHONY: release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
 _release_targets := release-patch release-minor release-major release-resume release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
@@ -146,7 +147,7 @@ release-preflight:
 	+@bash scripts/release/metadata.sh preflight
 
 release-verify:
-	+CARGO_NET_OFFLINE=true VALIDATION_FAILURE_LOG_DIR="$$(git rev-parse --git-path release-state)/validation-failures" bash scripts/ci/run-validation-targets.sh --fail-fast ci
+	+CARGO_NET_OFFLINE=true VALIDATION_FAILURE_LOG_DIR="$$(git rev-parse --git-path release-state)/validation-failures" bash scripts/ci/run-validation-targets.sh --fail-fast $(VALIDATION_INPUTS) ci
 
 release-prepare-version:
 	+@bash scripts/release/metadata.sh prepare

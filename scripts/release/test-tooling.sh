@@ -129,31 +129,83 @@ new_repository() {
     local name="$1"
     repository="$fixture/$name"
     mkdir -p "$repository"
-    cp "$root"/{Cargo.toml,Cargo.lock,CHANGELOG.md,README.md,LICENSE,Makefile,.gitignore,rust-toolchain.toml} "$repository/"
+    cp "$root"/{Cargo.toml,Cargo.lock,CHANGELOG.md,README.md,LICENSE,Makefile,.gitignore,.shared-tooling.snapshot,rust-toolchain.toml} "$repository/"
     cp -R "$root/crates" "$root/apps" "$root/scripts" "$root/make" "$root/ci" "$repository/"
+    # Keep shared recipes intact; replace their external installer effects.
+    for toolset in host ic; do
+        cat > "$repository/scripts/dev/install-$toolset-tools.sh" <<'INSTALLER'
+#!/usr/bin/env bash
+set -euo pipefail
+consumer="$(cd -P . && printf '%s/.' "$PWD")"
+consumer="${consumer%/.}"
+[[ "$1" == --consumer && "$2" == "$consumer" ]] || exit 49
+case "${0##*/}" in
+    install-host-tools.sh) toolset=host; catalog=--versions; file=tool-versions.env ;;
+    install-ic-tools.sh) toolset=ic; catalog=--pins; file=ic-tools.tsv ;;
+    *) exit 49 ;;
+esac
+[[ "$3" == "$catalog" && "$4" == "$consumer/ci/$file" ]] || exit 49
+case "${5:-}" in
+    --preflight) [[ "$toolset" == ic ]]; exit 0 ;;
+    --check)
+        target="$toolset-tools-check"
+        printf '%s\n' "$target" >> .git/tool-events
+        [[ "${TOOLING_COMMON_CHECK_FAILURE:-}" != "$target" ]] ;;
+    '') printf 'install-%s-tools\n' "$toolset" >> .git/tool-events ;;
+    *) exit 49 ;;
+esac
+INSTALLER
+    done
     cat > "$repository/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
 #!/usr/bin/env bash
 set -euo pipefail
 . ci/release-tools.env
 case "${1:-}" in
     --consumer)
-        [[ $# == 5 ]] || exit 49
-        [[ "$3" == --versions && "$5" == --preflight ]] || exit 49
+        [[ $# == 4 || $# == 5 ]] || exit 49
+        [[ "$3" == --versions ]] || exit 49
         consumer="$(cd -P . && printf '%s/.' "$PWD")"
         consumer="${consumer%/.}"
         [[ "$2" == "$consumer" && "$4" == "$consumer/ci/tool-versions.env" ]] || exit 49
-        printf 'rust-preflight\n' >> .git/tool-events ;;
+        case "${5:-}" in
+            --preflight) printf 'rust-preflight\n' >> .git/tool-events ;;
+            --check)
+                printf 'rust-tools-check\n' >> .git/tool-events
+                [[ "${TOOLING_COMMON_CHECK_FAILURE:-}" != rust-tools-check ]] ;;
+            '') printf 'install-rust-tools\n' >> .git/tool-events ;;
+            *) exit 49 ;;
+        esac ;;
     --package)
         [[ "$*" == "--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release --check" ]] || exit 49
         printf '%s\n' "$TOOLING_REAL_CARGO_EDIT" ;;
     *) exit 49 ;;
 esac
 INSTALLER
-    cat >> "$repository/Makefile" <<'MAKE'
+    cat > "$repository/scripts/ci/verify-shared-tooling-snapshot.sh" <<'VERIFY'
+#!/usr/bin/env bash
+exit 0
+VERIFY
+    # Product metadata stays real; this fixture owns one gate recipe per target.
+    # Actual production routing is qualified separately below and by the caller.
+    cat > "$repository/Makefile" <<'MAKE'
+.DEFAULT_GOAL := help
+export RELEASE_DELIVERY ?= direct
+LOCAL_TOOL_INSTALL_TARGETS := install-release-tools
+LOCAL_TOOL_CHECK_TARGETS := release-tools-check
+override SHARED_TOOLING_ROOT := $(CURDIR)
+include make/consumer.mk
 
-# Substitute the existing installer/check effects, retaining actual routing.
-install-host-tools install-ic-tools install-rust-tools:
-	@printf '%s\n' '$@' >> .git/tool-events
+_release_targets := release-patch release-minor release-major release-resume release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
+ifneq ($(filter $(_release_targets),$(MAKECMDGOALS)),)
+ifneq ($(RELEASE_DELIVERY),direct)
+$(error ic-jobs supports direct release delivery only)
+endif
+endif
+
+help:
+	@:
+version release-version:
+	@bash scripts/release/metadata.sh version
 install-release-tools:
 	@test "$${TOOLING_INSTALL_FAILURE:-0}" = 0
 	@printf 'setup\n' >> .git/tool-events
@@ -161,13 +213,20 @@ install-release-tools:
 release-tools-check:
 	@printf 'check\n' >> .git/tool-events
 	@test "$${TOOLING_CHECK_FAILURE:-0}" = 0 && test -f .git/release-tool-ready
-host-tools-check ic-tools-check rust-tools-check:
-	@printf '%s\n' '$@' >> .git/tool-events
-	@test "$${TOOLING_COMMON_CHECK_FAILURE:-}" != '$@'
-shared-tooling-check format-tools-check:
-	@:
-check test-jobs test-consumers check-consumer check-msrv check-wasm clippy docs-check package:
+validation-tools-check: tools-check format-tools-check
+ci: shared-tooling-check
+	+$(MAKE) --no-print-directory validation-tools-check
 	@printf 'unexpected build\n' >> .git/validation-events; exit 49
+release-preflight:
+	+@bash scripts/release/metadata.sh preflight
+release-prepare-version:
+	+@bash scripts/release/metadata.sh prepare
+release-prepared-check release-committed-check release-tagged-check release-push-check:
+	+@bash scripts/release/metadata.sh check
+release-commit-check:
+	+@bash scripts/release/metadata.sh commit-check
+release-files:
+	@printf '%s\0' Cargo.toml Cargo.lock CHANGELOG.md
 MAKE
     cd "$repository"
     git init --quiet --initial-branch=main
@@ -202,12 +261,6 @@ refuse() {
 # here, retaining the actual Make recipes and consumer version probe.
 new_repository selected-tool
 cp "$root/Makefile" Makefile
-cat >> Makefile <<'MAKE'
-shared-tooling-check host-tools-check ic-tools-check rust-tools-check format-tools-check:
-	@:
-check test-jobs test-consumers check-msrv check-wasm clippy docs-check package:
-	@printf 'unexpected build\n' >> .git/validation-events; exit 49
-MAKE
 # shellcheck disable=SC1091
 . ci/release-tools.env
 selected_root="$repository/.tools/rust/selected-fixture"
@@ -583,5 +636,9 @@ refuse failed-upload env TOOLING_UPLOAD_RESULT=42 bash scripts/release/publish.s
 refuse uncertain-upload-now-present env TOOLING_REGISTRY_HTTP=200 bash scripts/release/publish.sh origin
 [[ "$(wc -l < "$TOOLING_UPLOAD_EVENTS" | tr -d ' ')" == 1 ]] || exit 1
 [[ -z "$(git status --porcelain)" ]] || exit 1
+if grep -E 'warning: (overriding recipe|ignoring old recipe)' "$fixture/"*.log; then
+    echo 'release fixture emitted unexpected recipe warnings' >&2
+    exit 1
+fi
 echo 'Release and publication fixtures passed (real local Git; substitute gate and registry/upload effects)'
 fixture_complete=true
