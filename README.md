@@ -136,8 +136,8 @@ it cannot make a permanently failing handler progress. Dispose of known no-effec
 handler failures through the job's exact attempt, retaining fail-closed handling
 for corrupt storage and unresolved external effects.
 
-The optional adapter selects IC Timers 0.17. Applications using its public timer
-types must align their direct timer dependency to 0.17. For exchanged measurement
+The optional adapter selects IC Timers 0.19. Applications using its public timer
+types must align their direct timer dependency to 0.19. For exchanged measurement
 summaries, use `ic_timers::MeasurementSummary` to share Timers' selected Metrics
 package identity.
 
@@ -180,8 +180,9 @@ Rust tools include cargo-sort, cargo-sort-derives and candid-extractor. For an i
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/common/bin` to PATH.
 The reviewed [common Make entrypoint](docs/make-interface.md) owns contributor
 setup, formatting, hooks, snapshot verification and release routing; Jobs retains
-its product checks and metadata adapters.
-Shared Tooling 0.6.5 stores verified host, IC and Cargo-built bundles once per user
+its product checks and metadata adapters. Snapshot entrypoints are recorded in
+`.shared-tooling.snapshot`; refresh derives their required companions.
+Shared Tooling stores verified host, IC and Cargo-built bundles once per user
 while each checkout retains its own pinned selection through these paths. Cargo
 reuse binds the exact compiler, native environment, published source and lock,
 target and profile. Tool builds use the shared standard environment; application

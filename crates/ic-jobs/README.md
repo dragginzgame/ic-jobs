@@ -99,7 +99,7 @@ it cannot make a permanently failing handler progress. Dispose of known no-effec
 handler failures through the job's exact attempt, retaining fail-closed handling
 for corrupt storage and unresolved external effects.
 
-The optional adapter uses IC Timers 0.17. Align direct timer dependencies and all
+The optional adapter uses IC Timers 0.19. Align direct timer dependencies and all
 timer owners in the canister to that package identity. For exchanged measurement
 summaries, use `ic_timers::MeasurementSummary` to share Timers' selected Metrics
 package identity.

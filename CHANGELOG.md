@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.7.2]
+
+- Adopt Shared Tooling 0.8.0: snapshot refresh derives required companions from
+  recorded entrypoints and automatically retires verified obsolete payloads.
+  Keep Jobs' existing selection; no files are retired by this refresh
+  ([Shared #131](https://github.com/dragginzgame/shared-tooling/issues/131)).
+- Use the macro-safe cargo-sort-derives 0.14.1 pin.
+  Refresh common Rust tools with `make install-rust-tools`, then
+  `make rust-tools-check` ([#21](https://github.com/dragginzgame/ic-jobs/issues/21),
+  [Shared #113](https://github.com/dragginzgame/shared-tooling/issues/113)).
+- Refresh the selected Host 0.14.5, Memory 0.35.14, Metrics 0.7.1 and Testkit
+  0.34.2 patches. Prepare/check the separately selected Testkit CLI before
+  recovery qualification.
+- Correct the timer adapter guides to the Timers 0.19 dependency already
+  selected by Jobs 0.7.1. Applications sharing its public timer types must use
+  the same Timers family; the job storage contract is unchanged.
+
 ## [0.7.1] - 2026-10-12
 
 - Adopt Shared Tooling 0.6.5 and its common Make entrypoint for setup, formatting,
