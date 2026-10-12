@@ -1,6 +1,13 @@
 # Changelog
 
-## [0.6.2]
+## [0.7.0]
+
+- **Breaking:** Select IC Timers 0.18 for the optional timer adapter. Consumers
+  using its exposed timer types must update their IC Timers dependency to 0.18;
+  direct timer registrations now require an explicit initial schedule. Jobs'
+  watchdog reconciliation and stored job format are unchanged.
+- Refresh the locked Host crates to 0.14.2 through the native Testkit harness;
+  their published Rust sources, dependencies and Rust 1.88 floor are unchanged.
 
 - Reject contradictory retained timing when restoring cancelled jobs or running
   attempts: retry backoff and recurring successor deadlines remain validated

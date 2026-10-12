@@ -1,5 +1,52 @@
 # Current handoff
 
+## Upstream inspection — incoming Timers 0.18 selects Jobs 0.7.0
+
+The incoming manifest already selects **Timers 0.18**, and the incoming lock
+selects Timers **0.18.0**, all four Host crates **0.14.2**, Candid/derive **0.10.38**
+and unicode-ident **1.0.27**. A concurrent maintainer commit
+`d7c000a091cd8f6a901ace1f86f77a29bfc0dbc0` commits the repair and advances Memory
+to **0.35.13**; it is preserved. Package versions remain **0.6.1**.
+Pending notes now select **0.7.0**
+because the optional Jobs adapter exposes Timers' nominal public types: consumers
+must select Timers 0.18 together. This replaces the earlier compatible 0.6.2
+draft classification for the complete batch. No stored JobRecord change or
+installation reset is needed.
+
+Public main/tag verification finds Host **0.14.2** at
+`fed8724e79862d8273d01823619fe648c981c019` and Timers **0.18.0** at
+`52bc4bad399122be040cf155d9b4563b5509e009`. Published Host Rust sources and
+normalized manifests match 0.14.1 apart from package versions; Host stays
+native-only through Testkit. Timers retains Rust **1.88**, but direct register
+functions add an explicit initial schedule and scheduled-creation cleanup.
+Jobs and its consumer use the unchanged `reconcile_watchdog` boundary, so no
+caller rewrite or new timer provider is required. Selected archive checksums
+match the lock. Upstream CI on both exact delivered commits passes.
+
+Shared public main is **0.6.4** at
+`6fc8eb9a94f83fb0b9d0a26377d4232508cdbe2d`, with successful exact-source CI.
+Its common Make interface owns setup, formatting, hooks, snapshot checking and
+releases while retaining consumer inputs. The canonical read-only preview
+passes: ten current selections would update, and `make/consumer.mk` plus
+`docs/make-interface.md` would be added (86 selections). Adoption must replace
+Jobs' separate includes and equivalent local hook/snapshot recipes, propagate
+fixture inputs and qualify actual routing. This inspection does **not** export
+or claim adoption; the reviewed snapshot remains Shared **0.6.3**, with 84 files.
+
+Focused qualification is repeated after the concurrent Memory change and passes
+on the final selected graph: Rust **1.88.0** core and
+timers independently (20 composition, 23/24 job, ten management and two doctest
+cases), both Wasm feature configurations, ten native stable-consumer tests,
+release Wasm consumer build, recovery-harness compilation, warnings-denied
+core/consumer Clippy and rustdoc. These are Linux results; full CI/release gates,
+new macOS qualification and live recovery for this graph are not selected.
+Evidence: `/tmp/ic-jobs-upstream-1012-17x8ucse/`, including the qualified lock
+and pre/post input identities. Earlier logs retain the Memory 0.35.12 graph.
+The incoming manifest/lock, product source and prior work are preserved; no agent
+index/ref or sibling mutation is performed.
+Only pending notes and this handoff are updated; no install, dispatch or release
+effect is performed.
+
 ## Pending 0.6.2 — retained timing validation
 
 The accepted management/restore review reproduced three corrupt-record admissions
