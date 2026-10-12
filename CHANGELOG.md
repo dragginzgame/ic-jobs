@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.7.3]
+
+- Adopt Shared Tooling 0.8.3: reject malformed snapshot fields, retain build
+  identity diagnostics without following redirected evidence paths, and admit
+  formatters against the selected Rust catalog. Include the read-only Cargo
+  tool freshness guide and complete Make snapshot companions
+  ([#21](https://github.com/dragginzgame/ic-jobs/issues/21),
+  [Shared #133](https://github.com/dragginzgame/shared-tooling/issues/133),
+  [Shared #134](https://github.com/dragginzgame/shared-tooling/issues/134),
+  [Shared #135](https://github.com/dragginzgame/shared-tooling/issues/135),
+  [Shared #136](https://github.com/dragginzgame/shared-tooling/issues/136),
+  [Shared #131](https://github.com/dragginzgame/shared-tooling/issues/131)).
+- Expand durable-record qualification across mixed management, retry and
+  uncertainty histories and deadline extremes. Check serialization/restore
+  agreement and unchanged records after rejected transitions
+  ([#23](https://github.com/dragginzgame/ic-jobs/issues/23),
+  [#24](https://github.com/dragginzgame/ic-jobs/issues/24)).
+- Allow 45 minutes for native CI after cold Intel qualification reached the
+  previous 30-minute limit during compilation
+  ([#25](https://github.com/dragginzgame/ic-jobs/issues/25)).
+
 ## [0.7.2] - 2026-10-12
 
 - Adopt Shared Tooling 0.8.0: snapshot refresh derives required companions from

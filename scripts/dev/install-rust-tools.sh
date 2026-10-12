@@ -148,7 +148,8 @@ selected_paths() {
     done
     for path in "$directory/bin/$target" "$directory/.crates.toml" \
         "$directory/.crates2.json" "$directory/selection.json" "$directory/inputs.json" \
-        "$directory/source.crate" "$directory/Cargo.lock" "$directory/native-environment.txt"; do
+        "$directory/source.crate" "$directory/Cargo.lock" "$directory/native-environment.txt" \
+        "$directory/build-identity.observed.json" "$directory/native-environment.observed.txt"; do
         [[ ! -L "$path" && ( ! -e "$path" || -f "$path" ) ]] || {
             printf 'Cargo tool file must be regular: %s\n' "$path" >&2; return 1;
         }
@@ -240,6 +241,7 @@ install_selected() (
         tool_store_reference "$destination" || exit $?
     else
         tool_store_new || exit $?
+        selected_paths "$stage" || exit $?
         printf '%s\n' "$inputs" > "$stage/inputs.json" || exit $?
         printf '%s\n' "$packaged_lock" > "$stage/Cargo.lock" || exit $?
         printf '%s\n' "$native_identity" > "$stage/native-environment.txt" || exit $?
@@ -254,8 +256,18 @@ install_selected() (
         # Refuse a changed source/compiler/native environment before publication.
         expected_build="$build_identity"
         cargo_build_init || exit $?
+        if [[ "$expected_build" != "$build_identity" ]]; then
+            # Retain the exact observation used to refuse activation. Do not
+            # sample again: compiler/native state may already have changed.
+            printf '%s\n' "$build_identity" > "$stage/build-identity.observed.json" || exit 1
+            printf '%s\n' "$native_identity" > "$stage/native-environment.observed.txt" || exit 1
+            changed_fields="$(jq -nr --argjson expected "$expected_build" --argjson observed "$build_identity" \
+                '[$expected | keys[] as $key | select(.[$key] != $observed[$key]) | $key] | join(", ")')" || exit 1
+            printf 'Cargo tool build environment changed: %s\n' "$changed_fields" >&2
+            printf 'Compare inputs.json (.build) and native-environment.txt with build-identity.observed.json and native-environment.observed.txt in %s\n' "$stage" >&2
+            exit 1
+        fi
         cargo_cache_check || exit $?
-        [[ "$expected_build" == "$build_identity" ]] || { echo 'Cargo tool build environment changed' >&2; exit 1; }
         bash "$ROOT/scripts/ci/verify-file-checksum.sh" sha256 "$(jq -r .source_sha256 <<< "$inputs")" "$source_archive" || exit $?
         selected_identity "$stage" > "$stage/selection.json" || exit $?
         destination="$stage"

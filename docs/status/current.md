@@ -1,6 +1,220 @@
 # Current handoff
 
-## Pending 0.7.2 — Shared Tooling 0.8.0
+## Shared 0.8.3 adoption — pending Jobs 0.7.3
+
+Canonically adopted committed Shared **0.8.3** at
+`8cca7e67b03ce6e701b6e7dcec2e9753eb98337e` from a clean isolated source.
+Preview/export updates nine shared payloads and adds the Cargo tool freshness
+guide: **87 files**, all 86 previous roots retained, none retired. The baseline
+bytes and tool pins are unchanged; AGENTS records the reviewed source. This
+adopts formatter admission against the selected Rust catalog, refusal of
+redirected observed-build evidence, complete Make installer/LOC companions and
+quiet successful PCRE2 checks. Canonical refresh now replaces each payload
+atomically, preserving old bytes on an interrupted copy and rechecking local
+edits/index before replacement. Source owners:
+[Shared #135](https://github.com/dragginzgame/shared-tooling/issues/135),
+[Shared #136](https://github.com/dragginzgame/shared-tooling/issues/136),
+[Shared #131](https://github.com/dragginzgame/shared-tooling/issues/131).
+
+Focused Jobs checks pass: actual common/release/format tool admission, snapshot,
+pins, Make release adapters, formatting/evidence retention, consumer CLI/Wasm
+refusal and validation-input drift, disposable release/publication recovery,
+real formatting-hook preservation and formatting. ShellCheck passes for the
+changed installers. Exact-source upstream Rust/host installer, Make consumer,
+snapshot interruption/conflict/retry and Cargo freshness fixtures pass under
+Bash 5 and genuine **Bash 3.2.57**, including child shells. The freshness fixture
+uses registry substitutes; this batch does not repeat the preceding real online
+17-tool inspection or install tools. Both actual repeat previews show 87 KEEP.
+
+The first Jobs release fixture refused offline cargo-edit metadata because the
+incoming **IC Memory 0.35.16** crate was absent from the cache. Retained at
+`/tmp/jobs-release-tooling.1tnPj9/`; preparation with `cargo fetch --locked`
+downloaded that selected crate, preserved the lock and allowed the retry to pass.
+No source repair or dependency reselection was needed. Fixture gates,
+installations, registry observations and upload effects are substitutes in
+local disposable repositories; this is not a real release or publication.
+Evidence: `/tmp/ic-jobs-shared-083-va8ublbw/` (before/preservation records,
+preview/export logs, per-command results and both attempts).
+
+The incoming graph is **Host 0.14.7 / Memory 0.35.16 / Metrics 0.7.2 /
+Testkit 0.34.4 / Timers 0.19.1**; it is preserved byte-for-byte. Earlier Rust
+qualification below remains bound to its saved graph. This tooling-only batch
+runs no new Rust package build/tests, full local CI, live PocketIC or hosted
+dispatch. Jobs' published API, storage, own 0.7.2 versions and Rust **1.88** floor
+are unchanged; compatible notes remain **0.7.3**. Pending transition coverage,
+45-minute native workflow budget and Make test route are preserved, along with
+the real index/HEAD. No shared function/method/type is removed.
+
+Exact-source Shared [CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38238988308)
+is queued at inspection; Linux Bash checks do not establish native macOS
+acceptance. Jobs [#21](https://github.com/dragginzgame/ic-jobs/issues/21) stays open
+for delivery and final-source native qualification. Delivered 0.7.2 native Linux
+and Apple Silicon pass; Intel's 30-minute timeout is tracked by
+[#25](https://github.com/dragginzgame/ic-jobs/issues/25), whose pending budget fix
+still awaits delivery/acceptance. The previously verified 84 v0.7.1 live results
+remain bound to their exact source and graph.
+
+## Earlier Shared 0.8.2 inspection — before 0.8.3 adoption
+
+Verified committed/public Shared **0.8.2** at
+`aaf75a37717357dd62f4b0b15001eaa3ba1629cf`. It adds the read-only online Cargo
+tool freshness checker and its task; committed installers, pins and baseline
+are unchanged from 0.8.1. The isolated canonical preview updates three task/
+catalog files. Adding `tasks/cargo-tool-versions.md` as an entrypoint completes
+that catalog's new guide link; preview then shows one addition, with all 86
+previous payloads retained. No export is applied by this inspection.
+
+Ran the exact-source checker against Jobs, its common selection receipts and
+user-level Cargo receipts. All **17 reported tools** are current with
+non-yanked stable releases; the three common pins match their selected versions.
+This is version freshness, not executable byte/build admission, and does not
+inventory consumer-specific selected profiles such as the Testkit CLI. Registry
+responses/statuses and JSON report are retained. No pins or installations change.
+Evidence: `/tmp/ic-jobs-shared-082-review-qxzv26el/`.
+
+Shared's working tree separately contains uncommitted formatting catalog
+selection ([#135](https://github.com/dragginzgame/shared-tooling/issues/135)),
+observed-evidence path admission ([#136](https://github.com/dragginzgame/shared-tooling/issues/136)),
+companion-closure, installer-output and payload replacement fixes. They are
+excluded from the reviewed commit. Recommend the next adoption use a committed
+revision including the relevant installer fixes rather than importing mutable
+bytes. Exact-source Shared 0.8.2 CI is queued at inspection.
+
+Jobs' snapshot stays **0.8.1**; pending **0.7.3** changes and index/refs are
+preserved. The incoming lock now selects Host **0.14.7**, Metrics **0.7.2** and
+Testkit **0.34.4**, plus Memory **0.35.15** / Timers **0.19.1**. Preserved without
+relabeling the preceding Host 0.14.6/Metrics 0.7.1/Testkit 0.34.3 qualification.
+Delivered 0.7.2 native CI now passes Linux and Apple Silicon; Intel's observed
+30-minute timeout remains the native blocker tracked by #25. The pending
+45-minute repair awaits delivery/acceptance. No compilation, tests, tool
+installation, full gate, workflow dispatch, release/publication or sibling edit
+is performed in this inspection. Only this handoff is updated.
+
+## Pending 0.7.3 — durable-record coverage and native CI budget
+
+Added bounded mixed-transition qualification for the existing persistence
+contract: every successful producer record serializes and restores with the
+same record, deadline and active attempt; rejected operations retain the entire
+record. Histories include all public job states, pause/resume/reschedule, all
+outcomes, retries, backward clocks and maximum deadlines. The test runs through
+`make test-jobs`, so the existing CI/release gate selects it. No new runtime,
+storage policy, API, lifecycle ownership or compatibility layer is introduced.
+
+Diagnosed the actual 0.7.2 Intel native cancellation: GitHub annotates the job as
+exceeding **30 minutes**. Its log continues compiling consumer Clippy dependencies
+after successfully building the Wasm consumer and Rust 1.88 recovery harness.
+Raised native CI's finite job budget to **45 minutes**, matching recovery. All
+three hosts, setup/admission, complete gates and permissions remain. Actionlint
+passes; delivery and exact-source native completion under the new budget remain
+pending. Owner: [#25](https://github.com/dragginzgame/ic-jobs/issues/25).
+Evidence: `intel-native-annotations.json`, `intel-native-job.json`,
+`intel-native.log`, `workflow-qualification.json` in this batch directory.
+
+Focused Linux qualification passes on a fixed input checkpoint with incoming
+Host **0.14.6**, Memory **0.35.15**, Timers **0.19.1**, Testkit **0.34.3** and
+Metrics **0.7.1**. Rust **1.88** core/timers tests pass separately, including the
+new history coverage; native/Wasm library and stable-consumer checks, harness
+compilation, warnings-denied Clippy/rustdoc and actual Make test routing pass.
+The consumer CLI/Wasm refusal and graph-drift guard fixture passes. Snapshot,
+pins, Make adapters, links, formatting and whitespace pass. Host advanced during
+the initial checks; that mixed-input evidence is retained separately. Repeated
+focused checks use the shared validation runner's input checkpoints and saved
+before/after graph hashes. Qualified lock/input identities are retained in
+`qualified-Cargo.lock`, `qualified-inputs.json` and `stable-checks.json`.
+Evidence: `/tmp/ic-jobs-improvements-49xrn201/`.
+
+The previously authorized [v0.7.1 recovery](https://github.com/dragginzgame/ic-jobs/actions/runs/38225596987)
+now passes all three hosts. Apple Silicon's uploaded evidence verifies exact
+commit/ref/run, tagged manifests/lock/snapshot, Testkit 0.34.1 native selection,
+runner checksum, actual Wasm hashes, server logs and seven outcomes per variant.
+Together with the prior Linux/Intel reports, this establishes **84 inspected
+live results** for `c44312a3e76e08b4f908f1f02ce3374169658212`.
+Reports: `apple-071-recovery-acceptance.json` and
+`all-hosts-071-recovery-acceptance.json`; artifact: `recovery-071-apple/`.
+It qualifies that tested source/graph, not the pending 0.7.3 graph.
+
+#23/#24's selected live obligation is complete. Their remaining native acceptance
+and #21's final-source tooling acceptance remain open: 0.7.2 native Linux passes,
+Intel timed out and Apple Silicon is queued. #25 addresses the observed blocker.
+The library implementation remains unchanged; pending notes stay compatible
+**0.7.3**. Own versions/index/refs and external dependency edits are preserved.
+No full local CI/release gate, release/publication, new live dispatch or sibling
+edit is performed. New Testkit 0.34.3 executable preparation remains separate
+from harness compilation and is required before selecting a new live graph.
+
+## Pending 0.7.3 — Shared Tooling 0.8.1
+
+Canonically adopted committed **0.8.1** at
+`c97f9f9c7b7c706fffdcfc5925cf58759b58093f`, verified as public main, from a
+clean isolated checkout. All **86 roots/payloads** remain. Four shared files
+update: strict snapshot-field admission and exact before/observed build-identity
+retention on installer environment drift, plus their guides. No path is added or
+retired; AGENTS records the reviewed revision. Source owners:
+[Shared #133](https://github.com/dragginzgame/shared-tooling/issues/133) and
+[Shared #134](https://github.com/dragginzgame/shared-tooling/issues/134).
+
+Focused Linux checks pass: actual common/release tool admission, snapshot/repeat
+preview, pins, Make adapters, formatting/hook preservation, consumer CLI/Wasm
+refusal and input-drift blocking, formatting-evidence and release/publication
+fixtures with substituted release effects. Exact-source upstream Rust installer
+and malformed snapshot/export/inventory fixtures pass under Bash 5 and genuine
+**Bash 3.2.57**, including child shells. The initial inventory attempts lacked
+cloc on PATH; failures are retained. Reruns use Jobs' admitted pinned host bundle
+(cloc 2.10) and pass. ShellCheck, links, formatting and whitespace pass.
+Evidence: `/tmp/ic-jobs-shared-081-bzkcvgb5/`.
+
+The incoming lock selects Memory **0.35.15**, Timers **0.19.1** and Testkit
+**0.34.3**; preserved byte-for-byte. Earlier native/Rust evidence remains bound
+to its older released graph; this tooling adoption does not qualify these
+independent edits or prepare the new Testkit CLI. Jobs Rust, manifests, tool pins,
+Make recipes, real index/refs and Rust **1.88** floor remain unchanged. Shared-only
+changes select compatible **0.7.3** notes; no release/version mutation, full local
+CI, new live dispatch or sibling edit is performed.
+
+The already authorized v0.7.1 Intel recovery now passes. Its uploaded artifact is
+verified against exact commit/ref/run, tagged graph/snapshot, native Testkit 0.34.1
+receipt/check log, runner checksum, actual Wasm hashes, server logs and seven
+outcomes per variant: **28 Intel live passes**, joining Linux for **56 inspected
+v0.7.1 results**. Report: `intel-071-recovery-acceptance.json`; artifact directory:
+`recovery-071-intel/`. Apple Silicon remains running; #23/#24 stay open. These
+results do not qualify the dirty 0.7.3 graph. Delivered 0.7.2 native CI passes
+Linux, with Intel running and Apple Silicon queued at inspection. #21 awaits
+this adoption's final delivered-source native acceptance.
+
+## Delivered 0.7.2 — issue qualification
+
+Verified **0.7.2** at `17ff4fbe9d9e7a7c8587a356cd9ba644e7a18fe9`, matching
+public main and its annotated tag. The checkout was clean. #21's Shared 0.8.0
+adoption, #23's durable management and #24's restore repair are implemented and
+delivered; remaining work is source-bound hosted acceptance.
+
+Focused Linux checks pass on this exact released graph: Rust **1.88.0** core and
+timers separately (20 composition, 23/24 job, ten management and two doctest
+cases), both Wasm library configurations, ten stable-consumer tests, release Wasm
+build and harness compilation. Warnings-denied core/consumer native/Wasm Clippy,
+rustdoc, actual common/release/Testkit tool admission, snapshot and pins pass.
+The initial Testkit refusal retained evidence; canonical setup/check selects
+**0.34.2** for the current native environment. Only the receipt's native build
+fingerprint differs from its previous selection. Older installations remain.
+No PocketIC setup/launch or new recovery dispatch was selected.
+Exact inputs/logs: `/tmp/ic-jobs-072-issues-ff_gwi1b/`.
+
+[0.7.2 native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38231105752)
+is running Linux and Intel; Apple Silicon is queued. Superseded 0.7.1 native CI was
+cancelled before all-host acceptance. The already authorized
+[v0.7.1 recovery](https://github.com/dragginzgame/ic-jobs/actions/runs/38225596987)
+has **28 verified Linux live results**; both macOS recovery jobs are running.
+No new uploaded artifact was available at inspection. Jobs/consumer/harness Rust,
+runner and workflow bytes match 0.7.1; lock/snapshot/version inputs differ, so its
+live evidence cannot be relabeled as testing the 0.7.2 graph. Inspect remaining
+host evidence under the existing authorization. #21/#23/#24 remain open.
+
+No further implementation defect is identified by this scoped issue review.
+No Rust source, package version, lock, index/ref, release/publication, full local
+CI or sibling edit is performed. Core/timers retain Rust **1.88**. Routine
+qualification adds no pending release entry; the dated 0.7.2 ledger is preserved.
+
+## Shared Tooling 0.8.0 adoption — delivered in 0.7.2
 
 Canonically adopted committed Shared **0.8.0** at
 `045a6f22a9de497bfb3af90cb2571957384806f2`, verified as public main, from a

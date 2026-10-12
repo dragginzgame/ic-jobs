@@ -75,6 +75,9 @@ uncommitted files cannot enter the snapshot, and concurrent working-tree edits
 cannot change the exported bytes. The manifest
 records format version `1`, source remote, source commit, and the SHA-256 digest
 and executable state of every vendored file.
+Records use exact tab-separated fields: extra, empty or trailing fields are
+malformed. Refresh, verification and the tooling inventory reject them; literal
+spaces within a valid relative filename remain significant and supported.
 
 Refresh also writes a `# version<TAB>X.Y.Z` annotation from `VERSION` at that
 exact source commit. The committed file must contain a canonical stable version;
@@ -143,9 +146,12 @@ between SSH, HTTPS, or a fork is an explicit provenance change and requires a
 reviewed manifest recreation.
 
 Refresh stages files in a temporary directory under the consumer so the final
-manifest replacement stays on the same filesystem. Consumers should ignore
-`.shared-tooling-refresh.*` in case an ungraceful process termination prevents
-normal cleanup.
+manifest replacement stays on the same filesystem. Each payload is copied to a
+temporary file beside its destination, rechecked against concurrent edits and
+atomically renamed into place. An interrupted copy leaves the destination intact,
+including when a selected subtree is on a different filesystem. Consumers should
+ignore `.shared-tooling-refresh.*` and `.shared-tooling-payload.*` in case an
+ungraceful process termination prevents normal cleanup.
 
 Refresh replaces files individually and then publishes the manifest; it is not
 an atomic replacement of the whole file set. If interrupted, stop consumer
