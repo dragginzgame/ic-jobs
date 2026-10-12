@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.4]
+## [0.7.4] - 2026-10-12
 
 - Adopt Shared Tooling 0.9.0: snapshot refresh and verification share one
   validated manifest reader, rejecting NUL bytes and emitting no records for
