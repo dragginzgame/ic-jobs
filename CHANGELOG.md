@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.3]
+## [0.7.3] - 2026-10-12
 
 - Adopt Shared Tooling 0.8.3: reject malformed snapshot fields, retain build
   identity diagnostics without following redirected evidence paths, and admit
