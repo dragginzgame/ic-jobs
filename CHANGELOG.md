@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.5]
+## [0.7.5] - 2026-10-12
 
 - Adopt Shared Tooling 0.9.4: preserve installer failures while releasing locks,
   retry transient asset downloads within fixed limits, and reject malformed
