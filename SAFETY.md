@@ -44,11 +44,15 @@ checks structural invariants; it is not a signature, schema migration, trusted
 history proof or a byte-format versioning protocol. Consumers own their selected
 codec and any retained storage-format contract.
 
-Pending/paused retries must record completion at or after the occurrence's scheduled
-time. A zero-attempt successor must follow a completed recurring occurrence,
+Retained retry completions must be at or after the occurrence's scheduled time.
+Pending/paused retries retain a representable backoff deadline even when cancelled.
+A running retry must start at or after the preceding retry deadline.
+A zero-attempt successor must follow a completed recurring occurrence,
 with its deadline matching the recorded outcome timestamp and scheduling policy,
 unless an explicit unstarted-occurrence reschedule establishes a new cadence
-origin. Management time must not replace outcome/backoff evidence.
+origin. That successor remains validated after cancellation or first dispatch
+while the preceding success is retained. Management time must not replace
+outcome/backoff evidence.
 Successful one-shot work cannot be reconstructed as a fresh pending occurrence.
 The first occurrence of each scheduling policy retains that policy's original
 deadline through dispatch, uncertainty, retries and cancellation. Cancellation timestamps must remain

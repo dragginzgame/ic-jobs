@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2]
+
+- Reject contradictory retained timing when restoring cancelled jobs or running
+  attempts: retry backoff and recurring successor deadlines remain validated
+  after management and dispatch. Invalid stable records block the complete
+  consumer queue before effects ([#24](https://github.com/dragginzgame/ic-jobs/issues/24)).
+
 ## [0.6.1] - 2026-10-11
 
 - Refresh the locked Timers selection to 0.17.14 and Metrics to 0.6.6. Their

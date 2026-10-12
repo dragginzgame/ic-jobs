@@ -1,6 +1,93 @@
 # Current handoff
 
-## Delivered 0.6.0 — native and live acceptance remaining
+## Pending 0.6.2 — retained timing validation
+
+The accepted management/restore review reproduced three corrupt-record admissions
+on released 0.6.1 product source, tracked in
+[#24](https://github.com/dragginzgame/ic-jobs/issues/24). Restoration now checks
+that Running retries respect their retained completion and preceding backoff,
+that cancelled retries retain a possible completion/backoff deadline, and that
+successor deadlines still match retained success after cancellation or first
+dispatch. The canonical schedule calculation remains the deadline owner.
+Uncertain records still block dispatch until explicit disposition; public
+transition errors and valid records retain their contracts.
+
+The stable consumer's new corruption cases refuse the complete queue before
+effects, and failed reopening preserves the stored queue payload. Repeated
+rescheduling, pause/resume, cancellation before retry eligibility, representable
+maximum deadlines and exhausted identity counters remain covered. The next
+notes select compatible **0.6.2**: no API, stored layout, dependency or Rust-floor
+change. Package manifests and lock stay **0.6.1**.
+
+Focused Linux checks pass on the current locked graph: Rust **1.88.0** core and
+timers separately (20 composition cases, 23/24 job cases, ten management cases,
+two doctests), separate core/timers Wasm checks, ten native stable-consumer tests,
+release Wasm consumer build and recovery-harness compilation. Core and consumer
+native/Wasm Clippy with warnings denied, rustdoc, formatting, links, declarations,
+snapshot and whitespace checks also pass. Retained failed attempts include the
+released corruption reproductions, a corrected test expectation for the existing
+NotPending error, a corrected non-Copy fixture setup and an overly broad backing
+memory comparison replaced by queue-payload preservation. Evidence:
+`/tmp/ic-jobs-062-restore-c55aezci/`. Full CI/release gates and new live execution
+remain unselected; #24 stays open for delivery and source-bound acceptance.
+
+The already selected [v0.6.0 recovery](https://github.com/dragginzgame/ic-jobs/actions/runs/38153167824)
+now passes Linux and Apple Silicon. Apple artifact source/ref, lock/snapshot,
+Testkit selection, runner checksum, four actual Wasm hashes, server logs and all
+seven scenarios are inspected: **28 results per host, 56 verified live results**.
+Apple evidence is in this batch's `recovery-apple/` and
+`apple-recovery-acceptance.json`; prior Linux evidence remains at the location
+below. Intel recovery is running. This qualifies the tested **0.6.0** source and
+graph; it does not qualify this pending restore repair or 0.6.1's graph.
+[0.6.1 native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38155976004)
+still passes Linux with both macOS hosts queued. #21 and #23 remain open.
+No new dispatch, commit, release, publication, reset or sibling edit is performed;
+the incoming handoff, real index and refs are preserved.
+
+## Delivered 0.6.1 — finish hosted acceptance
+
+Jobs **0.6.1** is delivered at `4cc7fdb75867ca4c5d55a2364efaa2c8cab79478`,
+matching public main and the annotated `v0.6.1` target. The checkout was clean at
+inspection. Product Rust sources, consumer, recovery harness and workflows match
+0.6.0; release metadata, lock and prior qualification notes changed. The snapshot
+remains Shared **0.6.3** `4fd979d13c32adb3cb2f51f213ebfc4f98339b3d`.
+
+The released graph selects Memory **0.35.12**, Timers **0.17.14**, Metrics **0.6.6**,
+Testkit **0.34.0**, Host **0.14.1** and Syn **3.0.8**. The prior Timers/Metrics
+source reviews are delivered. Memory's normalized manifest and floor remain
+unchanged; its only changed Rust file adds tests to the private `repo_tool`
+example, which Jobs does not compile as a dependency. Jobs' core/timers floor
+remains Rust **1.88**. No new library adapter or scheduling policy is needed.
+
+[0.6.1 native CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38155976004)
+passes Linux; Intel and Apple Silicon remain queued. The preceding 0.6.0 native
+run passed Linux but was cancelled before macOS acceptance. Keep
+[#21](https://github.com/dragginzgame/ic-jobs/issues/21) open for the current
+source's all-host tooling gate. The CI concurrency policy replaces queued/running
+checks on each newer main push; allowing this source's macOS jobs to finish avoids
+repeatedly superseding its acceptance.
+
+[Selected v0.6.0 recovery](https://github.com/dragginzgame/ic-jobs/actions/runs/38153167824)
+passes Linux. Its uploaded artifact is inspected: exact commit/ref, released
+lock and snapshot, Testkit 0.34.0 selection, recovery-runner checksum, all four
+Wasm hashes and server logs match the selected execution. All seven scenarios
+pass for original, `-O3`, `-Os` and `-Oz`: **28 live Linux results**, including
+management upgrades, wakeup reconstruction, trap rollback and blocked effects.
+Intel and Apple Silicon recovery remain queued. This evidence is bound to
+`7d23a7919890db6d7b22d491b84372576fbf545f` and its 0.6.0 graph; it is not relabelled
+as 0.6.1 live qualification. Keep
+[#23](https://github.com/dragginzgame/ic-jobs/issues/23) open for its remaining
+hosted acceptance. No new recovery dispatch or local compilation is selected by
+this inspection; no current failing CI job is observed.
+
+The next useful work is completing those hosted gates and inspecting their
+remaining evidence before closing issues. There are no other open issues or PRs
+at this inspection. Evidence: `/tmp/ic-jobs-061-inspection-8ic7k1tg/`, including
+retained Linux artifacts and `linux-recovery-acceptance.json`. Index, refs,
+manifest versions and lock are preserved; no release/publication, installation
+reset or sibling file change is performed.
+
+## 0.6.0 delivery and earlier qualification observations
 
 Jobs **0.6.0** is delivered at `7d23a7919890db6d7b22d491b84372576fbf545f`,
 matching public main and the annotated `v0.6.0` target. Durable management and

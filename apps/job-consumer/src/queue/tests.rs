@@ -353,3 +353,73 @@ fn corrupt_future_record_blocks_due_dispatch_and_recovery_without_reset() {
     drop(queue);
     assert!(Queue::open(backing, None).is_err());
 }
+
+#[test]
+fn retained_timing_corruption_blocks_the_complete_stable_queue() {
+    let mut retry = Job::new(
+        JobId(2),
+        Schedule::Once { at_ns: 100 },
+        RetryPolicy {
+            max_attempts: 3,
+            initial_delay_ns: 10,
+            max_delay_ns: 20,
+        },
+    )
+    .unwrap();
+    let first = retry.start(100).unwrap();
+    retry.finish(first, 100, Outcome::RetryableFailure).unwrap();
+    let mut cancelled_retry = Job::restore(retry.record()).unwrap();
+    cancelled_retry.cancel(105).unwrap();
+    let mut cancelled_retry = cancelled_retry.record();
+    cancelled_retry.last_outcome_ns = Some(99);
+    retry.start(110).unwrap();
+    let mut running_retry = retry.record();
+    running_retry.state = JobState::Running { started_ns: 109 };
+    running_retry.updated_ns = 109;
+
+    let mut recurring = Job::new(
+        JobId(2),
+        Schedule::AfterCompletion {
+            first_at_ns: 100,
+            every_ns: 10,
+        },
+        RetryPolicy::NONE,
+    )
+    .unwrap();
+    let first = recurring.start(100).unwrap();
+    recurring.finish(first, 200, Outcome::Success).unwrap();
+    let mut cancelled_recurring = Job::restore(recurring.record()).unwrap();
+    cancelled_recurring.cancel(300).unwrap();
+    let mut cancelled_recurring = cancelled_recurring.record();
+    cancelled_recurring.scheduled_ns = 110;
+    recurring.start(300).unwrap();
+    let mut running_recurring = recurring.record();
+    running_recurring.scheduled_ns = 110;
+
+    for corrupt in [
+        cancelled_retry,
+        running_retry,
+        cancelled_recurring,
+        running_recurring,
+    ] {
+        let backing = VectorMemory::default();
+        let mut queue = Queue::open(backing.clone(), Some(config())).unwrap();
+        queue.create(increment(100)).unwrap();
+        queue.create(increment(200)).unwrap();
+        let mut snapshot: Snapshot = serde_json::from_slice(queue.cell.get()).unwrap();
+        snapshot.jobs[1].job = corrupt;
+        queue.cell.set(serde_json::to_vec(&snapshot).unwrap());
+        let bytes = queue.cell.get().clone();
+        assert_eq!(
+            queue.dispatch(100),
+            Err(job_error(ic_jobs::JobError::InvalidRecord))
+        );
+        assert_eq!(*queue.cell.get(), bytes);
+        let memory = queue.cell.into_memory();
+        assert!(matches!(
+            Queue::open(backing.clone(), None),
+            Err(Error::Job(_))
+        ));
+        assert_eq!(Cell::init(memory, Vec::<u8>::new()).get(), &bytes);
+    }
+}

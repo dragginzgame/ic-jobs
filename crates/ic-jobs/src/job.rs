@@ -265,26 +265,38 @@ impl Job {
         {
             return invalid();
         }
-        let completion_floor_ns =
-            if record.occurrence > record.schedule_origin && record.attempts == 0 {
-                let every_ns = match record.schedule {
-                    Schedule::FixedRate { every_ns, .. }
-                    | Schedule::AfterCompletion { every_ns, .. } => every_ns,
-                    Schedule::Once { .. } => return invalid(),
-                };
-                // The next deadline minus its interval is the prior completion
-                // (AfterCompletion) or its earliest possible time (FixedRate).
-                let floor = record
-                    .scheduled_ns
-                    .checked_sub(every_ns)
-                    .ok_or(JobError::InvalidRecord)?;
-                if record.last_outcome_ns.is_none_or(|time| time < floor) {
-                    return invalid();
-                }
-                Some(floor)
-            } else {
-                None
+        if record.occurrence > record.schedule_origin
+            && (record.attempts == 0
+                || (record.attempts == 1 && matches!(record.state, JobState::Running { .. })))
+        {
+            let every_ns = match record.schedule {
+                Schedule::FixedRate { every_ns, .. }
+                | Schedule::AfterCompletion { every_ns, .. } => every_ns,
+                Schedule::Once { .. } => return invalid(),
             };
+            // The next deadline minus its interval is the prior completion
+            // (AfterCompletion) or its earliest possible time (FixedRate).
+            let floor = record
+                .scheduled_ns
+                .checked_sub(every_ns)
+                .ok_or(JobError::InvalidRecord)?;
+            if record.last_outcome_ns.is_none_or(|time| time < floor) {
+                return invalid();
+            }
+            // Management and dispatch retain this successful completion.
+            // Validate its successor even when no pending deadline remains.
+            if record
+                .schedule
+                .successor(
+                    floor,
+                    record.last_outcome_ns.ok_or(JobError::InvalidRecord)?,
+                )
+                .ok()
+                != Some(Some(record.scheduled_ns))
+            {
+                return invalid();
+            }
+        }
         match record.state {
             JobState::Pending { due_ns } | JobState::Paused { due_ns } => {
                 if due_ns < record.scheduled_ns
@@ -300,21 +312,6 @@ impl Job {
                             }) != Some(due_ns)))
                 {
                     return invalid();
-                }
-                if let Some(completion_floor_ns) = completion_floor_ns {
-                    // Only successful recurrence produces another zero-attempt
-                    // pending record. Reuse the transition's deadline calculation.
-                    if record
-                        .schedule
-                        .successor(
-                            completion_floor_ns,
-                            record.last_outcome_ns.ok_or(JobError::InvalidRecord)?,
-                        )
-                        .ok()
-                        != Some(Some(record.scheduled_ns))
-                    {
-                        return invalid();
-                    }
                 }
             }
             JobState::Running { started_ns } | JobState::Uncertain { started_ns } => {
@@ -334,6 +331,17 @@ impl Job {
                         && started_ns != record.updated_ns)
                     || (matches!(record.state, JobState::Running { .. })
                         && record.last_outcome != previous_outcome)
+                    || (matches!(record.state, JobState::Running { .. })
+                        && record.attempts > 1
+                        && (record
+                            .last_outcome_ns
+                            .is_none_or(|time| time < record.scheduled_ns)
+                            || record
+                                .last_outcome_ns
+                                .and_then(|time| {
+                                    time.checked_add(record.retry.delay(record.attempts - 1))
+                                })
+                                .is_none_or(|due| due > started_ns)))
                     || (matches!(record.state, JobState::Uncertain { .. })
                         && (record.last_outcome != Some(Outcome::Uncertain)
                             || record.last_outcome_ns != Some(record.updated_ns)
@@ -367,7 +375,13 @@ impl Job {
                 if record.attempts > 0
                     && (record.attempts >= record.retry.max_attempts
                         || record.last_outcome != Some(Outcome::RetryableFailure)
-                        || record.updated_ns < record.scheduled_ns)
+                        || record
+                            .last_outcome_ns
+                            .is_none_or(|time| time < record.scheduled_ns)
+                        || record
+                            .last_outcome_ns
+                            .and_then(|time| time.checked_add(record.retry.delay(record.attempts)))
+                            .is_none())
                 {
                     return invalid();
                 }
