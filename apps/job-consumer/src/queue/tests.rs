@@ -355,6 +355,47 @@ fn corrupt_future_record_blocks_due_dispatch_and_recovery_without_reset() {
 }
 
 #[test]
+fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
+    for uncertain in [false, true] {
+        let backing = VectorMemory::default();
+        let mut queue = Queue::open(backing.clone(), Some(config())).unwrap();
+        let corrupt = queue
+            .create(Create {
+                timing: Timing::Once(100),
+                task: Task::Deliver {
+                    destination: Principal::self_authenticating(b"receiver"),
+                    message: "retained intent".into(),
+                },
+            })
+            .unwrap();
+        let healthy = queue.create(increment(200)).unwrap();
+        let (deliveries, _) = queue.dispatch(100).unwrap();
+        if uncertain {
+            queue
+                .finish(&deliveries[0], 101, Outcome::Uncertain)
+                .unwrap();
+        }
+        let mut snapshot: Snapshot = serde_json::from_slice(queue.cell.get()).unwrap();
+        let entry = snapshot
+            .jobs
+            .iter_mut()
+            .find(|entry| entry.job.id == JobId(u128::from(corrupt)))
+            .unwrap();
+        entry.job.sequence += 1;
+        queue.cell.set(serde_json::to_vec(&snapshot).unwrap());
+        let bytes = queue.cell.get().clone();
+        let expected = job_error(ic_jobs::JobError::InvalidRecord);
+        assert_eq!(queue.dispatch(200), Err(expected.clone()));
+        assert_eq!(queue.summary(), Err(expected.clone()));
+        assert_eq!(queue.inspect(healthy), Err(expected.clone()));
+        assert_eq!(*queue.cell.get(), bytes);
+        let memory = queue.cell.into_memory();
+        assert!(matches!(Queue::open(backing, None), Err(error) if error == expected));
+        assert_eq!(Cell::init(memory, Vec::<u8>::new()).get(), &bytes);
+    }
+}
+
+#[test]
 fn retained_timing_corruption_blocks_the_complete_stable_queue() {
     let mut retry = Job::new(
         JobId(2),

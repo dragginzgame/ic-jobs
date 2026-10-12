@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.5]
+
+- Adopt Shared Tooling 0.9.4: preserve installer failures while releasing locks,
+  retry transient asset downloads within fixed limits, and reject malformed
+  checksum manifests, consumer paths and Git identities
+  ([#27](https://github.com/dragginzgame/ic-jobs/issues/27),
+  [Shared #138](https://github.com/dragginzgame/shared-tooling/issues/138),
+  [Shared #133](https://github.com/dragginzgame/shared-tooling/issues/133)).
+- Reject stored dispatch sequences that exceed the retained occurrence retry
+  budget, including after schedule replacement. Preserve valid histories and
+  block the entire consumer queue before effects when counts are contradictory
+  ([#26](https://github.com/dragginzgame/ic-jobs/issues/26)).
+
 ## [0.7.4] - 2026-10-12
 
 - Adopt Shared Tooling 0.9.0: snapshot refresh and verification share one

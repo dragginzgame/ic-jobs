@@ -162,6 +162,8 @@ fn scheduler_transition_errors_preserve_all_jobs_without_fallthrough() {
         .unwrap();
     let mut record = exhausted.record();
     record.sequence = u64::MAX;
+    record.occurrence = u64::MAX - 1;
+    record.schedule_origin = record.occurrence;
     jobs[0] = Job::restore(record).unwrap();
     let before = jobs.each_ref().map(Job::record);
     assert_eq!(
@@ -359,12 +361,93 @@ fn recurrence_overflow_preserves_active_attempt() {
 }
 
 #[test]
+fn restore_rejects_dispatch_sequences_exceeding_history_budget() {
+    let mut job = once();
+    let attempt = job.start(100).unwrap();
+    let running = job.record();
+    let mut records = vec![running];
+    for outcome in [
+        Outcome::Success,
+        Outcome::RetryableFailure,
+        Outcome::PermanentFailure,
+        Outcome::Uncertain,
+    ] {
+        let mut job = Job::restore(running).unwrap();
+        job.finish(attempt, 100, outcome).unwrap();
+        records.push(job.record());
+        if outcome == Outcome::RetryableFailure {
+            job.pause(101).unwrap();
+            records.push(job.record());
+            job.cancel(102).unwrap();
+            records.push(job.record());
+        }
+    }
+    for record in records {
+        assert_eq!(Job::restore(record).unwrap().record(), record);
+        let mut corrupt = record;
+        corrupt.sequence += 1;
+        assert_eq!(
+            Job::restore(corrupt).unwrap_err(),
+            JobError::InvalidRecord,
+            "extra dispatch without a prior completed occurrence: {corrupt:?}"
+        );
+    }
+}
+
+#[test]
+fn restore_keeps_history_budget_after_schedule_replacement() {
+    let mut job = Job::new(
+        JobId(42),
+        Schedule::AfterCompletion {
+            first_at_ns: 100,
+            every_ns: 10,
+        },
+        retry(),
+    )
+    .unwrap();
+    for now in [100, 110, 125] {
+        let attempt = job.start(now).unwrap();
+        job.finish(attempt, now, Outcome::RetryableFailure).unwrap();
+    }
+    let attempt = job.start(140).unwrap();
+    job.finish(attempt, 140, Outcome::Success).unwrap();
+    let completed = job.record();
+    assert_eq!((completed.sequence, completed.occurrence), (4, 1));
+
+    for paused in [false, true] {
+        let mut job = Job::restore(completed).unwrap();
+        if paused {
+            job.pause(140).unwrap();
+        }
+        job.reschedule(Schedule::Once { at_ns: 200 }, 140).unwrap();
+        assert_eq!(job.record().schedule_origin, 1);
+        let record = job.record();
+        assert_eq!(Job::restore(record).unwrap().record(), record);
+        let mut corrupt = record;
+        corrupt.sequence += 1;
+        assert_eq!(Job::restore(corrupt).unwrap_err(), JobError::InvalidRecord);
+        if paused {
+            job.resume(200).unwrap();
+        }
+        job.start(200).unwrap();
+        let record = job.record();
+        assert_eq!((record.sequence, record.attempts), (5, 1));
+        assert_eq!(Job::restore(record).unwrap().record(), record);
+        let mut corrupt = record;
+        corrupt.sequence += 1;
+        assert_eq!(Job::restore(corrupt).unwrap_err(), JobError::InvalidRecord);
+    }
+}
+
+#[test]
 fn sequence_exhaustion_cannot_reuse_attempt_identity() {
     let mut job = once();
     let attempt = job.start(100).unwrap();
     job.finish(attempt, 100, Outcome::RetryableFailure).unwrap();
     let mut record = job.record();
     record.sequence = u64::MAX;
+    record.occurrence = u64::MAX - 1;
+    record.schedule_origin = record.occurrence;
     let mut job = Job::restore(record).unwrap();
     let before = job.record();
     assert_eq!(job.start(110), Err(JobError::CounterExhausted));

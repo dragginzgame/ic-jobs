@@ -207,6 +207,12 @@ impl Job {
                 .last_outcome_ns
                 .is_some_and(|time| time > record.updated_ns)
             || record.sequence < u64::from(record.attempts)
+            // Every completed occurrence used at most the immutable retry
+            // budget. Rescheduling preserves that history; use the total
+            // occurrence count, with wide arithmetic for large valid records.
+            || u128::from(record.sequence)
+                > u128::from(record.occurrence) * u128::from(record.retry.max_attempts)
+                    + u128::from(record.attempts)
             || record
                 .sequence
                 .checked_sub(u64::from(record.attempts))

@@ -1,6 +1,134 @@
 # Current handoff
 
-## Shared 0.9.0 adoption — pending Jobs 0.7.4
+## Pending 0.7.5 — final preparation and Shared 0.9.4
+
+The compatible batch contains the completed
+[#26](https://github.com/dragginzgame/ic-jobs/issues/26) counter-validation repair
+and reviewed Shared **0.9.4** adoption under
+[#27](https://github.com/dragginzgame/ic-jobs/issues/27). Canonical clean-source
+preview/export selects committed/public
+`4532b66c1b43bab331978523ee97d29fe11a2f50`, updates nine payloads and retains
+all **87 roots/files** without additions or retirement. Baseline bytes, common
+tool pins, direct-release policy and library/storage/Rust **1.88** remain.
+AGENTS and the one undated **0.7.5** entry align. The proposed Timers 0.20 / Jobs
+0.8 configuration cut remains separate from this compatible batch.
+
+Shared now consolidates host/IC installation cleanup, releasing shared locks
+even if checkout cleanup fails and retaining the original installation status.
+Asset downloads retry transient errors within fixed limits; permanent errors
+and checksum failures remain terminal. Checksum manifests reject NUL before
+hashing payloads; installers reject supplied/resolved CR/LF consumer paths
+before setup/configuration. Snapshot and release identities require exactly
+40 or 64 hex characters. Source owners:
+[Shared #138](https://github.com/dragginzgame/shared-tooling/issues/138) and
+[Shared #133](https://github.com/dragginzgame/shared-tooling/issues/133).
+
+Focused actual Jobs admission, pins/snapshot/release adapters, disposable
+release/publication recovery, formatting hook/evidence retention, consumer
+CLI/Wasm refusal and input drift checks pass. Exact-source upstream host/IC/
+Rust installers and store cleanup, checksum/path/snapshot, release-runner and
+download fixtures pass under Bash 5 and genuine **Bash 3.2.57**, including
+child shells. Download tests exercise actual curl against a loopback server
+with HTTP transport substituted: transient recovery, retry exhaustion,
+permanent failure and checksum refusal are verified. No real tool installation
+or release/publication is dispatched. Both actual repeat previews show 87 KEEP.
+ShellCheck passes with the optional PR source resolved from the exact reviewed
+checkout for analysis; earlier source-path failures stay retained. This does not
+vendor that helper or select PR release policy.
+
+Fresh Rust **1.88** core and optional timers tests pass separately. The actual
+Make job-test route, native/Wasm minimum checks, stable consumer tests/release
+Wasm, harness compilation without execution, warnings-denied native/Wasm
+Clippy, rustdoc/doctests and formatting pass. Fixed input checkpoints cover all
+28 selected manifests/lock/toolchain/snapshot/Make/tool pins/Rust files. Qualified
+graph: **Host 0.14.10 / Memory 0.35.17 / Metrics 0.7.3 / Testkit 0.34.6 /
+Timers 0.19.3**, including incoming aws-lc-rs **1.18.2**, aws-lc-sys **0.46.0**
+and Syn **3.0.9**. Cache preparation uses `cargo fetch --locked`; incoming
+selection is preserved. Earlier graph evidence stays separately attributed.
+
+Evidence: `target/qualification/shared-094.lcrxn9pu/`, including before inputs,
+canonical preview/export, per-command logs/results, both shell previews,
+`qualified-Cargo.lock`, `qualified-inputs.json` and preservation. Original
+isolated counter reproductions/fixed checks and delivered 0.7.4 all-host
+acceptance remain at `target/qualification/counter-restore.t2x62tuy/`.
+Own package versions stay **0.7.4**; real HEAD/index/refs and pending Rust
+changes are preserved. No full local CI, real release/publication, new live
+PocketIC qualification or workflow dispatch is selected.
+
+[#26](https://github.com/dragginzgame/ic-jobs/issues/26) and
+[#27](https://github.com/dragginzgame/ic-jobs/issues/27) remain open for delivery
+and exact final-source native acceptance. Older #21/#23/#24/#25 are completed
+at their recorded native/live sources. Exact Shared
+[CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38269332848)
+is queued at inspection; Linux/Bash fixtures do not establish native macOS.
+User delivery selects the configured complete gate; new live execution remains
+separate. No automatic release or publication is authorized by finishing notes.
+
+## Pending 0.7.5 — restore dispatch-count validation
+
+Reproduced and repaired [#26](https://github.com/dragginzgame/ic-jobs/issues/26):
+`Job::restore` admitted a first occurrence claiming more dispatches than allocated
+attempts, and an extra dispatch beyond a completed occurrence's retry budget after
+rescheduling. It now checks the maximum dispatch count implied by the total
+occurrence history and immutable retry budget, using u128 arithmetic for large
+valid records. Schedule rebasing does not reset dispatch history. The existing
+`InvalidRecord` error, configuration/error precedence, public transitions,
+stored fields and blocked Running/Uncertain effects remain unchanged.
+
+Coverage rejects contradictory counts in every attempted state and in paused/
+rescheduled work, while retaining full-budget successful histories and maximum
+counter exhaustion. Existing exhaustion fixtures now include a feasible prior
+occurrence count instead of an impossible one-shot history. The stable consumer
+regression proves corrupt Running/Uncertain counts block the whole queue before
+healthy work dispatches, and preserve committed bytes through refused reads,
+dispatch and reopen. No new scheduling/storage policy or consumer lifecycle
+ownership is introduced.
+
+Fresh qualification passes on the fixed incoming graph: **Host 0.14.9 / Memory
+0.35.17 / Metrics 0.7.3 / Testkit 0.34.5 / Timers 0.19.3**. Core and optional
+timers tests pass separately on Rust **1.88**, also using an independent fresh
+build directory. The actual Make test route, native/Wasm minimum checks, stable
+consumer tests and release Wasm, native harness compilation, warnings-denied
+native/Wasm Clippy, rustdoc/doctests and formatting pass. The shared runner
+checkpoints all workspace manifests, lock, toolchain, snapshot, Make/tool pins
+and Rust sources; final hashes agree with all 28 selected inputs.
+
+Evidence: `target/qualification/counter-restore.t2x62tuy/`. Its archived delivered
+baseline at `6f3006a08a5b111433620c7147ce809fc2fbe9c3` uses the new regressions and
+same selected graph; both cases fail with unexpected `Ok(Job)` in a fresh
+isolated target. The fixed source passes separately. An initial reproduction
+sharing the normal target unexpectedly passed; retained as inconclusive rather
+than treated as baseline proof. Earlier temporary logs became unavailable after
+the session restart, so this batch recreates the proofs instead of relabeling
+those missing artifacts. Preserve `isolated-baseline-*`, `isolated-fixed-*`,
+`focused-validation.log`, `qualified-Cargo.lock`, `qualified-inputs.json` and
+preservation records. Incoming lock updates are preserved; own package version
+stays **0.7.4**, compatible pending notes **0.7.5**, with no API/format/MSRV break.
+No full local gate, release/publication, new PocketIC execution or dispatch.
+
+## Delivered 0.7.4 — all-host acceptance complete
+
+[CI run 38247839718](https://github.com/dragginzgame/ic-jobs/actions/runs/38247839718)
+succeeds on Linux, Apple Silicon and Intel macOS at exact delivered source
+`6f3006a08a5b111433620c7147ce809fc2fbe9c3`. Inspected all job/step outcomes and
+actual logs for the complete `make ci` gate, selected 87-file Shared **0.9.0**
+revision `aec7a149f581a42b9531fc747b46024fc0314fcf`, and native Rust 1.88
+identities. Intel completes its whole job in **27 minutes 38 seconds** under the
+delivered 45-minute budget. Report: `native-074-acceptance.json` and associated
+raw logs in the same evidence directory. Empty per-job CLI log views were
+recovered through the direct job-log API; acceptance uses the actual contents.
+
+This completes [#21](https://github.com/dragginzgame/ic-jobs/issues/21) and
+[#25](https://github.com/dragginzgame/ic-jobs/issues/25). It also supplies the
+remaining native acceptance for [#23](https://github.com/dragginzgame/ic-jobs/issues/23)
+and [#24](https://github.com/dragginzgame/ic-jobs/issues/24), alongside their
+previously inspected 84 v0.7.1 live results. Git comparison confirms the core,
+queue and canister implementation is identical between that live source and
+delivered 0.7.4. Closed those four accepted issues with their distinct source/
+graph evidence. Native 0.7.4 success does not qualify a new live dependency graph
+or pending #26; that fix remains open for delivery/native acceptance.
+
+## Earlier Shared 0.9.0 adoption — delivered with Jobs 0.7.4
 
 Canonically adopted committed/public Shared **0.9.0**
 `aec7a149f581a42b9531fc747b46024fc0314fcf` from a clean isolated checkout.
