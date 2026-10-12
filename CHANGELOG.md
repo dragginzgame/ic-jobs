@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.2]
+## [0.7.2] - 2026-10-12
 
 - Adopt Shared Tooling 0.8.0: snapshot refresh derives required companions from
   recorded entrypoints and automatically retires verified obsolete payloads.
