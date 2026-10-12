@@ -230,6 +230,12 @@ retained. Use the same
 `SHARED_TOOLING_STORE` setting for setup, checks and evidence collection; see
 [storage configuration](docs/local-setup.md#shared-executable-storage).
 Common Rust tools retain `.tools/rust/common/bin` as their command path.
+Shared 0.9.7 changes the Cargo-tool build-policy digest. Refresh the common and
+release selections with `make install-rust-tools install-release-tools`, then
+run `make rust-tools-check release-tools-check format-tools-check`. Prior builds
+remain retained. Cargo `net.offline` must be a TOML boolean; an explicit
+`CARGO_NET_OFFLINE` setting takes precedence. Application build flags and the
+application's selected dependency graph are unaffected.
 Jobs' pinned cargo-edit also uses the shared owner: `make install-release-tools`
 prepares its selected binary and `make release-tools-check` admits it. Release
 metadata uses the returned checked path. The older cargo-edit root is retained;

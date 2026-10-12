@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.1]
+
+- Adopt Shared Tooling 0.9.7: reject non-boolean Cargo offline configuration
+  before tool setup or admission while respecting explicit environment overrides.
+  Refresh common and release Rust tools to select the new build policy; existing
+  builds remain retained ([#29](https://github.com/dragginzgame/ic-jobs/issues/29),
+  [Shared #140](https://github.com/dragginzgame/shared-tooling/issues/140)).
+
 ## [0.8.0] - 2026-10-12
 
 - **Breaking:** require nonzero recurring intervals and checked, immutable retry

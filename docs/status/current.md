@@ -1,6 +1,74 @@
 # Current handoff
 
-## Upstream review — incoming 0.8 graph, Shared adoption pending
+## Pending 0.8.1 — Shared 0.9.7 and issue acceptance
+
+Adopted reviewed committed/public Shared **0.9.7**
+`4d10a06d50e44d302f00d5b7b706cac5f9b0127c` through the canonical clean-source
+preview/export. All **87 roots/files** remain; four payloads update, with no
+addition or retirement. AGENTS records the exact source. Baseline bytes,
+common pins, library/storage API, Rust **1.88**, direct delivery and the
+application lock remain unchanged. This compatible contributor-tooling patch
+uses one undated **0.8.1** entry; own package versions remain **0.8.0**.
+[#29](https://github.com/dragginzgame/ic-jobs/issues/29) owns delivery/native
+acceptance, separately from the earlier Shared 0.9.4 issue.
+
+The Cargo-tool owner now rejects non-boolean `net.offline` before installation
+or admission, preserving explicit environment overrides and Cargo config-file
+precedence. Refreshed actual common/release Rust selections with the new helper
+policy digest; previous physical builds and the old common set remain retained.
+Actual tool admission passes, with pins unchanged. The selected Testkit CLI is
+prepared separately before live qualification; this batch installs neither that
+CLI nor a PocketIC server. Artifact discovery/PR fixes are outside Jobs' selected
+upload-only/direct adapters; no unused helpers, policy flags or workflow changes
+are introduced. The public repository description still matches the library.
+
+Focused Linux tooling checks pass: canonical Cargo-tool fixture (synthetic source/
+compiler/build effects, real parsing/identity/retention/refusal), actual common/
+release/format admission, snapshot/pins/Make adapters, disposable release and
+publication recovery, formatting/evidence, consumer-tool refusal, real formatting
+hooks, formatter and links. Malformed string/number/array/table offline values
+refuse before store/build/selection effects; valid booleans, empty config, config
+precedence, environment overrides and prior-selection retention pass. Repeat
+canonical preview is **87 KEEP**. ShellCheck passes with required source files
+resolved. Initial failures remain: the synthetic compiler refused the Jobs
+working directory; a neutral fixture directory passes, and the initial ShellCheck
+call omitted external source following. No vendored source was patched to make
+those test invocations pass. Native macOS/Bash 3.2 acceptance remains pending.
+
+Focused package qualification also passes on the exact delivered graph: Rust
+**1.88** core and optional timers tests separately, actual Make job route, both
+application consumers, native/Wasm minimum checks, **14** stable-consumer tests,
+release Wasm, native harness compilation without execution, warnings-denied
+native/Wasm Clippy and rustdoc/doctests. Inputs/fixture bytes are checkpointed.
+Graph: **Host 0.15.1 / Memory 0.35.19 / Metrics 0.8.0 / Testkit 0.35.0 /
+Timers 0.21.0**. The job implementation, all retained byte fixtures, dependency
+selections and release metadata are preserved; older graph evidence stays bound
+to its old source. Earlier ignored evidence directories are unavailable in this
+session; new logs are not presented as recovered historical artifacts.
+
+The maintainer delivered **0.8.0** at
+`820d65e9eefd29e775857175aa72972b762a0caa`, including checked configuration,
+Timers 0.21 and Testkit 0.35. Updated #26/#27/#28 to that delivery and their
+remaining hosted qualification, preserving historical proposals/evidence.
+[Latest Jobs CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38285177233)
+passes Linux; both macOS jobs remain queued at inspection.
+[Exact Shared CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38283181603)
+is queued. The older 0.7.5 run passed Linux/Intel but Apple Silicon was cancelled
+when superseded. That is the mandatory latest-source workflow/ref policy;
+[#3](https://github.com/dragginzgame/ic-jobs/issues/3) records an earlier policy,
+not current cancellation authority. Cancelled checks do not qualify their source.
+No concurrency change, workflow rerun/dispatch or new live execution was made.
+
+Evidence: `target/qualification/shared-097.ayrf6evg/`: source-bound public/CI/
+issue observations, before/lock identities, canonical export/previews, actual
+setup/admission and retained-tool paths, upstream fixture and failed invocations,
+per-target tooling/package logs, qualified lock/input checkpoints and preservation.
+Final-source Linux/Intel/Apple Silicon acceptance for #29 still needs delivery;
+#26/#27/#28 remain open for their retained latest native result. New live evidence
+remains unselected. No full local CI, own package bump, staging, commit, ref change,
+release, push, publication or sibling edit was performed.
+
+## Earlier upstream review — delivered with 0.8.0
 
 Verified current public tagged Testkit **0.35.0** at
 `ad5bdfa5221ec25743fbc56e028fb958f2a6a558` and Timers **0.21.0** at
@@ -53,7 +121,7 @@ manifest's public identity and repeat preview passed. Real HEAD/index/refs, own
 **0.7.5** versions and sibling files remain unchanged. No complete local gate,
 release/publication, live workflow dispatch or executable installation was run.
 
-## Pending 0.8.0 — checked configuration and original Timers 0.20 evidence
+## Delivered 0.8.0 — configuration preparation and original Timers 0.20 evidence
 
 The maintainer explicitly selected implementation of
 [#28](https://github.com/dragginzgame/ic-jobs/issues/28). Recurring intervals now
