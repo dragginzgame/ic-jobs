@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.7.1]
+## [0.7.1] - 2026-10-12
 
 - Adopt Shared Tooling 0.6.5 and its common Make entrypoint for setup, formatting,
   hooks, snapshot verification and releases. Admit prepared Rust tools during
