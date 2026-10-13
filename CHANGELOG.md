@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.6]
+
+- Adopt Shared Tooling 0.9.15: reject maintenance paths containing line breaks
+  before tool probes or state writes; retain failed-attempt log recovery guidance
+  ([#37](https://github.com/dragginzgame/ic-jobs/issues/37),
+  [Shared #150](https://github.com/dragginzgame/shared-tooling/issues/150),
+  [#149](https://github.com/dragginzgame/shared-tooling/issues/149)).
+- Adopt Testkit 0.36 and its IC Host 0.16 dependencies in the unpublished recovery
+  harness. Refresh the lock-selected Testkit CLI; prior builds remain retained
+  ([#38](https://github.com/dragginzgame/ic-jobs/issues/38)).
+
 ## [0.8.5] - 2026-10-13
 
 - Remove the repeated one-shot restore deadline check, retaining common deadline

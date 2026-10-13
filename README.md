@@ -209,7 +209,7 @@ see the
 [current handoff](docs/status/current.md) for source-bound native and live
 PocketIC recovery qualification.
 
-Common tooling is adopted from Shared Tooling **0.9.13** through the reviewed
+Common tooling is adopted from Shared Tooling **0.9.15** through the reviewed
 [Shared Tooling snapshot](.shared-tooling.snapshot).
 Run `make install-tools` explicitly to prepare and select the host, IC and
 Rust tools in order, then selected cargo-edit; `make tools-check` verifies the
@@ -243,6 +243,8 @@ rerun explicit setup before release commands on this snapshot.
 The shared IC bundle contains Quill, ICP CLI, didc, ic-wasm and wasm-opt.
 After updating an older six-tool bundle, run `make install-ic-tools` explicitly,
 then `make ic-tools-check`; previous bundles and receipts are retained.
+Testkit 0.36 selects IC Host 0.16 for the unpublished recovery harness.
+Jobs consumes those Host APIs through Testkit; it has no direct Host dependency.
 The separately lock-selected Testkit CLI also needs explicit
 `make install-testkit-tools` and `make testkit-tools-check` after this adoption.
 PocketIC provisioning belongs to IC Testkit. The unpublished

@@ -1,6 +1,59 @@
 # Current handoff
 
-## Current preparation — compatible 0.8.5 restore cleanup
+## Current preparation — compatible 0.8.6 tooling/Host adoption
+
+Adopted public Shared **0.9.15** at
+`a9a8ea5ddea0db279d8c139ef5a951474c50f742` under
+[#37](https://github.com/dragginzgame/ic-jobs/issues/37). Canonical clean-source
+preview/export retains all 88 roots/files, updating three payloads without
+retirement. Maintenance path admission rejects literal/resolved CR/LF before
+CLI probes or state writes. Failed-attempt log recovery guidance is adopted;
+Jobs does not select the optional gh-ci command. Tool policy/pins/installers
+are unchanged, so common/release tool reinstallation is unnecessary.
+
+[#38](https://github.com/dragginzgame/ic-jobs/issues/38) qualifies incoming
+**Testkit 0.36.0 / Host 0.16.0**. Official Cargo publication/source identities
+match the selected packages. Latest published Testkit requires Host ^0.16;
+Host 0.17 is published but cannot replace that owned graph. Jobs adds no direct
+Host dependency, bridge or compatibility path. Incoming **Memory 0.36.1 /
+Metrics 0.8.4 / Timers 0.21.4** selections are preserved exactly.
+
+Core and optional timers pass separately on Rust **1.88**, including both
+20-test consumer suites. All 16 stable-consumer tests, native/Wasm minimum
+checks, release Wasm, harness compilation without execution, warnings-denied
+native/Wasm Clippy and docs/doctests pass. Canonical Testkit CLI refresh and
+admission pass, retaining older builds without provisioning/launching PocketIC.
+Shared maintenance fixtures pass under Bash 5 and genuine 3.2.57 including
+child shells. Tool/formatter admission, formatting, snapshot/pin/link/adapter
+checks and consumer-tooling fixtures pass.
+
+Evidence: `target/qualification/shared-host-adoption/`, with starting bytes,
+index/refs, canonical preview/export and focused logs. Pending notes are
+**0.8.6**; own metadata remains **0.8.5**. No full local CI, release or new live
+qualification was selected. #37/#38 remain open for maintainer delivery and
+configured final-source Linux/Intel/Apple native acceptance. Delivered 0.8.5's
+CI remains queued at inspection; #34/#35/#36 remain open at their source.
+
+## Earlier delivery — 0.8.5; cleanup inspection complete
+
+Delivered **0.8.5** at `4ebc1efea3160291f535c89df9db19202ccd08e4`
+includes the Memory 0.36 consumer adaptation, Shared 0.9.13 adoption and
+one-shot restore simplification. The checkout was clean at inspection.
+[Configured native CI 38375977226](https://github.com/dragginzgame/ic-jobs/actions/runs/38375977226)
+is queued; #34/#35/#36 remain open for final-source Linux and both macOS
+architectures. The earlier 0.8.4 run was cancelled and supplies no complete
+native acceptance. Existing focused evidence remains bound to its actual inputs;
+no new live recovery qualification was selected.
+
+Further review of core scheduling/configuration, restore admission, timers,
+stable consumer management/receipts, canister dispatch and recovery helpers
+found no additional concrete cleanup worth implementing. Similar flows retain
+independent authorization, corruption admission, timer completion or uncertain
+receipt semantics. No new compatibility path or obsolete declaration was found.
+No product source or dependency changes, new tests or release draft were made.
+Earlier preparation notes below are historical.
+
+## Earlier preparation — compatible 0.8.5 restore cleanup
 
 Implemented [#36](https://github.com/dragginzgame/ic-jobs/issues/36), removing
 only the one-shot deadline predicate already implied by common first-occurrence
