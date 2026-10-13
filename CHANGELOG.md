@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.2]
+## [0.8.2] - 2026-10-13
 
 - Fix retry-policy decoding for Serde formats that retain struct names: the checked
   reader now accepts the same `RetryPolicy` representation emitted by the writer.
