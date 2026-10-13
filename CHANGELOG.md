@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.5]
+## [0.8.5] - 2026-10-13
 
 - Remove the repeated one-shot restore deadline check, retaining common deadline
   admission and the occurrence-origin guard
