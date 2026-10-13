@@ -1,6 +1,94 @@
 # Current handoff
 
-## Current preparation — compatible 0.8.6 tooling/Host adoption
+## Current preparation — compatible 0.8.7 Shared 0.10 adoption
+
+Implemented [#40](https://github.com/dragginzgame/ic-jobs/issues/40) from public
+Shared **0.10.0** `ed9c26f015691859f67b50b512a94709dcdc0c6c` through a clean,
+exact-source canonical preview/export. All **88 roots/files** are retained;
+14 payloads update with no additions/retirement. Complete host/Cargo and IC
+catalog records, including all digests, match the starting selections.
+Both catalogs were already immutable root-layout snapshot payloads; no
+consumer collision, redundant default copy or catalog exception exists.
+
+Make, standalone installers, formatting, freshness and evidence defaults now
+use the executing reviewed snapshot; Host and Rust overrides are independent.
+Reviewed direct caller/fixture/CI inputs already select these same root paths.
+Compiler/MSRV, product tools, cargo-edit, Testkit/PocketIC and application
+dependencies retain their owners. No tool pin upgrades or installation deletion.
+The same adoption retains release-lock failure status and LOC CR/LF path refusal.
+
+Canonical `make install-tools` and complete offline admission pass. Jobs
+formatting, snapshot/pin/link/release-adapter checks, disposable release and
+publication fixtures, formatting/evidence/consumer fixtures and hooks pass.
+Producer command/formatter/freshness/host/IC fixtures pass on Bash 5 and genuine
+3.2.57, including child shells and actual evidence-action assertions using
+synthetic owned installations. Snapshot export and prepared-cloc fixtures pass.
+Evidence: `target/qualification/shared-010-adoption/`, including exact source,
+preview/export, catalog comparison, actual setup/admission, fixture logs,
+qualified-input hashes and preservation proof. Rust source and the incoming
+Cargo graph are unchanged; the earlier #39 focused Rust results remain bound
+to those same inputs. Incoming Testkit 0.37/Host 0.17 CLI adoption is separate.
+
+Delivered **0.8.6** `e5bce9bf5304d7b3fd1700ceb005fa0c0e471b0d` passes
+[CI 38379305759](https://github.com/dragginzgame/ic-jobs/actions/runs/38379305759)
+on Linux and both macOS architectures, with actual complete gate steps
+inspected. #34–#38 are accepted/closed and linked producer owners notified.
+Those native results do not qualify this Shared 0.10 source or live recovery.
+
+Pending notes remain **0.8.7** alongside #39; own metadata remains **0.8.6**.
+The prepared restore cleanup, incoming manifest/lock, real index and refs are
+preserved. #39/#40 remain open for delivery and configured final-source all-host
+acceptance. No full local gate, release or new live workflow was selected.
+Producer 0.10's Intel macOS acceptance was still queued at inspection.
+
+## Earlier preparation — compatible 0.8.7 restore-state cleanup
+
+Implemented [#39](https://github.com/dragginzgame/ic-jobs/issues/39) within
+Job::restore: common attempt/start timestamp admission runs first, followed
+by one selection of Running or Uncertain history rules. Prior-outcome
+expectations are calculated only for Running. The removed Uncertain timestamp
+predicate follows from retained `started_ns <= updated_ns` and
+`last_outcome_ns == Some(updated_ns)` checks. Every other admission rule,
+public API, stored record shape, typed refusal and blocked effect is preserved.
+
+Rust **1.88** original/cleaned comparison produces identical serialized records
+and typed restore refusals for **47,514** inputs: **790** accepted and **46,724**
+rejected, including all **354** frozen valid records. The corpus varies active
+states, history outcomes, timestamps and counter extremes across 18 distinct
+active-history seeds. Independent source/probe builds and both observation files
+are retained in `target/qualification/restore-state-cleanup/`.
+
+Core/timers tests pass separately on Rust **1.88**, including both 20-test
+consumer suites. All 16 stable-consumer tests, native/Wasm minimum checks,
+release Wasm, harness compilation without execution, warnings-denied
+native/Wasm Clippy, docs/doctests and formatting pass. These checks use the
+incoming **Testkit 0.37 / Host 0.17** selection; they do not claim completed CLI
+adoption or hosted/live acceptance of that separate dependency change.
+
+Pending notes are **0.8.7**; own metadata remains **0.8.6**. Incoming manifest,
+lock, prepared Shared snapshot, real index and refs are preserved. No new public
+surface, helper framework or permanent implementation-shaped test was added.
+No full local CI, release or new live qualification was selected. #39 remains
+open for delivery and configured final-source all-host native acceptance.
+
+## Earlier delivery — 0.8.6; native acceptance pending
+
+Verified public/local main **0.8.6** at
+`e5bce9bf5304d7b3fd1700ceb005fa0c0e471b0d`, with Shared **0.9.15**
+`a9a8ea5ddea0db279d8c139ef5a951474c50f742` and the prepared Testkit/Host graph.
+The checkout was clean at delivery inspection.
+[Configured CI 38379305759](https://github.com/dragginzgame/ic-jobs/actions/runs/38379305759)
+has Linux running and both macOS jobs queued. The newer delivery cancelled
+0.8.5's run; neither cancelled run supplies complete native acceptance.
+#34–#38 remain open for final-source all-host acceptance. Focused and live
+qualification remain bound to their original tested inputs; no new full local
+gate or live workflow was selected.
+
+Further review found no actionable code defect or obsolete compatibility path.
+No new implementation or release draft was added. Earlier preparation notes
+below are historical; delivery replaces their pending version/source status.
+
+## Earlier preparation — compatible 0.8.6 tooling/Host adoption
 
 Adopted public Shared **0.9.15** at
 `a9a8ea5ddea0db279d8c139ef5a951474c50f742` under

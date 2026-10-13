@@ -209,7 +209,7 @@ see the
 [current handoff](docs/status/current.md) for source-bound native and live
 PocketIC recovery qualification.
 
-Common tooling is adopted from Shared Tooling **0.9.15** through the reviewed
+Common tooling is adopted from Shared Tooling **0.10.0** through the reviewed
 [Shared Tooling snapshot](.shared-tooling.snapshot).
 Run `make install-tools` explicitly to prepare and select the host, IC and
 Rust tools in order, then selected cargo-edit; `make tools-check` verifies the
@@ -218,7 +218,10 @@ Rust tools include cargo-sort, cargo-sort-derives and candid-extractor. For an i
 prepend `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/common/bin` to PATH.
 The reviewed [common Make entrypoint](docs/make-interface.md) owns contributor
 setup, formatting, hooks, snapshot verification and release routing; Jobs retains
-its product checks and metadata adapters. Snapshot entrypoints are recorded in
+its product checks and metadata adapters. The reviewed snapshot owns common host, IC and Rust catalogs; no local default
+copy or catalog exception is selected. Host overrides do not select Rust pins.
+Product/compiler policy, cargo-edit and Testkit/PocketIC remain locally owned.
+Snapshot entrypoints are recorded in
 `.shared-tooling.snapshot`; refresh derives their required companions.
 Shared Tooling stores verified host, IC and Cargo-built bundles once per user
 while each checkout retains its own pinned selection through these paths. Cargo

@@ -310,39 +310,42 @@ impl Job {
                 }
             }
             JobState::Running { started_ns } | JobState::Uncertain { started_ns } => {
-                let previous_outcome = if record.attempts > 1 {
-                    Some(Outcome::RetryableFailure)
-                } else if record.occurrence > 0 {
-                    Some(Outcome::Success)
-                } else {
-                    None
-                };
                 if record.attempts == 0
                     || started_ns < record.scheduled_ns
                     || started_ns > record.updated_ns
-                    || (matches!(record.state, JobState::Running { .. })
-                        && started_ns != record.updated_ns)
-                    || (matches!(record.state, JobState::Running { .. })
-                        && record.last_outcome != previous_outcome)
-                    || (matches!(record.state, JobState::Running { .. })
-                        && record.attempts > 1
-                        && (record
-                            .last_outcome_ns
-                            .is_none_or(|time| time < record.scheduled_ns)
-                            || record
+                {
+                    return invalid();
+                }
+                if matches!(record.state, JobState::Running { .. }) {
+                    let previous_outcome = if record.attempts > 1 {
+                        Some(Outcome::RetryableFailure)
+                    } else if record.occurrence > 0 {
+                        Some(Outcome::Success)
+                    } else {
+                        None
+                    };
+                    if started_ns != record.updated_ns
+                        || record.last_outcome != previous_outcome
+                        || (record.attempts > 1
+                            && (record
                                 .last_outcome_ns
-                                .and_then(|time| {
-                                    time.checked_add(record.retry.delay(record.attempts - 1))
-                                })
-                                .is_none_or(|due| due > started_ns)))
-                    || (matches!(record.state, JobState::Uncertain { .. })
-                        && (record.last_outcome != Some(Outcome::Uncertain)
-                            || record.last_outcome_ns != Some(record.updated_ns)
-                            || record.last_outcome_ns.is_none_or(|time| time < started_ns)))
+                                .is_none_or(|time| time < record.scheduled_ns)
+                                || record
+                                    .last_outcome_ns
+                                    .and_then(|time| {
+                                        time.checked_add(record.retry.delay(record.attempts - 1))
+                                    })
+                                    .is_none_or(|due| due > started_ns)))
+                    {
+                        return invalid();
+                    }
+                } else if record.last_outcome != Some(Outcome::Uncertain)
+                    || record.last_outcome_ns != Some(record.updated_ns)
                 {
                     return invalid();
                 }
             }
+
             JobState::Completed => {
                 if !matches!(record.schedule, Schedule::Once { .. })
                     || record.attempts == 0

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.8.7]
+
+- Adopt Shared Tooling 0.10: common setup, formatting and failure evidence use
+  snapshot-owned tool catalogs. Host and Rust overrides are independent;
+  tool versions and retained installations are unchanged
+  ([#40](https://github.com/dragginzgame/ic-jobs/issues/40),
+  [Shared #153](https://github.com/dragginzgame/shared-tooling/issues/153)).
+- Retain filesystem release-lock errors and reject line breaks in LOC report
+  paths before selecting a checkout
+  ([Shared #152](https://github.com/dragginzgame/shared-tooling/issues/152),
+  [#151](https://github.com/dragginzgame/shared-tooling/issues/151)).
+- Separate Running and Uncertain restore history checks, retaining common
+  timestamp admission and blocked-effect semantics
+  ([#39](https://github.com/dragginzgame/ic-jobs/issues/39)).
+
 ## [0.8.6] - 2026-10-13
 
 - Adopt Shared Tooling 0.9.15: reject maintenance paths containing line breaks
