@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.1]
+## [0.9.1] - 2026-10-13
 
 - Converge test-consumer management authorization, stable mutation and timer
   reconciliation through one synchronous boundary.
