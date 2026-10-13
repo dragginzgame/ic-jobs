@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.6]
+## [0.8.6] - 2026-10-13
 
 - Adopt Shared Tooling 0.9.15: reject maintenance paths containing line breaks
   before tool probes or state writes; retain failed-attempt log recovery guidance
