@@ -1,6 +1,101 @@
 # Current handoff
 
-## Pending 0.8.1 — Shared 0.9.7 and issue acceptance
+## Pending 0.8.2 — named retry codec agreement
+
+Reproduced and repaired
+[#30](https://github.com/dragginzgame/ic-jobs/issues/30). Released 0.8.1's retry
+writer emits the public Serde structure name `RetryPolicy`, but its checked
+private projection requested `RetryPolicyFields` while decoding. JSON ignores
+names, so existing frozen JSON proofs did not detect that named-structure formats
+could not round-trip the emitted policy. A disposable canonical `serde_test`
+probe fails on released source with those two conflicting names, using Rust
+**1.88**, Serde **1.0.229** and `serde_test` **1.0.177**.
+
+The private projection now retains the existing public wire name while calling
+the same checked constructor. No public API, numeric field/layout, JSON bytes,
+retry/state/error policy, restore boundary, storage key or retained installation
+changes. One dev-only canonical test dependency covers named-token writer/reader
+agreement for NONE-equivalent, ordinary and maximum numeric values. All existing
+package selections are preserved; only `serde_test` 1.0.177 is added. Compatible
+pending notes are **0.8.2**; own metadata stays **0.8.1**, with no release effects.
+
+Focused Linux checks pass: core and optional timers separately on Rust **1.88**,
+actual Make job route, both consumers, native/Wasm minimum checks, **14** stable
+consumer tests, release Wasm, harness compilation without execution, warnings-
+denied native/Wasm Clippy, docs/doctests, formatter, pins/links and snapshot.
+All **354** frozen old records still re-encode exactly and the old complete memory
+image reopens. Reproduction/fixed inputs and lock are kept separately at
+`target/qualification/retry-codec.y0y7g97c/`, including probe source/lock,
+released policy bytes, baseline failure, fixed checks, dependency-preservation
+proof and qualified hashes. No compatibility reader, unchecked constructor,
+new schema/reset, own version/index/ref mutation or full local gate was added.
+#30 remains open for delivery and final-source native acceptance.
+
+## Delivered 0.8.1 — Linux live evidence inspected
+
+The explicitly selected
+[recovery run 38289182820](https://github.com/dragginzgame/ic-jobs/actions/runs/38289182820)
+passes Linux in **10 minutes 5 seconds**. Inspected all **28** live results:
+seven source-declared scenarios for each original/O3/Os/Oz Wasm. Verified the
+exact uploaded artifact **11765006978**, digest
+`6790dd49d0a413fc06bf331f9aafeb7b44c9992163626bbd57fc1bf14bf3e828`,
+all consumer Wasm hashes, source `f9c0c0eb4e8363565be63f9434a0cf8b9940294b`,
+v0.8.1 tag/run/attempt, committed Cargo files/lock/toolchain/snapshot, wrapper
+hash, Testkit **0.35.0** selection and the actual Shared build-policy digest.
+The archive reports `live-outcome=success`; every scenario passes with zero
+failed/ignored tests. Artifact extraction validates paths and rejects symlinks.
+
+Apple Silicon recovery is now running and Intel remains queued at the latest
+observation. The separate native CI passes Linux; both macOS jobs remain queued.
+No macOS acceptance or all-host completion is claimed. Native/live observations
+remain at their actual source/graph; this v0.8.1 run does not qualify pending #30.
+Linux evidence/report, raw job log and exact archive are retained under
+`target/qualification/delivered-081.ifzmznb8/`. No rerun or second dispatch was
+performed. Continue inspecting the existing run's macOS evidence when available;
+#26/#27/#28/#29 remain open for their outstanding source-bound acceptance.
+
+## Delivered 0.8.1 — current qualification
+
+Verified local and public annotated **v0.8.1** at
+`f9c0c0eb4e8363565be63f9434a0cf8b9940294b`, tag object
+`f45ea24c5b94e6d73de624e73ca4e6da2bd28388`; public main matches.
+The maintainer delivered the reviewed Shared **0.9.7** snapshot at
+`4d10a06d50e44d302f00d5b7b706cac5f9b0127c`. Package metadata and dated notes
+now select **0.8.1**. Compared with delivered 0.8.0, all library/application/
+harness sources, frozen retained-byte fixtures, runtime tool pins and recovery
+workflow/wrapper are unchanged. External package selections are identical;
+only the three own lock versions advance.
+
+The exact delivered graph is **Host 0.15.1 / Memory 0.35.19 / Metrics 0.8.1 /
+Testkit 0.35.0 / Timers 0.21.0**. Correction: earlier current-graph prose listed
+Metrics 0.8.0; both committed 0.8.0 and 0.8.1 lockfiles select **0.8.1**.
+Their lock hashes/source identities remain authoritative. This corrects version
+prose, not dependency selection or a claim of newly recovered historical logs.
+
+[Native 0.8.1 CI](https://github.com/dragginzgame/ic-jobs/actions/runs/38288606583)
+is running on Linux; both macOS jobs are queued at inspection. The 0.8.0 run was
+superseded under the mandatory latest-ref policy and cannot establish complete
+native acceptance. Native qualification for the delivered configuration/counter
+changes and Shared adoption still follows the retained latest source.
+
+The maintainer explicitly selected **v0.8.1 recovery**. Dispatched the existing
+[Canister recovery workflow](https://github.com/dragginzgame/ic-jobs/actions/runs/38289182820)
+once, bound to the verified tag/commit. It qualifies seven scenarios across
+original/O3/Os/Oz Wasm on Linux and Intel/Apple Silicon macOS, with explicit
+Testkit/CLI/server setup and evidence retention. The hosted run is queued at
+initial observation; dispatch is not live acceptance. Prior v0.7.1 evidence
+stays at its original source/graph. No workflow rerun, second dispatch, release
+or publication was performed by this continuation.
+
+Evidence: `target/qualification/delivered-081.ifzmznb8/` retains public tag/main,
+workflow/native job observations, dispatch request time and selected run identity,
+committed graph comparison, watch output and preservation. Read-only watch and
+artifact inspection are selected for this run. The following sections retain
+preparation observations from before 0.8.1 delivery, with their historical own
+versions and statuses. No additional code change or compiler/test gate was
+selected merely for this delivery inspection.
+
+## Delivered 0.8.1 — Shared 0.9.7 preparation evidence
 
 Adopted reviewed committed/public Shared **0.9.7**
 `4d10a06d50e44d302f00d5b7b706cac5f9b0127c` through the canonical clean-source

@@ -161,8 +161,10 @@ impl RetryPolicy {
 }
 
 // Decode the existing numeric object shape, then admit it through the same
-// constructor used by ordinary callers. This projection cannot escape publicly.
+// constructor used by ordinary callers. Keep the writer's public structure name
+// for formats that retain names; the projection itself stays private.
 #[derive(Deserialize)]
+#[serde(rename = "RetryPolicy")]
 struct RetryPolicyFields {
     max_attempts: u32,
     initial_delay_ns: u64,

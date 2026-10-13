@@ -52,6 +52,10 @@ fails at decoding; valid 0.7 records retain their existing serialized shape and
 need no reset for the 0.8 source API cut. The consumer's bounded JSON codec is
 qualified against independently frozen 0.7.5 records and a reopened stable cell;
 consumers with other codecs own their retained-byte qualification.
+The retry writer and checked reader retain the same public Serde structure name
+`RetryPolicy`, including formats that preserve names. The private admission
+projection does not define another wire identity; constructor checks still own
+its numeric constraints.
 
 Retained retry completions must be at or after the occurrence's scheduled time.
 Pending/paused retries retain a representable backoff deadline even when cancelled.

@@ -895,6 +895,7 @@ dependencies = [
  "ic-timers",
  "serde",
  "serde_json",
+ "serde_test",
 ]
 
 [[package]]
@@ -955,9 +956,9 @@ dependencies = [
 
 [[package]]
 name = "ic-timers"
-version = "0.21.0"
+version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4ccc191c41bf695980d41de02d759b1788aeecbe133cd20b1ed84de45d6d882"
+checksum = "b0fa69ebf8fbf809ba13b476ac58e86f39e06e41452174aa1ce5ab6d43691569"
 dependencies = [
  "ic-cdk-timers",
  "ic-metrics",
@@ -1979,6 +1980,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "serde_test"
+version = "1.0.177"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f901ee573cab6b3060453d2d5f0bae4e6d628c23c0a962ff9b5f1d7c8d4f1ed"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

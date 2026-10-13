@@ -21,6 +21,7 @@ ic-timers = "0.21"
 jobs-test-consumer = { path = "apps/job-consumer" }
 serde = "1.0"
 serde_json = "1.0"
+serde_test = "1.0"
 
 [workspace.lints.rust]
 missing_docs = "deny"

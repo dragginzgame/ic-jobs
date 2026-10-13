@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2]
+
+- Fix retry-policy decoding for Serde formats that retain struct names: the checked
+  reader now accepts the same `RetryPolicy` representation emitted by the writer.
+  Preserve checked configuration and existing JSON/stable-memory bytes
+  ([#30](https://github.com/dragginzgame/ic-jobs/issues/30)).
+
 ## [0.8.1] - 2026-10-12
 
 - Adopt Shared Tooling 0.9.7: reject non-boolean Cargo offline configuration

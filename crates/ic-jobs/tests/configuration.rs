@@ -113,3 +113,30 @@ fn zero_absolute_deadlines_and_maximum_intervals_remain_valid() {
         assert_eq!(Job::restore(job.record()).unwrap().record(), job.record());
     }
 }
+
+#[test]
+fn named_retry_policy_tokens_roundtrip_without_exposing_the_decode_projection() {
+    use serde_test::{Token, assert_tokens};
+
+    for (attempts, initial, maximum) in [(1, 1, 1), (3, 5, 10), (u32::MAX, u64::MAX, u64::MAX)] {
+        let policy = RetryPolicy::new(attempts, initial, maximum).unwrap();
+        // The public writer's named structure is also the reader's contract.
+        // JSON ignores this metadata; the canonical token codec checks it.
+        assert_tokens(
+            &policy,
+            &[
+                Token::Struct {
+                    name: "RetryPolicy",
+                    len: 3,
+                },
+                Token::Str("max_attempts"),
+                Token::U32(attempts),
+                Token::Str("initial_delay_ns"),
+                Token::U64(initial),
+                Token::Str("max_delay_ns"),
+                Token::U64(maximum),
+                Token::StructEnd,
+            ],
+        );
+    }
+}
