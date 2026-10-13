@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.4]
+## [0.8.4] - 2026-10-13
 
 - Adopt IC Memory 0.36 in test consumers using explicit owned allocation requests.
   Preserve retained storage keys, job records and consumer-owned bootstrap
