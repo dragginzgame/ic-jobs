@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.2]
+
+- Carry validated completion timestamps directly through recurring restore checks,
+  retaining stored-record admission and refusal behavior.
+- Reuse admitted notification state across management commands and deadline
+  replies, keeping authorization and commit-before-delivery ordering.
+
 ## [0.9.1] - 2026-10-13
 
 - Converge test-consumer management authorization, stable mutation and timer

@@ -275,18 +275,12 @@ impl Job {
                 .scheduled_ns
                 .checked_sub(every_ns.get())
                 .ok_or(JobError::InvalidRecord)?;
-            if record.last_outcome_ns.is_none_or(|time| time < floor) {
+            let Some(completed_ns) = record.last_outcome_ns.filter(|&time| time >= floor) else {
                 return invalid();
-            }
+            };
             // Management and dispatch retain this successful completion.
             // Validate its successor even when no pending deadline remains.
-            if record
-                .schedule
-                .successor(
-                    floor,
-                    record.last_outcome_ns.ok_or(JobError::InvalidRecord)?,
-                )
-                .ok()
+            if record.schedule.successor(floor, completed_ns).ok()
                 != Some(Some(record.scheduled_ns))
             {
                 return invalid();

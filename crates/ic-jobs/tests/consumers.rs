@@ -190,27 +190,12 @@ impl Notifications {
     }
 
     fn enqueue(&mut self, id: JobId, at_ns: u64, payload: Notification) -> Result<()> {
-        let (jobs, mut snapshots) = self.load()?;
-        if snapshots.len() == 4 || jobs.iter().any(|job| job.record().id == id) {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "queue full or identity reused",
-            )
-            .into());
-        }
-        snapshots.push(NotificationSnapshot {
-            job: Job::new(id, Schedule::Once { at_ns }, RetryPolicy::NONE).record(),
-            payload,
-        });
-        self.store.write(&snapshots)
-    }
-
-    fn inspect(&self, id: JobId) -> Result<NotificationSnapshot> {
-        self.load()?
-            .1
-            .into_iter()
-            .find(|snapshot| snapshot.job.id == id)
-            .ok_or_else(|| ManagementError::UnknownJob.into())
+        self.manage(
+            NOTIFICATION_MANAGER,
+            0,
+            ManagementCommand::Enqueue { id, at_ns, payload },
+        )
+        .map(|_| ())
     }
 
     fn manage(
@@ -223,17 +208,36 @@ impl Notifications {
         if caller != NOTIFICATION_MANAGER {
             return Err(ManagementError::Unauthorized.into());
         }
+        if matches!(&command, ManagementCommand::List { limit, .. } if !(1..=4).contains(limit)) {
+            return Err(ManagementError::InvalidPageLimit.into());
+        }
+        let (mut jobs, mut snapshots) = self.load()?;
         let value = match command {
             ManagementCommand::Enqueue { id, at_ns, payload } => {
-                self.enqueue(id, at_ns, payload)?;
-                ManagementValue::Job(self.inspect(id)?)
-            }
-            ManagementCommand::Inspect(id) => ManagementValue::Job(self.inspect(id)?),
-            ManagementCommand::List { after, limit } => {
-                if !(1..=4).contains(&limit) {
-                    return Err(ManagementError::InvalidPageLimit.into());
+                if snapshots.len() == 4 || jobs.iter().any(|job| job.record().id == id) {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "queue full or identity reused",
+                    )
+                    .into());
                 }
-                let (_, mut snapshots) = self.load()?;
+                let job = Job::new(id, Schedule::Once { at_ns }, RetryPolicy::NONE);
+                snapshots.push(NotificationSnapshot {
+                    job: job.record(),
+                    payload,
+                });
+                jobs.push(job);
+                self.store.write(&snapshots)?;
+                ManagementValue::Job(snapshots.pop().unwrap())
+            }
+            ManagementCommand::Inspect(id) => {
+                let index = snapshots
+                    .iter()
+                    .position(|snapshot| snapshot.job.id == id)
+                    .ok_or(ManagementError::UnknownJob)?;
+                ManagementValue::Job(snapshots.swap_remove(index))
+            }
+            ManagementCommand::List { after, limit } => {
                 snapshots.sort_by_key(|snapshot| snapshot.job.id);
                 ManagementValue::Page(
                     snapshots
@@ -244,7 +248,6 @@ impl Notifications {
                 )
             }
             ManagementCommand::Cancel(id) => {
-                let (mut jobs, mut snapshots) = self.load()?;
                 let index = jobs
                     .iter()
                     .position(|job| job.record().id == id)
@@ -252,16 +255,15 @@ impl Notifications {
                 jobs[index].cancel(now_ns)?;
                 snapshots[index].job = jobs[index].record();
                 self.store.write(&snapshots)?;
-                return Ok(ManagementReply {
-                    value: ManagementValue::Job(snapshots.swap_remove(index)),
-                    next_due_ns: Scheduler::new(&mut jobs).next_due_ns(),
-                });
+                ManagementValue::Job(snapshots.swap_remove(index))
             }
-            ManagementCommand::DispatchDue => ManagementValue::Dispatch(self.prepare(now_ns)?),
+            ManagementCommand::DispatchDue => {
+                ManagementValue::Dispatch(self.dispatch_batch(now_ns, &mut jobs, &mut snapshots)?)
+            }
         };
         Ok(ManagementReply {
             value,
-            next_due_ns: self.next_due_ns()?,
+            next_due_ns: Scheduler::new(&mut jobs).next_due_ns(),
         })
     }
 
@@ -272,7 +274,16 @@ impl Notifications {
 
     fn prepare(&mut self, now_ns: u64) -> Result<Option<Delivery>> {
         let (mut jobs, mut snapshots) = self.load()?;
-        let Some((attempt, running)) = Scheduler::new(&mut jobs).start_next(now_ns)? else {
+        self.dispatch_batch(now_ns, &mut jobs, &mut snapshots)
+    }
+
+    fn dispatch_batch(
+        &mut self,
+        now_ns: u64,
+        jobs: &mut [Job],
+        snapshots: &mut [NotificationSnapshot],
+    ) -> Result<Option<Delivery>> {
+        let Some((attempt, running)) = Scheduler::new(jobs).start_next(now_ns)? else {
             return Ok(None);
         };
         let snapshot = snapshots
@@ -1512,6 +1523,20 @@ fn management_validates_future_records_before_reads_or_mutation() -> Result<()> 
     snapshots[1].job.state = JobState::Completed;
     sender.store.write(&snapshots)?;
     let before = sender.store.bytes.clone();
+    for limit in [0, 5] {
+        let error = sender
+            .manage(
+                NOTIFICATION_MANAGER,
+                100,
+                ManagementCommand::List { after: None, limit },
+            )
+            .unwrap_err();
+        assert_eq!(
+            error.downcast_ref::<ManagementError>(),
+            Some(&ManagementError::InvalidPageLimit)
+        );
+        assert_eq!(sender.store.bytes, before);
+    }
     for command in [
         ManagementCommand::Enqueue {
             id: JobId(3),
