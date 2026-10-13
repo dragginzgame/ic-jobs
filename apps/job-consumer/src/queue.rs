@@ -145,7 +145,7 @@ impl<M: Memory> Queue<M> {
     pub(crate) fn open(memory: M, initial: Option<Init>) -> Result<Self, Error> {
         let request = MemoryRequest::new("test.jobs", KEY, SchemaMetadata::default())
             .map_err(memory_error)?;
-        let declarations = SealedDeclarationSnapshot::new(&[request]).map_err(memory_error)?;
+        let declarations = SealedDeclarationSnapshot::new(vec![request]).map_err(memory_error)?;
         let pool = MemoryAllocationPool::new(
             vec![MemoryAuthority::new("test.jobs", "test.jobs.").map_err(memory_error)?],
             vec![],

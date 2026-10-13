@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.4]
+
+- Adopt IC Memory 0.36 in test consumers using explicit owned allocation requests.
+  Preserve retained storage keys, job records and consumer-owned bootstrap
+  ([#34](https://github.com/dragginzgame/ic-jobs/issues/34)).
+
 ## [0.8.3] - 2026-10-13
 
 - Simplify stored-record admission by removing checks already implied by retained

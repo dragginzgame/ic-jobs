@@ -1,6 +1,85 @@
 # Current handoff
 
-## Current preparation — compatible 0.8.3 cleanup
+## Current preparation — compatible 0.8.4 Memory adoption
+
+Implemented [#34](https://github.com/dragginzgame/ic-jobs/issues/34) using the
+incoming published Memory **0.36.0** selection. Every declaration caller now
+supplies an owned request vector; collision refusal uses the current declaration
+error. Existing host composition, permanent keys, configuration, authority
+checks, runtime persistence, codecs and Job::restore boundaries are preserved.
+Memory remains a dev/unpublished-consumer dependency; Jobs gains no storage
+owner, global registration, compatibility path or public API cut.
+
+Core/timers tests pass separately on Rust **1.88**, including both **20-test**
+consumer suites. All **16** stable-consumer tests pass, including frozen old
+snapshots and complete stable-memory image reopening, retained allocation IDs
+and identical Jobs cell bytes, blocked Running/Uncertain effects, duplicate-key
+and foreign-authority refusal, and unchanged bytes on rejected management.
+Native/Wasm minimum checks, release Wasm, harness compilation without execution,
+warnings-denied native/Wasm Clippy, docs/doctests, formatting, snapshot/pins/links
+and whitespace checks pass. No new tests mirror these mechanical API changes;
+existing boundary and retained-data coverage supplies their proof.
+
+Pending notes are **0.8.4**; own metadata remains **0.8.3**. Incoming Memory 0.36
+and Metrics 0.8.2 selections, the real index and refs remain intact. Evidence:
+`target/qualification/memory-036-adoption.z8ySpH/`, including original
+inputs, fixed command logs and qualified hashes. #34 remains open for delivery
+and configured final-source native acceptance; no full local gate or live
+recovery was selected, and older hosted evidence remains at its original graph.
+
+Upstream Memory's Linux native job fails only the inspected expected-diagnostic
+fixture: both outputs still reject forbidden committed-capability construction
+with E0599, but the stored compiler-help snippet differs. Reported at
+[Memory #62](https://github.com/dragginzgame/ic-memory/issues/62#issuecomment-6141500964).
+Its complete native acceptance is not claimed. Jobs' older delivered 0.8.3 CI
+passes Linux with macOS running; it does not qualify this pending Memory graph.
+
+## Earlier inspection — Memory 0.36 adoption required
+
+Reviewed published **IC Memory 0.36.0** at committed/public source
+`834fb71b09d84655dc64bd89b6bfb4c0c9b35c9d`. The official Cargo index reports
+non-yanked and Rust **1.88.0**, with checksum matching the incoming Jobs lock;
+the cached package VCS identity matches the commit. Incoming manifest/lock edits
+already select Memory 0.36 and Metrics 0.8.2; both were preserved.
+
+Memory now owns explicit request vectors and runtime ledger persistence, removing
+constructor/global registration. Jobs already composes its host requests/pool
+explicitly, but needs owned vectors and the current declaration-error name.
+Focused Rust **1.88** checks reproduce the Wasm consumer's vector type mismatch
+and seven integration-test errors at the old declaration calls/error import.
+[#34](https://github.com/dragginzgame/ic-jobs/issues/34) owns the narrow consumer
+adaptation and retained-image/reopen qualification. Upstream reports unchanged
+stable keys/IDs/ledger encoding; Jobs acceptance is not yet established.
+
+Evidence: `target/qualification/memory-036-review.0GcO3O/` retains compiler failures,
+official index metadata and preservation hashes. No source repair, own version
+change, full gate or live execution was performed. Upstream 0.36 native CI is
+queued. This is a compatible Jobs patch candidate **0.8.4** when implemented;
+Memory remains a dev/unpublished-consumer dependency, with no Jobs public API cut.
+
+## Earlier delivery — 0.8.3 acceptance pending
+
+Verified clean delivered **0.8.3** at local/public main
+`c165c29d941b02d0da02e1ad5ad51cc33f07066a`. Local/public annotated tag object
+`2492de7f68491d9bd6b265ee100b2727444d0a98` agrees and peels to that commit.
+The release retains the Shared **0.9.10** snapshot and both prepared cleanups.
+[CI 38365726174](https://github.com/dragginzgame/ic-jobs/actions/runs/38365726174)
+is queued at inspection; #31/#32/#33 remain open for delivered-source native
+acceptance. No unimplemented defect or competing open PR was found in the
+current issue review; pending qualification alone does not require another fix.
+
+The actual delivered graph selects **Host 0.15.2 / Memory 0.35.19 / Metrics 0.8.1 /
+Testkit 0.35.1 / Timers 0.21.2**. Earlier focused and live results remain bound
+to their original inputs; they do not qualify this changed lock or 0.8.3 source.
+No new full local gate, Rust build or live workflow was selected by this review.
+
+Delivered **0.8.2** now passes its configured native gate on Linux and both macOS
+architectures at `f969d24681312ee659106c494f12c0e2cc94d5b5`,
+[run 38358974128](https://github.com/dragginzgame/ic-jobs/actions/runs/38358974128).
+That completes #30's named-codec acceptance. Existing v0.8.1 recovery evidence
+remains at its immutable source; no later live qualification is inferred.
+
+## Earlier preparation — compatible 0.8.3 cleanup
 
 Implemented [#32](https://github.com/dragginzgame/ic-jobs/issues/32) and
 [#33](https://github.com/dragginzgame/ic-jobs/issues/33) on delivered 0.8.2,

@@ -93,7 +93,7 @@ range-based bootstrap is added here.
 ## Consumer memory requests
 
 IC Memory is a development dependency selected from the root workspace catalog
-(`0.35`; the exact patch is selected by `Cargo.lock`). Each fixture contributes
+(`0.36`; the exact patch is selected by `Cargo.lock`). Each fixture contributes
 one checked `MemoryRequest`
 with a distinct authority and permanent logical key: `test.notifications.queue.v1`
 for job records and immutable notification payloads, and
@@ -109,7 +109,7 @@ sealed requests alone do not grant committed allocation authority. Authority
 labels express ownership policy, not caller authentication.
 
 The fault-injection consumers retain their bounded byte store. A separate native
-host fixture adopts IC Memory 0.35 directly: one shared pool grants the
+host fixture adopts IC Memory 0.36 directly: one shared pool grants the
 two namespaces without component ranges or numeric IDs; the host bootstraps once
 before component adoption/open. Stable cells persist the same bounded snapshot
 bytes. Cold reopens retain allocation IDs, payloads and pending deadlines; reads

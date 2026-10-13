@@ -194,7 +194,7 @@ fixtures covering commit failures, reconstruction, receipt reconciliation and
 bounded recurring work. The notification fixture also exercises authorized
 management, bounded inspection/listing and committed wakeup decisions.
 Both fixtures contribute checked, key-only storage requests using the
-development dependency IC Memory 0.35. A native host fixture bootstraps one pool
+development dependency IC Memory 0.36. A native host fixture bootstraps one pool
 and reopens stable cells, retaining payloads/deadlines and blocked effects.
 The unpublished [canister consumer](apps/job-consumer/README.md) exercises real
 management, upgrade, rollback and timer reconstruction through PocketIC. See the

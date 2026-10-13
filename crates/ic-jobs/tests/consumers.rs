@@ -11,9 +11,9 @@ use ic_jobs::{
     RetryPolicy, Schedule, Scheduler,
 };
 use ic_memory::{
-    GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryManagerConfig,
-    MemoryRequest, MemoryRuntime, RuntimeOpenError, SchemaMetadata, SealedDeclarationSnapshot,
-    StaticMemoryDeclarationError,
+    GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryDeclarationError,
+    MemoryManagerConfig, MemoryRequest, MemoryRuntime, RuntimeOpenError, SchemaMetadata,
+    SealedDeclarationSnapshot,
     ic_stable_structures::{Cell, VectorMemory},
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -495,8 +495,9 @@ impl Maintenance {
 fn consumer_memory_requests_compose_without_granting_open_authority() -> Result<()> {
     let notifications = Notifications::memory_request()?;
     let maintenance = Maintenance::memory_request()?;
-    let composed = SealedDeclarationSnapshot::new(&[notifications.clone(), maintenance.clone()])?;
-    let reordered = SealedDeclarationSnapshot::new(&[maintenance, notifications])?;
+    let composed =
+        SealedDeclarationSnapshot::new(vec![notifications.clone(), maintenance.clone()])?;
+    let reordered = SealedDeclarationSnapshot::new(vec![maintenance, notifications])?;
     assert_eq!(composed, reordered);
     assert_eq!(composed.requests().len(), 2);
     assert_ne!(
@@ -529,8 +530,8 @@ fn consumer_memory_collision_refuses_without_changing_retained_jobs() -> Result<
         SchemaMetadata::default(),
     )?;
     assert!(matches!(
-        SealedDeclarationSnapshot::new(&[requested.clone(), foreign]),
-        Err(StaticMemoryDeclarationError::DuplicateRequest { stable_key })
+        SealedDeclarationSnapshot::new(vec![requested.clone(), foreign]),
+        Err(MemoryDeclarationError::DuplicateRequest { stable_key })
             if stable_key == *requested.stable_key()
     ));
     assert_eq!(notifications.store.bytes, notification_bytes);
@@ -546,7 +547,7 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
         Notifications::memory_request()?,
         Maintenance::memory_request()?,
     ];
-    let declarations = SealedDeclarationSnapshot::new(&requests)?;
+    let declarations = SealedDeclarationSnapshot::new(requests.to_vec())?;
     let pool = MemoryAllocationPool::new(
         vec![
             MemoryAuthority::new("test.notifications", "test.notifications.")?,
@@ -588,7 +589,7 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
                 // The host opens only after commitment. Components verify their
                 // requirements without bootstrapping or selecting physical IDs.
                 host.verify_authority(
-                    &SealedDeclarationSnapshot::new(std::slice::from_ref(request))?,
+                    &SealedDeclarationSnapshot::new(vec![request.clone()])?,
                     request.authority(),
                 )?;
                 Cell::init(
@@ -601,7 +602,7 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
         drop(maintenance);
         // A foreign claim cannot commit or open either store, nor change bytes.
         let before = backing.borrow().clone();
-        let foreign = SealedDeclarationSnapshot::new(&[MemoryRequest::new(
+        let foreign = SealedDeclarationSnapshot::new(vec![MemoryRequest::new(
             "test.maintenance",
             requests[0].stable_key().as_str(),
             SchemaMetadata::default(),
