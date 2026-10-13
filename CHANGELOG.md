@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.3]
+## [0.8.3] - 2026-10-13
 
 - Simplify stored-record admission by removing checks already implied by retained
   invariants, preserving accepted records and rejection behavior
