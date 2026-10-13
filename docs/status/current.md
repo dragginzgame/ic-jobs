@@ -1,6 +1,123 @@
 # Current handoff
 
-## Pending 0.8.2 — named retry codec agreement
+## Current preparation — compatible 0.8.3 cleanup
+
+Implemented [#32](https://github.com/dragginzgame/ic-jobs/issues/32) and
+[#33](https://github.com/dragginzgame/ic-jobs/issues/33) on delivered 0.8.2,
+preserving the incoming Shared 0.9.10 snapshot and Host 0.15.2 lock edit.
+Restore admission drops only predicates implied by the existing aggregate
+counter, schedule-anchor and timestamp checks. Receipt completion loads the
+whole snapshot once, shares its selected-entry projection with inspection,
+then restores/transitions the selected job and validates the committed bytes.
+Only the selected entry is cloned for projection; unrelated payloads need no
+second decode. Public APIs, JSON/stable bytes, error order and blocked effects
+remain unchanged; there is no compatibility reader or storage-policy change.
+
+Compared baseline and cleaned restoration on **25,554** frozen/adversarial
+records using Rust **1.88**: all observations match exactly (**3,615** admitted,
+**21,585** aggregate refusals, **354** decode refusals). The corpus includes all
+354 frozen valid old records. Two receipt refusal tests pass against the
+pre-cleanup consumer and cleaned source, covering all seven states, wrong task,
+unknown identity, receipt/clock precedence, unrelated corruption and unchanged
+stable bytes. The stable consumer passes all **16** tests.
+
+Focused checks pass: core/timers separately on Rust **1.88**, native/Wasm minimum
+checks, both native consumers, release Wasm, harness compilation without live
+execution, warnings-denied native/Wasm Clippy, rustdoc/doctests, formatting,
+snapshot/pins/links and whitespace. Evidence stays at
+`target/qualification/cleanup-restore-receipt.RFLvnJ/`, including baseline/fixed
+observations, input corpus, original bytes and per-command logs. The initial
+disposable comparison probe hit the documentation lint; its failed log is retained
+and the documented probe passes. No production failure was suppressed.
+
+Compatible pending notes are **0.8.3**; package metadata stays **0.8.2**.
+Issues #32/#33 remain open for delivery and configured final-source native
+acceptance. Full local CI, release gates and new live recovery were not selected;
+older hosted results do not qualify this pending source. Real index/refs and
+incoming lock selections remain untouched.
+
+## Earlier adoption — Shared 0.9.10
+
+Adopted reviewed committed/public Shared **0.9.10**
+`7e55adecf6f0b196c050f104b37f8c69b6bf434e` under
+[#31](https://github.com/dragginzgame/ic-jobs/issues/31). Exported through the
+canonical owner from a clean isolated checkout, excluding dirty sibling work.
+The snapshot retains all prior entrypoints and adds the mandatory
+`rules/change-reporting.md`: **88 roots/files**, six payload updates, one
+addition and no retirement. AGENTS records that exact source; README identifies
+the adoption and preserves preparation guidance for older build policies.
+
+Focused checks pass: snapshot bytes/modes, **244** documentation references
+across **51** documents, dependency declarations/inheritance and standard release
+Make adapters with substituted effects. The build policy, installers and pins
+are unchanged; prepared tools need no rebuild. The upstream CI cache and Rust
+fixture executables remain outside Jobs' selection. Jobs workflows, Rust **1.88**,
+API/storage/restore policy and release authority are unchanged.
+
+This governance/documentation-only adoption adds no behavior release note or
+own version change. The incoming Host **0.15.2** lockfile edit remains intact and
+requires separate runtime qualification. No local full gate, Rust build, live
+dispatch, staging/commit/ref mutation, release or publication was performed.
+Delivery and configured native acceptance on Linux and both macOS architectures
+remain with #31; old 0.8.1 native/live evidence stays bound to its source.
+Delivered 0.8.2's native CI now passes Linux/Apple Silicon, with Intel running at
+inspection; #30 remains open. Upstream 0.9.10 Linux/lint pass, with macOS running.
+
+Evidence: `target/qualification/shared-0910-adoption.I5P0y0/` retains starting dirty input bytes,
+real index/ref/version/lock identities, clean canonical source, preview/export
+and focused checks. Prior inspection and acceptance notes below are historical.
+
+## Earlier inspection — Shared 0.9.10 and delivered acceptance
+
+Verified delivered Jobs **0.8.2** at local/public main
+`f969d24681312ee659106c494f12c0e2cc94d5b5`. Its configured native run
+[38358974128](https://github.com/dragginzgame/ic-jobs/actions/runs/38358974128)
+is still running at inspection; #30 remains open for final-source native
+acceptance. The preparation notes below are historical. No new live dispatch
+or rerun was selected for 0.8.2.
+
+Reviewed clean committed/public Shared **0.9.10**,
+`7e55adecf6f0b196c050f104b37f8c69b6bf434e`, against Jobs' recorded **0.9.7**.
+The canonical preview updates six selected payloads without retiring files.
+Preserving old entrypoints omits the newly referenced mandatory reporting rule:
+an isolated export reproduces five broken documentation links. Explicitly add
+`rules/change-reporting.md` during adoption; the isolated canonical export then
+verifies **88 files** and all affected documentation links. The real Jobs
+snapshot remains unchanged. The common Cargo build policy, installers and pins
+are byte-identical, so this adoption would not itself require tool rebuilding.
+
+Shared 0.9.8 adds exact-identity native CI caching and fixture timing at its
+owner; Jobs would need a separate deliberate workflow/helper selection to use
+that cache. Shared 0.9.9 fixes the standalone Rust fixture's invoking-directory
+isolation and replaces fixture commits with borrowed history. These owner-only
+executable changes are outside Jobs' current selection. Shared 0.9.10 adds
+reporting rules separating semantic deletions, moves/renames and physical churn.
+Its exact native run is still in progress; 0.9.9's native run succeeded.
+
+Delivered **0.8.1** now has complete native acceptance on all three hosts at
+[38288606583](https://github.com/dragginzgame/ic-jobs/actions/runs/38288606583)
+and live acceptance at
+[38289182820](https://github.com/dragginzgame/ic-jobs/actions/runs/38289182820),
+both bound to `f9c0c0eb4e8363565be63f9434a0cf8b9940294b`. Downloaded the exact
+three recovery artifacts and verified upload digests, safe archive paths,
+committed manifests/lock/toolchain/snapshot/pins, wrapper and build-policy hashes,
+Testkit 0.35.0 selection, each host's four Wasm hashes and all **84** live results.
+Every scenario passes with zero failed/ignored tests. Native acceptance resolves
+#26/#29; native plus live acceptance resolves #28. #27's earlier 0.9.4-only
+qualification is superseded by accepted 0.9.7, not relabelled as a successful
+historical run. These results do not qualify the subsequent 0.8.2 codec change.
+
+Current inspection evidence, exact archives, source-bound reports, canonical
+previews and isolated exports stay under
+`target/qualification/shared-0910-review/`. No full local gate, source repair,
+real snapshot adoption, release or publication was performed.
+
+An incoming lockfile edit appeared during inspection, advancing Host artifacts,
+fs and process from 0.15.1 to **0.15.2**. It was preserved without reselection.
+The committed-source native/live results above do not qualify this dirty graph;
+its dependency review and focused qualification remain separate work.
+
+## Earlier 0.8.2 preparation — named retry codec agreement
 
 Reproduced and repaired
 [#30](https://github.com/dragginzgame/ic-jobs/issues/30). Released 0.8.1's retry

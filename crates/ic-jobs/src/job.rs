@@ -201,7 +201,6 @@ impl Job {
             || record
                 .last_outcome_ns
                 .is_some_and(|time| time > record.updated_ns)
-            || record.sequence < u64::from(record.attempts)
             // Every completed occurrence used at most the immutable retry
             // budget. Rescheduling preserves that history; use the total
             // occurrence count, with wide arithmetic for large valid records.
@@ -250,10 +249,7 @@ impl Job {
             _ => {}
         }
         if record.sequence == 0 {
-            if record.occurrence != 0
-                || record.attempts != 0
-                || record.last_outcome.is_some()
-                || record.scheduled_ns != record.schedule.first()
+            if record.last_outcome.is_some()
                 || !matches!(
                     record.state,
                     JobState::Pending { .. } | JobState::Paused { .. } | JobState::Cancelled
@@ -326,8 +322,6 @@ impl Job {
                 if record.attempts == 0
                     || started_ns < record.scheduled_ns
                     || started_ns > record.updated_ns
-                    || (matches!(record.state, JobState::Running { .. })
-                        && record.last_outcome_ns.is_some_and(|time| time > started_ns))
                     || (matches!(record.state, JobState::Running { .. })
                         && started_ns != record.updated_ns)
                     || (matches!(record.state, JobState::Running { .. })

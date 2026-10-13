@@ -27,6 +27,31 @@ struct Entry {
     task: Task,
 }
 
+impl Entry {
+    fn outstanding(self) -> Result<Delivery, Error> {
+        if !matches!(
+            self.job.state,
+            JobState::Running { .. } | JobState::Uncertain { .. }
+        ) {
+            return Err(Error::InvalidInput);
+        }
+        let Task::Deliver {
+            destination,
+            message,
+        } = self.task
+        else {
+            return Err(Error::InvalidInput);
+        };
+        Ok(Delivery {
+            job: u64::try_from(self.job.id.0).map_err(|_| Error::InvalidStorage)?,
+            occurrence: self.job.occurrence,
+            sequence: self.job.sequence,
+            destination,
+            message,
+        })
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Snapshot {
@@ -332,32 +357,12 @@ impl<M: Memory> Queue<M> {
     }
 
     pub(crate) fn outstanding(&self, id: u64) -> Result<Delivery, Error> {
-        let entry = self
-            .load()?
+        self.load()?
             .jobs
             .into_iter()
             .find(|entry| entry.job.id == JobId(u128::from(id)))
-            .ok_or(Error::UnknownJob)?;
-        if !matches!(
-            entry.job.state,
-            JobState::Running { .. } | JobState::Uncertain { .. }
-        ) {
-            return Err(Error::InvalidInput);
-        }
-        let Task::Deliver {
-            destination,
-            message,
-        } = entry.task
-        else {
-            return Err(Error::InvalidInput);
-        };
-        Ok(Delivery {
-            job: id,
-            occurrence: entry.job.occurrence,
-            sequence: entry.job.sequence,
-            destination,
-            message,
-        })
+            .ok_or(Error::UnknownJob)?
+            .outstanding()
     }
 
     pub(crate) fn finish(
@@ -366,15 +371,16 @@ impl<M: Memory> Queue<M> {
         now: u64,
         outcome: Outcome,
     ) -> Result<(), Error> {
-        if self.outstanding(delivery.job)? != *delivery {
-            return Err(Error::ReceiptMismatch);
-        }
         let mut snapshot = self.load()?;
         let entry = snapshot
             .jobs
             .iter_mut()
             .find(|entry| entry.job.id == JobId(u128::from(delivery.job)))
             .ok_or(Error::UnknownJob)?;
+        // Project only the selected entry; retain the admitted snapshot for commit.
+        if entry.clone().outstanding()? != *delivery {
+            return Err(Error::ReceiptMismatch);
+        }
         let mut job = Job::restore(entry.job).map_err(job_error)?;
         let attempt = Attempt {
             execution: ExecutionId {

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.3]
+
+- Simplify stored-record admission by removing checks already implied by retained
+  invariants, preserving accepted records and rejection behavior
+  ([#32](https://github.com/dragginzgame/ic-jobs/issues/32)).
+- Complete test-consumer deliveries from one validated snapshot, preserving exact
+  receipt checks, refusal ordering and blocked effects
+  ([#33](https://github.com/dragginzgame/ic-jobs/issues/33)).
+
 ## [0.8.2] - 2026-10-13
 
 - Fix retry-policy decoding for Serde formats that retain struct names: the checked

@@ -209,7 +209,7 @@ see the
 [current handoff](docs/status/current.md) for source-bound native and live
 PocketIC recovery qualification.
 
-Common tooling is adopted through the reviewed
+Common tooling is adopted from Shared Tooling **0.9.10** through the reviewed
 [Shared Tooling snapshot](.shared-tooling.snapshot).
 Run `make install-tools` explicitly to prepare and select the host, IC and
 Rust tools in order, then selected cargo-edit; `make tools-check` verifies the
@@ -230,12 +230,13 @@ retained. Use the same
 `SHARED_TOOLING_STORE` setting for setup, checks and evidence collection; see
 [storage configuration](docs/local-setup.md#shared-executable-storage).
 Common Rust tools retain `.tools/rust/common/bin` as their command path.
-Shared 0.9.7 changes the Cargo-tool build-policy digest. Refresh the common and
+When upgrading from before Shared 0.9.7, refresh the common and
 release selections with `make install-rust-tools install-release-tools`, then
 run `make rust-tools-check release-tools-check format-tools-check`. Prior builds
 remain retained. Cargo `net.offline` must be a TOML boolean; an explicit
 `CARGO_NET_OFFLINE` setting takes precedence. Application build flags and the
-application's selected dependency graph are unaffected.
+application's selected dependency graph are unaffected. Shared 0.9.10 retains
+that build policy and requires no additional rebuild of prepared tools.
 Jobs' pinned cargo-edit also uses the shared owner: `make install-release-tools`
 prepares its selected binary and `make release-tools-check` admits it. Release
 metadata uses the returned checked path. The older cargo-edit root is retained;

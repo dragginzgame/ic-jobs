@@ -341,6 +341,135 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
 }
 
 #[test]
+fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
+    let destination = Principal::self_authenticating(b"receiver");
+    for task in [
+        Task::Increment(1),
+        Task::Deliver {
+            destination,
+            message: "report".into(),
+        },
+    ] {
+        for state in [
+            JobState::Pending { due_ns: 10 },
+            JobState::Paused { due_ns: 10 },
+            JobState::Running { started_ns: 10 },
+            JobState::Uncertain { started_ns: 10 },
+            JobState::Completed,
+            JobState::Failed,
+            JobState::Cancelled,
+        ] {
+            let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+            let id = queue
+                .create(Create {
+                    timing: Timing::Once(10),
+                    task: task.clone(),
+                })
+                .unwrap();
+            let mut snapshot = queue.load().unwrap();
+            let mut job = Job::restore(snapshot.jobs[0].job).unwrap();
+            match state {
+                JobState::Pending { .. } => {}
+                JobState::Paused { .. } => job.pause(10).unwrap(),
+                JobState::Cancelled => job.cancel(10).unwrap(),
+                _ => {
+                    let attempt = job.start(10).unwrap();
+                    match state {
+                        JobState::Running { .. } => {}
+                        JobState::Uncertain { .. } => {
+                            job.finish(attempt, 10, Outcome::Uncertain).unwrap();
+                        }
+                        JobState::Completed => job.finish(attempt, 10, Outcome::Success).unwrap(),
+                        JobState::Failed => {
+                            job.finish(attempt, 10, Outcome::PermanentFailure).unwrap();
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+            }
+            snapshot.jobs[0].job = job.record();
+            queue.commit(snapshot).unwrap();
+            let delivery = Delivery {
+                job: id,
+                occurrence: job.record().occurrence,
+                sequence: job.record().sequence,
+                destination,
+                message: "report".into(),
+            };
+            let outstanding = matches!(task, Task::Deliver { .. })
+                && matches!(state, JobState::Running { .. } | JobState::Uncertain { .. });
+            let before = queue.cell.get().clone();
+            for (candidate, expected) in [
+                (
+                    Delivery {
+                        job: id + 1,
+                        ..delivery.clone()
+                    },
+                    Error::UnknownJob,
+                ),
+                (
+                    Delivery {
+                        message: "changed".into(),
+                        ..delivery.clone()
+                    },
+                    if outstanding {
+                        Error::ReceiptMismatch
+                    } else {
+                        Error::InvalidInput
+                    },
+                ),
+                (
+                    delivery,
+                    if outstanding {
+                        job_error(ic_jobs::JobError::TimeWentBackwards)
+                    } else {
+                        Error::InvalidInput
+                    },
+                ),
+            ] {
+                assert_eq!(queue.finish(&candidate, 9, Outcome::Success), Err(expected));
+                assert_eq!(*queue.cell.get(), before);
+            }
+        }
+    }
+}
+
+#[test]
+fn unrelated_corruption_precedes_completion_lookup_receipt_and_clock_checks() {
+    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+    queue
+        .create(Create {
+            timing: Timing::Once(10),
+            task: Task::Deliver {
+                destination: Principal::self_authenticating(b"receiver"),
+                message: "report".into(),
+            },
+        })
+        .unwrap();
+    let corrupt = queue.create(increment(20)).unwrap();
+    let delivery = queue.dispatch(10).unwrap().0.remove(0);
+    queue.corrupt_record(corrupt).unwrap();
+    let before = queue.cell.get().clone();
+    for candidate in [
+        Delivery {
+            job: corrupt + 1,
+            ..delivery.clone()
+        },
+        Delivery {
+            sequence: delivery.sequence + 1,
+            ..delivery.clone()
+        },
+        delivery,
+    ] {
+        assert_eq!(
+            queue.finish(&candidate, 9, Outcome::Success),
+            Err(Error::InvalidStorage)
+        );
+        assert_eq!(*queue.cell.get(), before);
+    }
+}
+
+#[test]
 fn corrupt_future_record_blocks_due_dispatch_and_recovery_without_reset() {
     let backing = VectorMemory::default();
     let mut queue = Queue::open(backing.clone(), Some(config())).unwrap();
