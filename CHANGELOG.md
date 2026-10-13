@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.0]
+## [0.9.0] - 2026-10-13
 
 - **Breaking:** adopt IC Timers 0.22 and its Metrics 0.9 measurement-summary
   identity. Align direct timer dependencies to 0.22; use the Timers summary
