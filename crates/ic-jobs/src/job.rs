@@ -215,9 +215,7 @@ impl Job {
             return invalid();
         }
         match record.schedule {
-            Schedule::Once { at_ns }
-                if record.occurrence != record.schedule_origin || record.scheduled_ns != at_ns =>
-            {
+            Schedule::Once { .. } if record.occurrence != record.schedule_origin => {
                 return invalid();
             }
             Schedule::FixedRate {

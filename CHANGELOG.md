@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.5]
+
+- Remove the repeated one-shot restore deadline check, retaining common deadline
+  admission and the occurrence-origin guard
+  ([#36](https://github.com/dragginzgame/ic-jobs/issues/36)).
+- Adopt Shared Tooling 0.9.13: preserve filesystem lock and Cargo source-download
+  failure statuses, and clarify locked dependency-cache preparation. Refresh
+  prepared common and release Rust tools; existing builds remain retained
+  ([#35](https://github.com/dragginzgame/ic-jobs/issues/35),
+  [Shared #145](https://github.com/dragginzgame/shared-tooling/issues/145),
+  [#146](https://github.com/dragginzgame/shared-tooling/issues/146),
+  [#147](https://github.com/dragginzgame/shared-tooling/issues/147)).
+
 ## [0.8.4] - 2026-10-13
 
 - Adopt IC Memory 0.36 in test consumers using explicit owned allocation requests.

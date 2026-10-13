@@ -1,6 +1,74 @@
 # Current handoff
 
-## Current preparation — compatible 0.8.4 Memory adoption
+## Current preparation — compatible 0.8.5 restore cleanup
+
+Implemented [#36](https://github.com/dragginzgame/ic-jobs/issues/36), removing
+only the one-shot deadline predicate already implied by common first-occurrence
+admission. The independent one-shot occurrence-origin guard and every other
+restore/state/history rule remain intact. Public APIs, record encoding, refusal
+identity/order and blocked effects are unchanged. This extends the same pending
+**0.8.5** notes alongside the Shared adoption below.
+
+Rust **1.88** baseline/cleaned comparison observes identical results for all
+**41,154** inputs: all 354 frozen valid records plus one-shot deadline,
+occurrence/origin combinations and counter/timestamp extremes. Exact successful
+record serialization and typed restoration refusals match; original/fixed
+observations and source inputs remain separate. No new implementation-shaped
+guard test was added for this implied condition.
+
+Focused checks pass: core/timers separately on Rust **1.88**, both 20-test
+consumer suites, all 16 stable-consumer tests, native/Wasm minimum checks,
+release Wasm, harness compilation without live execution, warnings-denied
+native/Wasm Clippy, docs/doctests, formatting, snapshot/pins/links and whitespace.
+Evidence: `target/qualification/once-restore-cleanup.dhboOj/`, including
+input corpus, original/fixed observations, command logs and qualified hashes.
+Own metadata stays **0.8.4**; the lock, prepared Shared snapshot, index and refs
+are unchanged. #36 remains open for delivery and final-source configured native
+acceptance. Full local CI and live recovery were not selected; delivered 0.8.4's
+native gate is still queued at inspection and does not qualify this dirty source.
+
+## Earlier Shared preparation — compatible 0.8.5
+
+Adopted reviewed committed/public Shared **0.9.13**
+`35cad65677ff989b5fb24a88d947fda37d2366e8` under
+[#35](https://github.com/dragginzgame/ic-jobs/issues/35). A clean isolated checkout
+excludes the sibling's uncommitted 0.9.14 work. Canonical preview/export retains
+all **88 roots/files**, with eight updates and no additions or retirement.
+AGENTS identifies the exact source; README records the required tool refresh.
+
+Shared lock acquisition preserves filesystem diagnostics/status and refuses
+existing lock paths without deleting another owner's lock. Common/selected
+Cargo source acquisition retains its original failure status before build or
+activation. Locked Cargo dependency-source preparation is now explicitly
+authorized during development/validation, preserving selections and explicit
+offline settings. This does not activate implicit fetching, executable setup,
+runtime networking or release effects. Upstream CI branch-selection command
+changes remain outside Jobs' selected executable set.
+
+Canonical common/release Rust-tool refresh and actual complete offline tool
+admission pass; prior generations remain retained. Producer host/IC/Rust
+fixtures pass on Linux under Bash **5** and genuine **3.2.57**, including child
+shells. Jobs release/publication, formatting/evidence, consumer refusal/input
+drift and hook fixtures pass with their documented substitute effects. Formatter,
+snapshot/pins/docs/release adapters, ShellCheck and whitespace checks pass.
+No product Rust source, dependencies, pins, own metadata, real index or refs
+changed; no full local gate or live PocketIC qualification was selected.
+
+Pending compatible notes are **0.8.5**; package metadata remains **0.8.4**.
+Local/public delivered 0.8.4 is
+`555b4e3c6ba7fa869fbda9deda27a83b2f6cc110`; its queued native gate and #34
+remain source-bound to that Memory adoption. Delivered 0.8.3 now passes
+[all-host native CI 38365726174](https://github.com/dragginzgame/ic-jobs/actions/runs/38365726174)
+at `c165c29d941b02d0da02e1ad5ad51cc33f07066a`, completing #31/#32/#33.
+Neither run qualifies this pending Shared snapshot. Producer 0.9.13 CI is still
+running at inspection; #35 retains delivery and final-source native acceptance.
+
+Evidence: `target/qualification/shared-0913-adoption.YI0uef/` retains clean source,
+canonical previews/export, starting identities, fixtures/setup/admission logs,
+static checks and preservation proof. Earlier preparation notes below are
+historical.
+
+## Earlier preparation — compatible 0.8.4 Memory adoption
 
 Implemented [#34](https://github.com/dragginzgame/ic-jobs/issues/34) using the
 incoming published Memory **0.36.0** selection. Every declaration caller now
