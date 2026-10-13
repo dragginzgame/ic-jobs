@@ -276,7 +276,6 @@ fn fixture_mark_uncertain(id: u64) -> Result<(), Error> {
 
 #[ic_cdk::update]
 async fn fixture_dispatch_trap_result(input: Create) -> Result<(), Error> {
-    authorize()?;
     create(input)?;
     let (deliveries, _) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
     reconcile();

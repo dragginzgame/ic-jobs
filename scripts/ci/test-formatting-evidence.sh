@@ -55,19 +55,8 @@ PATH="$fixture/bin:$PATH" TMPDIR="$gate_temp" bash "$fixture/gate.sh" \
 attempts=("$gate_temp/"*)
 [[ ${#attempts[@]} == 1 && -f "${attempts[0]}/failure.log" ]] || exit 1
 
-# Complete stdout and stderr survive the compact two-line presentation, along
-# with the wrapped command's original status.
-status=0
-RUNNER_TEMP="$fixture/temp" bash "$root/scripts/ci/run-formatting.sh" --check \
-    bash -ec 'echo retained-formatter-diff; echo formatter-error >&2; exit 23' \
-    > "$fixture/output" 2>&1 || status=$?
-[[ "$status" == 23 ]] || exit 1
-[[ "$(wc -l < "$fixture/output" | tr -d ' ')" == 2 ]] || exit 1
-grep -Fx 'Checking formatting... FAILED (exit 23)' "$fixture/output" > /dev/null
-logs=("$fixture/temp"/formatting.*)
-[[ ${#logs[@]} == 1 && -f "${logs[0]}" ]] || exit 1
-grep -Fx retained-formatter-diff "${logs[0]}" > /dev/null
-grep -Fx formatter-error "${logs[0]}" > /dev/null
+# Shared test-make-format.sh owns standalone wrapper presentation/status proof.
+# Jobs retains actual workflow, Make and collector integration below.
 
 # Exercise Jobs' actual Makefile and selected includes, substituting only Cargo
 # in this disposable checkout. A sorter failure must stop the later rustfmt call.
@@ -117,7 +106,7 @@ printf 'sort --workspace --check\n' > "$fixture/expected-events"
 cmp "$fixture/expected-events" "$FORMAT_EVIDENCE_EVENTS"
 grep -Fx 'Checking formatting... FAILED (exit 23)' "$fixture/make-failure" > /dev/null
 logs=("$fixture/temp"/formatting.*)
-[[ ${#logs[@]} == 2 ]] || exit 1
+[[ ${#logs[@]} == 1 ]] || exit 1
 grep -Flx sorter-error "${logs[@]}" > "$fixture/sorter-logs"
 [[ "$(wc -l < "$fixture/sorter-logs" | tr -d ' ')" == 1 ]] || exit 1
 sorter_log="$(cat "$fixture/sorter-logs")"
@@ -185,7 +174,7 @@ RUNNER_TEMP="$fixture/temp" bash "$root/scripts/ci/run-formatting.sh" --write \
 printf 'Formatting... ok\n' > "$fixture/expected"
 cmp "$fixture/expected" "$fixture/success"
 remaining=("$fixture/temp"/formatting.*)
-[[ ${#remaining[@]} == 2 ]] || exit 1
+[[ ${#remaining[@]} == 1 ]] || exit 1
 for log in "${logs[@]}"; do [[ -f "$log" ]] || exit 1; done
 echo 'Formatting failure propagation and local archive retention passed (no hosted upload)'
 echo 'Refused shared-store admission retains local evidence before incomplete collection fails (no hosted upload)'

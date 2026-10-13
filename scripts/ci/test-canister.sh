@@ -38,10 +38,10 @@ if [[ $# == 1 ]]; then
 fi
 for variant in "${variants[@]}"; do
     mkdir "$evidence/$variant"
-    export IC_JOBS_CONSUMER_WASM="$evidence/$variant/jobs_test_consumer.wasm"
     if [[ "$variant" == original ]]; then
-        cp "$evidence/jobs_test_consumer.wasm" "$IC_JOBS_CONSUMER_WASM"
+        export IC_JOBS_CONSUMER_WASM="$evidence/jobs_test_consumer.wasm"
     else
+        export IC_JOBS_CONSUMER_WASM="$evidence/$variant/jobs_test_consumer.wasm"
         # Respect the input's declared features; do not enable unrelated Wasm
         # proposals or change the normal product build.
         "$bin/wasm-opt" "$evidence/jobs_test_consumer.wasm" "-$variant" \

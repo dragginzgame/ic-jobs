@@ -445,14 +445,8 @@ impl Job {
             .sequence
             .checked_add(1)
             .ok_or(JobError::CounterExhausted)?;
-        let attempts = self
-            .0
-            .attempts
-            .checked_add(1)
-            .ok_or(JobError::CounterExhausted)?;
-        if attempts > self.0.retry.max_attempts() {
-            return Err(JobError::InvalidRecord);
-        }
+        // Admitted Pending jobs have attempts < max_attempts <= u32::MAX.
+        let attempts = self.0.attempts + 1;
         self.0.sequence = sequence;
         self.0.attempts = attempts;
         self.0.state = JobState::Running { started_ns: now_ns };

@@ -123,6 +123,80 @@ for kind in absent symlink directory; do
 done
 echo 'Invalid Wasm input refuses before attempt/server dispatch (real wrapper; substitute metadata/CLI)'
 
+# The real recovery wrapper must consume one frozen original even if the live
+# producer is replaced during qualification. Only transforms/server effects are
+# substituted; flags, paths, hashes, logs and all dispatch plumbing are real.
+mkdir -p "$fixture/selected/bin" "$fixture/ic-bin" "$fixture/.tools/ic"
+cp "$root/.tools/ic/"{pins.tsv,files.sha256} "$fixture/.tools/ic/"
+cp "$root/.shared-tooling.snapshot" "$fixture/"
+printf '{}\n' > "$fixture/selected/selection.json"
+export JOBS_CONSUMER_CLI="$fixture/selected/bin/ic-testkit-server"
+export JOBS_CONSUMER_IC_BIN="$fixture/ic-bin" JOBS_CONSUMER_FROZEN="$fixture/input"
+export JOBS_CONSUMER_PRODUCER="$input" JOBS_CONSUMER_CAPTURED="$fixture/consumed"
+cat > "$fixture/scripts/dev/install-ic-tools.sh" <<'INSTALLER'
+#!/usr/bin/env bash
+[[ "$*" == --check ]] || exit 49
+printf '%s\n' "$JOBS_CONSUMER_IC_BIN"
+INSTALLER
+cat > "$fixture/.tools/rust/common/bin/git" <<'GIT'
+#!/usr/bin/env bash
+[[ "$*" == 'rev-parse HEAD' ]] || exit 49
+printf '%040d\n' 1
+GIT
+cat > "$fixture/.tools/rust/common/bin/rustc" <<'RUSTC'
+#!/usr/bin/env bash
+[[ "$*" == '+1.88.0 --version --verbose' ]] || exit 49
+echo 'rustc fixture'
+RUSTC
+cat > "$fixture/ic-bin/wasm-opt" <<'OPTIMIZER'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == --version ]]; then echo 'wasm-opt fixture'; exit 0; fi
+[[ $# == 4 && "$3" == -o && ( "$2" == -O3 || "$2" == -Os || "$2" == -Oz ) ]] || exit 49
+cmp "$1" "$JOBS_CONSUMER_FROZEN"
+cat "$1" > "$4"
+printf '%s\n' "$2" >> "$4"
+OPTIMIZER
+cat > "$JOBS_CONSUMER_CLI" <<'SERVER'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$1" == run && "$2" == --ttl && "$3" == 900 && "$4" == --server-stdout && "$6" == --server-stderr && "$8" == -- ]] || exit 49
+variant="${5%/server.stdout}"; variant="${variant##*/}"
+printf 'server stdout\n' > "$5"
+printf 'server stderr\n' > "$7"
+shift 8
+[[ "$*" == 'cargo +1.88.0 test -p jobs-canister-tests --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture' ]] || exit 49
+printf '%s\n' "$IC_JOBS_CONSUMER_WASM" >> "$JOBS_CONSUMER_CAPTURED/paths"
+cp "$IC_JOBS_CONSUMER_WASM" "$JOBS_CONSUMER_CAPTURED/$variant.wasm"
+printf 'replaced mutable producer\n' > "$JOBS_CONSUMER_PRODUCER"
+echo 'substitute qualification passed'
+SERVER
+chmod +x "$fixture/.tools/rust/common/bin/"{git,rustc} "$fixture/ic-bin/wasm-opt" "$JOBS_CONSUMER_CLI"
+for mode in original optimized; do
+ mkdir "$fixture/$mode-evidence"
+ mkdir -p "$JOBS_CONSUMER_CAPTURED"
+ : > "$JOBS_CONSUMER_CAPTURED/paths"
+ cp "$fixture/input" "$input"
+ args=(); variants=(original)
+ if [[ "$mode" == optimized ]]; then args=(--optimized); variants+=(O3 Os Oz); fi
+ (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" RUNNER_TEMP="$fixture/$mode-evidence" \
+  "$BASH" scripts/ci/test-canister.sh ${args[@]+"${args[@]}"}) > "$fixture/$mode-wrapper.log" 2>&1
+ evidence=("$fixture/$mode-evidence/"*)
+ [[ ${#evidence[@]} == 1 && "$(head -n 1 "$JOBS_CONSUMER_CAPTURED/paths")" == "${evidence[0]}/jobs_test_consumer.wasm" ]] || exit 1
+ cmp "$fixture/input" "$JOBS_CONSUMER_CAPTURED/original.wasm"
+ for variant in "${variants[@]}"; do
+  if [[ "$variant" != original ]]; then
+   { cat "$fixture/input"; printf '%s\n' "-$variant"; } > "$fixture/expected.wasm"
+   cmp "$fixture/expected.wasm" "$JOBS_CONSUMER_CAPTURED/$variant.wasm"
+  fi
+  actual="$(bash "$root/scripts/ci/verify-file-checksum.sh" --print sha256 "$JOBS_CONSUMER_CAPTURED/$variant.wasm")"
+  [[ "$(cat "${evidence[0]}/$variant/consumer-wasm.sha256")" == "$actual" && -s "${evidence[0]}/$variant/test.log" && -s "${evidence[0]}/$variant/server.stdout" && -s "${evidence[0]}/$variant/server.stderr" ]] || exit 1
+ done
+ [[ "$(cat "$input")" == 'replaced mutable producer' ]] || exit 1
+done
+rm "$fixture/.tools/rust/common/bin/git"
+echo 'Recovery consumes one frozen original with preserved variants/hashes/logs after producer replacement (substitute optimizer/server; no live gate)'
+
 # Run Jobs' actual CI route only through its first admission stage. Substitute
 # tool effects and mutate a selected input there; the logger must block all
 # subsequent product checks without compilation, installation or server effects.

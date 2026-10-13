@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.9.0]
+
+- **Breaking:** adopt IC Timers 0.22 and its Metrics 0.9 measurement-summary
+  identity. Align direct timer dependencies to 0.22; use the Timers summary
+  re-export or Metrics 0.9 for exchanged measurements, updating Metrics overflow
+  accessors and error matches. Job records and retained storage need no reset
+  ([#41](https://github.com/dragginzgame/ic-jobs/issues/41)).
+
+- Remove duplicate standalone formatter checks now owned by Shared Tooling,
+  retaining Jobs’ workflow and failure-evidence integration checks
+  ([#42](https://github.com/dragginzgame/ic-jobs/issues/42)).
+
+- Simplify dispatch attempt increments using validated Pending-state budget
+  guarantees, retaining sequence overflow and error atomicity
+  ([#43](https://github.com/dragginzgame/ic-jobs/issues/43)).
+- Qualify recovery against one frozen original artifact and remove repeated
+  fixture authorization; keep variant hashes/logs and create authorization
+  ([#42](https://github.com/dragginzgame/ic-jobs/issues/42)).
+
 ## [0.8.7] - 2026-10-13
 
 - Adopt Shared Tooling 0.10: common setup, formatting and failure evidence use

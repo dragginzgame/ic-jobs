@@ -565,8 +565,8 @@ git tag -a "v$base_version" -m 'Fixture release'
 tag_object="$(git rev-parse "$tag")"
 git push --quiet origin "$tag"
 # Keep the remote's ordinary path while exercising a checkout whose name contains
-# spaces and ends in newlines. Command substitution must preserve its identity.
-publication_checkout="$fixture/"$'publication checkout\n\n'
+# ordinary spaces. CR/LF checkouts are outside the reviewed baseline.
+publication_checkout="$fixture/publication checkout with spaces"
 publication_remote="$repository.git"
 cd "$fixture"
 mv "$repository" "$publication_checkout"

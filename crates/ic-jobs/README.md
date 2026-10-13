@@ -131,16 +131,18 @@ it cannot make a permanently failing handler progress. Dispose of known no-effec
 handler failures through the job's exact attempt, retaining fail-closed handling
 for corrupt storage and unresolved external effects.
 
-The optional adapter uses IC Timers 0.21. Align direct timer dependencies and all
+The optional adapter uses IC Timers 0.22. Align direct timer dependencies and all
 timer owners in the canister to that package identity. For exchanged measurement
 summaries, use `ic_timers::MeasurementSummary` to share Timers' selected Metrics
-package identity.
+package identity. Direct Metrics dependencies sharing those types must select 0.9.
+Update overflow accessors to `*_overflowed` and matches to the Metrics 0.9 error
+names. Job records and consumer-owned persistence require no reset.
 
-Timers 0.21 publishes a new watchdog registration only after its requested
+Timers 0.22 publishes a new watchdog registration only after its requested
 initial state succeeds. A failed first reconciliation leaves the consumer slot
 empty and releases the new callback; retry can install the callback supplied
 by that retry. Later failures retain existing authority. The instruction-summary
-type selects Metrics 0.8; use the Timers re-export when exchanging summaries.
+type selects Metrics 0.9; use the Timers re-export when exchanging summaries.
 
 The package requires Rust 1.88, with or without the optional timers feature.
 See the [repository guide](https://github.com/dragginzgame/ic-jobs) and

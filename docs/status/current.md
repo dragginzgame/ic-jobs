@@ -1,6 +1,124 @@
 # Current handoff
 
-## Current preparation — compatible 0.8.7 Shared 0.10 adoption
+## Current preparation — 0.9.0 dispatch/artifact/fixture cleanup
+
+Implemented [#43](https://github.com/dragginzgame/ic-jobs/issues/43): Pending
+admission guarantees attempts below the immutable nonzero retry budget, so
+start increments that counter directly. Checked u64 sequence advancement,
+clock/state/due ordering and atomic mutation remain unchanged. Every restore
+still uses the validated boundary; no public error variant was removed.
+
+Independent Rust **1.88** original/cleaned probes match across **76,044** inputs,
+including all 354 frozen records and budget/counter/time/history extremes.
+There are **15,724** admitted start operations: **1,551** successes and **14,173**
+refusals, with explicit unchanged-record assertions for every failed start.
+The remaining **60,320** raw records refuse restore identically. Exact successful
+records, error identity and all serialized post-operation records match.
+
+Also implemented the additional [#42](https://github.com/dragginzgame/ic-jobs/issues/42)
+audit reductions. Original recovery now consumes the initial frozen artifact
+without a second copy; original/ still retains logs/hash records. Optimized
+variants derive from that same frozen input. The fixture endpoint calls create
+once, retaining create's authorization before any mutation or await.
+
+Core/timers tests pass separately on Rust **1.88**, including both 20-test
+consumer suites. All 16 stable-consumer tests, native/Wasm minimum checks,
+release Wasm, harness compilation, warnings-denied native/Wasm Clippy and docs
+pass. Actual recovery-wrapper fixtures pass on Bash 5 and genuine 3.2.57,
+substituting optimizer/server effects: producer replacement cannot change the
+frozen original/variants, and paths, hashes, logs and input/graph refusals remain
+correct. ShellCheck and formatting/link/pin/snapshot checks pass.
+
+Evidence: `target/qualification/start-capture-cleanup/`, with original source,
+corpus, both probe outputs, failed fixture attempts and final focused logs.
+The #42 proposed IC Build caller was rebased to retain the same single original;
+its earlier capture experiments remain bound to their actual inputs. No live
+PocketIC/trap execution or full local gate was selected. #43 remains open for
+delivery/final-source native acceptance; #42 also retains its upstream adoption
+obligations. Pending notes stay **0.9.0**; own metadata remains **0.8.7**. Incoming
+Cargo selections, real index/refs and snapshot are preserved.
+
+## Earlier preparation — three cleanup owners; upstream delivery pending
+
+[#42](https://github.com/dragginzgame/ic-jobs/issues/42) records the three
+requested cleanups. Locally removed duplicate standalone formatter assertions;
+Shared owns those tests. Jobs retains actual Make/workflow/collector proof,
+complete failure logs, incomplete collection and successful-log cleanup checks.
+Updated the disposable publication fixture to use ordinary spaces; CR/LF
+checkout success is outside the reviewed baseline. Focused Jobs fixtures and
+genuine Bash 3.2 formatter/evidence qualification pass.
+
+Prepared read-only publication admission in isolated Shared source at
+`/tmp/jobs-extractions/shared-tooling`, based on committed 0.10.2
+`626fc2bd3125195520fb870b92abfec11b01454d`, under
+[Shared #165](https://github.com/dragginzgame/shared-tooling/issues/165).
+The helper retains source/version/annotated-tag/remote/registry admission and
+post-observation identity/source checks; upload remains consumer-owned.
+Focused Bash 5/3.2, ShellCheck and the complete portable suite pass. The proposed
+thin Jobs caller passes the existing disposable publication/release fixtures.
+
+Prepared explicit captured-evidence retention in isolated IC Build source at
+`/tmp/jobs-extractions/ic-build`, based on published 0.2.2
+`e9be97fa356c14cb5431b879e304a0f8cc5077c3`, under
+[Build #14](https://github.com/dragginzgame/ic-build/issues/14).
+Ordinary Drop/close still clean temporary captures; explicit retention transfers
+cleanup to the caller. Rust 1.88 staging/all-package tests, docs and documented
+check gate pass. Proposed Jobs capture preserves the actual consumer Wasm and
+all three O3/Os/Oz producer outputs byte-for-byte, with no live execution.
+
+Evidence: `target/qualification/cleanup-three/`, including proposed callers,
+producer/consumer fixture logs, retained failure attempts and patch artifacts.
+Sibling dirty files remain untouched. Neither upstream draft is committed,
+released or published. Jobs' active publication/recovery implementations remain
+until canonical Shared delivery/export and published IC Build dependency/caller
+admission permit their replacement. Recipe flags, filenames, evidence and
+Testkit/live policy remain Jobs-owned; no competing engine is introduced.
+
+Pending Jobs notes remain **0.9.0** alongside #41. Own metadata, incoming
+manifest, real index and refs are unchanged. Incoming Host lock selections
+advanced from 0.17.2 to 0.17.3 during this task and were not overwritten.
+Earlier Rust proofs retain their original graph; they do not qualify that
+independent new selection. Producer native macOS and
+final-source Jobs acceptance remain pending; no release or live gate was run.
+
+## Earlier preparation — Jobs 0.9.0 Timers/Metrics identity cut
+
+Implemented [#41](https://github.com/dragginzgame/ic-jobs/issues/41) on delivered
+**0.8.7** `0951f3083c961204bd6b40da97251d0812798031`. Incoming manifest/lock
+already select published **Timers 0.22.0 / Metrics 0.9.0**. Official checksums,
+non-yanked status and packaged Timers VCS source match public
+`ffe175b2ae1b38719ec649286468b96a08a2f111`. Timers stays Rust **1.88**;
+Metrics arithmetic stays Rust 1.85. Incoming Host 0.17.2 and other lock rows
+are preserved exactly.
+
+The Jobs optional adapter exposes Timers-owned types, so this changes its public
+package/summary identity and requires **0.9.0**. Root and packaged READMEs require
+direct Timers 0.22 alignment and Metrics 0.9 or the Timers summary re-export,
+including overflow accessor/error migration. Job record shape, storage keys,
+consumer bootstrap, restore admission and blocked effects remain unchanged;
+no retained-data reset or compatibility reader is required. No product Rust
+adaptation was needed. Job measurements remain a consumer-owned concern;
+callback completion does not establish a job's external effect outcome.
+
+Core/timers tests pass separately on Rust **1.88**, including both 20-test
+consumer suites. All 16 stable-consumer tests (including frozen records/images),
+native/Wasm minimum checks, release Wasm, harness compilation without live
+execution, warnings-denied native/Wasm Clippy and docs/doctests pass. Canonical
+lock-selected Testkit 0.37 CLI refresh and admission pass; older builds remain
+retained and PocketIC was not provisioned/launched. Evidence:
+`target/qualification/timers-022-adoption/`, with starting bytes and focused logs.
+
+Own metadata remains **0.8.7**; pending notes are **0.9.0**. Incoming selections,
+real index/refs and Shared 0.10 snapshot are preserved. No full local gate,
+release or new live qualification was selected. #41 remains open for delivery
+and configured final-source all-host native acceptance.
+
+Delivered 0.8.7's [CI 38395094597](https://github.com/dragginzgame/ic-jobs/actions/runs/38395094597)
+passes Linux with both macOS jobs running at inspection. #39/#40 are delivered
+but remain open for their all-host acceptance; that run does not qualify the
+pending Timers 0.22/Metrics 0.9 graph or live recovery.
+
+## Earlier preparation — compatible 0.8.7 Shared 0.10 adoption
 
 Implemented [#40](https://github.com/dragginzgame/ic-jobs/issues/40) from public
 Shared **0.10.0** `ed9c26f015691859f67b50b512a94709dcdc0c6c` through a clean,
