@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.2]
+## [0.9.2] - 2026-10-13
 
 - Carry validated completion timestamps directly through recurring restore checks,
   retaining stored-record admission and refusal behavior.
