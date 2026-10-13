@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.8.7]
+## [0.8.7] - 2026-10-13
 
 - Adopt Shared Tooling 0.10: common setup, formatting and failure evidence use
   snapshot-owned tool catalogs. Host and Rust overrides are independent;
