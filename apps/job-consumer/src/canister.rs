@@ -35,6 +35,16 @@ fn authorize() -> Result<(), Error> {
     with_queue(|queue| queue.authorize(ic_cdk::api::msg_caller()))
 }
 
+fn update_queue<T>(
+    operation: impl FnOnce(&mut Queue<DefaultMemoryImpl>) -> Result<T, Error>,
+) -> Result<T, Error> {
+    authorize()?;
+    let result = with_queue(operation)?;
+    // Reconciliation failure traps the same message segment as the stable write.
+    reconcile();
+    Ok(result)
+}
+
 fn reconcile() {
     let (due, _, _) = required(with_queue(|queue| queue.summary()));
     WATCHDOG.with(|watchdog| {
@@ -72,11 +82,7 @@ fn post_upgrade() {
 
 #[ic_cdk::update]
 fn create(input: Create) -> Result<u64, Error> {
-    authorize()?;
-    let id = with_queue(|queue| queue.create(input))?;
-    // Reconciliation failure traps the same message segment as the stable write.
-    reconcile();
-    Ok(id)
+    update_queue(|queue| queue.create(input))
 }
 
 #[ic_cdk::query]
@@ -93,34 +99,22 @@ fn list(after: Option<u64>, limit: u8) -> Result<Vec<View>, Error> {
 
 #[ic_cdk::update]
 fn cancel(id: u64) -> Result<(), Error> {
-    authorize()?;
-    with_queue(|queue| queue.cancel(id, ic_cdk::api::time()))?;
-    reconcile();
-    Ok(())
+    update_queue(|queue| queue.cancel(id, ic_cdk::api::time()))
 }
 
 #[ic_cdk::update]
 fn pause(id: u64) -> Result<(), Error> {
-    authorize()?;
-    with_queue(|queue| queue.pause(id, ic_cdk::api::time()))?;
-    reconcile();
-    Ok(())
+    update_queue(|queue| queue.pause(id, ic_cdk::api::time()))
 }
 
 #[ic_cdk::update]
 fn resume(id: u64) -> Result<(), Error> {
-    authorize()?;
-    with_queue(|queue| queue.resume(id, ic_cdk::api::time()))?;
-    reconcile();
-    Ok(())
+    update_queue(|queue| queue.resume(id, ic_cdk::api::time()))
 }
 
 #[ic_cdk::update]
 fn reschedule(id: u64, timing: crate::api::Timing) -> Result<(), Error> {
-    authorize()?;
-    with_queue(|queue| queue.reschedule(id, timing, ic_cdk::api::time()))?;
-    reconcile();
-    Ok(())
+    update_queue(|queue| queue.reschedule(id, timing, ic_cdk::api::time()))
 }
 
 #[ic_cdk::query]

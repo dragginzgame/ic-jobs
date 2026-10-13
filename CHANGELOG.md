@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.1] - Unreleased
+
+- Converge test-consumer management authorization, stable mutation and timer
+  reconciliation through one synchronous boundary.
+- Reuse the validated job's active attempt for delivery completion, retaining
+  exact receipt matching and refusal ordering.
+- Derive test-consumer deadline summaries without a temporary mutable job batch,
+  retaining complete snapshot admission and checked job restoration.
+- Compare completion envelopes and notification receipt evidence using borrowed
+  payloads; notification cancellation carries its admitted state through commit
+  and reply without repeated snapshot loads.
+
 ## [0.9.0] - 2026-10-13
 
 - **Breaking:** adopt IC Timers 0.22 and its Metrics 0.9 measurement-summary

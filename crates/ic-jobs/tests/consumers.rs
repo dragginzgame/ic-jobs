@@ -244,9 +244,18 @@ impl Notifications {
                 )
             }
             ManagementCommand::Cancel(id) => {
-                self.inspect(id)?;
-                self.cancel(id, now_ns)?;
-                ManagementValue::Job(self.inspect(id)?)
+                let (mut jobs, mut snapshots) = self.load()?;
+                let index = jobs
+                    .iter()
+                    .position(|job| job.record().id == id)
+                    .ok_or(ManagementError::UnknownJob)?;
+                jobs[index].cancel(now_ns)?;
+                snapshots[index].job = jobs[index].record();
+                self.store.write(&snapshots)?;
+                return Ok(ManagementReply {
+                    value: ManagementValue::Job(snapshots.swap_remove(index)),
+                    next_due_ns: Scheduler::new(&mut jobs).next_due_ns(),
+                });
             }
             ManagementCommand::DispatchDue => ManagementValue::Dispatch(self.prepare(now_ns)?),
         };
@@ -314,36 +323,24 @@ impl Notifications {
             .iter()
             .position(|job| job.record().id == attempt.execution.job)
             .ok_or(JobError::StaleAttempt)?;
-        let outcome = if destination
-            .receipts
-            .contains(&(attempt.execution, snapshots[index].payload.clone()))
-        {
-            Outcome::Success
-        } else if destination
-            .rejections
-            .contains(&(attempt, snapshots[index].payload.clone()))
-        {
-            // Exact destination evidence confirms this attempt had no effect.
-            Outcome::RetryableFailure
-        } else {
-            // A missing receipt is not proof that delivery failed.
-            return Ok(false);
-        };
+        let outcome =
+            if destination.receipts.iter().any(|(execution, payload)| {
+                *execution == attempt.execution && payload == &snapshots[index].payload
+            }) {
+                Outcome::Success
+            } else if destination.rejections.iter().any(|(rejected, payload)| {
+                *rejected == attempt && payload == &snapshots[index].payload
+            }) {
+                // Exact destination evidence confirms this attempt had no effect.
+                Outcome::RetryableFailure
+            } else {
+                // A missing receipt is not proof that delivery failed.
+                return Ok(false);
+            };
         jobs[index].resolve(attempt, now_ns, outcome)?;
         snapshots[index].job = jobs[index].record();
         self.store.write(&snapshots)?;
         Ok(true)
-    }
-
-    fn cancel(&mut self, id: JobId, now_ns: u64) -> Result<()> {
-        let (mut jobs, mut snapshots) = self.load()?;
-        let index = jobs
-            .iter()
-            .position(|job| job.record().id == id)
-            .ok_or(JobError::InvalidRecord)?;
-        jobs[index].cancel(now_ns)?;
-        snapshots[index].job = jobs[index].record();
-        self.store.write(&snapshots)
     }
 }
 
@@ -927,9 +924,21 @@ fn shared_notification_wakeup_preserves_order_and_progress_past_unresolved_work(
     assert_eq!(restored.next_due_ns()?, Some(95));
 
     let before = restored.store.bytes.clone();
-    assert!(restored.cancel(JobId(2), 91).is_err());
+    assert!(
+        restored
+            .manage(
+                NOTIFICATION_MANAGER,
+                91,
+                ManagementCommand::Cancel(JobId(2))
+            )
+            .is_err()
+    );
     assert_eq!(restored.store.bytes, before);
-    restored.cancel(JobId(3), 91)?;
+    restored.manage(
+        NOTIFICATION_MANAGER,
+        91,
+        ManagementCommand::Cancel(JobId(3)),
+    )?;
     assert_eq!(restored.next_due_ns()?, Some(100));
     assert_eq!(restored.prepare(99)?, None);
     let last = restored.prepare(100)?.unwrap();
@@ -1092,6 +1101,35 @@ fn lost_rejection_reply_uses_exact_evidence_and_retains_retry_budget() -> Result
         assert!(restored.outstanding()?.is_empty());
         assert_eq!(destination.receipts.len(), usize::from(second_succeeds));
     }
+    Ok(())
+}
+
+#[test]
+fn reconciliation_requires_matching_payload_and_prefers_success_evidence() -> Result<()> {
+    let mut sender = Notifications::new()?;
+    let delivery = sender.prepare(100)?.unwrap();
+    sender.finish(delivery.attempt, 101, Outcome::Uncertain)?;
+    let different = Notification {
+        body: "another effect".into(),
+        ..delivery.payload.clone()
+    };
+    let mut destination = Destination {
+        receipts: vec![(delivery.attempt.execution, different.clone())],
+        rejections: vec![(delivery.attempt, different)],
+        ..Destination::default()
+    };
+    let before = sender.store.bytes.clone();
+    assert!(!sender.reconcile(delivery.attempt, &destination, 102)?);
+    assert_eq!(sender.store.bytes, before);
+    destination
+        .receipts
+        .push((delivery.attempt.execution, delivery.payload.clone()));
+    destination
+        .rejections
+        .push((delivery.attempt, delivery.payload));
+    assert!(sender.reconcile(delivery.attempt, &destination, 102)?);
+    assert_eq!(sender.load()?.0[0].record().state, JobState::Completed);
+    assert_eq!(destination.calls, 0);
     Ok(())
 }
 

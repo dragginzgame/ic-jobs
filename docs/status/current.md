@@ -1,6 +1,61 @@
 # Current handoff
 
-## Current preparation — 0.9.0 dispatch/artifact/fixture cleanup
+## Current preparation — 0.9.1 consumer flow cleanup
+
+Additional borrowed-consumer cleanup is complete. Completion validates the exact
+retained state, task and envelope fields without cloning an Entry/Delivery;
+owned envelopes remain the output of outstanding inspection. Removed unused
+Entry/Snapshot Clone derivations. Notification cancellation now admits one
+snapshot, applies Job::cancel, commits, then projects its reply/deadline from
+that same state. Its direct fixture callers now use the authorized management
+entry; the superseded private cancellation path is removed. Receipt/rejection
+lookup borrows payloads and keeps success-first evidence selection.
+
+Focused `make test-consumers check-consumer` passes: 21 consumer tests each with
+core/timers on Rust 1.88, all 16 stable-consumer tests, release Wasm, harness
+compilation and strict native/Wasm Clippy. New evidence cases prove mismatched
+payloads retain blocked intent and a matching success receipt wins over rejection
+evidence without sending a delivery. Existing unknown-job, clock, corruption,
+receipt mismatch, commit failure and unchanged-byte checks remain passing.
+Evidence: `target/qualification/borrowed-consumer-cleanup/`. This is local
+qualification of the pending 0.9.1 batch, not hosted or live acceptance.
+
+Issue acceptance: #39/#40 are closed after inspection of actual 0.8.7 CI logs
+for `0951f3083c961204bd6b40da97251d0812798031`, run 38395094597: complete gates
+pass Linux and both macOS architectures. #41/#43 are delivered in 0.9.0;
+Linux passes run 38421834204, with macOS acceptance pending at inspection.
+#42 remains open: Shared #165 and Build #14 are integrated producer drafts,
+with committed/published delivery and canonical Jobs adoption still pending.
+
+The test consumer now has one synchronous management-update boundary for create,
+cancel, pause, resume and reschedule. It authorizes before invoking the queue
+operation, drops the queue borrow, then reconciles only after success. A
+reconciliation trap remains in the same message segment as the stable mutation;
+queries, delivery dispatch and asynchronous reconciliation retain their own
+boundaries.
+
+Delivery completion still admits the complete snapshot and checks the exact
+retained envelope before clock/transition checks. It now uses the restored job's
+canonical active attempt instead of reconstructing its identity. Expanded
+completion coverage rejects altered occurrence, sequence and destination across
+all retained states/tasks, preserving refusal precedence and committed bytes.
+Deadline summaries fold over restored jobs without collecting a mutable batch;
+full snapshot admission, blocked/terminal exclusion and earliest-deadline
+semantics remain unchanged.
+
+Focused `make check-consumer` passes on the current locked graph: all 16 native
+consumer tests on Rust 1.88, release Wasm, harness compilation, and warnings-denied
+native/Wasm Clippy. Inputs include Timers 0.22.1, Memory 0.36.3, Metrics 0.9.0,
+Testkit 0.37.0 and Host 0.17.4. Evidence and input hashes are retained under
+`target/qualification/consumer-cleanup-091/`. Formatting and documentation links
+pass. Source review establishes the synchronous authorization/reconciliation
+ordering; native tests and compilation do not establish live IC trap rollback.
+No full CI or live PocketIC gate was selected. Library API, storage shape,
+manifest/lock selections, release metadata and real index/refs remain unchanged.
+Pending notes are 0.9.1; delivered source at task start was
+`70feddfa188fc625b6ec83d4291c0757281c69f9` (0.9.0).
+
+## Earlier preparation — 0.9.0 dispatch/artifact/fixture cleanup
 
 Implemented [#43](https://github.com/dragginzgame/ic-jobs/issues/43): Pending
 admission guarantees attempts below the immutable nonzero retry budget, so

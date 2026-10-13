@@ -399,6 +399,30 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
             let outstanding = matches!(task, Task::Deliver { .. })
                 && matches!(state, JobState::Running { .. } | JobState::Uncertain { .. });
             let before = queue.cell.get().clone();
+            for candidate in [
+                Delivery {
+                    occurrence: delivery.occurrence + 1,
+                    ..delivery.clone()
+                },
+                Delivery {
+                    sequence: delivery.sequence + 1,
+                    ..delivery.clone()
+                },
+                Delivery {
+                    destination: Principal::anonymous(),
+                    ..delivery.clone()
+                },
+            ] {
+                assert_eq!(
+                    queue.finish(&candidate, 9, Outcome::Success),
+                    Err(if outstanding {
+                        Error::ReceiptMismatch
+                    } else {
+                        Error::InvalidInput
+                    })
+                );
+                assert_eq!(*queue.cell.get(), before);
+            }
             for (candidate, expected) in [
                 (
                     Delivery {

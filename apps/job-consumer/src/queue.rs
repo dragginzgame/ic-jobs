@@ -2,8 +2,7 @@ use std::num::NonZeroU64;
 
 use candid::Principal;
 use ic_jobs::{
-    Attempt, ExecutionId, Job, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy,
-    Schedule, Scheduler,
+    Job, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule, Scheduler,
 };
 use ic_memory::{
     GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryManagerConfig,
@@ -20,7 +19,7 @@ const MAX_MESSAGE: usize = 256;
 pub(crate) const BATCH: usize = 2;
 const KEY: &str = "test.jobs.consumer.management.v1";
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Entry {
     job: JobRecord,
@@ -28,6 +27,32 @@ struct Entry {
 }
 
 impl Entry {
+    fn check_delivery(&self, delivery: &Delivery) -> Result<(), Error> {
+        if !matches!(
+            self.job.state,
+            JobState::Running { .. } | JobState::Uncertain { .. }
+        ) {
+            return Err(Error::InvalidInput);
+        }
+        let Task::Deliver {
+            destination,
+            message,
+        } = &self.task
+        else {
+            return Err(Error::InvalidInput);
+        };
+        let id = u64::try_from(self.job.id.0).map_err(|_| Error::InvalidStorage)?;
+        if delivery.job != id
+            || delivery.occurrence != self.job.occurrence
+            || delivery.sequence != self.job.sequence
+            || delivery.destination != *destination
+            || delivery.message != *message
+        {
+            return Err(Error::ReceiptMismatch);
+        }
+        Ok(())
+    }
+
     fn outstanding(self) -> Result<Delivery, Error> {
         if !matches!(
             self.job.state,
@@ -52,7 +77,7 @@ impl Entry {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Snapshot {
     init: Init,
@@ -287,16 +312,14 @@ impl<M: Memory> Queue<M> {
 
     pub(crate) fn summary(&self) -> Result<(Option<u64>, u64, u64), Error> {
         let snapshot = self.load()?;
-        let mut jobs = snapshot
+        let next_due = snapshot
             .jobs
             .iter()
-            .map(|entry| Job::restore(entry.job).map_err(job_error))
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok((
-            Scheduler::new(&mut jobs).next_due_ns(),
-            snapshot.counter,
-            snapshot.receipts.len() as u64,
-        ))
+            .try_fold(None, |next: Option<u64>, entry| {
+                let due = Job::restore(entry.job).map_err(job_error)?.next_due_ns();
+                Ok::<_, Error>(next.into_iter().chain(due).min())
+            })?;
+        Ok((next_due, snapshot.counter, snapshot.receipts.len() as u64))
     }
 
     // No await: the complete bounded batch commits local effects and outstanding
@@ -377,18 +400,9 @@ impl<M: Memory> Queue<M> {
             .iter_mut()
             .find(|entry| entry.job.id == JobId(u128::from(delivery.job)))
             .ok_or(Error::UnknownJob)?;
-        // Project only the selected entry; retain the admitted snapshot for commit.
-        if entry.clone().outstanding()? != *delivery {
-            return Err(Error::ReceiptMismatch);
-        }
+        entry.check_delivery(delivery)?;
         let mut job = Job::restore(entry.job).map_err(job_error)?;
-        let attempt = Attempt {
-            execution: ExecutionId {
-                job: entry.job.id,
-                occurrence: delivery.occurrence,
-            },
-            sequence: delivery.sequence,
-        };
+        let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
         if matches!(entry.job.state, JobState::Uncertain { .. }) {
             job.resolve(attempt, now, outcome).map_err(job_error)?;
         } else {
