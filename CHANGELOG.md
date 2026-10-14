@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.3]
+## [0.9.3] - 2026-10-14
 
 - Adopt Shared Tooling 0.11.4 and its canonical publication admission; retain
   Jobs’ package/features, upload authority and release metadata adapter
