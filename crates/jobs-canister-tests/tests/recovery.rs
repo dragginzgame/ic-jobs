@@ -3,7 +3,7 @@
 use candid::{CandidType, Principal, utils::ArgumentEncoder};
 use ic_testkit::pic::{
     CandidCallExt, CanisterInstallExt, ErrorCode, PocketIc, PocketIcBuilder, PocketIcInstance,
-    PocketIcStartupConfig, PocketIcTimeExt, RetryPolicy, tick_until,
+    PocketIcStartupConfig, RetryPolicy, tick_until,
 };
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
 use serde::de::DeserializeOwned;
@@ -113,7 +113,7 @@ fn increment(at: u64, amount: u64) -> Create {
 #[ignore = "explicit PocketIC qualification; run make test-canister"]
 fn management_upgrade_and_real_watchdog_delivery() {
     let fixture = Fixture::new();
-    let now = fixture.pic.instance.current_time_nanos();
+    let now = fixture.pic.instance.get_time().as_nanos_since_unix_epoch();
     let unauthorized: Result<u64, Error> = fixture.pic.instance.update_candid_as_or_panic(
         fixture.sender,
         Principal::anonymous(),
@@ -153,7 +153,9 @@ fn management_upgrade_and_real_watchdog_delivery() {
         .update(
             "create",
             (Create {
-                timing: Timing::Once(fixture.pic.instance.current_time_nanos() + 10_000_000_000),
+                timing: Timing::Once(
+                    fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 10_000_000_000,
+                ),
                 task: Task::Deliver {
                     destination: fixture.receiver,
                     message: "timer delivery".into(),
@@ -181,7 +183,7 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
         .update(
             "create",
             (increment(
-                fixture.pic.instance.current_time_nanos() + 60_000_000_000,
+                fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 60_000_000_000,
                 3,
             ),),
         )
@@ -192,7 +194,7 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
         fixture.manager,
         "fixture_trap_after_create",
         (increment(
-            fixture.pic.instance.current_time_nanos() + 30_000_000_000,
+            fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 30_000_000_000,
             9,
         ),),
     );
@@ -211,7 +213,7 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
         .update(
             "create",
             (increment(
-                fixture.pic.instance.current_time_nanos() + 120_000_000_000,
+                fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 120_000_000_000,
                 4,
             ),),
         )
@@ -223,7 +225,7 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
 #[ignore = "explicit PocketIC qualification; run make test-canister"]
 fn watchdog_batch_trap_rolls_back_then_recovers_without_repeating_local_effects() {
     let fixture = Fixture::new();
-    let due = fixture.pic.instance.current_time_nanos() + 10_000_000_000;
+    let due = fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 10_000_000_000;
     let healthy: u64 = fixture.update("create", (increment(due, 1),)).unwrap();
     let failed: u64 = fixture
         .update("create", (increment(due, u64::MAX),))
@@ -365,7 +367,7 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
                 "reschedule",
                 (
                     absent,
-                    Timing::Once(fixture.pic.instance.current_time_nanos())
+                    Timing::Once(fixture.pic.instance.get_time().as_nanos_since_unix_epoch())
                 )
             )
             .is_err()
@@ -382,7 +384,7 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
                 "reschedule",
                 (
                     absent,
-                    Timing::Once(fixture.pic.instance.current_time_nanos())
+                    Timing::Once(fixture.pic.instance.get_time().as_nanos_since_unix_epoch())
                 )
             )
             .is_err()
@@ -399,7 +401,7 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
         .update(
             "create",
             (increment(
-                fixture.pic.instance.current_time_nanos() + 3_600_000_000_000,
+                fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 3_600_000_000_000,
                 1,
             ),),
         )
@@ -481,7 +483,7 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
 #[ignore = "explicit PocketIC qualification; run make test-canister"]
 fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
     let fixture = Fixture::new();
-    let first_ns = fixture.pic.instance.current_time_nanos() + 10_000_000_000;
+    let first_ns = fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 10_000_000_000;
     let mut ids = vec![];
     for catch_up in [false, true] {
         let id: u64 = fixture
@@ -513,7 +515,10 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
         fixture.update::<(), _>("resume", (*id,)).unwrap();
     }
     fixture.until(|| fixture.view(ids[0]).occurrence == 1 && fixture.view(ids[1]).occurrence >= 1);
-    assert!(fixture.view(ids[0]).due_ns.unwrap() > fixture.pic.instance.current_time_nanos());
+    assert!(
+        fixture.view(ids[0]).due_ns.unwrap()
+            > fixture.pic.instance.get_time().as_nanos_since_unix_epoch()
+    );
     for id in ids {
         fixture.update::<(), _>("cancel", (id,)).unwrap();
     }
@@ -534,7 +539,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
         .update(
             "create",
             (increment(
-                fixture.pic.instance.current_time_nanos() + 30_000_000_000,
+                fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 30_000_000_000,
                 5,
             ),),
         )
@@ -565,7 +570,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
         fixture.pic.instance.tick();
     }
     assert_eq!(fixture.summary(fixture.sender).counter, 0);
-    let later = fixture.pic.instance.current_time_nanos() + 100_000_000_000;
+    let later = fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 100_000_000_000;
     fixture
         .update::<(), _>("reschedule", (id, Timing::Once(later)))
         .unwrap();
@@ -577,7 +582,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
     fixture.update::<(), _>("resume", (id,)).unwrap();
     assert_eq!(fixture.summary(fixture.sender).next_due_ns, Some(later));
     assert!(fixture.summary(fixture.sender).armed);
-    let due = fixture.pic.instance.current_time_nanos() + 15_000_000_000;
+    let due = fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 15_000_000_000;
     fixture
         .update::<(), _>("reschedule", (id, Timing::Once(due)))
         .unwrap();
@@ -589,7 +594,9 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
         "fixture_trap_after_reschedule",
         (
             id,
-            Timing::Once(fixture.pic.instance.current_time_nanos() + 5_000_000_000),
+            Timing::Once(
+                fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 5_000_000_000,
+            ),
         ),
     );
     assert_eq!(

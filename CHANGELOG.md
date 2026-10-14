@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.10.4]
+
+- Read PocketIC time through its native timestamp API in recovery fixtures,
+  removing the redundant Testkit clock-trait dependency without changing
+  scheduling or simulated progression.
+
 ## [0.10.3] - 2026-10-14
 
 - Centralize validated consumer job lookup and return the fresh committed deadline
