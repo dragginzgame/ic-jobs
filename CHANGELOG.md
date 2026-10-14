@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.10.2]
+## [0.10.2] - 2026-10-14
 
 - Reuse the committed batch's next deadline for watchdog completion and avoid
   decoding/restoring validated jobs again during snapshot writes. Preserve
