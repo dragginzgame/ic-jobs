@@ -571,6 +571,16 @@ GIT
     [[ "$(wc -l < .git/gate-events | tr -d ' ')" == 1 ]] || exit 1
     # Reconciliation of delivered intent must not replay preparation.
     [[ "$(wc -l < .git/tool-installs | tr -d ' ')" == 1 ]] || exit 1
+    # Local-row version admission shares the identity parser and must refuse
+    # before later dirty-source admission, without changing the selected graph.
+    release_date="$(awk -v version="$candidate" '$1 == "##" && $2 == "[" version "]" { print $4; exit }' CHANGELOG.md)"
+    cp Cargo.lock .git/lock-before
+    perl scripts/ci/rewrite-local-lock-versions.pl Cargo.lock "$candidate" 0.0.0 ic-jobs > .git/invalid.lock
+    cp .git/invalid.lock Cargo.lock
+    refuse "wrong-local-version-$kind" env RELEASE_VERSION="$candidate" RELEASE_DATE="$release_date" bash scripts/release/metadata.sh check
+    grep -F 'invalid workspace lock identities' "$fixture/wrong-local-version-$kind.log" > /dev/null
+    cp .git/lock-before Cargo.lock
+    [[ -z "$(git status --porcelain)" ]] || exit 1
 done
 
 # The actual publication adapter and shared helpers use real local Git. Only

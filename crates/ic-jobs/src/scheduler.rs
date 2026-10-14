@@ -28,7 +28,10 @@ impl<'jobs> Scheduler<'jobs> {
         self.jobs.iter().filter_map(Job::next_due_ns).min()
     }
 
-    /// Start at most one due attempt and return `(attempt, running_record)`.
+    /// Start at most one due attempt and return `(index, attempt, running_record)`.
+    ///
+    /// The index identifies the selected job in this borrowed batch. Use it only
+    /// while the batch order is unchanged; it is not a durable job identity.
     ///
     /// Select the earliest pending deadline, breaking ties by batch order. Return
     /// None when no pending job is due. The trusted time comes from the application.
@@ -40,7 +43,10 @@ impl<'jobs> Scheduler<'jobs> {
     ///
     /// [Job::start] owns transition checks. If the selected job rejects the clock
     /// or counters, return that error without changing any job or selecting another.
-    pub fn start_next(&mut self, now_ns: u64) -> Result<Option<(Attempt, JobRecord)>, JobError> {
+    pub fn start_next(
+        &mut self,
+        now_ns: u64,
+    ) -> Result<Option<(usize, Attempt, JobRecord)>, JobError> {
         let Some((index, due_ns)) = self
             .jobs
             .iter()
@@ -55,6 +61,6 @@ impl<'jobs> Scheduler<'jobs> {
         }
         let job = &mut self.jobs[index];
         let attempt = job.start(now_ns)?;
-        Ok(Some((attempt, job.record())))
+        Ok(Some((index, attempt, job.record())))
     }
 }

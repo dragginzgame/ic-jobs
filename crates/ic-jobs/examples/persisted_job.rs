@@ -7,7 +7,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Schedule::Once { at_ns: 100 },
         RetryPolicy::NONE,
     )];
-    let (attempt, intent) = Scheduler::new(&mut jobs)
+    let (_, attempt, intent) = Scheduler::new(&mut jobs)
         .start_next(100)?
         .ok_or(JobError::NotDue)?;
     // On IC, persist this record and the immutable payload in the same message

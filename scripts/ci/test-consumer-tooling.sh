@@ -203,6 +203,7 @@ for mode in original optimized; do
  cmp "$fixture/input" "$JOBS_CONSUMER_CAPTURED/original.wasm"
  for variant in "${variants[@]}"; do
   if [[ "$variant" != original ]]; then
+   [[ ! -e "${evidence[0]}/$variant/producer.wasm" ]] || exit 1
    { cat "$fixture/input"; printf '%s\n' "-$variant"; } > "$fixture/expected.wasm"
    cmp "$fixture/expected.wasm" "$JOBS_CONSUMER_CAPTURED/$variant.wasm"
   fi
@@ -211,6 +212,29 @@ for mode in original optimized; do
  done
  [[ "$(cat "$input")" == 'replaced mutable producer' ]] || exit 1
 done
+# Successful capture retires producers; failed optimized capture must retain
+# both its producer bytes and the original frozen input, before server dispatch.
+mv "$capture" "$fixture/real-capture"
+export JOBS_CONSUMER_REAL_CAPTURE="$fixture/real-capture"
+cat > "$capture" <<'CAPTURE'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$1" != */producer.wasm ]] || exit 47
+exec "$JOBS_CONSUMER_REAL_CAPTURE" "$@"
+CAPTURE
+chmod +x "$capture"
+mkdir "$fixture/failed-capture-evidence"
+cp "$fixture/input" "$input"
+status=0
+(cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" RUNNER_TEMP="$fixture/failed-capture-evidence" \
+ "$BASH" scripts/ci/test-canister.sh --optimized) > "$fixture/failed-capture.log" 2>&1 || status=$?
+[[ "$status" == 47 ]] || exit 1
+evidence=("$fixture/failed-capture-evidence/"*)
+[[ ${#evidence[@]} == 1 && -f "${evidence[0]}/O3/producer.wasm" && ! -e "${evidence[0]}/O3/server.stdout" ]] || exit 1
+cmp "$fixture/input" "${evidence[0]}/jobs_test_consumer.wasm"
+{ cat "$fixture/input"; printf '%s\n' '-O3'; } > "$fixture/expected.wasm"
+cmp "$fixture/expected.wasm" "${evidence[0]}/O3/producer.wasm"
+mv "$fixture/real-capture" "$capture"
 rm "$fixture/.tools/rust/common/bin/git"
 echo 'Recovery consumes one frozen original with preserved variants/hashes/logs after producer replacement (substitute optimizer/server; no live gate)'
 

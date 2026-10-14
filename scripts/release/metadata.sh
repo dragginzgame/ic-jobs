@@ -18,11 +18,12 @@ reader="$root/scripts/ci/read-cargo-workspace-version.sh"
 local_lock_packages() {
     # This repository permits only workspace-owned local packages. Cargo's
     # source-less lock rows identify those packages without a second name list.
-    "${YQ:-yq}" -p toml -o json '.' "$1" | jq -er '
+    "${YQ:-yq}" -p toml -o json '.' "$1" | jq -er --arg version "$2" '
         [.package[] | select(.source == null)] as $local |
         if any($local[]; .name == "ic-jobs") and
            all($local[]; .name | test("^[A-Za-z0-9][A-Za-z0-9_-]*$")) and
-           (($local | map(.name) | unique | length) == ($local | length))
+           (($local | map(.name) | unique | length) == ($local | length)) and
+           all($local[]; .version == $version)
         then $local[].name else error("invalid workspace lock identities") end'
 }
 admit_files() {
@@ -96,7 +97,7 @@ case "$operation" in
         cargo sort
         # Retain registry selections; advance every workspace-owned local row.
         packages=()
-        local_lock_packages "$backup/Cargo.lock" > "$backup/local-packages" || exit $?
+        local_lock_packages "$backup/Cargo.lock" "$RELEASE_PREVIOUS" > "$backup/local-packages" || exit $?
         while IFS= read -r package; do packages+=("$package"); done < "$backup/local-packages"
         perl scripts/ci/rewrite-local-lock-versions.pl "$backup/Cargo.lock" \
             "$RELEASE_PREVIOUS" "$RELEASE_VERSION" "${packages[@]}" > "$backup/candidate.lock" || exit $?
@@ -137,10 +138,7 @@ case "$operation" in
         [[ "$current_version" == "${RELEASE_VERSION:?}" ]] || exit 1
         awk -v heading="## [$RELEASE_VERSION] - ${RELEASE_DATE:?}" \
             '$0 == heading { count++ } END { if (count != 1) exit 1 }' "$metadata_root/CHANGELOG.md"
-        local_lock_packages "$metadata_root/Cargo.lock" > /dev/null
-        "${YQ:-yq}" -p toml -o json '.' "$metadata_root/Cargo.lock" |
-            jq -e --arg version "$RELEASE_VERSION" \
-                'all(.package[] | select(.source == null); .version == $version)' > /dev/null
+        local_lock_packages "$metadata_root/Cargo.lock" "$RELEASE_VERSION" > /dev/null
         # The runner seals prepared metadata in its staged tree. Late checks
         # inspect that selected commit, without resolving a newer HEAD's graph.
         if [[ "$metadata_root" == . ]]; then

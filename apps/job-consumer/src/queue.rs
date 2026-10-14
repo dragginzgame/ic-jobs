@@ -341,18 +341,13 @@ impl<M: Memory> Queue<M> {
         let mut deliveries = vec![];
         let mut work = 0;
         for _ in 0..BATCH {
-            let Some((attempt, record)) = Scheduler::new(&mut snapshot.jobs)
+            let Some((index, attempt, record)) = Scheduler::new(&mut snapshot.jobs)
                 .start_next(now)
                 .map_err(job_error)?
             else {
                 break;
             };
             work += 1;
-            let index = snapshot
-                .jobs
-                .iter()
-                .position(|job| job.record().id == record.id)
-                .ok_or(Error::InvalidStorage)?;
             match &snapshot.tasks[index] {
                 Task::Increment(amount) => {
                     // Known local failure has no effect; dispose of this job

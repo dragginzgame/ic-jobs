@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.10.0]
+
+- **Breaking:** `Scheduler::start_next` returns `(index, attempt, running_record)`.
+  Use the index only in the supplied, unchanged batch; persist the record and
+  stable job identity as before. Update tuple destructuring in consumers. Job
+  records and effect-reconciliation rules are unchanged.
+- Adopt Shared Tooling 0.12.5 and its focused-check handoff policy, preserving
+  tool pins, contributor-owned metadata and the explicitly selected full gates.
+- Validate local lockfile identities and versions in one parse; discard optimized
+  temporary producers only after successful exact capture.
+
+- Simplify native notification fixtures to retain one validated job-state
+  collection and project borrowed payloads only at commit. Keep authorization,
+  exact reconciliation evidence and commit-before-delivery behavior unchanged.
+- Load maintenance state once per bounded batch while preserving a separate
+  commit for each occurrence and recovery after a partially committed batch.
+- Remove duplicated Memory declaration/bootstrap tests already owned by
+  published IC Memory, retaining Jobs' stable-cell reopen integration coverage.
+
 ## [0.9.5] - 2026-10-14
 
 - Complete shared fixture cleanup adoption and remove the redundant private

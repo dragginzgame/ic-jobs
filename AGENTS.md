@@ -10,11 +10,10 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
 - Every restore path uses the validated Job::restore boundary. Keep error
   transitions unchanged and uncertain effects blocked until explicit disposition.
 - New storage/scheduling policy must have a concrete consumer requirement.
-- Use focused package checks during development and run `make ci` before
-  delivering completed code as ready under the shared validation authority.
-  Reuse passing evidence for unchanged inputs; documentation-only work needs
-  link, consistency and diff checks. Release effects and live PocketIC
-  qualification retain their separate explicit authority.
+- Follow the [shared validation cadence](DRAGGINZGAME.md#validation-and-evidence).
+  Local focused checks include package tests, MSRV/Wasm checks and tooling
+  fixtures; `make ci` is the full release suite. Live PocketIC qualification
+  retains its separate explicit selection.
 - Rust floor: 1.88 for both core and optional timers. Qualify both separately.
 - Host workflows support Linux and macOS Intel/Apple Silicon. Bind native
   qualification to its tested source; IC recovery evidence remains pending and

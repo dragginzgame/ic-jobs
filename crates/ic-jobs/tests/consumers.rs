@@ -11,9 +11,8 @@ use ic_jobs::{
     RetryPolicy, Schedule, Scheduler,
 };
 use ic_memory::{
-    GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryDeclarationError,
-    MemoryManagerConfig, MemoryRequest, MemoryRuntime, RuntimeOpenError, SchemaMetadata,
-    SealedDeclarationSnapshot,
+    GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryManagerConfig,
+    MemoryRequest, MemoryRuntime, RuntimeOpenError, SchemaMetadata, SealedDeclarationSnapshot,
     ic_stable_structures::{Cell, VectorMemory},
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -68,9 +67,9 @@ struct Notification {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-struct NotificationSnapshot {
+struct NotificationSnapshot<P = Notification> {
     job: JobRecord,
-    payload: Notification,
+    payload: P,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -167,7 +166,7 @@ impl Notifications {
         })
     }
 
-    fn load(&self) -> Result<(Vec<Job>, Vec<NotificationSnapshot>)> {
+    fn load(&self) -> Result<(Vec<Job>, Vec<Notification>)> {
         let snapshots: Vec<NotificationSnapshot> = self.store.read()?;
         if snapshots.len() > 4 {
             return Err(
@@ -186,7 +185,32 @@ impl Notifications {
             }
             jobs.push(Job::restore(snapshot.job)?);
         }
-        Ok((jobs, snapshots))
+        Ok((
+            jobs,
+            snapshots
+                .into_iter()
+                .map(|snapshot| snapshot.payload)
+                .collect(),
+        ))
+    }
+
+    fn commit(&mut self, jobs: &[Job], payloads: &[Notification]) -> Result<()> {
+        if jobs.len() != payloads.len() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "unaligned notification payloads",
+            )
+            .into());
+        }
+        let snapshots: Vec<_> = jobs
+            .iter()
+            .zip(payloads)
+            .map(|(job, payload)| NotificationSnapshot {
+                job: job.record(),
+                payload,
+            })
+            .collect();
+        self.store.write(&snapshots)
     }
 
     fn enqueue(&mut self, id: JobId, at_ns: u64, payload: Notification) -> Result<()> {
@@ -211,10 +235,10 @@ impl Notifications {
         if matches!(&command, ManagementCommand::List { limit, .. } if !(1..=4).contains(limit)) {
             return Err(ManagementError::InvalidPageLimit.into());
         }
-        let (mut jobs, mut snapshots) = self.load()?;
+        let (mut jobs, mut payloads) = self.load()?;
         let value = match command {
             ManagementCommand::Enqueue { id, at_ns, payload } => {
-                if snapshots.len() == 4 || jobs.iter().any(|job| job.record().id == id) {
+                if jobs.len() == 4 || jobs.iter().any(|job| job.record().id == id) {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidInput,
                         "queue full or identity reused",
@@ -222,22 +246,34 @@ impl Notifications {
                     .into());
                 }
                 let job = Job::new(id, Schedule::Once { at_ns }, RetryPolicy::NONE);
-                snapshots.push(NotificationSnapshot {
-                    job: job.record(),
-                    payload,
-                });
+                let record = job.record();
+                payloads.push(payload);
                 jobs.push(job);
-                self.store.write(&snapshots)?;
-                ManagementValue::Job(snapshots.pop().unwrap())
+                self.commit(&jobs, &payloads)?;
+                ManagementValue::Job(NotificationSnapshot {
+                    job: record,
+                    payload: payloads.pop().unwrap(),
+                })
             }
             ManagementCommand::Inspect(id) => {
-                let index = snapshots
+                let index = jobs
                     .iter()
-                    .position(|snapshot| snapshot.job.id == id)
+                    .position(|job| job.record().id == id)
                     .ok_or(ManagementError::UnknownJob)?;
-                ManagementValue::Job(snapshots.swap_remove(index))
+                ManagementValue::Job(NotificationSnapshot {
+                    job: jobs[index].record(),
+                    payload: payloads.swap_remove(index),
+                })
             }
             ManagementCommand::List { after, limit } => {
+                let mut snapshots: Vec<_> = jobs
+                    .iter()
+                    .zip(payloads)
+                    .map(|(job, payload)| NotificationSnapshot {
+                        job: job.record(),
+                        payload,
+                    })
+                    .collect();
                 snapshots.sort_by_key(|snapshot| snapshot.job.id);
                 ManagementValue::Page(
                     snapshots
@@ -253,12 +289,14 @@ impl Notifications {
                     .position(|job| job.record().id == id)
                     .ok_or(ManagementError::UnknownJob)?;
                 jobs[index].cancel(now_ns)?;
-                snapshots[index].job = jobs[index].record();
-                self.store.write(&snapshots)?;
-                ManagementValue::Job(snapshots.swap_remove(index))
+                self.commit(&jobs, &payloads)?;
+                ManagementValue::Job(NotificationSnapshot {
+                    job: jobs[index].record(),
+                    payload: payloads.swap_remove(index),
+                })
             }
             ManagementCommand::DispatchDue => {
-                ManagementValue::Dispatch(self.dispatch_batch(now_ns, &mut jobs, &mut snapshots)?)
+                ManagementValue::Dispatch(self.dispatch_batch(now_ns, &mut jobs, &payloads)?)
             }
         };
         Ok(ManagementReply {
@@ -273,54 +311,46 @@ impl Notifications {
     }
 
     fn prepare(&mut self, now_ns: u64) -> Result<Option<Delivery>> {
-        let (mut jobs, mut snapshots) = self.load()?;
-        self.dispatch_batch(now_ns, &mut jobs, &mut snapshots)
+        let (mut jobs, payloads) = self.load()?;
+        self.dispatch_batch(now_ns, &mut jobs, &payloads)
     }
 
     fn dispatch_batch(
         &mut self,
         now_ns: u64,
         jobs: &mut [Job],
-        snapshots: &mut [NotificationSnapshot],
+        payloads: &[Notification],
     ) -> Result<Option<Delivery>> {
-        let Some((attempt, running)) = Scheduler::new(jobs).start_next(now_ns)? else {
+        let Some((index, attempt, _)) = Scheduler::new(jobs).start_next(now_ns)? else {
             return Ok(None);
         };
-        let snapshot = snapshots
-            .iter_mut()
-            .find(|s| s.job.id == running.id)
-            .unwrap();
-        snapshot.job = running;
-        let payload = snapshot.payload.clone();
-        self.store.write(&snapshots)?;
+        let payload = payloads[index].clone();
+        self.commit(jobs, payloads)?;
         // No delivery capability escapes before the intent and payload commit.
         Ok(Some(Delivery { attempt, payload }))
     }
 
     fn outstanding(&self) -> Result<Vec<Delivery>> {
         // Inspect unresolved envelopes for reconciliation, never for automatic replay.
-        let (jobs, snapshots) = self.load()?;
+        let (jobs, payloads) = self.load()?;
         Ok(jobs
             .iter()
-            .zip(snapshots)
-            .filter_map(|(job, snapshot)| {
-                job.active_attempt().map(|attempt| Delivery {
-                    attempt,
-                    payload: snapshot.payload,
-                })
+            .zip(payloads)
+            .filter_map(|(job, payload)| {
+                job.active_attempt()
+                    .map(|attempt| Delivery { attempt, payload })
             })
             .collect())
     }
 
     fn finish(&mut self, attempt: Attempt, now_ns: u64, outcome: Outcome) -> Result<()> {
-        let (mut jobs, mut snapshots) = self.load()?;
+        let (mut jobs, payloads) = self.load()?;
         let index = jobs
             .iter()
             .position(|job| job.record().id == attempt.execution.job)
             .ok_or(JobError::StaleAttempt)?;
         jobs[index].finish(attempt, now_ns, outcome)?;
-        snapshots[index].job = jobs[index].record();
-        self.store.write(&snapshots)
+        self.commit(&jobs, &payloads)
     }
 
     fn reconcile(
@@ -329,28 +359,28 @@ impl Notifications {
         destination: &Destination,
         now_ns: u64,
     ) -> Result<bool> {
-        let (mut jobs, mut snapshots) = self.load()?;
+        let (mut jobs, payloads) = self.load()?;
         let index = jobs
             .iter()
             .position(|job| job.record().id == attempt.execution.job)
             .ok_or(JobError::StaleAttempt)?;
-        let outcome =
-            if destination.receipts.iter().any(|(execution, payload)| {
-                *execution == attempt.execution && payload == &snapshots[index].payload
-            }) {
-                Outcome::Success
-            } else if destination.rejections.iter().any(|(rejected, payload)| {
-                *rejected == attempt && payload == &snapshots[index].payload
-            }) {
-                // Exact destination evidence confirms this attempt had no effect.
-                Outcome::RetryableFailure
-            } else {
-                // A missing receipt is not proof that delivery failed.
-                return Ok(false);
-            };
+        let outcome = if destination.receipts.iter().any(|(execution, payload)| {
+            *execution == attempt.execution && payload == &payloads[index]
+        }) {
+            Outcome::Success
+        } else if destination
+            .rejections
+            .iter()
+            .any(|(rejected, payload)| *rejected == attempt && payload == &payloads[index])
+        {
+            // Exact destination evidence confirms this attempt had no effect.
+            Outcome::RetryableFailure
+        } else {
+            // A missing receipt is not proof that delivery failed.
+            return Ok(false);
+        };
         jobs[index].resolve(attempt, now_ns, outcome)?;
-        snapshots[index].job = jobs[index].record();
-        self.store.write(&snapshots)?;
+        self.commit(&jobs, &payloads)?;
         Ok(true)
     }
 }
@@ -465,11 +495,11 @@ impl Maintenance {
     }
 
     fn wake(&mut self, now_ns: u64) -> Result<Wake> {
+        let (mut job, mut snapshot) = self.load()?;
         let mut completed = 0;
         // Exactly two runs at most, even when CatchUp leaves overdue work.
         for _ in 0..2 {
-            let (mut job, mut snapshot) = self.load()?;
-            let Some((attempt, _)) =
+            let Some((_, attempt, _)) =
                 Scheduler::new(std::slice::from_mut(&mut job)).start_next(now_ns)?
             else {
                 break;
@@ -487,7 +517,7 @@ impl Maintenance {
         }
         Ok(Wake {
             completed,
-            next_due_ns: self.load()?.0.next_due_ns(),
+            next_due_ns: job.next_due_ns(),
         })
     }
 
@@ -497,56 +527,6 @@ impl Maintenance {
         snapshot.job = job.record();
         self.store.write(&snapshot)
     }
-}
-
-#[test]
-fn consumer_memory_requests_compose_without_granting_open_authority() -> Result<()> {
-    let notifications = Notifications::memory_request()?;
-    let maintenance = Maintenance::memory_request()?;
-    let composed =
-        SealedDeclarationSnapshot::new(vec![notifications.clone(), maintenance.clone()])?;
-    let reordered = SealedDeclarationSnapshot::new(vec![maintenance, notifications])?;
-    assert_eq!(composed, reordered);
-    assert_eq!(composed.requests().len(), 2);
-    assert_ne!(
-        composed.requests()[0].authority(),
-        composed.requests()[1].authority(),
-    );
-
-    // Sealed requests establish checked names, not committed allocation access.
-    // No range-based bootstrap or provisional allocator is introduced here.
-    let runtime = MemoryRuntime::new(VectorMemory::default())?;
-    for request in composed.requests() {
-        assert!(matches!(
-            runtime.open_memory(request.stable_key().as_str()),
-            Err(RuntimeOpenError::NotBootstrapped)
-        ));
-    }
-    Ok(())
-}
-
-#[test]
-fn consumer_memory_collision_refuses_without_changing_retained_jobs() -> Result<()> {
-    let notifications = Notifications::new()?;
-    let maintenance = Maintenance::new(MissedRunPolicy::Skip)?;
-    let notification_bytes = notifications.store.bytes.clone();
-    let maintenance_bytes = maintenance.store.bytes.clone();
-    let requested = Notifications::memory_request()?;
-    let foreign = MemoryRequest::new(
-        Maintenance::memory_request()?.authority(),
-        requested.stable_key().as_str(),
-        SchemaMetadata::default(),
-    )?;
-    assert!(matches!(
-        SealedDeclarationSnapshot::new(vec![requested.clone(), foreign]),
-        Err(MemoryDeclarationError::DuplicateRequest { stable_key })
-            if stable_key == *requested.stable_key()
-    ));
-    assert_eq!(notifications.store.bytes, notification_bytes);
-    assert_eq!(maintenance.store.bytes, maintenance_bytes);
-    assert_eq!(notifications.load()?.0[0].next_due_ns(), Some(100));
-    assert_eq!(maintenance.load()?.0.next_due_ns(), Some(100));
-    Ok(())
 }
 
 #[test]
@@ -682,6 +662,14 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
 #[test]
 fn notification_commit_failure_never_exposes_delivery() -> Result<()> {
     let mut sender = Notifications::new()?;
+    let before = sender.store.bytes.clone();
+    let (jobs, payloads) = sender.load()?;
+    sender.commit(&jobs, &payloads)?;
+    assert_eq!(
+        sender.store.bytes, before,
+        "borrowed projection preserves stored bytes"
+    );
+
     let before = sender.store.bytes.clone();
     assert_eq!(sender.prepare(99)?, None);
     sender.store.writes_before_failure = Some(0);
@@ -1002,7 +990,7 @@ fn interruption_before_delivery_keeps_committed_intent_blocked() -> Result<()> {
 #[test]
 fn notification_queue_rejects_reused_identities_and_excess_work() -> Result<()> {
     let mut sender = Notifications::new()?;
-    let payload = sender.load()?.1[0].payload.clone();
+    let payload = sender.load()?.1[0].clone();
     let before = sender.store.bytes.clone();
     assert!(sender.enqueue(JobId(1), 200, payload.clone()).is_err());
     assert_eq!(sender.store.bytes, before);

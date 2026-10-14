@@ -51,6 +51,9 @@ for variant in "${variants[@]}"; do
             -o "$evidence/$variant/producer.wasm" \
             > "$evidence/$variant/optimizer.log" 2>&1
         "$capture" "$evidence/$variant/producer.wasm" "$IC_JOBS_CONSUMER_WASM"
+        # The retained capture owns the qualified bytes. Failed captures leave
+        # the optimizer producer intact; successful ones need only one copy.
+        rm -- "$evidence/$variant/producer.wasm"
     fi
     bash scripts/ci/verify-file-checksum.sh --print sha256 "$IC_JOBS_CONSUMER_WASM" \
         > "$evidence/$variant/consumer-wasm.sha256"

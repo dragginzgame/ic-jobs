@@ -511,16 +511,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fs2"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9564fc758e15025b46aa6643b1b77d047d1a56a1aea6e01002ac0c7026876213"
-dependencies = [
- "libc",
- "winapi",
-]
-
-[[package]]
 name = "fs_extra"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -782,11 +772,10 @@ dependencies = [
 
 [[package]]
 name = "ic-build"
-version = "0.2.7"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a4c66987afbb0275c29552a8dcf3bbd40e902c59df19726beff203dcb93dc7e"
+checksum = "415c50c37611014ab87016292bffb7ca366498c52062d226a0c9e886346683f8"
 dependencies = [
- "fs2",
  "ic-host-artifacts",
  "ic-host-fs",
  "ic-host-process",
@@ -872,9 +861,9 @@ dependencies = [
 
 [[package]]
 name = "ic-host-artifacts"
-version = "0.17.11"
+version = "0.17.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "643cd8b219b039ce2947fc1770440f6482fe371c862f6b341c5bb218627cdd0e"
+checksum = "9acf9183cfe37a9400ce6893d77292af8b22bcdb7a5451d7a36c81cac33b3be4"
 dependencies = [
  "flate2",
  "sha2",
@@ -884,9 +873,9 @@ dependencies = [
 
 [[package]]
 name = "ic-host-fs"
-version = "0.17.11"
+version = "0.17.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "639ef911b95c29686c273e69ebc2a0f40ea7618bcef55511ebc45cfcad42a384"
+checksum = "1c549e4539b625ae82ed2de592acef0b8fc98a35e6edba47cc5ee98614c0936b"
 dependencies = [
  "ic-host-artifacts",
  "rustix",
@@ -894,9 +883,9 @@ dependencies = [
 
 [[package]]
 name = "ic-host-process"
-version = "0.17.11"
+version = "0.17.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f5031e7a6d61f1fff0af3bb2eddd9bc4add4f4856c64b8f4c8f1d8ca5ffb9fb"
+checksum = "9f7d287d27872f8d97a64da3d2d26cc18bdeaafba3c3009a6d538ee8026e0b07"
 dependencies = [
  "ic-host-artifacts",
  "ic-host-fs",
@@ -940,9 +929,9 @@ dependencies = [
 
 [[package]]
 name = "ic-metrics"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c822faa34f511509f024f6ecc2d62d4ac7a9d01117fdecd4bae72fc6fef0132c"
+checksum = "d65678222f2c60563768da53a4d03b39c963180dd85e3dd2894237b3ccb7a0fe"
 
 [[package]]
 name = "ic-stable-structures"
@@ -955,9 +944,9 @@ dependencies = [
 
 [[package]]
 name = "ic-testkit"
-version = "0.38.0"
+version = "0.39.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff0911228396a548d5bcca87ff8a573f27f579130463ab346f86982bbd6acb72"
+checksum = "d43f92845b8e5f5f311d4096f52008adc6350cf0025075c46e9c6e4e60332f49"
 dependencies = [
  "candid",
  "ic-cdk",
@@ -968,6 +957,7 @@ dependencies = [
  "pocket-ic",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
 ]
 
@@ -1749,9 +1739,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "aws-lc-rs",
  "once_cell",
@@ -2762,22 +2752,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "winapi"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c839a674fcd7a98952e593242ea400abe93992746761e38641405d28b00f419"
-dependencies = [
- "winapi-i686-pc-windows-gnu",
- "winapi-x86_64-pc-windows-gnu",
-]
-
-[[package]]
-name = "winapi-i686-pc-windows-gnu"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
-
-[[package]]
 name = "winapi-util"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2785,12 +2759,6 @@ checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
  "windows-sys 0.61.2",
 ]
-
-[[package]]
-name = "winapi-x86_64-pc-windows-gnu"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows-link"

@@ -101,11 +101,12 @@ let mut jobs = [
 ];
 let next_wakeup = Scheduler::new(&mut jobs).next_due_ns();
 assert_eq!(next_wakeup, Some(100));
-if let Some((attempt, running_record)) = Scheduler::new(&mut jobs).start_next(100)? {
+if let Some((index, attempt, running_record)) = Scheduler::new(&mut jobs).start_next(100)? {
+    assert_eq!(index, 1); // Position in this batch, not a durable identity.
     assert_eq!(attempt.execution.job, JobId(2));
     // Commit running_record with the payload/index before dispatching the effect.
     // Record its outcome with the owning Job's finish method and persist again.
-    # assert_eq!(running_record, jobs[1].record());
+    # assert_eq!(running_record, jobs[index].record());
 }
 # Ok::<(), ic_jobs::JobError>(())
 ```
