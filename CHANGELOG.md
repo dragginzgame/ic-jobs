@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.10.4]
+## [0.10.4] - 2026-10-14
 
 - Centralize consumer deadline derivation and Candid reply decoding while keeping
   receipt comparison and effect disposition local. Separate current qualification
