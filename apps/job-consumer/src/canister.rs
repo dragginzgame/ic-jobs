@@ -12,6 +12,7 @@ use ic_timers::{
 use crate::{
     api::{Create, Delivery, Error, Init, Summary, View},
     queue::{Committed, Queue},
+    reply::decode_reply,
 };
 
 thread_local! {
@@ -43,11 +44,6 @@ fn update_queue<T>(
     // Reconciliation failure traps the same message segment as the stable write.
     reconcile_at(result.next_due_ns);
     Ok(result.value)
-}
-
-fn reconcile() {
-    let (due, _, _) = required(with_queue(|queue| queue.summary()));
-    reconcile_at(due);
 }
 
 fn reconcile_at(due: Option<u64>) {
@@ -149,11 +145,8 @@ async fn deliver(delivery: Delivery) {
     let response = ic_cdk::call::Call::unbounded_wait(delivery.destination, "receive_delivery")
         .with_arg(&delivery)
         .await;
-    let confirmed = response
-        .ok()
-        .and_then(|response| response.candid::<Result<Delivery, Error>>().ok())
-        .and_then(Result::ok)
-        .is_some_and(|receipt| receipt == delivery);
+    let confirmed =
+        decode_reply::<Delivery, _>(response).is_some_and(|receipt| receipt == delivery);
     // Transport rejection or codec failure cannot establish that no effect ran.
     required(complete_delivery(
         &delivery,
@@ -216,11 +209,7 @@ async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
     let response = ic_cdk::call::Call::unbounded_wait(delivery.destination, "delivery_receipt")
         .with_arg(&delivery)
         .await;
-    let receipt = response
-        .ok()
-        .and_then(|response| response.candid::<Result<Option<Delivery>, Error>>().ok())
-        .and_then(Result::ok)
-        .flatten();
+    let receipt = decode_reply::<Option<Delivery>, _>(response).flatten();
     let Some(receipt) = receipt else {
         return Ok(false);
     };
@@ -275,8 +264,8 @@ fn fixture_mark_uncertain(id: u64) -> Result<(), Error> {
 #[ic_cdk::update]
 async fn fixture_dispatch_trap_result(input: Create) -> Result<(), Error> {
     create(input)?;
-    let (deliveries, _, _) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
-    reconcile();
+    let (deliveries, _, due) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
+    reconcile_at(due);
     // Intent commits at the real inter-canister call boundary. The receipt lives
     // at the destination; a later sender trap cannot roll back that earlier call.
     if let Some(delivery) = deliveries.into_iter().next() {
@@ -299,8 +288,8 @@ fn fixture_create_blocked(input: Create) -> Result<u64, Error> {
     let id = create(input)?;
     // Simulate interruption after committed intent but before dispatch. This
     // endpoint never sends an envelope or claims an absent receipt is retry safe.
-    with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
-    reconcile();
+    let (_, _, due) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
+    reconcile_at(due);
     Ok(id)
 }
 

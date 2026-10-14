@@ -1010,3 +1010,66 @@ fn mutation_replies_return_the_fresh_committed_deadline() {
     assert_eq!(due, reply.next_due_ns);
     assert_eq!(queue.summary().unwrap().0, reply.next_due_ns);
 }
+
+#[test]
+fn receipt_extraction_and_duplicate_acknowledgement_leave_storage_unchanged() {
+    let memory = CountedMemory {
+        backing: VectorMemory::default(),
+        writes: std::rc::Rc::new(std::cell::Cell::new(0)),
+    };
+    let mut queue = Queue::open(
+        memory.clone(),
+        Some(Init {
+            manager: manager(),
+            delivery_sender: Some(manager()),
+        }),
+    )
+    .unwrap()
+    .0;
+    let receipts: Vec<_> = [10, 20, 30]
+        .into_iter()
+        .map(|job| Delivery {
+            job,
+            occurrence: 0,
+            sequence: 1,
+            destination: manager(),
+            message: format!("payload-{job}"),
+        })
+        .collect();
+    for receipt in &receipts {
+        assert_eq!(queue.receive(manager(), receipt.clone()).unwrap(), *receipt);
+    }
+    let before = queue.cell.get().clone();
+    memory.writes.set(0);
+    for receipt in receipts.iter().rev() {
+        assert_eq!(
+            queue.receipt(manager(), receipt).unwrap(),
+            Some(receipt.clone())
+        );
+        assert_eq!(queue.receive(manager(), receipt.clone()).unwrap(), *receipt);
+    }
+    let mut mismatched = receipts[1].clone();
+    mismatched.sequence += 1;
+    assert_eq!(
+        queue.receive(manager(), mismatched.clone()),
+        Err(Error::ReceiptMismatch)
+    );
+    // Queries return evidence by logical key; the sender checks its full envelope.
+    assert_eq!(
+        queue.receipt(manager(), &mismatched).unwrap(),
+        Some(receipts[1].clone())
+    );
+    let mut absent = receipts[0].clone();
+    absent.job = 99;
+    assert_eq!(queue.receipt(manager(), &absent).unwrap(), None);
+    assert_eq!(
+        queue.receipt(Principal::anonymous(), &absent),
+        Err(Error::Unauthorized)
+    );
+    assert_eq!(memory.writes.get(), 0);
+    assert_eq!(queue.cell.get(), &before);
+    drop(queue);
+    let queue = Queue::open(memory, None).unwrap().0;
+    assert_eq!(queue.cell.get(), &before);
+    assert_eq!(queue.summary().unwrap().2, 3);
+}

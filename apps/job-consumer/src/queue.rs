@@ -90,6 +90,10 @@ pub(crate) struct Committed<T> {
 }
 
 impl LoadedSnapshot {
+    fn next_due_ns(&self) -> Option<u64> {
+        self.jobs.iter().filter_map(Job::next_due_ns).min()
+    }
+
     fn index(&self, id: u64) -> Result<usize, Error> {
         self.jobs
             .iter()
@@ -118,13 +122,20 @@ impl LoadedSnapshot {
         })
     }
 
-    fn take_entry(self, id: u64) -> Result<(Job, Task), Error> {
+    fn take_entry(mut self, id: u64) -> Result<(Job, Task), Error> {
         let index = self.index(id)?;
-        self.jobs
-            .into_iter()
-            .zip(self.tasks)
-            .nth(index)
-            .ok_or(Error::UnknownJob)
+        if index >= self.tasks.len() {
+            return Err(Error::UnknownJob);
+        }
+        // This snapshot is consumed; temporary reordering never reaches storage.
+        Ok((self.jobs.swap_remove(index), self.tasks.swap_remove(index)))
+    }
+
+    fn receipt_index(&self, delivery: &Delivery) -> Option<usize> {
+        let key = receipt_key(delivery);
+        self.receipts
+            .iter()
+            .position(|receipt| receipt_key(receipt) == key)
     }
 }
 
@@ -257,7 +268,7 @@ impl<M: Memory> Queue<M> {
             );
         }
         let snapshot = decode(cell.get())?;
-        let next_due_ns = snapshot.jobs.iter().filter_map(Job::next_due_ns).min();
+        let next_due_ns = snapshot.next_due_ns();
         Ok((
             Self {
                 cell,
@@ -283,7 +294,7 @@ impl<M: Memory> Queue<M> {
     }
 
     fn commit<T>(&mut self, snapshot: LoadedSnapshot, value: T) -> Result<Committed<T>, Error> {
-        let next_due_ns = snapshot.jobs.iter().filter_map(Job::next_due_ns).min();
+        let next_due_ns = snapshot.next_due_ns();
         let snapshot = snapshot.into_stored()?;
         let bytes = serde_json::to_vec(&snapshot).map_err(|_| Error::InvalidStorage)?;
         if bytes.len() > MAX_BYTES {
@@ -370,7 +381,7 @@ impl<M: Memory> Queue<M> {
 
     pub(crate) fn summary(&self) -> Result<(Option<u64>, u64, u64), Error> {
         let snapshot = self.load()?;
-        let next_due = snapshot.jobs.iter().filter_map(Job::next_due_ns).min();
+        let next_due = snapshot.next_due_ns();
         Ok((next_due, snapshot.counter, snapshot.receipts.len() as u64))
     }
 
@@ -414,7 +425,7 @@ impl<M: Memory> Queue<M> {
         let next_due_ns = if work > 0 {
             self.commit(snapshot, ())?.next_due_ns
         } else {
-            snapshot.jobs.iter().filter_map(Job::next_due_ns).min()
+            snapshot.next_due_ns()
         };
         // Mutated batches commit before effects escape; idle batches retain bytes.
         Ok((deliveries, work, next_due_ns))
@@ -480,13 +491,9 @@ impl<M: Memory> Queue<M> {
             return Err(Error::InvalidInput);
         }
         let mut snapshot = self.load()?;
-        if let Some(receipt) = snapshot
-            .receipts
-            .iter()
-            .find(|receipt| receipt_key(receipt) == receipt_key(&delivery))
-        {
-            return if *receipt == delivery {
-                Ok(receipt.clone())
+        if let Some(index) = snapshot.receipt_index(&delivery) {
+            return if snapshot.receipts[index] == delivery {
+                Ok(delivery)
             } else {
                 Err(Error::ReceiptMismatch)
             };
@@ -507,11 +514,10 @@ impl<M: Memory> Queue<M> {
         if self.init.delivery_sender != Some(caller) {
             return Err(Error::Unauthorized);
         }
-        Ok(self
-            .load()?
-            .receipts
-            .into_iter()
-            .find(|receipt| receipt_key(receipt) == receipt_key(delivery)))
+        let mut snapshot = self.load()?;
+        Ok(snapshot
+            .receipt_index(delivery)
+            .map(|index| snapshot.receipts.swap_remove(index)))
     }
 
     // Deliberate corruption endpoint in an unpublished qualification artifact.

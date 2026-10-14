@@ -6,3 +6,6 @@ pub mod api;
 mod canister;
 #[cfg(any(test, target_arch = "wasm32"))]
 mod queue;
+
+#[cfg(any(test, target_arch = "wasm32"))]
+mod reply;

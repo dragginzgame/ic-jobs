@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.4]
+
+- Centralize consumer deadline derivation and Candid reply decoding while keeping
+  receipt comparison and effect disposition local. Separate current qualification
+  from frozen source-bound proof inventories.
+- Extract owned consumer jobs and receipts by their validated indices, avoid
+  cloning duplicate delivery acknowledgements, and reconcile fault-fixture timers
+  directly from committed dispatch deadlines. Preserve stored ordering, exact
+  receipt checks and deliberate await/trap boundaries.
+
 ## [0.10.3] - 2026-10-14
 
 - Centralize validated consumer job lookup and return the fresh committed deadline
