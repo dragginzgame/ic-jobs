@@ -49,6 +49,13 @@ PocketIC setup, server launch and live qualification remain explicitly selected.
 
 ## Focused proof
 
+The maintainer's complete-gate attempt failed Jobs' formatting fixture before
+hook qualification: it assumed `candid` and `ic-cdk` remained adjacent after
+adding `ic-build`. The fixture now swaps the first two adjacent workspace
+dependencies without package-name assumptions. Focused hook qualification and
+ShellCheck evidence live in `target/qualification/formatting-adjacency/`;
+the failed full gate is not treated as passing evidence.
+
 Retry timing evidence: `target/qualification/issue44-fix/`. Rust 1.88 core and
 timers checks retain valid transition histories and all 354 frozen records;
 regressions reject too-early uncertain retries, shortened prior completion

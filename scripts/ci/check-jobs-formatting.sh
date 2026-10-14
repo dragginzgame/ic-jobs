@@ -20,10 +20,11 @@ trap finish EXIT
 
 # Only reorder two adjacent dependencies; keep names, versions and features.
 awk '
-    $1 == "candid" { saved=$0; next }
-    saved != "" {
-        if ($1 != "ic-cdk") exit 1
-        print; print saved; saved=""; swapped=1; next
+    $0 == "[workspace.dependencies]" { select=1; print; next }
+    select {
+        if ($0 !~ /^[[:alnum:]_-]+[[:space:]]*=/) exit 1
+        if (saved == "") { saved=$0; next }
+        print; print saved; saved=""; swapped=1; select=0; next
     }
     { print }
     END { if (!swapped || saved != "") exit 1 }

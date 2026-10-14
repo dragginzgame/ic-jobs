@@ -2,6 +2,9 @@
 
 ## [0.9.4]
 
+- Select adjacent dependency entries dynamically in Jobs' formatting fixture,
+  so adding a sorted dependency does not break the hook qualification check.
+
 - Reject stored records whose retry history requires more elapsed time than
   their retained evidence allows, including uncertain attempts and rescheduled
   successors. Valid records and explicit effect reconciliation remain unchanged
