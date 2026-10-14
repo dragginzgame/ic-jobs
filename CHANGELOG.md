@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.10.1]
+## [0.10.1] - 2026-10-14
 
 - Adopt Shared Tooling 0.12.7 and delegate coordinated release metadata,
   rollback and selected-source checks to its canonical helper. Keep Jobs'
