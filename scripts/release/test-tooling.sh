@@ -28,41 +28,17 @@ unset TOOLING_INSTALL_FAILURE TOOLING_CHECK_FAILURE TOOLING_BUILD_EVENTS
 unset TOOLING_COMMON_CHECK_FAILURE
 export RUSTUP_AUTO_INSTALL=0
 
-# Exercise each actual Jobs fixture's EXIT boundary without dispatching its body.
-# Bash 3.2 reports zero for nounset here unless cleanup requires completion.
+# Shared owns exit injection and retained-evidence assertions. Jobs selects its
+# actual fixture roster; archive round trips and command assertions stay local.
+# shellcheck source=scripts/ci/fixture-retention-probes.sh
+source "$root/scripts/ci/fixture-retention-probes.sh"
 mkdir -p "$fixture/exit-source/scripts/release" "$fixture/exit-source/scripts/ci"
-cp "$root/scripts/ci/fixture-lifecycle.sh" "$fixture/exit-source/scripts/ci/"
-export TOOLING_EXIT_PATH="$fixture/exit-path"
+cp "$root/scripts/ci/fixture-retention-probes.sh" "$fixture/exit-source/scripts/ci/"
 for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh scripts/ci/check-jobs-formatting.sh; do
-    for failure in nounset command nonzero premature completed failed-completion; do
-        # shellcheck disable=SC2016 # Expanded only in the disposable fixture.
-        case "$failure" in
-            nounset) injection='unset TOOLING_UNBOUND; printf "%s\n" "$TOOLING_UNBOUND"'; expected=1 ;;
-            command) injection='false'; expected=1 ;;
-            nonzero) injection='exit 23'; expected=23 ;;
-            premature) injection='exit 0'; expected=1 ;;
-            completed) injection='fixture_complete=true; exit 0'; expected=0 ;;
-            failed-completion) injection='fixture_complete=true; exit 23'; expected=23 ;;
-        esac
-        TOOLING_INJECTION="$injection" awk '
-            { print }
-            /^trap finish EXIT$/ {
-                print "printf \"%s\\n\" \"$fixture\" > \"$TOOLING_EXIT_PATH\""
-                print ENVIRON["TOOLING_INJECTION"]
-                print "exit 99"
-                injected=1
-            }
-            END { if (!injected) exit 1 }
-        ' "$root/$relative" > "$fixture/exit-source/$relative"
-        status=0
-        TMPDIR="$fixture" "$BASH" "$fixture/exit-source/$relative" \
-            > "$fixture/exit-${relative##*/}-$failure.log" 2>&1 || status=$?
-        [[ "$status" == "$expected" ]] || exit 1
-        retained="$(cat "$TOOLING_EXIT_PATH")"
-        [[ -n "$retained" ]] || exit 1
-        if [[ "$expected" == 0 ]]; then [[ ! -e "$retained" ]] || exit 1
-        else [[ -d "$retained" ]] || exit 1; fi
-    done
+    status=0
+    fixture_probe_exits "$root/$relative" "$fixture" "$root" "${relative##*/}" || status=$?
+    [[ "$status" == 0 ]] || exit 1
+    fixture_probe_exit "$root/$relative" "$fixture" "$root" "${relative##*/}" cleanup-failure || exit 1
 done
 
 # Contradict the first observed command status in each actual fixture. Bash 3.2
@@ -323,15 +299,14 @@ done
 refuse incomplete-prepare env -u RELEASE_VERSION RELEASE_PREVIOUS="$base_version" \
     TMPDIR="$fixture/metadata-errors-temp" bash scripts/release/metadata.sh prepare
 [[ "$refusal_status" == 1 && -z "$(git status --porcelain)" ]] || exit 1
-backups=("$fixture/metadata-errors-temp"/jobs-release-backup.*)
-[[ ${#backups[@]} == 1 && -d "${backups[0]}" ]] || exit 1
-for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "${backups[0]}/$path"; done
+# Shared validates required inputs before creating a mutation backup.
+[[ -z "$(ls -A "$fixture/metadata-errors-temp")" ]] || exit 1
 refuse incomplete-committed-check env -u RELEASE_VERSION RELEASE_COMMIT="$(git rev-parse HEAD)" \
     TMPDIR="$fixture/metadata-errors-temp" bash scripts/release/metadata.sh check
 [[ "$refusal_status" == 1 && -z "$(git status --porcelain)" ]] || exit 1
-snapshots=("$fixture/metadata-errors-temp"/jobs-committed-metadata.*)
+snapshots=("$fixture/metadata-errors-temp"/cargo-release-check.*)
 [[ ${#snapshots[@]} == 1 && -d "${snapshots[0]}" ]] || exit 1
-for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "${snapshots[0]}/$path"; done
+for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "${snapshots[0]}/source/$path"; done
 
 # Exercise actual metadata preparation, commits, annotated tags and local atomic
 # pushes for every increment, without running the consumer's complete gate.
@@ -578,7 +553,7 @@ GIT
     perl scripts/ci/rewrite-local-lock-versions.pl Cargo.lock "$candidate" 0.0.0 ic-jobs > .git/invalid.lock
     cp .git/invalid.lock Cargo.lock
     refuse "wrong-local-version-$kind" env RELEASE_VERSION="$candidate" RELEASE_DATE="$release_date" bash scripts/release/metadata.sh check
-    grep -F 'invalid workspace lock identities' "$fixture/wrong-local-version-$kind.log" > /dev/null
+    grep -F 'invalid coordinated workspace lock identities' "$fixture/wrong-local-version-$kind.log" > /dev/null
     cp .git/lock-before Cargo.lock
     [[ -z "$(git status --porcelain)" ]] || exit 1
 done

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.10.1]
+
+- Adopt Shared Tooling 0.12.7 and delegate coordinated release metadata,
+  rollback and selected-source checks to its canonical helper. Keep Jobs'
+  direct-delivery policy and admitted tool selection.
+- Use Testkit's nanosecond clock extension in recovery fixtures and retain its
+  0.40 instance owner for the fixture lifetime.
+- Delegate fixture exit injection and retained-evidence assertions to Shared
+  Tooling's canonical probes, including function nounset and cleanup-failure
+  coverage. Jobs retains its fixture roster and archive/command assertions.
+
 ## [0.10.0] - 2026-10-14
 
 - **Breaking:** `Scheduler::start_next` returns `(index, attempt, running_record)`.
