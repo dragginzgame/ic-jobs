@@ -1,0 +1,31 @@
+name: Prepare Rust toolchains
+description: Install the explicitly selected development and minimum toolchains.
+inputs:
+  development:
+    description: Development toolchain version.
+    required: true
+  minimum:
+    description: Minimum supported toolchain version.
+    required: true
+  development-target:
+    description: Optional additional development target.
+    default: ''
+  minimum-target:
+    description: Additional minimum-toolchain target.
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: /bin/bash --noprofile --norc -e -o pipefail {0}
+      env:
+        DEVELOPMENT: ${{ inputs.development }}
+        MINIMUM: ${{ inputs.minimum }}
+        DEVELOPMENT_TARGET: ${{ inputs.development-target }}
+        MINIMUM_TARGET: ${{ inputs.minimum-target }}
+      run: |
+        arguments=(--profile minimal --component rustfmt --component clippy)
+        if [[ -n "$DEVELOPMENT_TARGET" ]]; then
+          arguments+=(--target "$DEVELOPMENT_TARGET")
+        fi
+        rustup toolchain install "$DEVELOPMENT" "${arguments[@]}"
+        rustup toolchain install "$MINIMUM" --profile minimal --target "$MINIMUM_TARGET"

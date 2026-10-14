@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.9.5]
+
+- Complete shared fixture cleanup adoption and remove the redundant private
+  uncertainty-state refusal after public transition admission. Consolidate
+  workflow toolchain installation in one local action, preserving per-workflow
+  targets and recovery evidence; common ownership is proposed in
+  [Shared #177](https://github.com/dragginzgame/shared-tooling/issues/177).
+
+- Reuse Shared Tooling's fixture cleanup/retention helper, including premature
+  exit checks for Jobs' formatting fixture. Share the validated-to-stored
+  snapshot projection and route manual dispatch through the management boundary.
+
+- Consolidate test-consumer job lookup, logical receipt keys and synchronous
+  completion/timer reconciliation, retaining exact envelope checks and existing
+  authorization, refusal and commit ordering.
+
+- Retain validated jobs across test-consumer snapshot operations, removing
+  repeated restore calls and dispatch's second job batch while preserving the
+  stored format, bounded scheduler order and commit admission checks.
+- Share borrowed delivery eligibility and identity fields between outstanding
+  envelope construction and exact receipt validation without copying payloads.
+- Delegate recovery polling to Testkit's bounded `tick_until` helper, preserving
+  the 30-tick budget and caller-owned readiness predicates.
+
 ## [0.9.4] - 2026-10-14
 
 - Select adjacent dependency entries dynamically in Jobs' formatting fixture,

@@ -2,12 +2,16 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.9.3**: `8cdf0ace712e8346e55e7f7baaea414578e3dfc8`.
-The working tree prepares compatible **0.9.4** for the remaining artifact-owner
-work in [#42](https://github.com/dragginzgame/ic-jobs/issues/42).
-It also tightens restore admission for impossible elapsed retry histories in
-[#44](https://github.com/dragginzgame/ic-jobs/issues/44), without changing the
-stored shape or permitting unresolved effects to run.
+Delivered Jobs **0.9.4**: `a872010`.
+The working tree prepares compatible **0.9.5** consumer cleanup: Testkit owns
+bounded recovery polling, delivery eligibility/identity fields have one borrowed
+projection, and decoded jobs remain validated across synchronous operations.
+The scheduler uses the retained job vector directly; payload order and commit
+admission remain checked. Stored bytes and application-owned authority are
+unchanged. The incoming Cargo.lock edit remains maintainer-owned.
+Delivered 0.9.4 includes the artifact-owner work in
+[#42](https://github.com/dragginzgame/ic-jobs/issues/42) and elapsed retry-history
+admission in [#44](https://github.com/dragginzgame/ic-jobs/issues/44).
 Own release metadata, staging and Git refs remain maintainer-owned.
 Shared Tooling is now **0.12.0** at
 `f7fe31bf80a2b445bf37a470527f001210241aea`, canonically exported from a clean
@@ -48,6 +52,54 @@ under `target/qualification/issue42-cli/`. The admitted shared build is reused;
 PocketIC setup, server launch and live qualification remain explicitly selected.
 
 ## Focused proof
+
+Final cleanup evidence: `target/qualification/final-cleanup/`. Formatting-evidence
+cleanup now uses the canonical fixture helper. Private uncertainty conversion
+relies on the existing finish/resolve admission and preserves the attempt's start
+timestamp. Rust 1.88 core/timers suites, frozen records, transition histories,
+consumer tests, native/Wasm minimum checks and strict Clippy pass.
+Formatting-evidence and disposable release/publication fixtures pass on Bash 5
+and genuine Bash 3.2. The local toolchain action preserves both workflows'
+install arguments, differing targets, recovery version evidence and fail-fast
+behavior under substitute rustup/rustc commands; Actionlint and ShellCheck pass.
+Upstream ownership remains proposed in
+[Shared #177](https://github.com/dragginzgame/shared-tooling/issues/177); the sibling
+repository stays read-only. Full CI and live recovery remain unselected, and
+hosted macOS qualification is pending.
+
+Fixture/projection cleanup evidence: `target/qualification/cleanup-projection/`.
+Shared `fixture_finish` owns the three Jobs fixture cleanup boundaries; physical
+temporary paths and copied companions retain disposable failure behavior.
+The formatting fixture now joins the premature-exit matrix. `into_stored`
+shares snapshot projection between commit and deliberate corruption; manual
+dispatch uses the existing authorization/mutation/reconciliation boundary.
+All 17 consumer tests, release Wasm, harness compilation and strict Clippy pass.
+Formatting, consumer-tooling and disposable release/publication fixtures pass
+on Bash 5 and genuine Bash 3.2, including child shells. ShellCheck, formatting,
+documentation links and diff checks pass; release/live effects are substituted.
+Full CI and live recovery remain unselected.
+
+Consumer follow-up evidence: `target/qualification/consumer-followup/`. Loaded
+entry lookup and logical receipt identity now each have one private owner.
+Delivery completion and explicit receipt reconciliation share the synchronous
+finish/reconcile boundary, including the uncertain-state fault fixture; effect
+classification and authorization remain at their existing callers. The 17
+consumer tests, release Wasm, harness compilation and strict native/Wasm Clippy
+pass. Core/timers source and the incoming graph are unchanged from the preceding
+proof. Full CI, native macOS and live recovery remain pending.
+
+Consumer cleanup evidence: `target/qualification/consumer-cleanup/`. The
+maintained consumer suite covers corruption/refusal ordering, batch effects,
+blocked delivery states and exact receipts. The frozen 0.7.5 snapshot now passes
+through the actual load/commit path and remains byte-identical. A focused
+regression rejects mismatched job/payload collections without changing storage.
+Testkit 0.38 polling is selected with 30 rounds and zero time advance; the live
+recovery harness is compiled but not executed by focused qualification.
+Rust 1.88 core/timers tests and native/Wasm minimum checks pass separately.
+All 17 consumer tests, release Wasm, harness compilation, capture tests, strict
+native/Wasm Clippy, formatting and documentation links pass on the repaired
+source. Full CI and live qualification remain explicitly unselected; these
+Linux checks do not qualify the hosted macOS matrix.
 
 The maintainer's complete-gate attempt failed Jobs' formatting fixture before
 hook qualification: it assumed `candid` and `ic-cdk` remained adjacent after

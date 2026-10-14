@@ -3,11 +3,11 @@
 use candid::{CandidType, Principal, utils::ArgumentEncoder};
 use ic_testkit::pic::{
     CandidCallExt, CanisterInstallExt, ErrorCode, PocketIc, PocketIcBuilder, PocketIcBuilderExt,
-    PocketIcStartupConfig, RetryPolicy,
+    PocketIcStartupConfig, RetryPolicy, tick_until,
 };
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
 use serde::de::DeserializeOwned;
-use std::{path::PathBuf, time::Duration};
+use std::{convert::Infallible, path::PathBuf, task::Poll, time::Duration};
 
 struct Fixture {
     pic: PocketIc,
@@ -92,13 +92,14 @@ impl Fixture {
             .unwrap();
     }
     fn until(&self, predicate: impl Fn() -> bool) {
-        for _ in 0..30 {
+        tick_until(&self.pic, 30, Duration::ZERO, |_| {
             if predicate() {
-                return;
+                Poll::Ready(Ok::<_, Infallible>(()))
+            } else {
+                Poll::Pending
             }
-            self.pic.tick();
-        }
-        assert!(predicate(), "bounded canister progress did not complete");
+        })
+        .expect("bounded canister progress did not complete");
     }
 }
 

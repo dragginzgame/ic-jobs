@@ -36,9 +36,13 @@ jobs:
           cp Cargo.toml Cargo.lock rust-toolchain.toml "$evidence/"
           cp .shared-tooling.snapshot "$evidence/shared-tooling.snapshot"
       - name: Prepare development and minimum toolchains
+        uses: ./.github/actions/prepare-rust-toolchains
+        with:
+          development: '1.99.0'
+          minimum: '1.88.0'
+          minimum-target: wasm32-unknown-unknown
+      - name: Record prepared toolchain identities
         run: |
-          rustup toolchain install 1.99.0 --profile minimal --component rustfmt --component clippy
-          rustup toolchain install 1.88.0 --profile minimal --target wasm32-unknown-unknown
           {
             rustc +1.99.0 --version --verbose
             rustc +1.88.0 --version --verbose

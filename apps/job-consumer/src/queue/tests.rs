@@ -367,7 +367,7 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
                 })
                 .unwrap();
             let mut snapshot = queue.load().unwrap();
-            let mut job = Job::restore(snapshot.jobs[0].job).unwrap();
+            let job = &mut snapshot.jobs[0];
             match state {
                 JobState::Pending { .. } => {}
                 JobState::Paused { .. } => job.pause(10).unwrap(),
@@ -387,12 +387,12 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
                     }
                 }
             }
-            snapshot.jobs[0].job = job.record();
+            let record = job.record();
             queue.commit(snapshot).unwrap();
             let delivery = Delivery {
                 job: id,
-                occurrence: job.record().occurrence,
-                sequence: job.record().sequence,
+                occurrence: record.occurrence,
+                sequence: record.sequence,
                 destination,
                 message: "report".into(),
             };
@@ -613,6 +613,23 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
 }
 
 #[test]
+fn misaligned_loaded_jobs_and_payloads_refuse_commit_without_losing_storage() {
+    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+    queue.create(increment(100)).unwrap();
+    for drop_job in [false, true] {
+        let before = queue.cell.get().clone();
+        let mut loaded = queue.load().unwrap();
+        if drop_job {
+            loaded.jobs.pop();
+        } else {
+            loaded.tasks.pop();
+        }
+        assert_eq!(queue.commit(loaded), Err(Error::InvalidStorage));
+        assert_eq!(queue.cell.get(), &before);
+    }
+}
+
+#[test]
 fn released_075_snapshot_reopens_without_reset_and_retains_blocked_effects() {
     // Produced with archived release 060fb9d226389bab702132ba23f42bd0b887a690
     // before changing configuration types. Keep the established memory key/codec.
@@ -623,7 +640,9 @@ fn released_075_snapshot_reopens_without_reset_and_retains_blocked_effects() {
     drop(queue);
     let mut queue = Queue::open(memory.clone(), None).unwrap();
     assert_eq!(queue.cell.get(), &bytes);
-    assert_eq!(serde_json::to_vec(&queue.load().unwrap()).unwrap(), bytes);
+    let loaded = queue.load().unwrap();
+    queue.commit(loaded).unwrap();
+    assert_eq!(queue.cell.get(), &bytes);
     assert_eq!(queue.summary().unwrap(), (Some(200), 0, 0));
     let running = queue.inspect(1).unwrap();
     let uncertain = queue.inspect(2).unwrap();

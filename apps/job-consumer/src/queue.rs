@@ -2,7 +2,8 @@ use std::num::NonZeroU64;
 
 use candid::Principal;
 use ic_jobs::{
-    Job, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule, Scheduler,
+    Attempt, Job, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule,
+    Scheduler,
 };
 use ic_memory::{
     GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryManagerConfig,
@@ -26,57 +27,6 @@ struct Entry {
     task: Task,
 }
 
-impl Entry {
-    fn check_delivery(&self, delivery: &Delivery) -> Result<(), Error> {
-        if !matches!(
-            self.job.state,
-            JobState::Running { .. } | JobState::Uncertain { .. }
-        ) {
-            return Err(Error::InvalidInput);
-        }
-        let Task::Deliver {
-            destination,
-            message,
-        } = &self.task
-        else {
-            return Err(Error::InvalidInput);
-        };
-        let id = u64::try_from(self.job.id.0).map_err(|_| Error::InvalidStorage)?;
-        if delivery.job != id
-            || delivery.occurrence != self.job.occurrence
-            || delivery.sequence != self.job.sequence
-            || delivery.destination != *destination
-            || delivery.message != *message
-        {
-            return Err(Error::ReceiptMismatch);
-        }
-        Ok(())
-    }
-
-    fn outstanding(self) -> Result<Delivery, Error> {
-        if !matches!(
-            self.job.state,
-            JobState::Running { .. } | JobState::Uncertain { .. }
-        ) {
-            return Err(Error::InvalidInput);
-        }
-        let Task::Deliver {
-            destination,
-            message,
-        } = self.task
-        else {
-            return Err(Error::InvalidInput);
-        };
-        Ok(Delivery {
-            job: u64::try_from(self.job.id.0).map_err(|_| Error::InvalidStorage)?,
-            occurrence: self.job.occurrence,
-            sequence: self.job.sequence,
-            destination,
-            message,
-        })
-    }
-}
-
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Snapshot {
@@ -85,6 +35,70 @@ struct Snapshot {
     jobs: Vec<Entry>,
     counter: u64,
     receipts: Vec<Delivery>,
+}
+
+// Decoding retains validated jobs. Payloads stay in the same bounded order so
+// the canonical slice scheduler can operate without restoring a second batch.
+struct LoadedSnapshot {
+    init: Init,
+    next_id: u64,
+    jobs: Vec<Job>,
+    tasks: Vec<Task>,
+    counter: u64,
+    receipts: Vec<Delivery>,
+}
+
+impl LoadedSnapshot {
+    fn into_stored(self) -> Result<Snapshot, Error> {
+        if self.jobs.len() != self.tasks.len() {
+            return Err(Error::InvalidStorage);
+        }
+        Ok(Snapshot {
+            init: self.init,
+            next_id: self.next_id,
+            jobs: self
+                .jobs
+                .into_iter()
+                .zip(self.tasks)
+                .map(|(job, task)| Entry {
+                    job: job.record(),
+                    task,
+                })
+                .collect(),
+            counter: self.counter,
+            receipts: self.receipts,
+        })
+    }
+
+    fn take_entry(self, id: u64) -> Result<(Job, Task), Error> {
+        self.jobs
+            .into_iter()
+            .zip(self.tasks)
+            .find(|(job, _)| job.record().id == JobId(u128::from(id)))
+            .ok_or(Error::UnknownJob)
+    }
+}
+
+// Receipt identity is one logical occurrence within the authenticated sender.
+// Exact confirmation still compares the full envelope, including its sequence.
+fn receipt_key(delivery: &Delivery) -> (u64, u64) {
+    (delivery.job, delivery.occurrence)
+}
+
+fn delivery_fields<'a>(
+    job: &Job,
+    task: &'a Task,
+) -> Result<(u64, Attempt, Principal, &'a str), Error> {
+    let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
+    let Task::Deliver {
+        destination,
+        message,
+    } = task
+    else {
+        return Err(Error::InvalidInput);
+    };
+    let id = u64::try_from(job.record().id.0).map_err(|_| Error::InvalidStorage)?;
+    Ok((id, attempt, *destination, message))
 }
 
 // The host owns one allocation pool/bootstrap. Cell persists the application
@@ -131,7 +145,7 @@ fn schedule(timing: Timing) -> Result<Schedule, Error> {
     })
 }
 
-fn decode(bytes: &[u8]) -> Result<Snapshot, Error> {
+fn decode(bytes: &[u8]) -> Result<LoadedSnapshot, Error> {
     if bytes.len() > MAX_BYTES {
         return Err(Error::InvalidStorage);
     }
@@ -141,9 +155,10 @@ fn decode(bytes: &[u8]) -> Result<Snapshot, Error> {
         return Err(Error::InvalidStorage);
     }
     let mut previous = 0;
+    let mut jobs = Vec::with_capacity(snapshot.jobs.len());
     for entry in &snapshot.jobs {
         // This is the sole admission boundary for decoded JobRecord values.
-        Job::restore(entry.job).map_err(job_error)?;
+        jobs.push(Job::restore(entry.job).map_err(job_error)?);
         if entry.job.id.0 <= u128::from(previous)
             || entry.job.id.0 >= u128::from(snapshot.next_id)
             || !task_valid(&entry.task)
@@ -158,12 +173,19 @@ fn decode(bytes: &[u8]) -> Result<Snapshot, Error> {
             || receipt.message.len() > MAX_MESSAGE
             || snapshot.receipts[..index]
                 .iter()
-                .any(|other| other.job == receipt.job && other.occurrence == receipt.occurrence)
+                .any(|other| receipt_key(other) == receipt_key(receipt))
         {
             return Err(Error::InvalidStorage);
         }
     }
-    Ok(snapshot)
+    Ok(LoadedSnapshot {
+        init: snapshot.init,
+        next_id: snapshot.next_id,
+        jobs,
+        tasks: snapshot.jobs.into_iter().map(|entry| entry.task).collect(),
+        counter: snapshot.counter,
+        receipts: snapshot.receipts,
+    })
 }
 
 impl<M: Memory> Queue<M> {
@@ -215,7 +237,7 @@ impl<M: Memory> Queue<M> {
         Ok(())
     }
 
-    fn load(&self) -> Result<Snapshot, Error> {
+    fn load(&self) -> Result<LoadedSnapshot, Error> {
         let snapshot = decode(self.cell.get())?;
         if snapshot.init != self.init {
             return Err(Error::InvalidStorage);
@@ -223,7 +245,8 @@ impl<M: Memory> Queue<M> {
         Ok(snapshot)
     }
 
-    fn commit(&mut self, snapshot: Snapshot) -> Result<(), Error> {
+    fn commit(&mut self, snapshot: LoadedSnapshot) -> Result<(), Error> {
+        let snapshot = snapshot.into_stored()?;
         let bytes = serde_json::to_vec(&snapshot).map_err(|_| Error::InvalidStorage)?;
         if bytes.len() > MAX_BYTES {
             return Err(Error::Capacity);
@@ -244,10 +267,10 @@ impl<M: Memory> Queue<M> {
         let schedule = schedule(input.timing)?;
         let id = snapshot.next_id;
         snapshot.next_id = id.checked_add(1).ok_or(Error::Capacity)?;
-        snapshot.jobs.push(Entry {
-            job: Job::new(JobId(u128::from(id)), schedule, RetryPolicy::NONE).record(),
-            task: input.task,
-        });
+        snapshot
+            .jobs
+            .push(Job::new(JobId(u128::from(id)), schedule, RetryPolicy::NONE));
+        snapshot.tasks.push(input.task);
         self.commit(snapshot)?;
         Ok(id)
     }
@@ -256,23 +279,20 @@ impl<M: Memory> Queue<M> {
         if !(1..=8).contains(&limit) {
             return Err(Error::InvalidInput);
         }
-        self.load()?
+        let snapshot = self.load()?;
+        snapshot
             .jobs
             .into_iter()
-            .filter(|entry| entry.job.id.0 > u128::from(after.unwrap_or(0)))
+            .zip(snapshot.tasks)
+            .filter(|(job, _)| job.record().id.0 > u128::from(after.unwrap_or(0)))
             .take(usize::from(limit))
-            .map(view)
+            .map(|(job, task)| view(job, task))
             .collect()
     }
 
     pub(crate) fn inspect(&self, id: u64) -> Result<View, Error> {
-        view(
-            self.load()?
-                .jobs
-                .into_iter()
-                .find(|entry| entry.job.id == JobId(u128::from(id)))
-                .ok_or(Error::UnknownJob)?,
-        )
+        let (job, task) = self.load()?.take_entry(id)?;
+        view(job, task)
     }
 
     pub(crate) fn cancel(&mut self, id: u64, now: u64) -> Result<(), Error> {
@@ -299,26 +319,18 @@ impl<M: Memory> Queue<M> {
         operation: impl FnOnce(&mut Job) -> Result<(), Error>,
     ) -> Result<(), Error> {
         let mut snapshot = self.load()?;
-        let entry = snapshot
+        let job = snapshot
             .jobs
             .iter_mut()
-            .find(|entry| entry.job.id == JobId(u128::from(id)))
+            .find(|job| job.record().id == JobId(u128::from(id)))
             .ok_or(Error::UnknownJob)?;
-        let mut job = Job::restore(entry.job).map_err(job_error)?;
-        operation(&mut job)?;
-        entry.job = job.record();
+        operation(job)?;
         self.commit(snapshot)
     }
 
     pub(crate) fn summary(&self) -> Result<(Option<u64>, u64, u64), Error> {
         let snapshot = self.load()?;
-        let next_due = snapshot
-            .jobs
-            .iter()
-            .try_fold(None, |next: Option<u64>, entry| {
-                let due = Job::restore(entry.job).map_err(job_error)?.next_due_ns();
-                Ok::<_, Error>(next.into_iter().chain(due).min())
-            })?;
+        let next_due = snapshot.jobs.iter().filter_map(Job::next_due_ns).min();
         Ok((next_due, snapshot.counter, snapshot.receipts.len() as u64))
     }
 
@@ -326,15 +338,10 @@ impl<M: Memory> Queue<M> {
     // external intent before any caller is given a delivery envelope.
     pub(crate) fn dispatch(&mut self, now: u64) -> Result<(Vec<Delivery>, u64), Error> {
         let mut snapshot = self.load()?;
-        let mut jobs = snapshot
-            .jobs
-            .iter()
-            .map(|entry| Job::restore(entry.job).map_err(job_error))
-            .collect::<Result<Vec<_>, _>>()?;
         let mut deliveries = vec![];
         let mut work = 0;
         for _ in 0..BATCH {
-            let Some((attempt, record)) = Scheduler::new(&mut jobs)
+            let Some((attempt, record)) = Scheduler::new(&mut snapshot.jobs)
                 .start_next(now)
                 .map_err(job_error)?
             else {
@@ -344,9 +351,9 @@ impl<M: Memory> Queue<M> {
             let index = snapshot
                 .jobs
                 .iter()
-                .position(|entry| entry.job.id == record.id)
+                .position(|job| job.record().id == record.id)
                 .ok_or(Error::InvalidStorage)?;
-            match &snapshot.jobs[index].task {
+            match &snapshot.tasks[index] {
                 Task::Increment(amount) => {
                     // Known local failure has no effect; dispose of this job
                     // without rolling back unrelated work in the same batch.
@@ -356,7 +363,7 @@ impl<M: Memory> Queue<M> {
                     } else {
                         Outcome::PermanentFailure
                     };
-                    jobs[index]
+                    snapshot.jobs[index]
                         .finish(attempt, now, outcome)
                         .map_err(job_error)?;
                 }
@@ -372,20 +379,23 @@ impl<M: Memory> Queue<M> {
                 }),
             }
         }
-        for (entry, job) in snapshot.jobs.iter_mut().zip(jobs) {
-            entry.job = job.record();
-        }
         self.commit(snapshot)?;
         Ok((deliveries, work))
     }
 
     pub(crate) fn outstanding(&self, id: u64) -> Result<Delivery, Error> {
-        self.load()?
-            .jobs
-            .into_iter()
-            .find(|entry| entry.job.id == JobId(u128::from(id)))
-            .ok_or(Error::UnknownJob)?
-            .outstanding()
+        let (job, task) = self.load()?.take_entry(id)?;
+        let (id, attempt, destination, _) = delivery_fields(&job, &task)?;
+        let Task::Deliver { message, .. } = task else {
+            return Err(Error::InvalidInput);
+        };
+        Ok(Delivery {
+            job: id,
+            occurrence: attempt.execution.occurrence,
+            sequence: attempt.sequence,
+            destination,
+            message,
+        })
     }
 
     pub(crate) fn finish(
@@ -395,20 +405,27 @@ impl<M: Memory> Queue<M> {
         outcome: Outcome,
     ) -> Result<(), Error> {
         let mut snapshot = self.load()?;
-        let entry = snapshot
+        let index = snapshot
             .jobs
-            .iter_mut()
-            .find(|entry| entry.job.id == JobId(u128::from(delivery.job)))
+            .iter()
+            .position(|job| job.record().id == JobId(u128::from(delivery.job)))
             .ok_or(Error::UnknownJob)?;
-        entry.check_delivery(delivery)?;
-        let mut job = Job::restore(entry.job).map_err(job_error)?;
-        let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
-        if matches!(entry.job.state, JobState::Uncertain { .. }) {
+        let job = &mut snapshot.jobs[index];
+        let task = &snapshot.tasks[index];
+        let (id, attempt, destination, message) = delivery_fields(job, task)?;
+        if delivery.job != id
+            || delivery.occurrence != attempt.execution.occurrence
+            || delivery.sequence != attempt.sequence
+            || delivery.destination != destination
+            || delivery.message != message
+        {
+            return Err(Error::ReceiptMismatch);
+        }
+        if matches!(job.record().state, JobState::Uncertain { .. }) {
             job.resolve(attempt, now, outcome).map_err(job_error)?;
         } else {
             job.finish(attempt, now, outcome).map_err(job_error)?;
         }
-        entry.job = job.record();
         self.commit(snapshot)
     }
 
@@ -424,9 +441,11 @@ impl<M: Memory> Queue<M> {
             return Err(Error::InvalidInput);
         }
         let mut snapshot = self.load()?;
-        if let Some(receipt) = snapshot.receipts.iter().find(|receipt| {
-            receipt.job == delivery.job && receipt.occurrence == delivery.occurrence
-        }) {
+        if let Some(receipt) = snapshot
+            .receipts
+            .iter()
+            .find(|receipt| receipt_key(receipt) == receipt_key(&delivery))
+        {
             return if *receipt == delivery {
                 Ok(receipt.clone())
             } else {
@@ -449,16 +468,18 @@ impl<M: Memory> Queue<M> {
         if self.init.delivery_sender != Some(caller) {
             return Err(Error::Unauthorized);
         }
-        Ok(self.load()?.receipts.into_iter().find(|receipt| {
-            receipt.job == delivery.job && receipt.occurrence == delivery.occurrence
-        }))
+        Ok(self
+            .load()?
+            .receipts
+            .into_iter()
+            .find(|receipt| receipt_key(receipt) == receipt_key(delivery)))
     }
 
     // Deliberate corruption endpoint in an unpublished qualification artifact.
     // Normal readers, including post_upgrade, reject malformed configuration
     // during bounded decoding before the aggregate Job::restore boundary.
     pub(crate) fn corrupt_record(&mut self, id: u64) -> Result<(), Error> {
-        let snapshot = self.load()?;
+        let snapshot = self.load()?.into_stored()?;
         let index = snapshot
             .jobs
             .iter()
@@ -472,12 +493,12 @@ impl<M: Memory> Queue<M> {
     }
 }
 
-fn view(entry: Entry) -> Result<View, Error> {
-    let job = Job::restore(entry.job).map_err(job_error)?;
+fn view(job: Job, task: Task) -> Result<View, Error> {
+    let record = job.record();
     Ok(View {
-        id: u64::try_from(entry.job.id.0).map_err(|_| Error::InvalidStorage)?,
-        task: entry.task,
-        status: match entry.job.state {
+        id: u64::try_from(record.id.0).map_err(|_| Error::InvalidStorage)?,
+        task,
+        status: match record.state {
             JobState::Pending { .. } => Status::Pending,
             JobState::Paused { .. } => Status::Paused,
             JobState::Running { .. } => Status::Running,
@@ -487,8 +508,8 @@ fn view(entry: Entry) -> Result<View, Error> {
             JobState::Cancelled => Status::Cancelled,
         },
         due_ns: job.next_due_ns(),
-        sequence: entry.job.sequence,
-        occurrence: entry.job.occurrence,
+        sequence: record.sequence,
+        occurrence: record.occurrence,
     })
 }
 

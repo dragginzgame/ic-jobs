@@ -530,13 +530,11 @@ impl Job {
             }
             Outcome::RetryableFailure | Outcome::PermanentFailure => next.state = JobState::Failed,
             Outcome::Uncertain => {
-                let started_ns = match next.state {
-                    JobState::Running { started_ns } | JobState::Uncertain { started_ns } => {
-                        started_ns
-                    }
-                    _ => return Err(JobError::StaleAttempt),
-                };
-                next.state = JobState::Uncertain { started_ns };
+                // The only callers admit Running or Uncertain. Reconciliation
+                // that remains uncertain preserves the existing start time.
+                if let JobState::Running { started_ns } = next.state {
+                    next.state = JobState::Uncertain { started_ns };
+                }
             }
         }
         self.0 = next;

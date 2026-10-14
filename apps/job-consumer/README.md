@@ -22,8 +22,12 @@ counter and receipts. The queue holds at most 32 jobs and 32 receipts, each
 delivery payload is at most 256 UTF-8 bytes, and serialized state is at most
 24 KiB. The complete bounded queue supplies the global earliest deadline, so no
 separate unbounded due index is needed. Every decoded record crosses
-`Job::restore`, including future work. Invalid retained state refuses recovery;
-installation cannot overwrite existing state. This is a new test installation
+`Job::restore`, including future work. Successful decoding retains validated jobs
+for the complete synchronous operation. Jobs and payloads preserve their common order for the canonical slice
+scheduler; commit refuses misaligned collections and revalidates the encoded
+snapshot before replacing stable bytes. The stored JSON shape is unchanged.
+Invalid retained state refuses recovery; installation cannot overwrite existing
+state. This is a new test installation
 format, not a replacement reader for any existing deployment. The maintainer
 approved retirement/reset of the disposable 0.5 installations for this hard cut;
 create fresh 0.6 fixtures. Upgrading old retained state is unsupported and must

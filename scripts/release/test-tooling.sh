@@ -7,14 +7,14 @@ root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
+# shellcheck source=scripts/ci/fixture-lifecycle.sh
+source "$root/scripts/ci/fixture-lifecycle.sh"
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/jobs-release-tooling.XXXXXX")"
+fixture="$(cd -P "$fixture" && printf '%s/.' "$PWD")"
+fixture="${fixture%/.}"
 fixture_complete=false
 finish() {
-    local status=$?
-    [[ "$fixture_complete" == true || "$status" != 0 ]] || status=1
-    if [[ "$status" == 0 ]]; then rm -rf "$fixture";
-    else echo "Failed release tooling fixture retained: $fixture" >&2; fi
-    exit "$status"
+    fixture_finish "$?" "$fixture" "Failed release tooling fixture retained"
 }
 trap finish EXIT
 trap 'printf "error: release tooling failed at %s:%s\n" "${BASH_SOURCE[0]}" "$LINENO" >&2' ERR
@@ -31,8 +31,9 @@ export RUSTUP_AUTO_INSTALL=0
 # Exercise each actual Jobs fixture's EXIT boundary without dispatching its body.
 # Bash 3.2 reports zero for nounset here unless cleanup requires completion.
 mkdir -p "$fixture/exit-source/scripts/release" "$fixture/exit-source/scripts/ci"
+cp "$root/scripts/ci/fixture-lifecycle.sh" "$fixture/exit-source/scripts/ci/"
 export TOOLING_EXIT_PATH="$fixture/exit-path"
-for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh; do
+for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh scripts/ci/check-jobs-formatting.sh; do
     for failure in nounset command nonzero premature completed failed-completion; do
         # shellcheck disable=SC2016 # Expanded only in the disposable fixture.
         case "$failure" in

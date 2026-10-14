@@ -135,6 +135,12 @@ fn summary() -> Result<Summary, Error> {
     })
 }
 
+fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error> {
+    with_queue(|queue| queue.finish(delivery, ic_cdk::api::time(), outcome))?;
+    reconcile();
+    Ok(())
+}
+
 async fn deliver(delivery: Delivery) {
     let response = ic_cdk::call::Call::unbounded_wait(delivery.destination, "receive_delivery")
         .with_arg(&delivery)
@@ -145,18 +151,14 @@ async fn deliver(delivery: Delivery) {
         .and_then(Result::ok)
         .is_some_and(|receipt| receipt == delivery);
     // Transport rejection or codec failure cannot establish that no effect ran.
-    required(with_queue(|queue| {
-        queue.finish(
-            &delivery,
-            ic_cdk::api::time(),
-            if confirmed {
-                Outcome::Success
-            } else {
-                Outcome::Uncertain
-            },
-        )
-    }));
-    reconcile();
+    required(complete_delivery(
+        &delivery,
+        if confirmed {
+            Outcome::Success
+        } else {
+            Outcome::Uncertain
+        },
+    ));
 }
 
 fn wake() -> WatchdogRunResult {
@@ -181,9 +183,7 @@ fn wake() -> WatchdogRunResult {
 
 #[ic_cdk::update]
 fn dispatch_due() -> Result<(), Error> {
-    authorize()?;
-    let (deliveries, _) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
-    reconcile();
+    let (deliveries, _) = update_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
     for delivery in deliveries {
         ic_cdk::futures::spawn(deliver(delivery));
     }
@@ -221,8 +221,7 @@ async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
     if receipt != delivery {
         return Err(Error::ReceiptMismatch);
     }
-    with_queue(|queue| queue.finish(&delivery, ic_cdk::api::time(), Outcome::Success))?;
-    reconcile();
+    complete_delivery(&delivery, Outcome::Success)?;
     Ok(true)
 }
 
@@ -263,8 +262,7 @@ fn fixture_corrupt_record(id: u64) -> Result<(), Error> {
 fn fixture_mark_uncertain(id: u64) -> Result<(), Error> {
     authorize()?;
     let delivery = with_queue(|queue| queue.outstanding(id))?;
-    with_queue(|queue| queue.finish(&delivery, ic_cdk::api::time(), Outcome::Uncertain))?;
-    reconcile();
+    complete_delivery(&delivery, Outcome::Uncertain)?;
     Ok(())
 }
 

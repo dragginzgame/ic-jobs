@@ -7,14 +7,14 @@ root="${BASH_SOURCE[0]}"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
 export PATH="$root/.tools/host/bin:$PATH"
+# shellcheck source=scripts/ci/fixture-lifecycle.sh
+source "$root/scripts/ci/fixture-lifecycle.sh"
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/jobs-consumer-tooling.XXXXXX")"
+fixture="$(cd -P "$fixture" && printf '%s/.' "$PWD")"
+fixture="${fixture%/.}"
 fixture_complete=false
 finish() {
-    local status=$?
-    [[ "$fixture_complete" == true || "$status" != 0 ]] || status=1
-    if [[ "$status" == 0 ]]; then rm -rf "$fixture"
-    else echo "Consumer tooling fixture retained: $fixture" >&2; fi
-    exit "$status"
+    fixture_finish "$?" "$fixture" "Consumer tooling fixture retained"
 }
 trap finish EXIT
 mkdir -p "$fixture/scripts/dev" "$fixture/scripts/ci" "$fixture/.tools/rust/common/bin"

@@ -7,14 +7,14 @@ root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
+# shellcheck source=scripts/ci/fixture-lifecycle.sh
+source "$root/scripts/ci/fixture-lifecycle.sh"
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/jobs-formatting-evidence.XXXXXX")"
+fixture="$(cd -P "$fixture" && printf '%s/.' "$PWD")"
+fixture="${fixture%/.}"
 fixture_complete=false
 finish() {
-    local status=$?
-    [[ "$fixture_complete" == true || "$status" != 0 ]] || status=1
-    if [[ "$status" == 0 ]]; then rm -rf "$fixture";
-    else echo "Formatting evidence fixture retained: $fixture" >&2; fi
-    exit "$status"
+    fixture_finish "$?" "$fixture" "Formatting evidence fixture retained"
 }
 trap finish EXIT
 mkdir "$fixture/temp" "$fixture/repository" "$fixture/unpacked"
