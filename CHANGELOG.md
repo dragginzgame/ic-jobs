@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.4]
+## [0.9.4] - 2026-10-14
 
 - Select adjacent dependency entries dynamically in Jobs' formatting fixture,
   so adding a sorted dependency does not break the hook qualification check.
