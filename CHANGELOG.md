@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.9.5]
+## [0.9.5] - 2026-10-14
 
 - Complete shared fixture cleanup adoption and remove the redundant private
   uncertainty-state refusal after public transition admission. Consolidate
