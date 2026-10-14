@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.2]
+
+- Reuse the committed batch's next deadline for watchdog completion and avoid
+  decoding/restoring validated jobs again during snapshot writes. Preserve
+  collection checks, frozen storage bytes and commit-before-delivery behavior.
+- Adopt Shared Tooling's explicit Rust-toolchain preparation action in CI and
+  recovery, removing local setup mechanics while retaining both callers' selected
+  versions, targets and recovery evidence. Reject malformed inputs before setup
+  ([#46](https://github.com/dragginzgame/ic-jobs/issues/46)).
+
 ## [0.10.1] - 2026-10-14
 
 - Adopt Shared Tooling 0.12.7 and delegate coordinated release metadata,

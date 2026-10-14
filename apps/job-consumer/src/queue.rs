@@ -37,6 +37,42 @@ struct Snapshot {
     receipts: Vec<Delivery>,
 }
 
+impl Snapshot {
+    // Aggregate checks are shared by stored admission and typed write admission.
+    // The callback preserves restore-before-entry-check ordering on storage reads.
+    fn validate(
+        &self,
+        mut admit_job: impl FnMut(JobRecord) -> Result<(), Error>,
+    ) -> Result<(), Error> {
+        if self.jobs.len() > MAX_JOBS || self.receipts.len() > MAX_JOBS || self.next_id == 0 {
+            return Err(Error::InvalidStorage);
+        }
+        let mut previous = 0;
+        for entry in &self.jobs {
+            admit_job(entry.job)?;
+            if entry.job.id.0 <= u128::from(previous)
+                || entry.job.id.0 >= u128::from(self.next_id)
+                || !task_valid(&entry.task)
+            {
+                return Err(Error::InvalidStorage);
+            }
+            previous = u64::try_from(entry.job.id.0).map_err(|_| Error::InvalidStorage)?;
+        }
+        for (index, receipt) in self.receipts.iter().enumerate() {
+            if receipt.job == 0
+                || receipt.sequence == 0
+                || receipt.message.len() > MAX_MESSAGE
+                || self.receipts[..index]
+                    .iter()
+                    .any(|other| receipt_key(other) == receipt_key(receipt))
+            {
+                return Err(Error::InvalidStorage);
+            }
+        }
+        Ok(())
+    }
+}
+
 // Decoding retains validated jobs. Payloads stay in the same bounded order so
 // the canonical slice scheduler can operate without restoring a second batch.
 struct LoadedSnapshot {
@@ -150,34 +186,12 @@ fn decode(bytes: &[u8]) -> Result<LoadedSnapshot, Error> {
         return Err(Error::InvalidStorage);
     }
     let snapshot: Snapshot = serde_json::from_slice(bytes).map_err(|_| Error::InvalidStorage)?;
-    if snapshot.jobs.len() > MAX_JOBS || snapshot.receipts.len() > MAX_JOBS || snapshot.next_id == 0
-    {
-        return Err(Error::InvalidStorage);
-    }
-    let mut previous = 0;
-    let mut jobs = Vec::with_capacity(snapshot.jobs.len());
-    for entry in &snapshot.jobs {
-        // This is the sole admission boundary for decoded JobRecord values.
-        jobs.push(Job::restore(entry.job).map_err(job_error)?);
-        if entry.job.id.0 <= u128::from(previous)
-            || entry.job.id.0 >= u128::from(snapshot.next_id)
-            || !task_valid(&entry.task)
-        {
-            return Err(Error::InvalidStorage);
-        }
-        previous = u64::try_from(entry.job.id.0).map_err(|_| Error::InvalidStorage)?;
-    }
-    for (index, receipt) in snapshot.receipts.iter().enumerate() {
-        if receipt.job == 0
-            || receipt.sequence == 0
-            || receipt.message.len() > MAX_MESSAGE
-            || snapshot.receipts[..index]
-                .iter()
-                .any(|other| receipt_key(other) == receipt_key(receipt))
-        {
-            return Err(Error::InvalidStorage);
-        }
-    }
+    let mut jobs = Vec::with_capacity(snapshot.jobs.len().min(MAX_JOBS));
+    snapshot.validate(|record| {
+        // Every decoded JobRecord enters through the validated restore boundary.
+        jobs.push(Job::restore(record).map_err(job_error)?);
+        Ok(())
+    })?;
     Ok(LoadedSnapshot {
         init: snapshot.init,
         next_id: snapshot.next_id,
@@ -251,7 +265,9 @@ impl<M: Memory> Queue<M> {
         if bytes.len() > MAX_BYTES {
             return Err(Error::Capacity);
         }
-        decode(&bytes)?;
+        // Records came from validated Jobs and maintained public transitions.
+        // Check collection invariants without serializing and restoring them again.
+        snapshot.validate(|_| Ok(()))?;
         self.cell.set(bytes);
         Ok(())
     }
@@ -336,7 +352,10 @@ impl<M: Memory> Queue<M> {
 
     // No await: the complete bounded batch commits local effects and outstanding
     // external intent before any caller is given a delivery envelope.
-    pub(crate) fn dispatch(&mut self, now: u64) -> Result<(Vec<Delivery>, u64), Error> {
+    pub(crate) fn dispatch(
+        &mut self,
+        now: u64,
+    ) -> Result<(Vec<Delivery>, u64, Option<u64>), Error> {
         let mut snapshot = self.load()?;
         let mut deliveries = vec![];
         let mut work = 0;
@@ -374,8 +393,10 @@ impl<M: Memory> Queue<M> {
                 }),
             }
         }
+        let next_due_ns = snapshot.jobs.iter().filter_map(Job::next_due_ns).min();
         self.commit(snapshot)?;
-        Ok((deliveries, work))
+        // No caller receives effects or a derived deadline before successful commit.
+        Ok((deliveries, work, next_due_ns))
     }
 
     pub(crate) fn outstanding(&self, id: u64) -> Result<Delivery, Error> {

@@ -162,7 +162,7 @@ async fn deliver(delivery: Delivery) {
 }
 
 fn wake() -> WatchdogRunResult {
-    let (deliveries, work) = required(with_queue(|queue| queue.dispatch(ic_cdk::api::time())));
+    let (deliveries, work, due) = required(with_queue(|queue| queue.dispatch(ic_cdk::api::time())));
     if work > 0 && TRAP_WATCHDOG_BATCH.with(Cell::get) {
         // A stable write in this segment is not independently committed. No
         // external delivery escapes before this deliberate rollback boundary.
@@ -171,7 +171,6 @@ fn wake() -> WatchdogRunResult {
     for delivery in deliveries {
         ic_cdk::futures::spawn(deliver(delivery));
     }
-    let (due, _, _) = required(with_queue(|queue| queue.summary()));
     let completion = if work == 0 {
         TimerCompletion::no_work()
     } else {
@@ -183,7 +182,7 @@ fn wake() -> WatchdogRunResult {
 
 #[ic_cdk::update]
 fn dispatch_due() -> Result<(), Error> {
-    let (deliveries, _) = update_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
+    let (deliveries, _, _) = update_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
     for delivery in deliveries {
         ic_cdk::futures::spawn(deliver(delivery));
     }
@@ -269,7 +268,7 @@ fn fixture_mark_uncertain(id: u64) -> Result<(), Error> {
 #[ic_cdk::update]
 async fn fixture_dispatch_trap_result(input: Create) -> Result<(), Error> {
     create(input)?;
-    let (deliveries, _) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
+    let (deliveries, _, _) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
     reconcile();
     // Intent commits at the real inter-canister call boundary. The receipt lives
     // at the destination; a later sender trap cannot roll back that earlier call.

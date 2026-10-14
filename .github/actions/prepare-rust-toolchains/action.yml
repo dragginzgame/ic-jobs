@@ -23,6 +23,17 @@ runs:
         DEVELOPMENT_TARGET: ${{ inputs.development-target }}
         MINIMUM_TARGET: ${{ inputs.minimum-target }}
       run: |
+        for name in DEVELOPMENT MINIMUM MINIMUM_TARGET; do
+          value="${!name}"
+          if [[ -z "$value" || "$value" == -* || "$value" == *[[:space:]]* ]]; then
+            echo "Invalid explicit Rust toolchain input: $name" >&2
+            exit 2
+          fi
+        done
+        if [[ "$DEVELOPMENT_TARGET" == -* || "$DEVELOPMENT_TARGET" == *[[:space:]]* ]]; then
+          echo 'Invalid explicit Rust toolchain input: DEVELOPMENT_TARGET' >&2
+          exit 2
+        fi
         arguments=(--profile minimal --component rustfmt --component clippy)
         if [[ -n "$DEVELOPMENT_TARGET" ]]; then
           arguments+=(--target "$DEVELOPMENT_TARGET")

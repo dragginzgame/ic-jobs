@@ -37,7 +37,7 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
     drop(queue);
     let mut queue = Queue::open(memory.clone(), None).unwrap();
     assert_eq!(queue.inspect(id).unwrap().status, Status::Paused);
-    assert_eq!(queue.dispatch(400).unwrap(), (vec![], 0));
+    assert_eq!(queue.dispatch(400).unwrap(), (vec![], 0, None));
     queue
         .reschedule(
             id,
@@ -113,7 +113,7 @@ fn refused_management_preserves_stable_bytes_and_blocked_delivery() {
             },
         })
         .unwrap();
-    let (deliveries, _) = queue.dispatch(0).unwrap();
+    let (deliveries, _, _) = queue.dispatch(0).unwrap();
     for uncertain in [false, true] {
         if uncertain {
             queue.finish(&deliveries[0], 1, Outcome::Uncertain).unwrap();
@@ -183,7 +183,7 @@ fn local_effects_and_bounded_overdue_work_commit_together() {
             task: Task::Increment(2),
         })
         .unwrap();
-    assert_eq!(queue.dispatch(125).unwrap(), (vec![], 2));
+    assert_eq!(queue.dispatch(125).unwrap(), (vec![], 2, Some(120)));
     assert_eq!(queue.summary().unwrap(), (Some(120), 4, 0));
     drop(queue);
     let mut queue = Queue::open(memory, None).unwrap();
@@ -233,7 +233,7 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
         let memory = VectorMemory::default();
         let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
         queue.create(increment(0)).unwrap();
-        assert_eq!(queue.dispatch(0).unwrap(), (vec![], 1));
+        assert_eq!(queue.dispatch(0).unwrap(), (vec![], 1, None));
 
         let failed = Create {
             timing: Timing::FixedRate {
@@ -257,7 +257,7 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
             (queue.create(failed).unwrap(), healthy)
         };
         let remaining = queue.create(increment(100)).unwrap();
-        assert_eq!(queue.dispatch(100).unwrap(), (vec![], 2));
+        assert_eq!(queue.dispatch(100).unwrap(), (vec![], 2, Some(100)));
         assert_eq!(queue.summary().unwrap(), (Some(100), 3, 0));
         assert_eq!(queue.inspect(failed).unwrap().status, Status::Failed);
         assert_eq!(queue.inspect(healthy).unwrap().status, Status::Completed);
@@ -270,10 +270,10 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
         drop(queue);
         let mut restored = Queue::open(memory, None).unwrap();
         assert_eq!(restored.inspect(failed).unwrap(), failed_record);
-        assert_eq!(restored.dispatch(100).unwrap(), (vec![], 1));
+        assert_eq!(restored.dispatch(100).unwrap(), (vec![], 1, None));
         assert_eq!(restored.summary().unwrap(), (None, 4, 0));
         assert_eq!(restored.inspect(failed).unwrap(), failed_record);
-        assert_eq!(restored.dispatch(200).unwrap(), (vec![], 0));
+        assert_eq!(restored.dispatch(200).unwrap(), (vec![], 0, None));
         assert_eq!(restored.summary().unwrap(), (None, 4, 0));
     }
 }
@@ -293,7 +293,7 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
                 },
             })
             .unwrap();
-        let (deliveries, _) = sender.dispatch(100).unwrap();
+        let (deliveries, _, _) = sender.dispatch(100).unwrap();
         let delivery = &deliveries[0];
         if uncertain {
             sender.finish(delivery, 101, Outcome::Uncertain).unwrap();
@@ -302,7 +302,7 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
         let mut sender = Queue::open(backing, None).unwrap();
         assert_eq!(sender.outstanding(id).unwrap(), *delivery);
         assert!(sender.cancel(id, 102).is_err());
-        assert_eq!(sender.dispatch(102).unwrap(), (vec![], 0));
+        assert_eq!(sender.dispatch(102).unwrap(), (vec![], 0, None));
         let receiver_memory = VectorMemory::default();
         let mut receiver = Queue::open(
             receiver_memory.clone(),
@@ -522,7 +522,7 @@ fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
             })
             .unwrap();
         let healthy = queue.create(increment(200)).unwrap();
-        let (deliveries, _) = queue.dispatch(100).unwrap();
+        let (deliveries, _, _) = queue.dispatch(100).unwrap();
         if uncertain {
             queue
                 .finish(&deliveries[0], 101, Outcome::Uncertain)
@@ -630,6 +630,75 @@ fn misaligned_loaded_jobs_and_payloads_refuse_commit_without_losing_storage() {
 }
 
 #[test]
+fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
+    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+    queue.create(increment(100)).unwrap();
+    let receipt = Delivery {
+        job: 1,
+        occurrence: 0,
+        sequence: 1,
+        destination: manager(),
+        message: "confirmed".into(),
+    };
+    for case in 0..8 {
+        let before = queue.cell.get().clone();
+        let mut loaded = queue.load().unwrap();
+        match case {
+            0 => loaded.next_id = 0,
+            1 => loaded.next_id = 1,
+            2 => {
+                loaded
+                    .jobs
+                    .push(Job::restore(loaded.jobs[0].record()).unwrap());
+                loaded.tasks.push(Task::Increment(1));
+            }
+            3 => {
+                loaded.tasks[0] = Task::Deliver {
+                    destination: manager(),
+                    message: "x".repeat(MAX_MESSAGE + 1),
+                }
+            }
+            4 => loaded.receipts.push(Delivery {
+                job: 0,
+                ..receipt.clone()
+            }),
+            5 => loaded.receipts.push(Delivery {
+                sequence: 0,
+                ..receipt.clone()
+            }),
+            6 => loaded.receipts.push(Delivery {
+                message: "x".repeat(MAX_MESSAGE + 1),
+                ..receipt.clone()
+            }),
+            7 => {
+                loaded.receipts.push(receipt.clone());
+                loaded.receipts.push(Delivery {
+                    sequence: 2,
+                    ..receipt.clone()
+                });
+            }
+            _ => unreachable!(),
+        }
+        assert_eq!(
+            queue.commit(loaded),
+            Err(Error::InvalidStorage),
+            "case {case}"
+        );
+        assert_eq!(queue.cell.get(), &before, "case {case}");
+    }
+    // Encoded capacity still takes precedence over invalid collection metadata.
+    let before = queue.cell.get().clone();
+    let mut loaded = queue.load().unwrap();
+    loaded.next_id = 0;
+    loaded.tasks[0] = Task::Deliver {
+        destination: manager(),
+        message: "x".repeat(MAX_BYTES),
+    };
+    assert_eq!(queue.commit(loaded), Err(Error::Capacity));
+    assert_eq!(queue.cell.get(), &before);
+}
+
+#[test]
 fn released_075_snapshot_reopens_without_reset_and_retains_blocked_effects() {
     // Produced with archived release 060fb9d226389bab702132ba23f42bd0b887a690
     // before changing configuration types. Keep the established memory key/codec.
@@ -657,7 +726,7 @@ fn released_075_snapshot_reopens_without_reset_and_retains_blocked_effects() {
         queue.outstanding(2).unwrap().message,
         "uncertain external effect"
     );
-    assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1));
+    assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1, Some(210)));
     assert_eq!(queue.summary().unwrap(), (Some(210), 5, 0));
     assert_eq!(queue.inspect(1).unwrap(), running);
     assert_eq!(queue.inspect(2).unwrap(), uncertain);
@@ -745,7 +814,7 @@ fn released_075_stable_memory_image_opens_with_the_same_allocation_and_cell() {
     // MemoryRuntime republishes its allocation ledger on reopen. The existing
     // allocation and Jobs cell stay retained; no fresh installation is selected.
     assert_eq!(memory.size(), frozen.pages);
-    assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1));
+    assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1, Some(210)));
     assert_eq!(queue.inspect(1).unwrap().status, Status::Uncertain);
     drop(queue);
     let queue = Queue::open(memory, None).unwrap();
