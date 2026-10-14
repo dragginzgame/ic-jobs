@@ -1,8 +1,7 @@
 # IC Jobs agent instructions
 
 Apply the reviewed [Dragginzgame baseline](DRAGGINZGAME.md) first.
-Its exact revision is recorded in [.shared-tooling.snapshot](.shared-tooling.snapshot):
-`031d214ed044705b989d43e2379f30e6a3d44749`.
+Its exact revision is recorded in [.shared-tooling.snapshot](.shared-tooling.snapshot).
 This file is the local overlay. Read [the current handoff](docs/status/current.md).
 
 - Scope is this workspace; other sibling repositories remain read-only.
@@ -11,9 +10,11 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
 - Every restore path uses the validated Job::restore boundary. Keep error
   transitions unchanged and uncertain effects blocked until explicit disposition.
 - New storage/scheduling policy must have a concrete consumer requirement.
-- Use focused package checks automatically during authorized implementation.
-  `make ci`, release gates and live PocketIC qualification are complete gates
-  selected explicitly or by configured CI.
+- Use focused package checks during development and run `make ci` before
+  delivering completed code as ready under the shared validation authority.
+  Reuse passing evidence for unchanged inputs; documentation-only work needs
+  link, consistency and diff checks. Release effects and live PocketIC
+  qualification retain their separate explicit authority.
 - Rust floor: 1.88 for both core and optional timers. Qualify both separately.
 - Host workflows support Linux and macOS Intel/Apple Silicon. Bind native
   qualification to its tested source; IC recovery evidence remains pending and

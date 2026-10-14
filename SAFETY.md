@@ -60,6 +60,12 @@ its numeric constraints.
 Retained retry completions must be at or after the occurrence's scheduled time.
 Pending/paused retries retain a representable backoff deadline even when cancelled.
 A running retry must start at or after the preceding retry deadline.
+Every attempted occurrence retains enough elapsed time for its cumulative
+exponential/capped retry delays. Total historical retries also require at least
+their initial delays in retained start/completion evidence, including after a
+reschedule. These are necessary bounds, not reconstruction of discarded history.
+Wide arithmetic and an aggregated capped tail bound restore work independently
+of untrusted attempt counters (at most 65 delay steps).
 A zero-attempt successor must follow a completed recurring occurrence,
 with its deadline matching the recorded outcome timestamp and scheduling policy,
 unless an explicit unstarted-occurrence reschedule establishes a new cadence

@@ -1,67 +1,112 @@
 # Current handoff
 
-## Source and authority
+## Source and pending work
 
-Delivered Jobs **0.9.2**: `9421b97fb395cb2f7b1e3716b5c72162680ae731`.
-The working tree prepares compatible **0.9.3**; own package metadata stays 0.9.2.
-Release/publication, staging and Git refs remain maintainer-owned.
+Delivered Jobs **0.9.3**: `8cdf0ace712e8346e55e7f7baaea414578e3dfc8`.
+The working tree prepares compatible **0.9.4** for the remaining artifact-owner
+work in [#42](https://github.com/dragginzgame/ic-jobs/issues/42).
+It also tightens restore admission for impossible elapsed retry histories in
+[#44](https://github.com/dragginzgame/ic-jobs/issues/44), without changing the
+stored shape or permitting unresolved effects to run.
+Own release metadata, staging and Git refs remain maintainer-owned.
+Shared Tooling is now **0.12.0** at
+`f7fe31bf80a2b445bf37a470527f001210241aea`, canonically exported from a clean
+exact-source checkout, excluding sibling dirty work. The 92-file snapshot retains
+existing roots and explicitly adds the publication guide referenced by the new
+release contract. Its initial missing-link failure is retained and reported at
+[Shared #163](https://github.com/dragginzgame/shared-tooling/issues/163).
+Common tool versions/digests and incoming Cargo graph/source are unchanged.
 
-Adopted Shared Tooling **0.11.4** from exact public source
-`031d214ed044705b989d43e2379f30e6a3d44749`, through a clean temporary checkout
-and its canonical exporter. Sibling dirty files remain untouched. The 91-file
-snapshot retains the old roots, adds common publication admission and its fixture
-lifecycle companion, and explicitly selects the catalog-bindings guide required
-by the updated snapshot-drift task. The initial missing-link failure is retained;
-[Shared #168](https://github.com/dragginzgame/shared-tooling/issues/168) records the
-producer companion gap. Common host/Rust/IC pins and digests are unchanged.
+Shared now requires numbered top-position release candidates. Actual Jobs
+preflight fixtures reject Draft/misplaced candidates before cache/tool/gate,
+metadata, intent or Git effects. The additive publication-attempt runner is not
+selected; Jobs retains its existing admitted publication/upload contract.
 
-Incoming Cargo.lock already selected IC Host **0.17.7** and Metrics **0.9.2**.
-Its bytes are preserved. Official registry metadata confirms all three selected
-Host packages are non-yanked, match their locked checksums and retain Rust 1.88.
-Host remains confined to the unpublished Testkit recovery harness; core scheduling,
-job records and canister storage authority are unchanged.
+The unpublished host harness now depends on published IC Build **0.2.5** and
+provides `jobs-capture-artifact`. It delegates exact capture and explicit retention
+to IC Build; Jobs owns filenames, optimizer flags, source/tool evidence and
+custody after retention. Failed final renames print and retain the exact capture.
+Successful finalization removes only the empty owned staging child. Recovery
+qualifies the single frozen original and captures each optimized producer before
+consumption. The wrapper records the capture executable's digest.
 
-## Owner convergence and focused evidence
+`build-recovery-tools` builds the helper with Rust 1.88 after live server admission
+in the explicit recovery route. Tooling fixtures build it independently and
+exercise the actual executable with substitute optimizer/server effects. Capture
+unit tests run under `check-consumer`; there is no second copy engine or server
+startup in these focused checks. Library/canister dependencies, durable records,
+restore admission and lifecycle/effect authority are unchanged by capture;
+the separate retry correction tightens only malformed-record admission.
 
-Jobs' publication wrapper delegates source/version/tag/destination/registry
-admission and post-observation rechecks to the canonical Shared checker.
-Jobs retains package/features/upload policy and its existing metadata adapter.
-No release or upload was performed. [#42](https://github.com/dragginzgame/ic-jobs/issues/42)
-still awaits delivery/final-source consumer acceptance and independent IC Build
-artifact-retention adoption under [Build #14](https://github.com/dragginzgame/ic-build/issues/14).
-Prepared producer patches are not active Jobs adoption.
+Incoming Testkit **0.38.0**, Timers **0.22.2** and the other pre-existing manifest/
+lock selections are preserved. Only IC Build and its additional dependency rows
+are added, plus the host harness's dependency edge. Canonical setup and offline
+admission now pass for the lock-selected Testkit 0.38 CLI; the retained selection
+receipt binds published version 0.38.0 and its exact source checksum. Receipt,
+setup/check logs and unchanged graph proof are retained
+under `target/qualification/issue42-cli/`. The admitted shared build is reused;
+PocketIC setup, server launch and live qualification remain explicitly selected.
 
-Evidence: `target/qualification/shared-0114-host-0177/`, including snapshot review,
-registry/cache preparation, common setup/admission and actual disposable Jobs
-release/publication, formatting/evidence and graph-input refusal fixtures.
-Release/publication fixtures pass on Bash 5 and genuine Bash 3.2 including child
-shells. ShellCheck and final snapshot/pin/link checks pass. Canonical Testkit 0.37
-CLI refresh/admission passes on the selected Host graph, without PocketIC setup.
-Rust 1.88 core/timers tests pass separately, with native/Wasm minimum checks,
-all 16 stable-consumer tests, release Wasm, harness compilation, strict native/Wasm
-Clippy, docs/doctests and formatting. These are local Linux results; no complete
-local gate or live PocketIC qualification was selected.
+## Focused proof
 
-## Native acceptance blocker
+Retry timing evidence: `target/qualification/issue44-fix/`. Rust 1.88 core and
+timers checks retain valid transition histories and all 354 frozen records;
+regressions reject too-early uncertain retries, shortened prior completion
+evidence and forged rescheduled histories. Exponential/capped delay sums and
+wide arithmetic bound work for maximum untrusted counters. This changes product
+restore admission, so the preceding capture proof alone does not qualify it.
+Native/Wasm minimum checks, strict Clippy, rustdoc, consumer tests, release Wasm
+and harness compilation also pass on the repaired source. Full CI and live
+qualification remain unselected under the maintainer's explicit gate scope.
 
-Delivered 0.9.2 [CI 38439119750](https://github.com/dragginzgame/ic-jobs/actions/runs/38439119750)
-passes Linux but both macOS architectures fail before harness compilation in
-Host 0.17.6 retained staging: `Mode::from_bits_truncate` receives u32, while
-Darwin expects u16. Actual logs were inspected and retained. Published Host
-0.17.7 still contains that call; this is source inspection, not new macOS execution.
-[Host #84](https://github.com/dragginzgame/ic-host-tooling/issues/84) owns the repair
-and published downstream follow-up. Do not add a Jobs patch/shim or treat the
-version update as macOS acceptance. [#41](https://github.com/dragginzgame/ic-jobs/issues/41)
-and [#43](https://github.com/dragginzgame/ic-jobs/issues/43) remain open for complete
-final-source native acceptance; cancelled earlier runs do not satisfy it.
+Evidence: `target/qualification/issue42-capture/`. Capture tests prove retained
+final bytes survive producer removal and failed renames preserve exact bytes.
+Actual consumer Wasm and O3/Os/Oz outputs compare byte-for-byte after capture.
+Bash 5 and genuine Bash 3.2 wrapper fixtures use the real capture executable:
+producer replacement cannot affect frozen inputs; hashes/logs/flags remain;
+invalid Wasm/helper paths refuse before attempt/server creation; changed/missing
+CI inputs block subsequent validation. Optimizer/server effects are substituted.
 
-Last inspected live recovery remains Jobs 0.8.1
+Rust 1.88 core/timers tests pass separately, including frozen-record roundtrips
+and 21 notification consumer tests each. Native/Wasm minimum checks, all 16
+stable-consumer tests, release Wasm, capture tests, harness compilation and strict
+native/Wasm Clippy pass. These are local Linux and portability observations,
+not full CI or live IC recovery qualification. ShellCheck, formatting, pins,
+documentation links and the real disposable release/publication fixture pass;
+its gate/registry/upload effects are substituted.
+
+## Qualification boundaries
+
+Routine issue acceptance uses the latest delivered maintained implementation
+and complete required matrix under Shared 0.12. For delivered Jobs 0.9.3,
+[CI 38522672701](https://github.com/dragginzgame/ic-jobs/actions/runs/38522672701)
+passes Linux and fails both macOS architectures. Both exact failed job logs show
+Host 0.17.7 retained permissions receiving u32 where Darwin requires u16.
+[Host #84](https://github.com/dragginzgame/ic-host-tooling/issues/84) owns the still
+unpublished repair. No prior cancelled run is an additional active gate and no
+native success is inferred from local drafts.
+
+Current follow-up lives only in [#41](https://github.com/dragginzgame/ic-jobs/issues/41),
+[#42](https://github.com/dragginzgame/ic-jobs/issues/42), and
+[#43](https://github.com/dragginzgame/ic-jobs/issues/43), and
+[#44](https://github.com/dragginzgame/ic-jobs/issues/44). Upstream capture evidence
+stays with [Build #14](https://github.com/dragginzgame/ic-build/issues/14).
+
+Shared adoption evidence: `target/qualification/shared-0120/`, including canonical
+preview/refresh, complete common setup/admission, release/publication and
+formatting/evidence/input-drift fixtures. The final release fixture runs on
+Bash 5 and genuine Bash 3.2 including child shells. Snapshot/pins/formatting/link
+checks and ShellCheck pass. The first missing-doc attempt remains retained.
+The snapshot adoption itself did not change product Rust source or dependency
+selections; the subsequent retry repair has separate evidence above. No complete gate,
+release, upload or live workflow dispatch is selected by this adoption.
+
+Last inspected live recovery remains Jobs 0.8.1 source
 `f9c0c0eb4e8363565be63f9434a0cf8b9940294b`,
 [run 38289182820](https://github.com/dragginzgame/ic-jobs/actions/runs/38289182820):
 84 passes across seven scenarios, four Wasm variants and three hosts.
-That source-bound evidence does not qualify this graph.
+It does not qualify this graph. No live gate or workflow dispatch ran.
 
-See [history through 0.9.1](history-through-0.9.1.md) for frozen prior preparation,
-[architecture](../../README.md), [safety](../../SAFETY.md),
-[consumer qualification](../../apps/job-consumer/README.md), and
-[delivery procedure](../releasing.md).
+See [frozen history](history-through-0.9.1.md), [architecture](../../README.md),
+[safety](../../SAFETY.md), [consumer qualification](../../apps/job-consumer/README.md),
+and [delivery procedure](../releasing.md).

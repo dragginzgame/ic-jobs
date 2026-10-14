@@ -15,6 +15,8 @@ cli="$(bash scripts/dev/install-rust-tools.sh --package ic-testkit \
 target="$(cargo +1.88.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
 input="$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
 [[ -f "$input" && ! -L "$input" ]] || exit 1
+capture="$target/debug/jobs-capture-artifact"
+[[ -f "$capture" && ! -L "$capture" && -x "$capture" ]] || exit 1
 variants=(original)
 if [[ $# == 1 ]]; then
     bin="$(bash scripts/dev/install-ic-tools.sh --check)"
@@ -22,7 +24,7 @@ if [[ $# == 1 ]]; then
 fi
 evidence="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/jobs-recovery.XXXXXX")"
 printf 'Live recovery evidence: %s\n' "$evidence"
-cp "$input" "$evidence/jobs_test_consumer.wasm"
+"$capture" "$input" "$evidence/jobs_test_consumer.wasm"
 cp Cargo.lock .shared-tooling.snapshot "$evidence/"
 cp "${cli%/bin/*}/selection.json" "$evidence/testkit-selection.json"
 {
@@ -30,6 +32,7 @@ cp "${cli%/bin/*}/selection.json" "$evidence/testkit-selection.json"
     uname -sm
     rustc +1.88.0 --version --verbose
     bash scripts/ci/verify-file-checksum.sh --print sha256 scripts/ci/test-canister.sh
+    bash scripts/ci/verify-file-checksum.sh --print sha256 "$capture"
 } > "$evidence/source.txt"
 if [[ $# == 1 ]]; then
     cp .tools/ic/pins.tsv .tools/ic/files.sha256 "$evidence/"
@@ -45,8 +48,9 @@ for variant in "${variants[@]}"; do
         # Respect the input's declared features; do not enable unrelated Wasm
         # proposals or change the normal product build.
         "$bin/wasm-opt" "$evidence/jobs_test_consumer.wasm" "-$variant" \
-            -o "$IC_JOBS_CONSUMER_WASM" \
+            -o "$evidence/$variant/producer.wasm" \
             > "$evidence/$variant/optimizer.log" 2>&1
+        "$capture" "$evidence/$variant/producer.wasm" "$IC_JOBS_CONSUMER_WASM"
     fi
     bash scripts/ci/verify-file-checksum.sh --print sha256 "$IC_JOBS_CONSUMER_WASM" \
         > "$evidence/$variant/consumer-wasm.sha256"

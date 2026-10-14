@@ -86,7 +86,14 @@ scenarios, explicitly prepare it with `make install-ic-tools`, then run
 and `-Oz` outputs using the input's declared Wasm features. It
 retains every input/output, hash, optimizer log and per-variant test/server log.
 Failures stop before later variants and retain earlier evidence. This target
-does not change the normal `build-consumer` artifact or select a production
+uses the unpublished host harness's `jobs-capture-artifact` executable, backed by
+IC Build's exact capture and explicit retention. Jobs owns evidence filenames,
+optimizer flags and final custody. Rename failures retain captured bytes and
+print their location; success removes only the emptied staging child. The
+original and every optimized output are captured before qualification, and the
+capture executable's digest is recorded alongside source/tool evidence. Tooling
+fixtures compile this helper and exercise it without launching PocketIC.
+This target does not change the normal `build-consumer` artifact or select a production
 optimization policy; ordinary CI still compiles without launching PocketIC.
 
 The canonical Shared Cargo installer selects the published Testkit CLI directly

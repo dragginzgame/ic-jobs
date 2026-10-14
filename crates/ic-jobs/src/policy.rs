@@ -158,6 +158,21 @@ impl RetryPolicy {
             .saturating_mul(factor)
             .min(self.max_delay_ns)
     }
+
+    pub(crate) fn elapsed_retry_delay(self, retries: u32) -> u128 {
+        let mut elapsed = 0;
+        let mut failure = 1;
+        // Doubling reaches the checked cap within 65 steps; aggregate its tail.
+        while failure <= retries {
+            let delay = self.delay(failure);
+            if delay == self.max_delay_ns {
+                return elapsed + u128::from(delay) * u128::from(retries - failure + 1);
+            }
+            elapsed += u128::from(delay);
+            failure += 1;
+        }
+        elapsed
+    }
 }
 
 // Decode the existing numeric object shape, then admit it through the same

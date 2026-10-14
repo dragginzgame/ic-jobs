@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.4]
+
+- Reject stored records whose retry history requires more elapsed time than
+  their retained evidence allows, including uncertain attempts and rescheduled
+  successors. Valid records and explicit effect reconciliation remain unchanged
+  ([#44](https://github.com/dragginzgame/ic-jobs/issues/44)).
+
+- Adopt Shared Tooling 0.12.0: release candidates are numbered and top-positioned;
+  current delivered implementations and their required CI matrix own routine
+  issue acceptance. Contributor tooling changes leave Jobs’ API/storage unchanged.
+
+- Delegate recovery-artifact capture and explicit retention to published IC Build,
+  preserving frozen inputs, variant evidence and failed captures without changing
+  live qualification authority ([#42](https://github.com/dragginzgame/ic-jobs/issues/42)).
+
 ## [0.9.3] - 2026-10-14
 
 - Adopt Shared Tooling 0.11.4 and its canonical publication admission; retain

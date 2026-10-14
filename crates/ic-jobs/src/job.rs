@@ -214,6 +214,25 @@ impl Job {
         {
             return invalid();
         }
+        // Every allocated retry consumed at least the immutable initial delay.
+        // Wide arithmetic also rejects histories needing more than u64 time;
+        // this lower bound does not iterate over untrusted counters.
+        let retries = record.sequence - record.occurrence - u64::from(record.attempts != 0);
+        let previous_retries = record.sequence - record.occurrence - u64::from(record.attempts);
+        let delay = u128::from(record.retry.initial_delay_ns());
+        let evidence_ns = match record.state {
+            JobState::Running { started_ns } | JobState::Uncertain { started_ns } => started_ns,
+            _ => record.last_outcome_ns.unwrap_or(0),
+        };
+        if u128::from(record.last_outcome_ns.unwrap_or(0)) < u128::from(previous_retries) * delay
+            || u128::from(evidence_ns) < u128::from(retries) * delay
+            || (record.attempts > 0
+                && u128::from(evidence_ns)
+                    < u128::from(record.scheduled_ns)
+                        + record.retry.elapsed_retry_delay(record.attempts - 1))
+        {
+            return invalid();
+        }
         match record.schedule {
             Schedule::Once { .. } if record.occurrence != record.schedule_origin => {
                 return invalid();

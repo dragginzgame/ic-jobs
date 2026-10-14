@@ -127,6 +127,23 @@ echo 'Invalid Wasm input refuses before attempt/server dispatch (real wrapper; s
 # producer is replaced during qualification. Only transforms/server effects are
 # substituted; flags, paths, hashes, logs and all dispatch plumbing are real.
 mkdir -p "$fixture/selected/bin" "$fixture/ic-bin" "$fixture/.tools/ic"
+target="$(cargo +1.88.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
+mkdir -p "$fixture/wasm/debug"
+cp "$fixture/input" "$input"
+capture="$fixture/wasm/debug/jobs-capture-artifact"
+for kind in absent symlink directory; do
+    [[ "$kind" != symlink ]] || ln -s "$fixture/server" "$capture"
+    [[ "$kind" != directory ]] || mkdir "$capture"
+    : > "$fixture/events"
+    status=0
+    (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" RUNNER_TEMP="$fixture/evidence" \
+        "$BASH" scripts/ci/test-canister.sh) > "$fixture/capture-$kind.log" 2>&1 || status=$?
+    [[ "$status" == 1 && "$(cat "$fixture/events")" == metadata ]] || exit 1
+    [[ -z "$(ls -A "$fixture/evidence")" ]] || exit 1
+    if [[ "$kind" == symlink ]]; then rm "$capture"
+    elif [[ "$kind" == directory ]]; then rmdir "$capture"; fi
+done
+cp "$target/debug/jobs-capture-artifact" "$fixture/wasm/debug/"
 cp "$root/.tools/ic/"{pins.tsv,files.sha256} "$fixture/.tools/ic/"
 cp "$root/.shared-tooling.snapshot" "$fixture/"
 printf '{}\n' > "$fixture/selected/selection.json"

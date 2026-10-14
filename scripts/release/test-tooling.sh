@@ -414,6 +414,23 @@ MAKE
     [[ "$(git rev-parse HEAD)" == "$base" && ! -e .git/gate-events && ! -s "$TOOLING_FETCH_EVENTS" ]] || exit 1
     git diff --exit-code HEAD -- > /dev/null
     if [[ "$kind" == patch ]]; then
+        # Exercise Jobs' preflight boundary, not only the common heading parser:
+        # invalid candidates must refuse before cache/tool/gate or intent effects.
+        for heading in draft misplaced; do
+            if [[ "$heading" == draft ]]; then
+                printf '# Changelog\n\n## [Draft]\n\n- Invalid candidate.\n' > CHANGELOG.md
+            else
+                printf '# Changelog\n\n## [%s] - 2026-10-09\n\n## [%s]\n\n- Misplaced candidate.\n' \
+                    "$base_version" "$candidate" > CHANGELOG.md
+            fi
+            cp CHANGELOG.md "$fixture/invalid-heading-before"
+            refuse "invalid-heading-$heading" make --no-print-directory release-patch
+            cmp CHANGELOG.md "$fixture/invalid-heading-before"
+            [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" && ! -e .git/gate-events ]] || exit 1
+            [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e "$TOOLING_CACHE_READY" && ! -e .git/tool-installs ]] || exit 1
+            [[ ! -e ".git/release-state/$candidate.plan" ]] || exit 1
+            git show HEAD:CHANGELOG.md > CHANGELOG.md
+        done
         # The consumer adapter reports every refused path before gate/preparation,
         # preserving hidden staged changes, working bytes and the index itself.
         printf '\nFixture staged change.\n' >> README.md

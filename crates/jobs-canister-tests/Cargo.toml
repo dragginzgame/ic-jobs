@@ -8,6 +8,7 @@ publish = false
 
 [dependencies]
 candid.workspace = true
+ic-build.workspace = true
 ic-testkit.workspace = true
 jobs-test-consumer.workspace = true
 serde.workspace = true

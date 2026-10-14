@@ -37,7 +37,7 @@ check:
 	+cargo check -p ic-jobs --all-targets --all-features --locked --offline
 
 test-jobs:
-	+cargo test -p ic-jobs --test jobs --test management --test transition_restore --test configuration --all-features --locked --offline
+	+cargo test -p ic-jobs --test jobs --test management --test transition_restore --test configuration --test retry_time --all-features --locked --offline
 
 test-consumers:
 	+cargo +1.88.0 test -p ic-jobs --test consumers --no-default-features --locked --offline
@@ -47,12 +47,17 @@ test-consumers:
 check-consumer:
 	+cargo +1.88.0 test -p jobs-test-consumer --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
+	+cargo +1.88.0 test -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
 	+cargo +1.88.0 test -p jobs-canister-tests --locked --offline --no-run
 	+cargo clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
 	+cargo clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
 
 build-consumer:
 	+cargo +1.88.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
+
+.PHONY: build-recovery-tools
+build-recovery-tools:
+	+cargo +1.88.0 build -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
 
 install-testkit-tools:
 	+bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release
@@ -70,6 +75,7 @@ consumer-server-check: testkit-tools-check
 # artifact compilation; normal CI compiles the harness without executing it.
 test-canister test-canister-optimized: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
+	+$(MAKE) --no-print-directory build-recovery-tools
 	+cargo +1.88.0 test -p jobs-canister-tests --test recovery --locked --offline --no-run
 	+bash scripts/ci/test-canister.sh $(if $(filter test-canister-optimized,$@),--optimized)
 
@@ -104,7 +110,7 @@ test-formatting-evidence:
 	+bash scripts/ci/test-formatting-evidence.sh
 
 .PHONY: test-consumer-tooling
-test-consumer-tooling:
+test-consumer-tooling: build-recovery-tools
 	+bash scripts/ci/test-consumer-tooling.sh
 
 .PHONY: formatting-hook-check
