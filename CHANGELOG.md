@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.10.0]
+## [0.10.0] - 2026-10-14
 
 - **Breaking:** `Scheduler::start_next` returns `(index, attempt, running_record)`.
   Use the index only in the supplied, unchanged batch; persist the record and
