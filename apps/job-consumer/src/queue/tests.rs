@@ -20,7 +20,7 @@ fn increment(at: u64) -> Create {
 #[test]
 fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen() {
     let memory = VectorMemory::default();
-    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
+    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
     let id = queue
         .create(Create {
             timing: Timing::FixedRate {
@@ -30,12 +30,13 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
             },
             task: Task::Increment(2),
         })
-        .unwrap();
+        .unwrap()
+        .value;
     assert_eq!(queue.dispatch(100).unwrap().1, 1);
     queue.pause(id, 101).unwrap();
     assert_eq!(queue.summary().unwrap(), (None, 2, 0));
     drop(queue);
-    let mut queue = Queue::open(memory.clone(), None).unwrap();
+    let mut queue = Queue::open(memory.clone(), None).unwrap().0;
     assert_eq!(queue.inspect(id).unwrap().status, Status::Paused);
     assert_eq!(queue.dispatch(400).unwrap(), (vec![], 0, None));
     queue
@@ -53,7 +54,7 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
     assert_eq!(before.task, Task::Increment(2));
     assert_eq!(before.status, Status::Paused);
     drop(queue);
-    let mut queue = Queue::open(memory, None).unwrap();
+    let mut queue = Queue::open(memory, None).unwrap().0;
     assert_eq!(queue.inspect(id).unwrap(), before);
     queue.resume(id, 450).unwrap();
     assert_eq!(queue.summary().unwrap().0, Some(500));
@@ -77,7 +78,7 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
 fn resume_preserves_overdue_policy_and_bounded_batch() {
     for catch_up in [false, true] {
         let memory = VectorMemory::default();
-        let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
+        let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
         let id = queue
             .create(Create {
                 timing: Timing::FixedRate {
@@ -87,10 +88,11 @@ fn resume_preserves_overdue_policy_and_bounded_batch() {
                 },
                 task: Task::Increment(1),
             })
-            .unwrap();
+            .unwrap()
+            .value;
         queue.pause(id, 50).unwrap();
         drop(queue);
-        let mut queue = Queue::open(memory, None).unwrap();
+        let mut queue = Queue::open(memory, None).unwrap().0;
         queue.resume(id, 200).unwrap();
         assert_eq!(queue.summary().unwrap().0, Some(100));
         assert_eq!(queue.dispatch(200).unwrap().1, if catch_up { 2 } else { 1 });
@@ -103,7 +105,9 @@ fn resume_preserves_overdue_policy_and_bounded_batch() {
 
 #[test]
 fn refused_management_preserves_stable_bytes_and_blocked_delivery() {
-    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+    let mut queue = Queue::open(VectorMemory::default(), Some(config()))
+        .unwrap()
+        .0;
     let id = queue
         .create(Create {
             timing: Timing::Once(0),
@@ -112,7 +116,8 @@ fn refused_management_preserves_stable_bytes_and_blocked_delivery() {
                 message: "retained".into(),
             },
         })
-        .unwrap();
+        .unwrap()
+        .value;
     let (deliveries, _, _) = queue.dispatch(0).unwrap();
     for uncertain in [false, true] {
         if uncertain {
@@ -126,7 +131,7 @@ fn refused_management_preserves_stable_bytes_and_blocked_delivery() {
         assert_eq!(queue.dispatch(2).unwrap().1, 0);
         assert_eq!(*queue.cell.get(), before);
     }
-    let pending = queue.create(increment(100)).unwrap();
+    let pending = queue.create(increment(100)).unwrap().value;
     let before = queue.cell.get().clone();
     assert_eq!(queue.pause(999, 2), Err(Error::UnknownJob));
     assert!(queue.resume(pending, 2).is_err());
@@ -149,30 +154,30 @@ fn refused_management_preserves_stable_bytes_and_blocked_delivery() {
 #[test]
 fn retained_queue_restores_payloads_deadlines_cancellation_and_id_authority() {
     let memory = VectorMemory::default();
-    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
+    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
     queue.authorize(manager()).unwrap();
     assert_eq!(
         queue.authorize(Principal::anonymous()),
         Err(Error::Unauthorized)
     );
-    let first = queue.create(increment(100)).unwrap();
-    let second = queue.create(increment(200)).unwrap();
+    let first = queue.create(increment(100)).unwrap().value;
+    let second = queue.create(increment(200)).unwrap().value;
     queue.cancel(first, 10).unwrap();
     let expected = queue.page(None, 8).unwrap();
     drop(queue);
-    let mut restored = Queue::open(memory.clone(), None).unwrap();
+    let mut restored = Queue::open(memory.clone(), None).unwrap().0;
     assert_eq!(restored.page(None, 8).unwrap(), expected);
     assert_eq!(restored.summary().unwrap(), (Some(200), 0, 0));
     assert_eq!(restored.page(Some(first), 1).unwrap()[0].id, second);
     assert_eq!(restored.page(None, 0), Err(Error::InvalidInput));
-    assert_eq!(restored.create(increment(300)).unwrap(), 3);
+    assert_eq!(restored.create(increment(300)).unwrap().value, 3);
     assert!(Queue::open(memory, Some(config())).is_err());
 }
 
 #[test]
 fn local_effects_and_bounded_overdue_work_commit_together() {
     let memory = VectorMemory::default();
-    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
+    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
     let id = queue
         .create(Create {
             timing: Timing::FixedRate {
@@ -182,11 +187,12 @@ fn local_effects_and_bounded_overdue_work_commit_together() {
             },
             task: Task::Increment(2),
         })
-        .unwrap();
+        .unwrap()
+        .value;
     assert_eq!(queue.dispatch(125).unwrap(), (vec![], 2, Some(120)));
     assert_eq!(queue.summary().unwrap(), (Some(120), 4, 0));
     drop(queue);
-    let mut queue = Queue::open(memory, None).unwrap();
+    let mut queue = Queue::open(memory, None).unwrap().0;
     assert_eq!(queue.inspect(id).unwrap().occurrence, 2);
     queue.dispatch(125).unwrap();
     assert_eq!(queue.summary().unwrap(), (Some(130), 6, 0));
@@ -196,7 +202,9 @@ fn local_effects_and_bounded_overdue_work_commit_together() {
 
 #[test]
 fn skip_and_refused_mutations_preserve_committed_bytes() {
-    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+    let mut queue = Queue::open(VectorMemory::default(), Some(config()))
+        .unwrap()
+        .0;
     let id = queue
         .create(Create {
             timing: Timing::FixedRate {
@@ -206,7 +214,8 @@ fn skip_and_refused_mutations_preserve_committed_bytes() {
             },
             task: Task::Increment(1),
         })
-        .unwrap();
+        .unwrap()
+        .value;
     assert_eq!(queue.dispatch(125).unwrap().1, 1);
     assert_eq!(queue.inspect(id).unwrap().due_ns, Some(130));
     let before = queue.cell.get().clone();
@@ -231,7 +240,7 @@ fn skip_and_refused_mutations_preserve_committed_bytes() {
 fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
     for failed_first in [false, true] {
         let memory = VectorMemory::default();
-        let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
+        let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
         queue.create(increment(0)).unwrap();
         assert_eq!(queue.dispatch(0).unwrap(), (vec![], 1, None));
 
@@ -249,14 +258,14 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
         };
         let (failed, healthy) = if failed_first {
             (
-                queue.create(failed).unwrap(),
-                queue.create(healthy).unwrap(),
+                queue.create(failed).unwrap().value,
+                queue.create(healthy).unwrap().value,
             )
         } else {
-            let healthy = queue.create(healthy).unwrap();
-            (queue.create(failed).unwrap(), healthy)
+            let healthy = queue.create(healthy).unwrap().value;
+            (queue.create(failed).unwrap().value, healthy)
         };
-        let remaining = queue.create(increment(100)).unwrap();
+        let remaining = queue.create(increment(100)).unwrap().value;
         assert_eq!(queue.dispatch(100).unwrap(), (vec![], 2, Some(100)));
         assert_eq!(queue.summary().unwrap(), (Some(100), 3, 0));
         assert_eq!(queue.inspect(failed).unwrap().status, Status::Failed);
@@ -268,7 +277,7 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
         assert_eq!(failed_record.due_ns, None);
 
         drop(queue);
-        let mut restored = Queue::open(memory, None).unwrap();
+        let mut restored = Queue::open(memory, None).unwrap().0;
         assert_eq!(restored.inspect(failed).unwrap(), failed_record);
         assert_eq!(restored.dispatch(100).unwrap(), (vec![], 1, None));
         assert_eq!(restored.summary().unwrap(), (None, 4, 0));
@@ -283,7 +292,7 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
     for uncertain in [false, true] {
         let backing = VectorMemory::default();
         let destination = Principal::self_authenticating(b"receiver");
-        let mut sender = Queue::open(backing.clone(), Some(config())).unwrap();
+        let mut sender = Queue::open(backing.clone(), Some(config())).unwrap().0;
         let id = sender
             .create(Create {
                 timing: Timing::Once(100),
@@ -292,14 +301,15 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
                     message: "report".into(),
                 },
             })
-            .unwrap();
+            .unwrap()
+            .value;
         let (deliveries, _, _) = sender.dispatch(100).unwrap();
         let delivery = &deliveries[0];
         if uncertain {
             sender.finish(delivery, 101, Outcome::Uncertain).unwrap();
         }
         drop(sender);
-        let mut sender = Queue::open(backing, None).unwrap();
+        let mut sender = Queue::open(backing, None).unwrap().0;
         assert_eq!(sender.outstanding(id).unwrap(), *delivery);
         assert!(sender.cancel(id, 102).is_err());
         assert_eq!(sender.dispatch(102).unwrap(), (vec![], 0, None));
@@ -311,7 +321,8 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
                 delivery_sender: Some(manager()),
             }),
         )
-        .unwrap();
+        .unwrap()
+        .0;
         assert_eq!(receiver.receipt(manager(), delivery).unwrap(), None);
         assert_eq!(
             receiver.receive(Principal::anonymous(), delivery.clone()),
@@ -320,7 +331,7 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
         receiver.receive(manager(), delivery.clone()).unwrap();
         receiver.receive(manager(), delivery.clone()).unwrap();
         drop(receiver);
-        let receiver = Queue::open(receiver_memory, None).unwrap();
+        let receiver = Queue::open(receiver_memory, None).unwrap().0;
         assert_eq!(receiver.summary().unwrap().2, 1);
         assert_eq!(
             receiver.receipt(manager(), delivery).unwrap(),
@@ -359,13 +370,16 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
             JobState::Failed,
             JobState::Cancelled,
         ] {
-            let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+            let mut queue = Queue::open(VectorMemory::default(), Some(config()))
+                .unwrap()
+                .0;
             let id = queue
                 .create(Create {
                     timing: Timing::Once(10),
                     task: task.clone(),
                 })
-                .unwrap();
+                .unwrap()
+                .value;
             let mut snapshot = queue.load().unwrap();
             let job = &mut snapshot.jobs[0];
             match state {
@@ -388,7 +402,7 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
                 }
             }
             let record = job.record();
-            queue.commit(snapshot).unwrap();
+            queue.commit(snapshot, ()).unwrap();
             let delivery = Delivery {
                 job: id,
                 occurrence: record.occurrence,
@@ -460,7 +474,9 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
 
 #[test]
 fn unrelated_corruption_precedes_completion_lookup_receipt_and_clock_checks() {
-    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+    let mut queue = Queue::open(VectorMemory::default(), Some(config()))
+        .unwrap()
+        .0;
     queue
         .create(Create {
             timing: Timing::Once(10),
@@ -470,7 +486,8 @@ fn unrelated_corruption_precedes_completion_lookup_receipt_and_clock_checks() {
             },
         })
         .unwrap();
-    let corrupt = queue.create(increment(20)).unwrap();
+
+    let corrupt = queue.create(increment(20)).unwrap().value;
     let delivery = queue.dispatch(10).unwrap().0.remove(0);
     queue.corrupt_record(corrupt).unwrap();
     let before = queue.cell.get().clone();
@@ -496,9 +513,9 @@ fn unrelated_corruption_precedes_completion_lookup_receipt_and_clock_checks() {
 #[test]
 fn corrupt_future_record_blocks_due_dispatch_and_recovery_without_reset() {
     let backing = VectorMemory::default();
-    let mut queue = Queue::open(backing.clone(), Some(config())).unwrap();
+    let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
     queue.create(increment(100)).unwrap();
-    let corrupt = queue.create(increment(200)).unwrap();
+    let corrupt = queue.create(increment(200)).unwrap().value;
     queue.corrupt_record(corrupt).unwrap();
     let bytes = queue.cell.get().clone();
     assert!(queue.dispatch(100).is_err());
@@ -511,7 +528,7 @@ fn corrupt_future_record_blocks_due_dispatch_and_recovery_without_reset() {
 fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
     for uncertain in [false, true] {
         let backing = VectorMemory::default();
-        let mut queue = Queue::open(backing.clone(), Some(config())).unwrap();
+        let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
         let corrupt = queue
             .create(Create {
                 timing: Timing::Once(100),
@@ -520,8 +537,9 @@ fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
                     message: "retained intent".into(),
                 },
             })
-            .unwrap();
-        let healthy = queue.create(increment(200)).unwrap();
+            .unwrap()
+            .value;
+        let healthy = queue.create(increment(200)).unwrap().value;
         let (deliveries, _, _) = queue.dispatch(100).unwrap();
         if uncertain {
             queue
@@ -591,7 +609,7 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
         running_recurring,
     ] {
         let backing = VectorMemory::default();
-        let mut queue = Queue::open(backing.clone(), Some(config())).unwrap();
+        let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
         queue.create(increment(100)).unwrap();
         queue.create(increment(200)).unwrap();
         let mut snapshot: Snapshot = serde_json::from_slice(queue.cell.get()).unwrap();
@@ -614,7 +632,9 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
 
 #[test]
 fn misaligned_loaded_jobs_and_payloads_refuse_commit_without_losing_storage() {
-    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+    let mut queue = Queue::open(VectorMemory::default(), Some(config()))
+        .unwrap()
+        .0;
     queue.create(increment(100)).unwrap();
     for drop_job in [false, true] {
         let before = queue.cell.get().clone();
@@ -624,14 +644,16 @@ fn misaligned_loaded_jobs_and_payloads_refuse_commit_without_losing_storage() {
         } else {
             loaded.tasks.pop();
         }
-        assert_eq!(queue.commit(loaded), Err(Error::InvalidStorage));
+        assert_eq!(queue.commit(loaded, ()), Err(Error::InvalidStorage));
         assert_eq!(queue.cell.get(), &before);
     }
 }
 
 #[test]
 fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
-    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
+    let mut queue = Queue::open(VectorMemory::default(), Some(config()))
+        .unwrap()
+        .0;
     queue.create(increment(100)).unwrap();
     let receipt = Delivery {
         job: 1,
@@ -680,7 +702,7 @@ fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
             _ => unreachable!(),
         }
         assert_eq!(
-            queue.commit(loaded),
+            queue.commit(loaded, ()),
             Err(Error::InvalidStorage),
             "case {case}"
         );
@@ -694,7 +716,7 @@ fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
         destination: manager(),
         message: "x".repeat(MAX_BYTES),
     };
-    assert_eq!(queue.commit(loaded), Err(Error::Capacity));
+    assert_eq!(queue.commit(loaded, ()), Err(Error::Capacity));
     assert_eq!(queue.cell.get(), &before);
 }
 
@@ -704,13 +726,13 @@ fn released_075_snapshot_reopens_without_reset_and_retains_blocked_effects() {
     // before changing configuration types. Keep the established memory key/codec.
     let bytes = include_bytes!("fixtures/snapshot-075.json").to_vec();
     let memory = VectorMemory::default();
-    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap();
+    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
     queue.cell.set(bytes.clone());
     drop(queue);
-    let mut queue = Queue::open(memory.clone(), None).unwrap();
+    let mut queue = Queue::open(memory.clone(), None).unwrap().0;
     assert_eq!(queue.cell.get(), &bytes);
     let loaded = queue.load().unwrap();
-    queue.commit(loaded).unwrap();
+    queue.commit(loaded, ()).unwrap();
     assert_eq!(queue.cell.get(), &bytes);
     assert_eq!(queue.summary().unwrap(), (Some(200), 0, 0));
     let running = queue.inspect(1).unwrap();
@@ -731,15 +753,17 @@ fn released_075_snapshot_reopens_without_reset_and_retains_blocked_effects() {
     assert_eq!(queue.inspect(1).unwrap(), running);
     assert_eq!(queue.inspect(2).unwrap(), uncertain);
     drop(queue);
-    let queue = Queue::open(memory, None).unwrap();
+    let queue = Queue::open(memory, None).unwrap().0;
     assert_eq!(queue.inspect(1).unwrap(), running);
     assert_eq!(queue.inspect(2).unwrap(), uncertain);
 }
 
 #[test]
 fn raw_invalid_intervals_preserve_storage_and_unknown_job_precedence() {
-    let mut queue = Queue::open(VectorMemory::default(), Some(config())).unwrap();
-    let id = queue.create(increment(100)).unwrap();
+    let mut queue = Queue::open(VectorMemory::default(), Some(config()))
+        .unwrap()
+        .0;
+    let id = queue.create(increment(100)).unwrap().value;
     for timing in [
         Timing::FixedRate {
             first_ns: 0,
@@ -807,7 +831,7 @@ fn released_075_stable_memory_image_opens_with_the_same_allocation_and_cell() {
             .collect::<Vec<_>>();
         memory.write(offset, &bytes);
     }
-    let mut queue = Queue::open(memory.clone(), None).unwrap();
+    let mut queue = Queue::open(memory.clone(), None).unwrap().0;
     assert_eq!(queue.cell.get(), frozen.snapshot.as_bytes());
     assert_eq!(queue.summary().unwrap(), (Some(200), 0, 0));
     assert_eq!(queue.inspect(1).unwrap().status, Status::Uncertain);
@@ -817,7 +841,172 @@ fn released_075_stable_memory_image_opens_with_the_same_allocation_and_cell() {
     assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1, Some(210)));
     assert_eq!(queue.inspect(1).unwrap().status, Status::Uncertain);
     drop(queue);
-    let queue = Queue::open(memory, None).unwrap();
+    let queue = Queue::open(memory, None).unwrap().0;
     assert_eq!(queue.summary().unwrap(), (Some(210), 5, 0));
     assert_eq!(queue.inspect(1).unwrap().status, Status::Uncertain);
+}
+
+#[derive(Clone)]
+struct CountedMemory {
+    backing: VectorMemory,
+    writes: std::rc::Rc<std::cell::Cell<u64>>,
+}
+
+impl Memory for CountedMemory {
+    fn size(&self) -> u64 {
+        self.backing.size()
+    }
+    fn grow(&self, pages: u64) -> i64 {
+        self.backing.grow(pages)
+    }
+    fn read(&self, offset: u64, dst: &mut [u8]) {
+        self.backing.read(offset, dst);
+    }
+    fn write(&self, offset: u64, src: &[u8]) {
+        self.writes.set(self.writes.get() + 1);
+        self.backing.write(offset, src);
+    }
+}
+
+#[test]
+fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
+    for state in 0..6 {
+        let memory = CountedMemory {
+            backing: VectorMemory::default(),
+            writes: std::rc::Rc::new(std::cell::Cell::new(0)),
+        };
+        let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
+        let id = if state == 0 {
+            None
+        } else {
+            Some(queue.create(increment(100)).unwrap().value)
+        };
+        let mut loaded = queue.load().unwrap();
+        if let Some(job) = loaded.jobs.first_mut() {
+            match state {
+                2 => job.pause(0).unwrap(),
+                3 => {
+                    job.start(100).unwrap();
+                }
+                4 | 5 => {
+                    let attempt = job.start(100).unwrap();
+                    job.finish(
+                        attempt,
+                        100,
+                        if state == 4 {
+                            Outcome::Uncertain
+                        } else {
+                            Outcome::Success
+                        },
+                    )
+                    .unwrap();
+                }
+                _ => {}
+            }
+        }
+        queue.commit(loaded, ()).unwrap();
+        let expected_due = queue.summary().unwrap().0;
+        let before = queue.cell.get().clone();
+        memory.writes.set(0);
+        assert_eq!(
+            queue.dispatch(99).unwrap(),
+            (vec![], 0, expected_due),
+            "state {state}"
+        );
+        assert_eq!(memory.writes.get(), 0, "state {state}");
+        assert_eq!(queue.cell.get(), &before, "state {state}");
+        if let Some(id) = id {
+            queue.corrupt_record(id).unwrap();
+            let before = queue.cell.get().clone();
+            memory.writes.set(0);
+            assert!(queue.dispatch(99).is_err(), "state {state}");
+            assert_eq!(memory.writes.get(), 0);
+            assert_eq!(queue.cell.get(), &before);
+        }
+    }
+    // Real due work still writes its metadata and local effect together.
+    let memory = CountedMemory {
+        backing: VectorMemory::default(),
+        writes: std::rc::Rc::new(std::cell::Cell::new(0)),
+    };
+    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
+    queue.create(increment(100)).unwrap();
+    memory.writes.set(0);
+    assert_eq!(queue.dispatch(100).unwrap(), (vec![], 1, None));
+    assert!(memory.writes.get() > 0);
+    assert_eq!(queue.summary().unwrap().1, 1);
+}
+
+#[test]
+fn opening_returns_the_admitted_deadline_without_rewriting_retained_records() {
+    let memory = VectorMemory::default();
+    let (mut queue, due) = Queue::open(memory.clone(), Some(config())).unwrap();
+    assert_eq!(due, None);
+    queue.create(increment(200)).unwrap();
+    let first = queue.create(increment(100)).unwrap().value;
+    let before = queue.cell.get().clone();
+    drop(queue);
+    let (mut queue, due) = Queue::open(memory.clone(), None).unwrap();
+    assert_eq!(due, Some(100));
+    assert_eq!(queue.cell.get(), &before);
+    queue.pause(first, 0).unwrap();
+    drop(queue);
+    let (mut queue, due) = Queue::open(memory.clone(), None).unwrap();
+    assert_eq!(due, Some(200));
+    queue.corrupt_record(first).unwrap();
+    drop(queue);
+    // Corruption in inactive work still blocks the entire restoration result.
+    assert!(Queue::open(memory, None).is_err());
+}
+
+#[test]
+fn mutation_replies_return_the_fresh_committed_deadline() {
+    let memory = VectorMemory::default();
+    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
+    let later = queue.create(increment(300)).unwrap();
+    assert_eq!(later.next_due_ns, Some(300));
+    let early = queue.create(increment(100)).unwrap();
+    assert_eq!(early.next_due_ns, Some(100));
+    assert_eq!(queue.pause(early.value, 0).unwrap().next_due_ns, Some(300));
+    assert_eq!(
+        queue
+            .reschedule(later.value, Timing::Once(200), 0)
+            .unwrap()
+            .next_due_ns,
+        Some(200)
+    );
+    assert_eq!(queue.resume(early.value, 0).unwrap().next_due_ns, Some(100));
+    assert_eq!(queue.cancel(early.value, 0).unwrap().next_due_ns, Some(200));
+    assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1, None));
+    let external = queue
+        .create(Create {
+            timing: Timing::Once(250),
+            task: Task::Deliver {
+                destination: manager(),
+                message: "exact immutable payload".into(),
+            },
+        })
+        .unwrap();
+    assert_eq!(external.next_due_ns, Some(250));
+    let (deliveries, _, due) = queue.dispatch(250).unwrap();
+    assert_eq!(due, None);
+    assert_eq!(
+        queue
+            .finish(&deliveries[0], 251, Outcome::Uncertain)
+            .unwrap()
+            .next_due_ns,
+        None
+    );
+    // Another message changes the queue before the old delivery is reconciled.
+    queue.create(increment(260)).unwrap();
+    let reply = queue.finish(&deliveries[0], 252, Outcome::Success).unwrap();
+    assert_eq!(reply.next_due_ns, Some(260));
+    assert_eq!(
+        queue.inspect(external.value).unwrap().status,
+        Status::Completed
+    );
+    drop(queue);
+    let (queue, due) = Queue::open(memory, None).unwrap();
+    assert_eq!(due, reply.next_due_ns);
+    assert_eq!(queue.summary().unwrap().0, reply.next_due_ns);
 }

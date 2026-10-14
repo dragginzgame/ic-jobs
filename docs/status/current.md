@@ -2,12 +2,31 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.10.1**: `f7a86f59af0ba35ba3b460949d4cb93bc1f4d6c0`.
-The working tree prepares compatible **0.10.2** toolchain-action adoption for
+Delivered Jobs **0.10.2**: `9a7113bffdfb53a4696d5e08a321be2ae7df2282`.
+Pending 0.10.3 centralizes validated snapshot lookup and pairs management/result
+replies with the fresh committed deadline. Candid endpoint values stay unchanged;
+management and asynchronous completion reconcile that deadline without reloading
+storage. No deadline survives an await: completion reads the current queue before
+its own transition/write. Native maintenance filters expiry once per callback,
+retaining a separate occurrence commit and partial-progress recovery.
+Pending 0.10.3 also carries the deadline admitted by queue opening directly into
+lifecycle reconciliation; no deadline cache or second restore pass is introduced.
+Incoming and retained delivery envelopes share bounded field admission while
+keeping authorization, uniqueness, exact comparison and error identity local.
+The package README/rustdoc owns API examples and timer guidance; the root README
+links to that guide and authoritative selections instead of stale version prose.
+Pending compatible **0.10.3** shares delivery-envelope construction without extra
+payload clones and filters/truncates the existing native pagination vector.
+Idle dispatch now validates the complete snapshot without serialization or stable
+writes when no work starts. Manual dispatch reconciles the returned deadline
+before spawning delivery, preserving authorization and trap-before-delivery order.
+Receipt validation keeps active-attempt/task/ID admission and exact envelope
+comparison before completion or reconciliation. Stored records are unchanged.
+Delivered 0.10.2 includes toolchain-action adoption for
 [Jobs #46](https://github.com/dragginzgame/ic-jobs/issues/46). Both CI/recovery
 callers retain their explicit versions and targets; the action now belongs to
 the recorded canonical snapshot and rejects malformed selections before setup.
-Pending 0.10.2 also returns the successfully committed dispatch deadline to the
+Delivered 0.10.2 also returns the successfully committed dispatch deadline to the
 watchdog instead of reloading the whole queue. Snapshot writes validate collection
 invariants directly without decoding/restoring their already validated Jobs.
 Stored reads still restore every record, preserving restore/entry refusal order;
@@ -63,6 +82,64 @@ action is now snapshot-owned from the delivered revision; producer acceptance
 remains separate in [Shared #177](https://github.com/dragginzgame/shared-tooling/issues/177).
 
 ## Focused proof
+
+Latest mutation evidence: `target/qualification/mutation-deadline-cleanup/`.
+All 21 stable-consumer tests pass on Rust 1.88, including fresh reply deadlines
+through create/pause/reschedule/resume/cancel, uncertain completion, later queue
+mutation and exact reconciliation followed by reopen. Existing corruption/lookup/
+clock/refusal and unchanged-byte cases pass. All 19 native notification/maintenance
+cases pass separately with core/timers, including no-work, Skip/CatchUp and partial
+commit recovery. Release Wasm, capture tests, harness compilation, strict native/
+Wasm Clippy and separate native/Wasm Rust floors pass on the selected Memory 0.38 /
+Testkit 0.42 / Timers 0.22.4 graph. Incoming Cargo files are preserved. No full CI,
+live PocketIC qualification, release or publication ran.
+
+Latest opening/documentation evidence: `target/qualification/open-docs-cleanup/`.
+All 20 stable-consumer tests pass on Rust 1.88, including returned initial/reopened
+pending deadlines, unchanged retained bytes and rejection of corrupt inactive
+records before lifecycle recovery. Release Wasm, capture tests, harness compilation
+and strict native/Wasm Clippy pass. Core/timers Rust 1.88 native/Wasm checks,
+warnings-denied rustdoc and doctests for both feature selections pass. Formatting,
+snapshot/pin admission and local documentation links pass. The incoming Cargo
+files remain unchanged. No live recovery, full CI, release or upload ran.
+
+Latest idle/completion evidence: `target/qualification/idle-completion-cleanup/`.
+All 19 stable-consumer tests pass on Rust 1.88. Instrumented backing memory proves
+zero writes for empty/future/paused/running/uncertain/completed queues, unchanged
+bytes and corruption refusal before idle return; due work still commits metadata
+and its local effect. Release Wasm, capture tests, harness compilation, strict
+native/Wasm Clippy and separate core/timers native/Wasm floor checks pass. Manual
+reconciliation's real IC rollback boundary remains a live qualification obligation.
+
+The completion guard is an isolated additive draft against published Shared 0.13.0
+`998065bd2dc8350fb6811c3c3486627cbb48724e`, tracked in
+[Shared #192](https://github.com/dragginzgame/shared-tooling/issues/192).
+It separates status admission from cleanup; fixture_finish keeps its existing
+policy while the proposed live wrapper retains all success/failure evidence.
+Completion and existing retention fixtures, plus the proposed Jobs wrapper/tooling
+caller, pass on Bash 5 and genuine Bash 3.2, with optimizer/server effects
+substituted. Source-following ShellCheck and guide links pass. Complete producer
+and caller patches apply-check and remain with the evidence. Active shared payload,
+live wrapper and fixture companion roster stay unchanged pending reviewed export;
+no sibling edits, producer refs, 0.13 snapshot adoption or live recovery ran.
+
+Latest evidence: `target/qualification/delivery-page-cleanup/`. All 18 stable
+consumer tests and 19 native consumer tests with core/timers separately pass on
+Rust 1.88. Release Wasm, capture tests, recovery harness compilation, strict
+native/Wasm Clippy and core/timers native/Wasm floor checks pass. The incoming
+lockfile, including Timers 0.22.4, is preserved; its previously absent archives
+were prepared with `cargo fetch --locked` before repeating offline checks.
+
+Host fixture allocation remains pending published availability in
+[Host #98](https://github.com/dragginzgame/ic-host-tooling/issues/98).
+Its allocator became committed locally during this task, but public main still
+selects 0.18.0 and crates.io does not expose 0.18.1. An isolated clone of the
+committed candidate qualifies the proposed Jobs test caller: both capture tests
+pass on Rust 1.88, retaining manual success cleanup and failure custody. The
+registry-only caller patch applies cleanly and requires an explicit 0.18.1 floor
+with `test-support` enabled only through the harness development dependency.
+The active manifests/capture allocator remain unchanged until reviewed published
+availability; no sibling mutation, producer delivery, live gate or release ran.
 
 Latest queue-flow evidence: `target/qualification/queue-flow-cleanup/`. All 18
 stable-consumer tests pass, including typed write refusal/unchanged-byte cases,
@@ -140,9 +217,9 @@ links pass. Incoming Cargo.toml/Cargo.lock remain byte-identical to task entry.
 
 ## Qualification boundaries
 
-Delivered 0.10.1's [CI 38560451375](https://github.com/dragginzgame/ic-jobs/actions/runs/38560451375)
-is queued at inspection. Issues #41–#44 use this latest delivered source and
-remain open for the complete matrix. Jobs has no open PR; IC Build #23 was
+Delivered 0.10.2's [CI 38567174923](https://github.com/dragginzgame/ic-jobs/actions/runs/38567174923)
+is queued at inspection. Issues #41–#44 remain open pending a complete native
+matrix; this dirty 0.10.3 cleanup has no hosted qualification. Jobs has no open PR; IC Build #23 was
 closed after the preceding inspection. Unintegrated Shared contributions retain
 their owner review/check requirements.
 

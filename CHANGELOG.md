@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.3]
+
+- Centralize validated consumer job lookup and return the fresh committed deadline
+  from management/completion paths, avoiding timer reconciliation reloads. Filter
+  native maintenance expirations once per callback while keeping per-occurrence
+  commits and recovery after partial progress.
+- Reuse the deadline admitted during queue opening for lifecycle reconciliation,
+  share delivery bounds between incoming and retained receipts, and make the
+  packaged API guide the canonical owner of examples and timer guidance.
+- Keep idle dispatch read-only after complete storage admission, and reuse the
+  committed dispatch deadline during manual timer reconciliation before delivery.
+- Share delivery-envelope construction while preserving owned payloads and exact
+  receipt refusal checks; reuse the native notification fixture's pagination
+  vector instead of collecting a second one.
+
 ## [0.10.2] - 2026-10-14
 
 - Reuse the committed batch's next deadline for watchdog completion and avoid

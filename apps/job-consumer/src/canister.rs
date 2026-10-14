@@ -11,7 +11,7 @@ use ic_timers::{
 
 use crate::{
     api::{Create, Delivery, Error, Init, Summary, View},
-    queue::Queue,
+    queue::{Committed, Queue},
 };
 
 thread_local! {
@@ -36,17 +36,21 @@ fn authorize() -> Result<(), Error> {
 }
 
 fn update_queue<T>(
-    operation: impl FnOnce(&mut Queue<DefaultMemoryImpl>) -> Result<T, Error>,
+    operation: impl FnOnce(&mut Queue<DefaultMemoryImpl>) -> Result<Committed<T>, Error>,
 ) -> Result<T, Error> {
     authorize()?;
     let result = with_queue(operation)?;
     // Reconciliation failure traps the same message segment as the stable write.
-    reconcile();
-    Ok(result)
+    reconcile_at(result.next_due_ns);
+    Ok(result.value)
 }
 
 fn reconcile() {
     let (due, _, _) = required(with_queue(|queue| queue.summary()));
+    reconcile_at(due);
+}
+
+fn reconcile_at(due: Option<u64>) {
     WATCHDOG.with(|watchdog| {
         required(timers::reconcile(
             &mut watchdog.borrow_mut(),
@@ -63,11 +67,11 @@ fn reconcile() {
 }
 
 fn recover(initial: Option<Init>) {
-    let queue = required(Queue::open(DefaultMemoryImpl::default(), initial));
+    let (queue, due) = required(Queue::open(DefaultMemoryImpl::default(), initial));
     // Open/restore the entire bounded snapshot before registering any callback.
     QUEUE.with(|slot| *slot.borrow_mut() = Some(queue));
     required(ic_timers::initialize_runtime());
-    reconcile();
+    reconcile_at(due);
 }
 
 #[ic_cdk::init]
@@ -136,8 +140,8 @@ fn summary() -> Result<Summary, Error> {
 }
 
 fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error> {
-    with_queue(|queue| queue.finish(delivery, ic_cdk::api::time(), outcome))?;
-    reconcile();
+    let committed = with_queue(|queue| queue.finish(delivery, ic_cdk::api::time(), outcome))?;
+    reconcile_at(committed.next_due_ns);
     Ok(())
 }
 
@@ -182,7 +186,10 @@ fn wake() -> WatchdogRunResult {
 
 #[ic_cdk::update]
 fn dispatch_due() -> Result<(), Error> {
-    let (deliveries, _, _) = update_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
+    authorize()?;
+    let (deliveries, _, due) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
+    // Timer refusal still traps the stable write's segment before delivery escapes.
+    reconcile_at(due);
     for delivery in deliveries {
         ic_cdk::futures::spawn(deliver(delivery));
     }

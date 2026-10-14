@@ -59,9 +59,7 @@ impl Snapshot {
             previous = u64::try_from(entry.job.id.0).map_err(|_| Error::InvalidStorage)?;
         }
         for (index, receipt) in self.receipts.iter().enumerate() {
-            if receipt.job == 0
-                || receipt.sequence == 0
-                || receipt.message.len() > MAX_MESSAGE
+            if !delivery_valid(receipt)
                 || self.receipts[..index]
                     .iter()
                     .any(|other| receipt_key(other) == receipt_key(receipt))
@@ -84,7 +82,21 @@ struct LoadedSnapshot {
     receipts: Vec<Delivery>,
 }
 
+/// Consumer-local reply and deadline, returned only after a successful stable write.
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct Committed<T> {
+    pub(crate) value: T,
+    pub(crate) next_due_ns: Option<u64>,
+}
+
 impl LoadedSnapshot {
+    fn index(&self, id: u64) -> Result<usize, Error> {
+        self.jobs
+            .iter()
+            .position(|job| job.record().id == JobId(u128::from(id)))
+            .ok_or(Error::UnknownJob)
+    }
+
     fn into_stored(self) -> Result<Snapshot, Error> {
         if self.jobs.len() != self.tasks.len() {
             return Err(Error::InvalidStorage);
@@ -107,12 +119,17 @@ impl LoadedSnapshot {
     }
 
     fn take_entry(self, id: u64) -> Result<(Job, Task), Error> {
+        let index = self.index(id)?;
         self.jobs
             .into_iter()
             .zip(self.tasks)
-            .find(|(job, _)| job.record().id == JobId(u128::from(id)))
+            .nth(index)
             .ok_or(Error::UnknownJob)
     }
+}
+
+fn delivery_valid(delivery: &Delivery) -> bool {
+    delivery.job != 0 && delivery.sequence != 0 && delivery.message.len() <= MAX_MESSAGE
 }
 
 // Receipt identity is one logical occurrence within the authenticated sender.
@@ -121,20 +138,19 @@ fn receipt_key(delivery: &Delivery) -> (u64, u64) {
     (delivery.job, delivery.occurrence)
 }
 
-fn delivery_fields<'a>(
-    job: &Job,
-    task: &'a Task,
-) -> Result<(u64, Attempt, Principal, &'a str), Error> {
-    let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
-    let Task::Deliver {
+fn delivery(
+    id: JobId,
+    attempt: Attempt,
+    destination: Principal,
+    message: String,
+) -> Result<Delivery, Error> {
+    Ok(Delivery {
+        job: u64::try_from(id.0).map_err(|_| Error::InvalidStorage)?,
+        occurrence: attempt.execution.occurrence,
+        sequence: attempt.sequence,
         destination,
         message,
-    } = task
-    else {
-        return Err(Error::InvalidInput);
-    };
-    let id = u64::try_from(job.record().id.0).map_err(|_| Error::InvalidStorage)?;
-    Ok((id, attempt, *destination, message))
+    })
 }
 
 // The host owns one allocation pool/bootstrap. Cell persists the application
@@ -203,7 +219,7 @@ fn decode(bytes: &[u8]) -> Result<LoadedSnapshot, Error> {
 }
 
 impl<M: Memory> Queue<M> {
-    pub(crate) fn open(memory: M, initial: Option<Init>) -> Result<Self, Error> {
+    pub(crate) fn open(memory: M, initial: Option<Init>) -> Result<(Self, Option<u64>), Error> {
         let request = MemoryRequest::new("test.jobs", KEY, SchemaMetadata::default())
             .map_err(memory_error)?;
         let declarations = SealedDeclarationSnapshot::new(vec![request]).map_err(memory_error)?;
@@ -240,8 +256,15 @@ impl<M: Memory> Queue<M> {
                 .map_err(|_| Error::InvalidStorage)?,
             );
         }
-        let init = decode(cell.get())?.init;
-        Ok(Self { cell, init })
+        let snapshot = decode(cell.get())?;
+        let next_due_ns = snapshot.jobs.iter().filter_map(Job::next_due_ns).min();
+        Ok((
+            Self {
+                cell,
+                init: snapshot.init,
+            },
+            next_due_ns,
+        ))
     }
 
     pub(crate) fn authorize(&self, caller: Principal) -> Result<(), Error> {
@@ -259,7 +282,8 @@ impl<M: Memory> Queue<M> {
         Ok(snapshot)
     }
 
-    fn commit(&mut self, snapshot: LoadedSnapshot) -> Result<(), Error> {
+    fn commit<T>(&mut self, snapshot: LoadedSnapshot, value: T) -> Result<Committed<T>, Error> {
+        let next_due_ns = snapshot.jobs.iter().filter_map(Job::next_due_ns).min();
         let snapshot = snapshot.into_stored()?;
         let bytes = serde_json::to_vec(&snapshot).map_err(|_| Error::InvalidStorage)?;
         if bytes.len() > MAX_BYTES {
@@ -269,10 +293,10 @@ impl<M: Memory> Queue<M> {
         // Check collection invariants without serializing and restoring them again.
         snapshot.validate(|_| Ok(()))?;
         self.cell.set(bytes);
-        Ok(())
+        Ok(Committed { value, next_due_ns })
     }
 
-    pub(crate) fn create(&mut self, input: Create) -> Result<u64, Error> {
+    pub(crate) fn create(&mut self, input: Create) -> Result<Committed<u64>, Error> {
         let mut snapshot = self.load()?;
         if snapshot.jobs.len() == MAX_JOBS {
             return Err(Error::Capacity);
@@ -287,8 +311,7 @@ impl<M: Memory> Queue<M> {
             .jobs
             .push(Job::new(JobId(u128::from(id)), schedule, RetryPolicy::NONE));
         snapshot.tasks.push(input.task);
-        self.commit(snapshot)?;
-        Ok(id)
+        self.commit(snapshot, id)
     }
 
     pub(crate) fn page(&self, after: Option<u64>, limit: u8) -> Result<Vec<View>, Error> {
@@ -311,19 +334,24 @@ impl<M: Memory> Queue<M> {
         view(job, task)
     }
 
-    pub(crate) fn cancel(&mut self, id: u64, now: u64) -> Result<(), Error> {
+    pub(crate) fn cancel(&mut self, id: u64, now: u64) -> Result<Committed<()>, Error> {
         self.manage(id, |job| job.cancel(now).map_err(job_error))
     }
 
-    pub(crate) fn pause(&mut self, id: u64, now: u64) -> Result<(), Error> {
+    pub(crate) fn pause(&mut self, id: u64, now: u64) -> Result<Committed<()>, Error> {
         self.manage(id, |job| job.pause(now).map_err(job_error))
     }
 
-    pub(crate) fn resume(&mut self, id: u64, now: u64) -> Result<(), Error> {
+    pub(crate) fn resume(&mut self, id: u64, now: u64) -> Result<Committed<()>, Error> {
         self.manage(id, |job| job.resume(now).map_err(job_error))
     }
 
-    pub(crate) fn reschedule(&mut self, id: u64, timing: Timing, now: u64) -> Result<(), Error> {
+    pub(crate) fn reschedule(
+        &mut self,
+        id: u64,
+        timing: Timing,
+        now: u64,
+    ) -> Result<Committed<()>, Error> {
         self.manage(id, |job| {
             job.reschedule(schedule(timing)?, now).map_err(job_error)
         })
@@ -333,15 +361,11 @@ impl<M: Memory> Queue<M> {
         &mut self,
         id: u64,
         operation: impl FnOnce(&mut Job) -> Result<(), Error>,
-    ) -> Result<(), Error> {
+    ) -> Result<Committed<()>, Error> {
         let mut snapshot = self.load()?;
-        let job = snapshot
-            .jobs
-            .iter_mut()
-            .find(|job| job.record().id == JobId(u128::from(id)))
-            .ok_or(Error::UnknownJob)?;
-        operation(job)?;
-        self.commit(snapshot)
+        let index = snapshot.index(id)?;
+        operation(&mut snapshot.jobs[index])?;
+        self.commit(snapshot, ())
     }
 
     pub(crate) fn summary(&self) -> Result<(Option<u64>, u64, u64), Error> {
@@ -384,34 +408,29 @@ impl<M: Memory> Queue<M> {
                 Task::Deliver {
                     destination,
                     message,
-                } => deliveries.push(Delivery {
-                    job: u64::try_from(record.id.0).map_err(|_| Error::InvalidStorage)?,
-                    occurrence: attempt.execution.occurrence,
-                    sequence: attempt.sequence,
-                    destination: *destination,
-                    message: message.clone(),
-                }),
+                } => deliveries.push(delivery(record.id, attempt, *destination, message.clone())?),
             }
         }
-        let next_due_ns = snapshot.jobs.iter().filter_map(Job::next_due_ns).min();
-        self.commit(snapshot)?;
-        // No caller receives effects or a derived deadline before successful commit.
+        let next_due_ns = if work > 0 {
+            self.commit(snapshot, ())?.next_due_ns
+        } else {
+            snapshot.jobs.iter().filter_map(Job::next_due_ns).min()
+        };
+        // Mutated batches commit before effects escape; idle batches retain bytes.
         Ok((deliveries, work, next_due_ns))
     }
 
     pub(crate) fn outstanding(&self, id: u64) -> Result<Delivery, Error> {
         let (job, task) = self.load()?.take_entry(id)?;
-        let (id, attempt, destination, _) = delivery_fields(&job, &task)?;
-        let Task::Deliver { message, .. } = task else {
-            return Err(Error::InvalidInput);
-        };
-        Ok(Delivery {
-            job: id,
-            occurrence: attempt.execution.occurrence,
-            sequence: attempt.sequence,
+        let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
+        let Task::Deliver {
             destination,
             message,
-        })
+        } = task
+        else {
+            return Err(Error::InvalidInput);
+        };
+        delivery(job.record().id, attempt, destination, message)
     }
 
     pub(crate) fn finish(
@@ -419,21 +438,25 @@ impl<M: Memory> Queue<M> {
         delivery: &Delivery,
         now: u64,
         outcome: Outcome,
-    ) -> Result<(), Error> {
+    ) -> Result<Committed<()>, Error> {
         let mut snapshot = self.load()?;
-        let index = snapshot
-            .jobs
-            .iter()
-            .position(|job| job.record().id == JobId(u128::from(delivery.job)))
-            .ok_or(Error::UnknownJob)?;
+        let index = snapshot.index(delivery.job)?;
         let job = &mut snapshot.jobs[index];
         let task = &snapshot.tasks[index];
-        let (id, attempt, destination, message) = delivery_fields(job, task)?;
+        let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
+        let Task::Deliver {
+            destination,
+            message,
+        } = task
+        else {
+            return Err(Error::InvalidInput);
+        };
+        let id = u64::try_from(job.record().id.0).map_err(|_| Error::InvalidStorage)?;
         if delivery.job != id
             || delivery.occurrence != attempt.execution.occurrence
             || delivery.sequence != attempt.sequence
-            || delivery.destination != destination
-            || delivery.message != message
+            || delivery.destination != *destination
+            || delivery.message != *message
         {
             return Err(Error::ReceiptMismatch);
         }
@@ -442,7 +465,7 @@ impl<M: Memory> Queue<M> {
         } else {
             job.finish(attempt, now, outcome).map_err(job_error)?;
         }
-        self.commit(snapshot)
+        self.commit(snapshot, ())
     }
 
     pub(crate) fn receive(
@@ -453,7 +476,7 @@ impl<M: Memory> Queue<M> {
         if self.init.delivery_sender != Some(caller) {
             return Err(Error::Unauthorized);
         }
-        if delivery.job == 0 || delivery.sequence == 0 || delivery.message.len() > MAX_MESSAGE {
+        if !delivery_valid(&delivery) {
             return Err(Error::InvalidInput);
         }
         let mut snapshot = self.load()?;
@@ -472,7 +495,7 @@ impl<M: Memory> Queue<M> {
             return Err(Error::Capacity);
         }
         snapshot.receipts.push(delivery.clone());
-        self.commit(snapshot)?;
+        self.commit(snapshot, ())?;
         Ok(delivery)
     }
 

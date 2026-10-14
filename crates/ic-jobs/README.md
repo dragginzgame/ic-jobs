@@ -113,16 +113,29 @@ historical work drains. Prefer `Skip` for maintenance that does not need every
 occurrence; use `CatchUp` only with an application-owned backlog/cycle budget.
 This is a workload calculation, not a measured throughput or delivery guarantee.
 
-A restored Running job remains Running. Uncertain effects block dispatch until
+A restored Running job remains Running. If its reply cannot be reconciled directly,
+record Uncertain with the active attempt and use `resolve` only after establishing
+the actual result or retry safety. A lost reply does not authorize another effect.
+Uncertain effects block dispatch until
 the application establishes the result or explicitly determines that repetition
 is safe. `ExecutionId` identifies the logical effect across retries; `Attempt`
 identifies one dispatch. Never reuse a job ID or change an occurrence's payload
 under the same effect identity.
 
+## Timer integration
+
 Enable the `timers` feature for the optional IC Timers adapter. Applications own
 the volatile watchdog, lifecycle initialization, bounded callbacks and any
 consumer-owned asynchronous delivery continuation. This crate supplies no stable
 storage, global queue, handler registry or exactly-once effects.
+
+After committing records and due-time index changes, pass the earliest pending
+deadline to `timers::reconcile`. A bounded callback returns `timers::complete_batch`
+with its actual completion classification and new deadline. Reconcile after job
+insertion or management; after upgrades, restore all records and reconstruct the
+watchdog synchronously before downstream hooks. Unresolved effects need a separate
+application reconciliation workflow. Watchdog callbacks cannot await: external
+delivery requires a persisted intent and consumer-owned continuation/outbox.
 
 Timer completion classifies the dispatch callback, separately from each job's
 effect outcome. A bounded batch can succeed while recording a known job failure

@@ -275,13 +275,9 @@ impl Notifications {
                     })
                     .collect();
                 snapshots.sort_by_key(|snapshot| snapshot.job.id);
-                ManagementValue::Page(
-                    snapshots
-                        .into_iter()
-                        .filter(|snapshot| after.is_none_or(|id| snapshot.job.id > id))
-                        .take(limit)
-                        .collect(),
-                )
+                snapshots.retain(|snapshot| after.is_none_or(|id| snapshot.job.id > id));
+                snapshots.truncate(limit);
+                ManagementValue::Page(snapshots)
             }
             ManagementCommand::Cancel(id) => {
                 let index = jobs
@@ -504,7 +500,9 @@ impl Maintenance {
             else {
                 break;
             };
-            snapshot.expires_ns.retain(|expires| *expires > now_ns);
+            if completed == 0 {
+                snapshot.expires_ns.retain(|expires| *expires > now_ns);
+            }
             snapshot.completed_runs = snapshot
                 .completed_runs
                 .checked_add(1)
