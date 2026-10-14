@@ -23,6 +23,36 @@ fixes, then inspect the owner's adoption issue and focused CI evidence. Never
 offer dirty upstream files as a published snapshot or infer adoption from an
 upstream release note.
 
+For 0.10 and later snapshots, trace the selected common catalogs as well as
+payload integrity. Record the default snapshot paths and any explicit
+`HOST_TOOL_VERSIONS`, `RUST_TOOL_VERSIONS` or `IC_TOOL_PINS` exceptions, including
+their documented reason and native qualification. These selections are
+independent; a host exception does not select Rust pins. Compare complete
+version/digest records, not just filenames or displayed versions.
+
+Use the optional [caller catalog checker](../docs/tool-catalog-bindings.md) when
+the consumer has explicit bindings or recorded CLI selections:
+
+```bash
+perl scripts/ci/check-tool-catalogs.pl --consumer /absolute/consumer/root \
+  --bindings ci/tool-catalog-bindings.json --json
+```
+
+Report missing bindings and unsupported/computed selections as unresolved. This
+check compares declared/observed selections; it neither discovers every caller
+nor proves arbitrary source execution. Review coverage of setup/check, formatting,
+cache, collector and verifier roles separately. Keep recorded observations tied
+to their actual CLI invocation and source; do not relabel a declaration as one.
+Snapshot integrity and native qualification retain their independent checks.
+
+Inspect Make includes, standalone `--versions`/`--pins` calls, formatting adapters,
+CI cache-key inputs and failure-evidence action inputs for stale consumer-local
+catalog references. Distinguish unused duplicate defaults from files still needed
+for workflow-only tools or approved exceptions. Do not source a consumer catalog
+or execute its Makefile merely to inspect selections; report computed/ambiguous
+values as unresolved. Propose cleanup at the owning issue without deleting files,
+changing pins, installing tools or refreshing a snapshot during this check.
+
 Keep three conclusions distinct: snapshot byte integrity, available upstream
 changes, and consumer behavior/host qualification. An older intact snapshot is
 not corruption; prioritize applicable corrections rather than automatic churn.
@@ -34,5 +64,6 @@ An intact snapshot or a pushed commit alone does not satisfy behavior/native
 acceptance, and an upstream tracker with other outstanding consumers stays open.
 
 Return consumer/bundle root, recorded revision, integrity result, applicable
-upstream fixes and adoption evidence/issue. Do not refresh or patch snapshots
+upstream fixes, selected catalogs/exceptions, stale callers and adoption
+evidence/issue. Do not refresh or patch snapshots
 during this check.

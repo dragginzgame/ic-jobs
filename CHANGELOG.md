@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.3]
+
+- Adopt Shared Tooling 0.11.4 and its canonical publication admission; retain
+  Jobs’ package/features, upload authority and release metadata adapter
+  ([#42](https://github.com/dragginzgame/ic-jobs/issues/42)).
+- Qualify the selected IC Host 0.17.7 graph in the unpublished recovery harness;
+  core scheduling and stored job records are unchanged.
+
 ## [0.9.2] - 2026-10-13
 
 - Carry validated completion timestamps directly through recurring restore checks,

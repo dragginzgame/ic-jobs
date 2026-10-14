@@ -2,7 +2,7 @@
 
 Apply the reviewed [Dragginzgame baseline](DRAGGINZGAME.md) first.
 Its exact revision is recorded in [.shared-tooling.snapshot](.shared-tooling.snapshot):
-`ed9c26f015691859f67b50b512a94709dcdc0c6c`.
+`031d214ed044705b989d43e2379f30e6a3d44749`.
 This file is the local overlay. Read [the current handoff](docs/status/current.md).
 
 - Scope is this workspace; other sibling repositories remain read-only.

@@ -211,7 +211,7 @@ see the
 [current handoff](docs/status/current.md) for source-bound native and live
 PocketIC recovery qualification.
 
-Common tooling is adopted from Shared Tooling **0.10.0** through the reviewed
+Common tooling is adopted from Shared Tooling **0.11.4** through the reviewed
 [Shared Tooling snapshot](.shared-tooling.snapshot).
 Run `make install-tools` explicitly to prepare and select the host, IC and
 Rust tools in order, then selected cargo-edit; `make tools-check` verifies the

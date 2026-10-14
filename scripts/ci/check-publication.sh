@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Shared companions: scripts/ci/check-make-execution.sh scripts/ci/check-release-source.sh scripts/ci/read-cargo-workspace-version.sh scripts/ci/check-release-tag.sh scripts/ci/check-crates-io-version.sh
+set -euo pipefail
+
+# Common read-only publication admission. Dependencies: Bash 3.2, Git, jq/yq,
+# curl and the reviewed version/tag/registry/Make-execution helpers.
+# Effects: remote-tag/registry observations; no Cargo upload or Git writes.
+[[ $# == 2 && "$1" =~ ^[A-Za-z][A-Za-z0-9_-]*$ && "$2" =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]] || {
+    echo 'usage: check-publication.sh PACKAGE REMOTE' >&2; exit 2;
+}
+package="$1"
+remote="$2"
+root="${BASH_SOURCE[0]}"
+case "$root$PWD" in *$'\n'*|*$'\r'*) echo 'publication directory contains CR/LF' >&2; exit 2 ;; esac
+[[ "$root" == /* ]] || root="$PWD/$root"
+root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
+root="${root%/.}"
+case "$root" in *$'\n'*|*$'\r'*) echo 'resolved publication directory contains CR/LF' >&2; exit 2 ;; esac
+physical_cwd="$(cd -P -- . && printf '%s/.' "$PWD")"
+case "$physical_cwd" in *$'\n'*|*$'\r'*) echo 'resolved publication directory contains CR/LF' >&2; exit 2 ;; esac
+fail() { echo "publication refused: $*" >&2; exit 1; }
+bash "$root/scripts/ci/check-make-execution.sh"
+
+# Publication allows no metadata exceptions; retain the helper's full diagnostics.
+bash "$root/scripts/ci/check-release-source.sh" || fail 'source admission failed before registry observation or upload'
+commit="$(git rev-parse --verify HEAD)" || fail 'publication requires a committed release'
+version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable Cargo.toml)"
+bash "$root/scripts/ci/check-release-tag.sh" "$commit" "$version"
+tag="refs/tags/v$version"
+tag_object="$(git rev-parse --verify "$tag")"
+destination="$(git remote get-url --push --all "$remote" && printf '.')" || fail 'cannot inspect push destination'
+destination="${destination%.}"
+destination="${destination%$'\n'}"
+[[ -n "$destination" && "$destination" != *$'\n'* && "$destination" != *$'\r'* ]] || fail 'select exactly one push destination'
+observed="$(git ls-remote --exit-code -- "$destination" "$tag")" || fail 'cannot verify the pushed release tag'
+[[ "$observed" == "$tag_object"$'\t'"$tag" ]] || fail 'remote release tag differs from the local annotated tag'
+
+# Unknown registry state cannot authorize a new upload. Duplicate versions are
+# immutable at crates.io; an interrupted upload is observed again on invocation.
+registry_status=0
+bash "$root/scripts/ci/check-crates-io-version.sh" "$package" "$version" || registry_status=$?
+case "$registry_status" in
+    0) fail "$package $version already exists on crates.io; reconcile any earlier upload" ;;
+    1) ;;
+    *) fail 'crates.io version observation is unavailable; resolve it before retrying' ;;
+esac
+
+# Recheck local source after network observations, before dispatching Cargo.
+current_commit="$(git rev-parse --verify HEAD)"
+current_tag="$(git rev-parse --verify "$tag")"
+[[ "$current_commit" == "$commit" && "$current_tag" == "$tag_object" ]] || fail 'release identity changed during preflight'
+bash "$root/scripts/ci/check-release-source.sh" || fail 'source admission failed after publication preflight; upload has not started'

@@ -129,6 +129,10 @@ commit, tag, push, publish another package or delete artifacts.
 
 ## Qualification
 
+Jobs' publication wrapper delegates read-only admission to the snapshot-owned
+`scripts/ci/check-publication.sh`; Jobs retains the package, features and Cargo
+upload command. This delegation does not authorize publication.
+
 `make test-release-tooling` uses real Git repositories and local bare remotes
 to exercise patch/minor/major preparation, exact release commits and annotated
 tags, failure before version mutation, and completed-release recovery. Publication
