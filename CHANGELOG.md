@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.10.3]
+## [0.10.3] - 2026-10-14
 
 - Centralize validated consumer job lookup and return the fresh committed deadline
   from management/completion paths, avoiding timer reconciliation reloads. Filter

@@ -896,7 +896,7 @@ dependencies = [
 
 [[package]]
 name = "ic-jobs"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "ic-memory",
  "ic-timers",
@@ -1195,7 +1195,7 @@ dependencies = [
 
 [[package]]
 name = "jobs-canister-tests"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "candid",
  "ic-build",
@@ -1206,7 +1206,7 @@ dependencies = [
 
 [[package]]
 name = "jobs-test-consumer"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "candid",
  "ic-cdk",
