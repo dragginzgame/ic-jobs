@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.13.1]
+
+- Choose install-failure diagnostic requests in the recovery fixture for Testkit
+  0.48, preserving anonymous management senders and the original install failure.
 ## [0.13.0] - 2026-10-15
 
 - **Breaking:** `start_next` returns `(index, attempt)` instead of the three-element
