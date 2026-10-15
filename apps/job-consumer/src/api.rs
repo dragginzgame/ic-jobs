@@ -27,7 +27,7 @@ pub enum Task {
 }
 
 /// Consumer's supported scheduling policies.
-#[derive(Clone, Debug, CandidType, Deserialize, Serialize)]
+#[derive(Clone, Debug, CandidType, Deserialize)]
 pub enum Timing {
     /// One occurrence.
     Once(u64),
@@ -50,7 +50,7 @@ pub enum Timing {
 }
 
 /// Task creation request. Identities are allocated by the retained queue.
-#[derive(Clone, Debug, CandidType, Deserialize, Serialize)]
+#[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct Create {
     /// Scheduling policy.
     pub timing: Timing,

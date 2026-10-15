@@ -4,10 +4,9 @@ use ic_jobs::{
     next_due_ns, start_next,
 };
 
-fn restore(job: &Job) -> Job {
-    let bytes = serde_json::to_vec(&job.record()).unwrap();
-    Job::restore(serde_json::from_slice::<JobRecord>(&bytes).unwrap()).unwrap()
-}
+mod support;
+
+use support::roundtrip;
 
 fn recurring(missed: MissedRunPolicy) -> Job {
     Job::new(
@@ -26,16 +25,16 @@ fn pause_restore_resume_preserves_overdue_policy_and_scheduler_exclusion() {
     for missed in [MissedRunPolicy::Skip, MissedRunPolicy::CatchUp] {
         let mut job = recurring(missed);
         job.pause(50).unwrap();
-        let mut jobs = [restore(&job)];
+        let mut jobs = [roundtrip(&job)];
         assert_eq!(next_due_ns(&jobs), None);
         assert_eq!(start_next(&mut jobs, 200), Ok(None));
         jobs[0].resume(200).unwrap();
-        assert_eq!(restore(&jobs[0]).next_due_ns(), Some(100));
+        assert_eq!(roundtrip(&jobs[0]).next_due_ns(), Some(100));
         let attempt = jobs[0].start(200).unwrap();
         assert_eq!((attempt.execution.occurrence, attempt.sequence), (0, 1));
         jobs[0].finish(attempt, 200, Outcome::Success).unwrap();
         assert_eq!(
-            restore(&jobs[0]).next_due_ns(),
+            roundtrip(&jobs[0]).next_due_ns(),
             Some(if missed == MissedRunPolicy::Skip {
                 210
             } else {
@@ -44,10 +43,10 @@ fn pause_restore_resume_preserves_overdue_policy_and_scheduler_exclusion() {
         );
         jobs[0].pause(201).unwrap();
         jobs[0].resume(300).unwrap();
-        assert_eq!(restore(&jobs[0]).record().last_outcome_ns, Some(200));
+        assert_eq!(roundtrip(&jobs[0]).record().last_outcome_ns, Some(200));
         jobs[0].pause(300).unwrap();
         jobs[0].cancel(301).unwrap();
-        assert_eq!(restore(&jobs[0]).record().state, JobState::Cancelled);
+        assert_eq!(roundtrip(&jobs[0]).record().state, JobState::Cancelled);
     }
 }
 
@@ -57,7 +56,7 @@ fn retry_pause_retains_backoff_and_refuses_rescheduling_after_an_attempt() {
     let attempt = job.start(100).unwrap();
     job.finish(attempt, 100, Outcome::RetryableFailure).unwrap();
     job.pause(105).unwrap();
-    job = restore(&job);
+    job = roundtrip(&job);
     let before = job.record();
     assert_eq!(
         job.reschedule(Schedule::Once { at_ns: 0 }, 105),
@@ -65,7 +64,7 @@ fn retry_pause_retains_backoff_and_refuses_rescheduling_after_an_attempt() {
     );
     assert_eq!(job.record(), before);
     job.resume(106).unwrap();
-    job = restore(&job);
+    job = roundtrip(&job);
     assert_eq!(job.next_due_ns(), Some(110));
     assert_eq!(job.start(109), Err(JobError::NotDue));
     let second = job.start(110).unwrap();
@@ -74,7 +73,7 @@ fn retry_pause_retains_backoff_and_refuses_rescheduling_after_an_attempt() {
     job.finish(second, 110, Outcome::RetryableFailure).unwrap();
     job.pause(120).unwrap();
     job.resume(200).unwrap();
-    assert_eq!(restore(&job).next_due_ns(), Some(130));
+    assert_eq!(roundtrip(&job).next_due_ns(), Some(130));
     assert_eq!(job.record().last_outcome_ns, Some(110));
     let mut corrupt = job.record();
     corrupt.last_outcome_ns = Some(111);
@@ -108,7 +107,7 @@ fn rescheduling_preserves_history_and_rebases_only_the_current_cadence() {
                 job.pause(150).unwrap();
             }
             job.reschedule(replacement, 200).unwrap();
-            job = restore(&job);
+            job = roundtrip(&job);
             let record = job.record();
             assert_eq!(
                 (
@@ -133,7 +132,7 @@ fn rescheduling_preserves_history_and_rebases_only_the_current_cadence() {
                 Err(JobError::StaleAttempt)
             );
             job.finish(next, 300, Outcome::Success).unwrap();
-            job = restore(&job);
+            job = roundtrip(&job);
             match replacement {
                 Schedule::Once { .. } => assert_eq!(job.record().state, JobState::Completed),
                 Schedule::FixedRate {
@@ -172,7 +171,7 @@ fn fresh_rescheduling_retains_identity_and_overflow_keeps_the_active_attempt() {
                 job.pause(50).unwrap();
             }
             job.reschedule(replacement, 200).unwrap();
-            job = restore(&job);
+            job = roundtrip(&job);
             assert_eq!(job.record().sequence, 0);
             assert_eq!(job.record().occurrence, 0);
             assert_eq!(job.record().last_outcome, None);
@@ -191,7 +190,7 @@ fn fresh_rescheduling_retains_identity_and_overflow_keeps_the_active_attempt() {
                 (JobId(7), 0, 1)
             );
             job.finish(attempt, 250, Outcome::Success).unwrap();
-            assert_eq!(restore(&job).record(), job.record());
+            assert_eq!(roundtrip(&job).record(), job.record());
         }
     }
     let mut job = recurring(MissedRunPolicy::CatchUp);
@@ -203,7 +202,7 @@ fn fresh_rescheduling_retains_identity_and_overflow_keeps_the_active_attempt() {
         0,
     )
     .unwrap();
-    job = restore(&job);
+    job = roundtrip(&job);
     let attempt = job.start(u64::MAX).unwrap();
     let before = job.record();
     assert_eq!(
@@ -211,7 +210,7 @@ fn fresh_rescheduling_retains_identity_and_overflow_keeps_the_active_attempt() {
         Err(JobError::DeadlineOverflow)
     );
     assert_eq!(job.record(), before);
-    assert_eq!(restore(&job).record(), before);
+    assert_eq!(roundtrip(&job).record(), before);
 }
 
 #[test]
@@ -236,7 +235,7 @@ fn management_refuses_blocked_work_invalid_policies_and_backward_clocks_without_
         );
         assert_eq!(job.cancel(102), Err(JobError::InFlight));
         assert_eq!(job.record(), before);
-        assert_eq!(restore(&job).record(), before);
+        assert_eq!(roundtrip(&job).record(), before);
     }
     job.resolve(attempt, 103, Outcome::PermanentFailure)
         .unwrap();
@@ -268,11 +267,11 @@ fn restore_rejects_missing_management_fields_and_inconsistent_anchors() {
         RetryPolicy::NONE,
     );
     once.pause(u64::MAX).unwrap();
-    once = restore(&once);
+    once = roundtrip(&once);
     once.resume(u64::MAX).unwrap();
     let attempt = once.start(u64::MAX).unwrap();
     once.finish(attempt, u64::MAX, Outcome::Success).unwrap();
-    assert_eq!(restore(&once).record().state, JobState::Completed);
+    assert_eq!(roundtrip(&once).record().state, JobState::Completed);
 }
 
 #[test]
@@ -284,7 +283,7 @@ fn restore_rejects_running_retry_before_retained_backoff() {
     job.resume(102).unwrap();
     assert_eq!(job.start(109), Err(JobError::NotDue));
     let second = job.start(110).unwrap();
-    assert_eq!(restore(&job).record(), job.record());
+    assert_eq!(roundtrip(&job).record(), job.record());
     for (outcome_ns, started_ns) in [(100, 109), (99, 110), (u64::MAX, u64::MAX)] {
         let mut corrupt = job.record();
         corrupt.last_outcome_ns = Some(outcome_ns);
@@ -293,13 +292,13 @@ fn restore_rejects_running_retry_before_retained_backoff() {
         assert_eq!(Job::restore(corrupt).unwrap_err(), JobError::InvalidRecord);
     }
     job.finish(second, 110, Outcome::Uncertain).unwrap();
-    let mut blocked = restore(&job);
+    let mut blocked = roundtrip(&job);
     assert_eq!(blocked.next_due_ns(), None);
     assert_eq!(blocked.start(200), Err(JobError::NotPending));
     blocked
         .resolve(second, 200, Outcome::RetryableFailure)
         .unwrap();
-    assert_eq!(restore(&blocked).next_due_ns(), Some(220));
+    assert_eq!(roundtrip(&blocked).next_due_ns(), Some(220));
     // A representable retry deadline at the maximum timestamp remains valid.
     let mut edge = Job::new(
         JobId(9),
@@ -309,11 +308,11 @@ fn restore_rejects_running_retry_before_retained_backoff() {
     let first = edge.start(0).unwrap();
     edge.finish(first, u64::MAX - 1, Outcome::RetryableFailure)
         .unwrap();
-    let mut cancelled = restore(&edge);
+    let mut cancelled = roundtrip(&edge);
     cancelled.cancel(u64::MAX - 1).unwrap();
-    assert_eq!(restore(&cancelled).record(), cancelled.record());
+    assert_eq!(roundtrip(&cancelled).record(), cancelled.record());
     edge.start(u64::MAX).unwrap();
-    assert_eq!(restore(&edge).record(), edge.record());
+    assert_eq!(roundtrip(&edge).record(), edge.record());
 }
 
 #[test]
@@ -327,7 +326,7 @@ fn restore_rejects_cancelled_retry_with_impossible_completion() {
         }
         // Cancellation before the retry deadline is valid.
         job.cancel(105).unwrap();
-        assert_eq!(restore(&job).record(), job.record());
+        assert_eq!(roundtrip(&job).record(), job.record());
         for outcome_ns in [99, u64::MAX] {
             let mut corrupt = job.record();
             corrupt.last_outcome_ns = Some(outcome_ns);
@@ -361,7 +360,7 @@ fn restore_checks_retained_successor_after_cancellation_or_dispatch() {
                 job.pause(201).unwrap();
                 job.cancel(300).unwrap();
             }
-            assert_eq!(restore(&job).record(), job.record());
+            assert_eq!(roundtrip(&job).record(), job.record());
             for scheduled_ns in [110, 200, 220] {
                 let mut corrupt = job.record();
                 corrupt.scheduled_ns = scheduled_ns;
@@ -389,7 +388,7 @@ fn repeated_rebasing_preserves_history_and_counter_exhaustion() {
                 200,
             )
             .unwrap();
-            job = restore(&job);
+            job = roundtrip(&job);
             assert_eq!(
                 (job.record().occurrence, job.record().schedule_origin),
                 (1, 1)
@@ -410,7 +409,7 @@ fn repeated_rebasing_preserves_history_and_counter_exhaustion() {
         job = Job::restore(record).unwrap();
         let last = job.start(200).unwrap();
         job.finish(last, 200, Outcome::Success).unwrap();
-        job = restore(&job);
+        job = roundtrip(&job);
         assert_eq!(
             (job.record().sequence, job.record().occurrence),
             (u64::MAX, u64::MAX)
@@ -418,10 +417,10 @@ fn repeated_rebasing_preserves_history_and_counter_exhaustion() {
         job.pause(200).unwrap();
         job.reschedule(Schedule::Once { at_ns: 0 }, 201).unwrap();
         job.resume(202).unwrap();
-        job = restore(&job);
+        job = roundtrip(&job);
         let before = job.record();
         assert_eq!(job.start(202), Err(JobError::CounterExhausted));
         assert_eq!(job.record(), before);
-        assert_eq!(restore(&job).record(), before);
+        assert_eq!(roundtrip(&job).record(), before);
     }
 }

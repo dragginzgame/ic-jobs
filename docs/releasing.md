@@ -10,11 +10,9 @@ crates.io.
 
 ## Preparation
 
-Install the complete host, IC and Rust toolsets with `make install-tools`. Its
-ordered consumer extension `make install-release-tools` installs pinned cargo-edit
-0.13.13 with its set-version feature; `make release-tools-check` checks the
-selected executable without downloads. Versioned cargo-edit roots preserve older
-installations; the selected root precedes other executables in Make's PATH.
+Install the complete host, IC and Rust toolsets with `make install-tools`.
+Shared metadata preparation renders workspace versions directly; cargo-edit is
+not required.
 Prepare Rust 1.91.0 and its Wasm target as described in the README, alongside
 the development toolchain and its Wasm target for consumer Clippy.
 
@@ -43,8 +41,8 @@ checks stay offline. After successful admission/fetch, preflight runs
 the selected installation and does not replace older roots. Saved-release
 reconciliation precedes this preparation. Ordinary `make ci` never installs:
 it runs `validation-tools-check` before dispatching its checks/builds, including
-under parallel Make. `make test-release-tooling` also admits its formatter and
-release-tool prerequisites before starting the fixture. The validation gate remains
+under parallel Make. `make test-release-tooling` admits its formatter
+prerequisites before starting the fixture. The validation gate remains
 offline. CI and release validation checkpoint all workspace manifests, the lock,
 toolchain, snapshot, Makefile and selected tool catalogs. A changed, missing or
 unreadable input stops later stages and retains input identities and logs. Nested
@@ -151,7 +149,7 @@ Unsupported PR delivery is refused at both the Make and metadata-adapter
 boundaries before fetch, gate or source mutation; the PR transport is omitted
 from Jobs' snapshot selection.
 
-Release 0.2.1 passed its configured gate on Linux and both native macOS
+Release 0.13.0 passed its configured gate on Linux and both native macOS
 architectures; see the [current handoff](status/current.md) for exact source and
 run identity. Later changes need their own qualification. Linux fixture passes
 and Bash 3.2 execution on Linux do not establish native macOS evidence;

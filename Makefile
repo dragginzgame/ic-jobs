@@ -1,24 +1,21 @@
 .DEFAULT_GOAL := help
 export RELEASE_DELIVERY ?= direct
-LOCAL_TOOL_INSTALL_TARGETS := install-release-tools
-LOCAL_TOOL_CHECK_TARGETS := release-tools-check
 override SHARED_TOOLING_ROOT := $(CURDIR)
 include make/consumer.mk
-CARGO_EDIT_TOOL = bash scripts/dev/install-rust-tools.sh --package cargo-edit --version "$(shell . ci/release-tools.env && printf '%s' "$$IC_JOBS_CARGO_EDIT_VERSION")" --bin cargo-set-version --profile release
 TESTKIT_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release
 VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
 	--input .shared-tooling.snapshot --input Makefile --input ci/tool-versions.env \
-	--input ci/ic-tools.tsv --input ci/release-tools.env \
+	--input ci/ic-tools.tsv \
 	--input crates/ic-jobs/Cargo.toml --input apps/job-consumer/Cargo.toml \
 	--input crates/jobs-canister-tests/Cargo.toml
 
-.PHONY: help version install-hooks install-release-tools release-tools-check check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling test-formatting-evidence package publish-check publish ci
+.PHONY: help version install-hooks check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling test-formatting-evidence package publish-check publish ci
 help:
 	@echo "Focused: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
 	@echo "Consumer: check-consumer (native, Wasm, harness compilation); build-consumer (Wasm artifact)"
 	@echo "Explicit IC qualification: install-testkit-tools; install-consumer-server; test-canister[-optimized]"
 	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-release-commands"
-	@echo "Tooling fixtures: version, release-tools-check, test-release-tooling, test-formatting-evidence, test-consumer-tooling"
+	@echo "Tooling fixtures: version, test-release-tooling, test-formatting-evidence, test-consumer-tooling"
 	@echo "Hook qualification: formatting-hook-check (disposable Git copies; prepared formatters required)"
 	@echo "Registry preparation: package (offline), publish-check (registry dry run; no upload)"
 	@echo "Explicit setup: install-tools, tools-check, install-hooks"
@@ -26,13 +23,6 @@ help:
 	@echo "Authorized release: release-patch, release-minor, release-major (requires a configured remote)"
 	@echo "Authorized publication: publish (clean HEAD, matching pushed annotated tag; crates.io)"
 	@echo "Recovery: rerun the release target, or release-resume VERSION=X.Y.Z"
-
-install-release-tools:
-	+@$(CARGO_EDIT_TOOL) > /dev/null
-
-release-tools-check:
-	+@. ci/release-tools.env && tool="$$( $(CARGO_EDIT_TOOL) --check )" && actual="$$("$$tool" set-version --version)" && test "$$actual" = "cargo-edit-set-version $$IC_JOBS_CARGO_EDIT_VERSION" || \
-		{ echo 'Missing or mismatched cargo-edit; run make install-release-tools' >&2; exit 1; }
 
 check:
 	+cargo check -p ic-jobs --all-targets --all-features --locked --offline
@@ -103,7 +93,7 @@ check-pins:
 check-release-commands:
 	bash scripts/ci/check-release-commands.sh . make/consumer.mk make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh
 
-test-release-tooling: release-tools-check format-tools-check
+test-release-tooling: format-tools-check
 	+bash scripts/release/test-tooling.sh
 
 test-formatting-evidence:

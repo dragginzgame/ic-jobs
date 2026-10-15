@@ -5,6 +5,37 @@ CI and release behavior must not depend on a sibling checkout, a moving Git
 branch, or network availability. Consumers vendor a reviewed file set and
 record its exact Shared Tooling source revision.
 
+## Consolidating existing snapshots
+
+Use the explicit `--takeover-snapshot ROOT MANIFEST` option on
+`scripts/distribution/refresh-consumer.sh`. ROOT is relative to the consumer
+(`.` means its root); MANIFEST is relative to that snapshot root. The consumer
+must still be a Git checkout root. For example:
+
+```sh
+/path/to/shared-tooling/scripts/distribution/refresh-consumer.sh --preview \
+  --consumer /path/to/consumer \
+  --takeover-snapshot . .supplement.snapshot \
+  --takeover-snapshot helpers .shared-tooling.snapshot
+```
+
+Review the preview, then repeat without `--preview`. Without an explicit complete
+`--entrypoint` set, existing and transferred entrypoints are unioned. Every
+transferred record is proved against its recorded source commit, hash and mode;
+edited, forged, staged, aliased or unavailable inputs refuse before publication.
+The root must match the actual prior layout; it is never inferred from the
+manifest's directory. The source remote must match the destination owner.
+
+Selected canonical payloads are exported normally. Unneeded old copies retire
+under the same unchanged-source proof as ordinary refresh; transferred receipts
+retire only after the new manifest and payloads verify. Unrelated files, index
+entries and tool/evidence storage remain untouched. No ownership records are
+hand-edited. Subsequent refreshes need only the consolidated manifest. An
+interruption can leave some retired copies absent or some prior receipts still
+present: retain the preview and old receipts, inspect the new manifest's integrity,
+and retry with the remaining receipts. This one-off ownership operation is not a
+transactional release or a tool-store cleanup mechanism.
+
 ## Common catalog ownership in 0.10.0
 
 Common installers now bring their reviewed pin catalogs as required snapshot
@@ -512,8 +543,9 @@ instructions and checks with the [release contract](releases.md), including
 artifact retention and the exact atomic branch/tag push. A passing snapshot
 check alone does not verify those behaviors. Explicit PR adopters instead qualify
 the exact branch push, review boundary, merged-source validation and tag-only push.
-The direct release runner's consumer fixture, `scripts/ci/test-release-runner.sh`,
-simulates Git effects. Real-Git tracking qualification is independently selected
+The owner regression fixture, `scripts/ci/test-release-runner.sh`, simulates Git
+effects. Consumers retain their actual integration checks and tool/snapshot
+admission rather than routinely rerunning Shared's implementation regressions. Real-Git tracking qualification is independently selected
 as `scripts/ci/test-release-tracking.sh`; the owner portable suite always runs it.
 Select fixtures according to their documented effects and local authority rather
 than editing vendored tests or invoking an unauthorized broader suite.
@@ -524,6 +556,48 @@ qualification for locked builds and external inputs. Consumers may also vendor
 helper; choose and record their own reviewed version and platform digests.
 Resolve existing exceptions under the
 [pinning policy](../rules/dependency-pinning.md) before claiming adoption.
+
+## Consumer qualification selection
+
+Shared Tooling CI qualifies the shared implementation. A consumer qualifies how
+its selected snapshot is wired into its own repository. Installing a snapshot
+does not require running every exported upstream test in routine consumer CI or
+adding the complete producer suite to its release gate.
+
+| Proof | Owner and selection |
+| --- | --- |
+| Snapshot bytes, modes and declared roots | Consumer: verify every maintained bundle. Integrity alone does not establish caller behavior. |
+| Shared parser, installer and helper implementation cases | Shared Tooling: keep the general regression matrix beside its owner. Select relevant cases during a changed-contract adoption or when they supply a missing consumer proof. |
+| Actual Make, hook, release adapter and CI wiring | Consumer: exercise its real callers, selected inputs, status propagation and applicable recovery/evidence boundaries. |
+| Installed tools and host behavior | Consumer: retain prepared-tool admission and applicable native platform qualification for its own selected catalogs and workflows. |
+| Product correctness and release acceptance | Consumer: retain its product tests and release obligations. A passing upstream job does not qualify them. |
+
+Before removing a test invocation, identify what it proves and where that proof
+will remain. For example, a generic maintenance-task or LOC parser matrix usually
+belongs upstream; a test that checks the consumer's actual Make target or input
+selection belongs with that consumer. A generic release-runner fixture may still
+be useful when it exercises a consumer-specific invocation contract not covered
+by its adapter tests. Classify behavior, not filenames or the number of tests.
+Keep justified upstream fixtures with a short explanation at their caller.
+
+For a roster reduction, check the affected consumer callers and failure paths,
+verify snapshot integrity, and retain the required native acceptance. Measure
+gate duration before and after on comparable source/tool/host inputs if claiming
+a speed-up. Syntax checks, snapshot hashes and upstream CI each provide different
+evidence; none alone replaces a consumer integration test. Do not remove product
+or recovery tests merely because their helpers are now shared.
+
+Revisit the selection when adopted helper bytes or contracts, caller wiring,
+tool catalogs or supported-host inputs change. Reuse evidence only for unchanged
+inputs under the [validation policy](../DRAGGINZGAME.md#validation-and-evidence).
+Keep evidence and consumer-specific exceptions with their existing owners; no
+new scheduler or parallel test inventory is required. This guidance does not
+itself rewrite existing CI/release targets or authorize broad local execution.
+
+Only retire an exported test entrypoint after checking all consumer callers.
+Use the canonical refresh preview to inspect its companion closure and proposed
+retirements; do not delete snapshot files or edit their manifest records by hand.
+Shared fixtures that remain dependencies of another selected root stay exported.
 
 ## Audit method adoption
 

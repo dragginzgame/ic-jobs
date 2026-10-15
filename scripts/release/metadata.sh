@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Consumer adapter. Dependencies: Cargo/cargo-edit/cargo-sort, jq, yq, Git, tar, awk and Unix utilities.
+# Consumer adapter. Dependencies: Cargo/cargo-sort, jq, yq, Git, tar, awk and Unix utilities.
 operation="${1:-}"
 [[ $# -eq 1 ]] || exit 2
 if [[ "${RELEASE_DELIVERY-direct}" != direct ]]; then
@@ -12,8 +12,6 @@ root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
-# shellcheck disable=SC1091
-. "$root/ci/release-tools.env"
 reader="$root/scripts/ci/read-cargo-workspace-version.sh"
 admit_files() {
     bash "$root/scripts/ci/check-release-source.sh" \
@@ -48,9 +46,7 @@ case "$operation" in
     prepare)
         current_version="$(bash "$reader" Cargo.toml)"
         [[ "$current_version" == "${RELEASE_PREVIOUS:?}" ]] || exit 1
-        tool="$(bash "$root/scripts/dev/install-rust-tools.sh" --package cargo-edit \
-            --version "$IC_JOBS_CARGO_EDIT_VERSION" --bin cargo-set-version --profile release --check)"
-        PATH="${tool%/*}:$PATH" bash "$root/scripts/ci/cargo-release-metadata.sh" prepare ic-jobs
+        bash "$root/scripts/ci/cargo-release-metadata.sh" prepare ic-jobs
         ;;
     check|commit-check)
         # Shared owns selected-tree metadata checks and retained failure custody.

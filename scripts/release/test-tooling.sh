@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 # Real Git fixtures; the complete release gate and crates.io effects are replaced.
-# Dependencies: Bash 3.2, Git, Make, Cargo/cargo-edit/cargo-sort, jq/yq and Perl.
+# Dependencies: Bash 3.2, Git, Make, Cargo/cargo-sort, jq/yq and Perl.
 root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
@@ -34,16 +34,16 @@ mkdir -p "$fixture/exit-source/scripts/release" "$fixture/exit-source/scripts/ci
 cp "$root/scripts/ci/fixture-retention-probes.sh" "$fixture/exit-source/scripts/ci/"
 for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh scripts/ci/check-jobs-formatting.sh; do
     status=0
-    fixture_probe_exits "$root/$relative" "$fixture" "$root" "${relative##*/}" || status=$?
+    FIXTURE_PROBE_ROOT_VARIABLE=root fixture_probe_exits "$root/$relative" "$fixture" "$root" "${relative##*/}" || status=$?
     [[ "$status" == 0 ]] || exit 1
-    fixture_probe_exit "$root/$relative" "$fixture" "$root" "${relative##*/}" cleanup-failure || exit 1
+    FIXTURE_PROBE_ROOT_VARIABLE=root fixture_probe_exit "$root/$relative" "$fixture" "$root" "${relative##*/}" cleanup-failure || exit 1
 done
 
 # Contradict the first observed command status in each actual fixture. Bash 3.2
 # can ignore a bare [[ ... ]] failure, continue, and delete the evidence after
 # reaching completion; these mandatory checks must explicitly stop the fixture.
 for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh; do
-    fixture_probe_assertion "$root/$relative" "$fixture" "$root" "${relative##*/}" || exit 1
+    FIXTURE_PROBE_ROOT_VARIABLE=root fixture_probe_assertion "$root/$relative" "$fixture" "$root" "${relative##*/}" || exit 1
 done
 
 export TOOLING_REAL_CARGO
@@ -71,12 +71,6 @@ CARGO
 chmod +x "$fixture/cache-bin/cargo"
 export PATH="$fixture/cache-bin:$PATH"
 base_version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable "$root/Cargo.toml")"
-# Metadata fixtures still use the prepared, admitted version editor. They must
-# not discover an ambient Cargo subcommand or build a fresh tool in a copy.
-. "$root/ci/release-tools.env"
-export TOOLING_REAL_CARGO_EDIT
-TOOLING_REAL_CARGO_EDIT="$(bash "$root/scripts/dev/install-rust-tools.sh" --package cargo-edit \
-    --version "$IC_JOBS_CARGO_EDIT_VERSION" --bin cargo-set-version --profile release --check)"
 
 new_repository() {
     local name="$1"
@@ -103,8 +97,11 @@ case "${5:-}" in
     --check)
         target="$toolset-tools-check"
         printf '%s\n' "$target" >> .git/tool-events
-        [[ "${TOOLING_COMMON_CHECK_FAILURE:-}" != "$target" ]] ;;
-    '') printf 'install-%s-tools\n' "$toolset" >> .git/tool-events ;;
+        [[ "${TOOLING_COMMON_CHECK_FAILURE:-}" != "$target" ]]
+        [[ "${TOOLING_CHECK_FAILURE:-0}" == 0 ]] ;;
+    '')
+        printf 'install-%s-tools\n' "$toolset" >> .git/tool-events
+        [[ "${TOOLING_INSTALL_FAILURE:-0}" == 0 ]] ;;
     *) exit 49 ;;
 esac
 INSTALLER
@@ -112,7 +109,6 @@ INSTALLER
     cat > "$repository/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
 #!/usr/bin/env bash
 set -euo pipefail
-. ci/release-tools.env
 case "${1:-}" in
     --consumer)
         [[ $# == 4 || $# == 5 ]] || exit 49
@@ -128,9 +124,6 @@ case "${1:-}" in
             '') printf 'install-rust-tools\n' >> .git/tool-events ;;
             *) exit 49 ;;
         esac ;;
-    --package)
-        [[ "$*" == "--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release --check" ]] || exit 49
-        printf '%s\n' "$TOOLING_REAL_CARGO_EDIT" ;;
     *) exit 49 ;;
 esac
 INSTALLER
@@ -143,8 +136,6 @@ VERIFY
     cat > "$repository/Makefile" <<'MAKE'
 .DEFAULT_GOAL := help
 export RELEASE_DELIVERY ?= direct
-LOCAL_TOOL_INSTALL_TARGETS := install-release-tools
-LOCAL_TOOL_CHECK_TARGETS := release-tools-check
 override SHARED_TOOLING_ROOT := $(CURDIR)
 include make/consumer.mk
 
@@ -159,13 +150,6 @@ help:
 	@:
 version release-version:
 	@bash scripts/release/metadata.sh version
-install-release-tools:
-	@test "$${TOOLING_INSTALL_FAILURE:-0}" = 0
-	@printf 'setup\n' >> .git/tool-events
-	@test -f .git/release-tool-ready || { printf 'installed\n' >> .git/tool-installs; touch .git/release-tool-ready; }
-release-tools-check:
-	@printf 'check\n' >> .git/tool-events
-	@test "$${TOOLING_CHECK_FAILURE:-0}" = 0 && test -f .git/release-tool-ready
 validation-tools-check: tools-check format-tools-check
 ci: shared-tooling-check
 	+$(MAKE) --no-print-directory validation-tools-check
@@ -209,54 +193,6 @@ refuse() {
     fi
 }
 
-# Exercise Jobs' setup/check routing through the shared owner's returned path.
-# Store/receipt admission belongs to Shared Tooling. Substitute that boundary
-# here, retaining the actual Make recipes and consumer version probe.
-new_repository selected-tool
-cp "$root/Makefile" Makefile
-# shellcheck disable=SC1091
-. ci/release-tools.env
-selected_root="$repository/.tools/rust/selected-fixture"
-mkdir -p "$repository/.tools/rust/cargo-edit-0.13.12/bin"
-printf 'previous installation\n' > "$repository/.tools/rust/cargo-edit-0.13.12/bin/retained"
-cp "$repository/.tools/rust/cargo-edit-0.13.12/bin/retained" "$fixture/previous-installation"
-cat > scripts/dev/install-rust-tools.sh <<'INSTALLER'
-#!/usr/bin/env bash
-set -euo pipefail
-. ci/release-tools.env
-expected="--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release"
-[[ "$*" == "$expected" || "$*" == "$expected --check" ]] || exit 49
-printf '%s\n' "$*" >> .git/release-selection-events
-[[ -f .git/selection-ready ]] || { echo 'fixture selection is unprepared' >&2; exit 42; }
-printf '%s/.tools/rust/selected-fixture/bin/cargo-set-version\n' "$PWD"
-INSTALLER
-refuse absent-selection make --no-print-directory release-tools-check
-refuse absent-parallel-ci make -j4 --no-print-directory ci
-[[ ! -e .git/validation-events && ! -e "$selected_root" ]] || exit 1
-mkdir -p "$selected_root/bin"
-cat > "$selected_root/bin/cargo-set-version" <<'CARGO'
-#!/usr/bin/env bash
-set -euo pipefail
-[[ "$*" == 'set-version --version' ]] || exit 49
-printf 'cargo-edit-set-version %s\n' "$(cat .git/selected-version)"
-CARGO
-chmod +x "$selected_root/bin/cargo-set-version"
-printf '0.0.0\n' > .git/selected-version
-touch .git/selection-ready
-cp "$selected_root/bin/cargo-set-version" "$fixture/selected-executable"
-refuse invalid-selection make --no-print-directory release-tools-check
-cmp "$selected_root/bin/cargo-set-version" "$fixture/selected-executable"
-printf '%s\n' "$IC_JOBS_CARGO_EDIT_VERSION" > .git/selected-version
-: > .git/release-selection-events
-CARGO_NET_OFFLINE=true make --no-print-directory install-release-tools release-tools-check > "$fixture/selected-reuse.log" 2>&1
-printf '%s\n' \
-    "--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release" \
-    "--package cargo-edit --version $IC_JOBS_CARGO_EDIT_VERSION --bin cargo-set-version --profile release --check" \
-    > "$fixture/expected-release-selection-events"
-cmp .git/release-selection-events "$fixture/expected-release-selection-events"
-cmp "$selected_root/bin/cargo-set-version" "$fixture/selected-executable"
-cmp "$repository/.tools/rust/cargo-edit-0.13.12/bin/retained" "$fixture/previous-installation"
-
 # Missing required release metadata is a failure even on Bash 3.2. Original
 # files and the failed selected-commit snapshot remain available for inspection.
 new_repository metadata-errors
@@ -269,7 +205,7 @@ for operation in preflight prepare; do
     refuse "mismatched-$operation" env RELEASE_PREVIOUS=9.9.9 RELEASE_VERSION=9.9.10 \
         RELEASE_DATE=2026-10-10 TOOLING_FETCH_FAILURE=49 \
         TMPDIR="$fixture/metadata-errors-temp" "$BASH" scripts/release/metadata.sh "$operation"
-    [[ "$refusal_status" == 1 && ! -s "$TOOLING_FETCH_EVENTS" && ! -e .git/tool-installs ]] || exit 1
+    [[ "$refusal_status" == 1 && ! -s "$TOOLING_FETCH_EVENTS" ]] || exit 1
     [[ -z "$(git status --porcelain)" && -z "$(ls -A "$fixture/metadata-errors-temp")" ]] || exit 1
 done
 refuse incomplete-prepare env -u RELEASE_VERSION RELEASE_PREVIOUS="$base_version" \
@@ -379,7 +315,7 @@ MAKE
             refuse "invalid-heading-$heading" make --no-print-directory release-patch
             cmp CHANGELOG.md "$fixture/invalid-heading-before"
             [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" && ! -e .git/gate-events ]] || exit 1
-            [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e "$TOOLING_CACHE_READY" && ! -e .git/tool-installs ]] || exit 1
+            [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e "$TOOLING_CACHE_READY" ]] || exit 1
             [[ ! -e ".git/release-state/$candidate.plan" ]] || exit 1
             git show HEAD:CHANGELOG.md > CHANGELOG.md
         done
@@ -406,7 +342,7 @@ MAKE
         cmp "$unusual" "$fixture/source-untracked"
         [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" && ! -e .git/gate-events ]] || exit 1
         [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e "$TOOLING_CACHE_READY" ]] || exit 1
-        [[ ! -e .git/tool-events && ! -e .git/tool-installs ]] || exit 1
+        [[ ! -e .git/tool-events ]] || exit 1
         git restore --source=HEAD --staged --worktree -- README.md LICENSE
         rm "$unusual"
 
@@ -471,23 +407,15 @@ GIT
         for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
         [[ ! -e .git/gate-events && ! -e ".git/release-state/$candidate.plan" ]] || exit 1
         for _ in 1 2; do
-            printf 'rust-preflight\ninstall-host-tools\ninstall-ic-tools\ninstall-rust-tools\nsetup\nhost-tools-check\nic-tools-check\nrust-tools-check\ncheck\n'
+            printf 'rust-preflight\ninstall-host-tools\ninstall-ic-tools\ninstall-rust-tools\nhost-tools-check\nic-tools-check\nrust-tools-check\n'
         done > "$fixture/expected-tools"
         cmp .git/tool-events "$fixture/expected-tools"
-        [[ "$(wc -l < .git/tool-installs | tr -d ' ')" == 1 ]] || exit 1
-        # Early admission under parallel Make must block the real ci dispatch.
-        mv .git/release-tool-ready "$fixture/selected-tool-ready"
-        refuse missing-parallel-ci make -j4 --no-print-directory ci
-        [[ ! -e .git/gate-events && ! -e .git/validation-events ]] || exit 1
-        grep -F 'release-tools-check' "$fixture/missing-parallel-ci.log" > /dev/null
-        mv "$fixture/selected-tool-ready" .git/release-tool-ready
         # Every common tool set is also admitted before parallel build dispatch;
         # ordinary admission refuses missing tools without preparing them.
         for toolset in host ic rust; do
             refuse "missing-$toolset-parallel-ci" env TOOLING_COMMON_CHECK_FAILURE="$toolset-tools-check" \
                 make -j4 --no-print-directory ci
             [[ ! -e .git/validation-events && ! -e .git/gate-events ]] || exit 1
-            [[ "$(wc -l < .git/tool-installs | tr -d ' ')" == 1 ]] || exit 1
         done
         # Both preparation boundaries stop before gate or metadata mutation.
         for failure in install check; do
@@ -518,10 +446,11 @@ GIT
     [[ "$(git show --format= --name-only HEAD | LC_ALL=C sort)" == $'CHANGELOG.md\nCargo.lock\nCargo.toml' ]] || exit 1
     [[ -z "$(git status --porcelain)" && -f ".git/release-state/$candidate.plan" ]] || exit 1
     [[ "$(wc -l < .git/gate-events | tr -d ' ')" == 1 ]] || exit 1
+    cp .git/tool-events "$fixture/resumed-tools-$kind"
     make --no-print-directory release-resume "VERSION=$candidate" > "$fixture/resume-$kind.log" 2>&1
     [[ "$(wc -l < .git/gate-events | tr -d ' ')" == 1 ]] || exit 1
     # Reconciliation of delivered intent must not replay preparation.
-    [[ "$(wc -l < .git/tool-installs | tr -d ' ')" == 1 ]] || exit 1
+    cmp .git/tool-events "$fixture/resumed-tools-$kind"
     # Local-row version admission shares the identity parser and must refuse
     # before later dirty-source admission, without changing the selected graph.
     release_date="$(awk -v version="$candidate" '$1 == "##" && $2 == "[" version "]" { print $4; exit }' CHANGELOG.md)"

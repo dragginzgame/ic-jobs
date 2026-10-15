@@ -288,7 +288,7 @@ for toolset in host ic rust; do
     cat > "$fixture/scripts/dev/install-$toolset-tools.sh" <<'ADMISSION'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "${@: -1}" == --check ]] || exit 49
+[[ "$1" == --consumer && "${@: -1}" == --check ]] || exit 49
 case "${0##*/}" in
     install-host-tools.sh)
         printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
@@ -297,24 +297,13 @@ case "${0##*/}" in
         else
             rm "$PWD/Cargo.lock"
         fi ;;
-    install-rust-tools.sh)
-        if [[ "$1" == --package ]]; then
-            printf '%s/.tools/rust/common/bin/fixture-version-editor\n' "$PWD"
-        fi ;;
+
 esac
 ADMISSION
 done
 # shellcheck disable=SC1091
-. "$root/ci/release-tools.env"
-# shellcheck disable=SC1091
 . "$root/ci/tool-versions.env"
-export JOBS_CONSUMER_RELEASE_VERSION="$IC_JOBS_CARGO_EDIT_VERSION"
 export JOBS_CONSUMER_SORT_VERSION="$SHARED_TOOLING_CARGO_SORT_VERSION"
-cat > "$fixture/.tools/rust/common/bin/fixture-version-editor" <<'EDITOR'
-#!/usr/bin/env bash
-[[ "$*" == 'set-version --version' ]] || exit 49
-printf 'cargo-edit-set-version %s\n' "$JOBS_CONSUMER_RELEASE_VERSION"
-EDITOR
 cat > "$fixture/.tools/rust/common/bin/cargo" <<'CARGO'
 #!/usr/bin/env bash
 case "$*" in
@@ -323,7 +312,6 @@ case "$*" in
     *) printf 'unexpected Cargo effect\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"; exit 49 ;;
 esac
 CARGO
-chmod +x "$fixture/.tools/rust/common/bin/fixture-version-editor"
 for drift in changed missing; do
     cp "$root/Cargo.lock" "$fixture/Cargo.lock"
     : > "$fixture/events"

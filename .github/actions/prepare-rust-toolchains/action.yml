@@ -1,4 +1,5 @@
 name: Prepare Rust toolchains
+# Shared companions: scripts/dev/prepare-rust-toolchain.sh
 description: Install the explicitly selected development and minimum toolchains.
 inputs:
   development:
@@ -13,6 +14,9 @@ inputs:
   minimum-target:
     description: Additional minimum-toolchain target.
     required: true
+  minimum-components:
+    description: Optional comma-separated minimum-toolchain components.
+    default: ''
 runs:
   using: composite
   steps:
@@ -22,6 +26,8 @@ runs:
         MINIMUM: ${{ inputs.minimum }}
         DEVELOPMENT_TARGET: ${{ inputs.development-target }}
         MINIMUM_TARGET: ${{ inputs.minimum-target }}
+        MINIMUM_COMPONENTS: ${{ inputs.minimum-components }}
+        ACTION_ROOT: ${{ github.action_path }}
       run: |
         for name in DEVELOPMENT MINIMUM MINIMUM_TARGET; do
           value="${!name}"
@@ -34,9 +40,19 @@ runs:
           echo 'Invalid explicit Rust toolchain input: DEVELOPMENT_TARGET' >&2
           exit 2
         fi
-        arguments=(--profile minimal --component rustfmt --component clippy)
+        if [[ "$MINIMUM_COMPONENTS" == -* || "$MINIMUM_COMPONENTS" == *[[:space:]]* ||
+              "$MINIMUM_COMPONENTS" == ,* || "$MINIMUM_COMPONENTS" == *, || "$MINIMUM_COMPONENTS" == *,,* ]]; then
+          echo 'Invalid explicit Rust toolchain input: MINIMUM_COMPONENTS' >&2
+          exit 2
+        fi
+        installer="$ACTION_ROOT/../../../scripts/dev/prepare-rust-toolchain.sh"
+        arguments=(--component rustfmt --component clippy)
         if [[ -n "$DEVELOPMENT_TARGET" ]]; then
           arguments+=(--target "$DEVELOPMENT_TARGET")
         fi
-        rustup toolchain install "$DEVELOPMENT" "${arguments[@]}"
-        rustup toolchain install "$MINIMUM" --profile minimal --target "$MINIMUM_TARGET"
+        "$BASH" "$installer" "$DEVELOPMENT" "${arguments[@]}"
+        arguments=(--target "$MINIMUM_TARGET")
+        if [[ -n "$MINIMUM_COMPONENTS" ]]; then
+          arguments+=(--component "$MINIMUM_COMPONENTS")
+        fi
+        "$BASH" "$installer" "$MINIMUM" "${arguments[@]}"

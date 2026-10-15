@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.13.1]
+
+- Remove obsolete cargo-edit setup, admission and fixtures; use Shared metadata
+  rendering directly while retaining common-tool and release failure checks.
+- Archive historical qualification receipts and reconcile current native acceptance
+  and upstream blockers in the handoff.
+
+- Adopt Shared Tooling 0.15.2, including the common argument-checked Rust
+  preparation helper. Preserve Jobs' explicit development/MSRV versions and Wasm
+  targets; qualify its release and evidence callers against the refreshed helpers.
+- Move dispatched notification payloads after committing intent, and simplify
+  the fixture's one-shot write-failure control without changing failure ordering.
+
+- Share JSON round-trip restoration across job and management tests, retaining
+  checked restore admission. Remove unused Serde writers from Candid-only requests.
+
+- Reuse checked restore arithmetic and one rescheduled deadline without changing
+  record admission or transitions. Qualify retained capture through IC Build's
+  reported evidence path rather than its directory layout.
+
 ## [0.13.0] - 2026-10-15
 
 - **Breaking:** `start_next` returns `(index, attempt)` instead of the three-element

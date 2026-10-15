@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared companions: scripts/ci/read-cargo-workspace-version.sh scripts/ci/rewrite-local-lock-versions.pl scripts/ci/finalize-release-changelog.awk scripts/ci/cargo-workspace-members.jq scripts/ci/compare-stable-versions.pl
+# Shared companions: scripts/ci/read-cargo-workspace-version.sh scripts/ci/rewrite-local-lock-versions.pl scripts/ci/finalize-release-changelog.awk scripts/ci/cargo-workspace-members.jq scripts/ci/compare-stable-versions.pl scripts/ci/render-cargo-workspace-version.pl
 set -euo pipefail
 
 # Coordinated workspace versions only. Consumer adapters retain source admission,
@@ -8,8 +8,15 @@ ROOT="${BASH_SOURCE[0]}"
 [[ "$ROOT" == /* ]] || ROOT="$PWD/$ROOT"
 ROOT="$(cd -P "${ROOT%/*}/../.." && printf '%s/.' "$PWD")"
 ROOT="${ROOT%/.}"
-[[ $# == 2 ]] || { echo 'usage: cargo-release-metadata.sh prepare|check|check-graph PRIMARY_PACKAGE' >&2; exit 2; }
+[[ $# == 2 || $# == 3 ]] || { echo 'usage: cargo-release-metadata.sh prepare|check|check-graph PRIMARY_PACKAGE [--manifest-order]' >&2; exit 2; }
 operation="$1" primary="$2"
+check_manifest_order=false
+if [[ $# == 3 ]]; then
+    [[ "$operation" == check && "$3" == --manifest-order ]] || {
+        echo '--manifest-order is supported only by check' >&2; exit 2;
+    }
+    check_manifest_order=true
+fi
 [[ "$primary" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] || { echo 'invalid primary package identity' >&2; exit 2; }
 reader="$ROOT/scripts/ci/read-cargo-workspace-version.sh"
 
@@ -82,7 +89,7 @@ case "$operation" in
                     printf 'metadata restoration incomplete; originals retained: %s\n' "$backup" >&2
                     exit 1
                 fi
-                printf 'failed Cargo preparation restored; evidence retained: %s\n' "$backup" >&2
+                printf 'failed Cargo preparation; restoring release metadata; evidence retained: %s\n' "$backup" >&2
             else
                 rm -rf "$backup"
             fi
@@ -95,16 +102,25 @@ case "$operation" in
         cargo metadata --locked --offline --format-version 1 > "$backup/metadata.json"
         workspace_packages "$backup/metadata.json" "$RELEASE_PREVIOUS" "$backup/local-packages"
         inherited_members "$(pwd -P)" "$backup/metadata.json"
+        "${YQ:-yq}" -p toml -o json '.' Cargo.toml > "$backup/manifest.json"
+        jq -n --slurpfile manifest "$backup/manifest.json" --slurpfile metadata "$backup/metadata.json" '
+            {manifest: $manifest[0], members: ($metadata[0] | . as $m |
+                [.packages[] | select(.id as $id | $m.workspace_members | index($id)) |
+                    {name, manifest_path}])}' > "$backup/workspace-input.json"
         awk -v version="${RELEASE_VERSION:?}" -v previous="$RELEASE_PREVIOUS" -v date="${RELEASE_DATE:?}" \
             -f "$ROOT/scripts/ci/finalize-release-changelog.awk" CHANGELOG.md > "$backup/candidate.notes"
-        cargo set-version --workspace --offline "$RELEASE_VERSION"
-        cargo sort
+        perl "$ROOT/scripts/ci/render-cargo-workspace-version.pl" Cargo.toml \
+            "$RELEASE_PREVIOUS" "$RELEASE_VERSION" "$backup/workspace-input.json" > "$backup/candidate.manifest"
+        # Independently parse candidate bytes without resolving scratch members.
+        "${YQ:-yq}" -p toml -o json '.' "$backup/candidate.manifest" | \
+            jq -e --arg version "$RELEASE_VERSION" '.workspace.package.version == $version' > /dev/null
+        cat "$backup/candidate.manifest" > Cargo.toml
         packages=()
         while IFS= read -r package; do packages+=("$package"); done < "$backup/local-packages"
         perl "$ROOT/scripts/ci/rewrite-local-lock-versions.pl" "$backup/Cargo.lock" \
             "$RELEASE_PREVIOUS" "$RELEASE_VERSION" "${packages[@]}" > "$backup/candidate.lock"
-        cp "$backup/candidate.lock" Cargo.lock
-        cp "$backup/candidate.notes" CHANGELOG.md
+        cat "$backup/candidate.lock" > Cargo.lock
+        cat "$backup/candidate.notes" > CHANGELOG.md
         cargo metadata --locked --offline --format-version 1 > "$backup/prepared.json"
         observed_version="$(bash "$reader" Cargo.toml)"
         [[ "$observed_version" == "$RELEASE_VERSION" ]] || exit 1
@@ -138,6 +154,11 @@ case "$operation" in
         if [[ "$operation" == check ]]; then
             regular_metadata "$selected_root" CHANGELOG.md
         fi
+        if [[ "$check_manifest_order" == true ]]; then
+            # Check the same selected source as the graph, using the caller's
+            # prepared Cargo tool. Never execute scripts from the export.
+            (cd "$selected_root" && cargo sort --workspace --check) || exit $?
+        fi
         observed_version="$(bash "$reader" "$selected_root/Cargo.toml")"
         if [[ "$operation" == check ]]; then
             [[ "$observed_version" == "${RELEASE_VERSION:?}" ]] || exit 1
@@ -145,7 +166,8 @@ case "$operation" in
                 '$0 == heading { count++ } END { if (count != 1) exit 1 }' "$selected_root/CHANGELOG.md"
         fi
         lock_packages "$selected_root" "$observed_version" > "$temporary/local-packages"
-        (cd "$selected_root" && cargo metadata --locked --offline --format-version 1) > "$temporary/metadata.json"
+        # Bash 3.2 can lose an unguarded subshell failure before the next command.
+        (cd "$selected_root" && cargo metadata --locked --offline --format-version 1) > "$temporary/metadata.json" || exit $?
         workspace_packages "$temporary/metadata.json" "$observed_version" "$temporary/local-packages"
         complete=true
         ;;

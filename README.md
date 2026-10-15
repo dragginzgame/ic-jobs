@@ -44,8 +44,8 @@ canonical revision, entrypoints and payload digests. The
 snapshot checks and release routing. Jobs retains product checks, dependency
 selections and release/publication policy.
 
-Run `make install-tools` to prepare the selected host, IC and Rust toolsets,
-including Jobs' cargo-edit selection; `make tools-check` admits them offline.
+Run `make install-tools` to prepare the selected host, IC and Rust toolsets;
+`make tools-check` admits them offline.
 For an interactive shell, prepend
 `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/common/bin` to PATH.
 Use the same `SHARED_TOOLING_STORE` for setup, checks and evidence collection;

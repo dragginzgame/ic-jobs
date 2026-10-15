@@ -192,6 +192,10 @@ impl Job {
     /// Restoring does not grant permission to repeat an external effect.
     pub fn restore(record: JobRecord) -> Result<Self, JobError> {
         let invalid = || Err(JobError::InvalidRecord);
+        let previous_dispatches = record
+            .sequence
+            .checked_sub(u64::from(record.attempts))
+            .ok_or(JobError::InvalidRecord)?;
         if record.attempts > record.retry.max_attempts()
             || record.schedule_origin > record.occurrence
             || record.scheduled_ns < record.schedule.first()
@@ -207,10 +211,7 @@ impl Job {
             || u128::from(record.sequence)
                 > u128::from(record.occurrence) * u128::from(record.retry.max_attempts())
                     + u128::from(record.attempts)
-            || record
-                .sequence
-                .checked_sub(u64::from(record.attempts))
-                .is_none_or(|n| n < record.occurrence)
+            || previous_dispatches < record.occurrence
         {
             return invalid();
         }
@@ -218,7 +219,7 @@ impl Job {
         // Wide arithmetic also rejects histories needing more than u64 time;
         // this lower bound does not iterate over untrusted counters.
         let retries = record.sequence - record.occurrence - u64::from(record.attempts != 0);
-        let previous_retries = record.sequence - record.occurrence - u64::from(record.attempts);
+        let previous_retries = previous_dispatches - record.occurrence;
         let delay = u128::from(record.retry.initial_delay_ns());
         let evidence_ns = match record.state {
             JobState::Running { started_ns } | JobState::Uncertain { started_ns } => started_ns,
@@ -601,17 +602,14 @@ impl Job {
         if self.0.attempts != 0 {
             return Err(JobError::AlreadyAttempted);
         }
+        let due_ns = schedule.first();
         self.0.schedule = schedule;
         self.0.schedule_origin = self.0.occurrence;
-        self.0.scheduled_ns = schedule.first();
+        self.0.scheduled_ns = due_ns;
         self.0.state = if paused {
-            JobState::Paused {
-                due_ns: schedule.first(),
-            }
+            JobState::Paused { due_ns }
         } else {
-            JobState::Pending {
-                due_ns: schedule.first(),
-            }
+            JobState::Pending { due_ns }
         };
         self.0.updated_ns = now_ns;
         Ok(())

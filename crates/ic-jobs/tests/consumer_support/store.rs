@@ -31,9 +31,8 @@ impl Store {
         if bytes.len() > 4096 {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "snapshot too large").into());
         }
-        if let Some(remaining) = self.writes_before_failure {
+        if let Some(remaining) = self.writes_before_failure.take() {
             if remaining == 0 {
-                self.writes_before_failure = None;
                 return Err(io::Error::other("injected commit failure").into());
             }
             self.writes_before_failure = Some(remaining - 1);

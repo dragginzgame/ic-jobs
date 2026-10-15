@@ -1,8 +1,12 @@
 //! Observable scheduling, persistence and external-effect recovery contracts.
 use ic_jobs::{
-    Attempt, Job, JobError, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy,
-    Schedule, next_due_ns, start_next,
+    Attempt, Job, JobError, JobId, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule,
+    next_due_ns, start_next,
 };
+
+mod support;
+
+use support::roundtrip;
 
 fn retry() -> RetryPolicy {
     RetryPolicy::new(4, 10, 15).unwrap()
@@ -10,12 +14,6 @@ fn retry() -> RetryPolicy {
 
 fn once() -> Job {
     Job::new(JobId(42), Schedule::Once { at_ns: 100 }, retry())
-}
-
-fn roundtrip(job: &Job) -> Job {
-    let bytes = serde_json::to_vec(&job.record()).unwrap();
-    let record: JobRecord = serde_json::from_slice(&bytes).unwrap();
-    Job::restore(record).unwrap()
 }
 
 #[test]

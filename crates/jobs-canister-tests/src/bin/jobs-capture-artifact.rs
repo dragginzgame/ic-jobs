@@ -122,15 +122,17 @@ mod tests {
         let destination = root.join("occupied");
         fs::write(&source, b"exact failed evidence").unwrap();
         fs::create_dir(&destination).unwrap();
-        assert!(capture(&source, &destination).is_err());
+        let error = capture(&source, &destination).unwrap_err();
         fs::remove_file(source).unwrap();
-        let stage = fs::read_dir(&root)
+        let retained = error
+            .get_ref()
             .unwrap()
-            .map(|entry| entry.unwrap().path())
-            .find(|path| path != &destination)
+            .downcast_ref::<ic_build::artifacts::CaptureRetentionError>()
             .unwrap();
-        let retained = fs::read_dir(stage).unwrap().next().unwrap().unwrap().path();
-        assert_eq!(fs::read(retained).unwrap(), b"exact failed evidence");
+        assert_eq!(
+            fs::read(&retained.retained_path).unwrap(),
+            b"exact failed evidence"
+        );
         assert_eq!(fs::read_dir(destination).unwrap().count(), 0);
         fs::remove_dir_all(root).unwrap();
     }

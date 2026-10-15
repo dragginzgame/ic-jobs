@@ -233,7 +233,7 @@ impl Notifications {
                 })
             }
             ManagementCommand::DispatchDue => {
-                ManagementValue::Dispatch(self.dispatch_batch(now_ns, &mut jobs, &payloads)?)
+                ManagementValue::Dispatch(self.dispatch_batch(now_ns, &mut jobs, payloads)?)
             }
         };
         Ok(ManagementReply {
@@ -249,21 +249,21 @@ impl Notifications {
 
     pub(crate) fn prepare(&mut self, now_ns: u64) -> Result<Option<Delivery>> {
         let (mut jobs, payloads) = self.load()?;
-        self.dispatch_batch(now_ns, &mut jobs, &payloads)
+        self.dispatch_batch(now_ns, &mut jobs, payloads)
     }
 
     fn dispatch_batch(
         &mut self,
         now_ns: u64,
         jobs: &mut [Job],
-        payloads: &[Notification],
+        mut payloads: Vec<Notification>,
     ) -> Result<Option<Delivery>> {
         let Some((index, attempt)) = start_next(jobs, now_ns)? else {
             return Ok(None);
         };
-        let payload = payloads[index].clone();
-        self.commit(jobs, payloads)?;
+        self.commit(jobs, &payloads)?;
         // No delivery capability escapes before the intent and payload commit.
+        let payload = payloads.swap_remove(index);
         Ok(Some(Delivery { attempt, payload }))
     }
 

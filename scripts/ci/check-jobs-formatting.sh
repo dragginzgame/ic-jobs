@@ -30,5 +30,5 @@ awk '
 bash "$root/scripts/ci/check-formatting-hooks.sh" "$root" \
     crates/ic-jobs/src/job.rs Cargo.toml "$fixture/unsorted.toml" \
     Cargo.lock make/consumer.mk make/tools.mk make/rust-format.mk make/release.mk make/execution.mk \
-    ci/tool-versions.env ci/release-tools.env scripts/ci/check-format-tools.sh scripts/ci/run-formatting.sh
+    ci/tool-versions.env scripts/ci/check-format-tools.sh scripts/ci/run-formatting.sh
 fixture_complete=true
