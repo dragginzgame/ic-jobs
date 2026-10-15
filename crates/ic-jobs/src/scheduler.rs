@@ -1,4 +1,4 @@
-use crate::{Attempt, Job, JobError, JobRecord};
+use crate::{Attempt, Job, JobError};
 
 /// Return the earliest pending deadline in a bounded batch, including retry backoff.
 ///
@@ -10,7 +10,7 @@ pub fn next_due_ns(jobs: &[Job]) -> Option<u64> {
     jobs.iter().filter_map(Job::next_due_ns).min()
 }
 
-/// Start at most one due attempt and return `(index, attempt, running_record)`.
+/// Start at most one due attempt and return `(index, attempt)`.
 ///
 /// Supply a bounded batch of validated jobs restored through [Job::restore]. The
 /// index identifies the selected job only while this batch order is unchanged;
@@ -18,17 +18,14 @@ pub fn next_due_ns(jobs: &[Job]) -> Option<u64> {
 /// Select the earliest pending deadline, breaking ties by batch order. Return
 /// None when no pending job is due. Trusted time comes from the application.
 ///
-/// Commit the returned record with its immutable payload/index changes before
+/// Commit `jobs[index].record()` with its immutable payload/index changes before
 /// dispatching an external effect. Record the result through [Job::finish] and
 /// explicitly reconcile uncertain effects with [Job::resolve]. This function
 /// never invokes a handler or schedules a platform timer.
 ///
 /// [Job::start] owns transition checks. If the selected job rejects the clock
 /// or counters, return that error without changing any job or selecting another.
-pub fn start_next(
-    jobs: &mut [Job],
-    now_ns: u64,
-) -> Result<Option<(usize, Attempt, JobRecord)>, JobError> {
+pub fn start_next(jobs: &mut [Job], now_ns: u64) -> Result<Option<(usize, Attempt)>, JobError> {
     let Some((index, due_ns)) = jobs
         .iter()
         .enumerate()
@@ -42,5 +39,5 @@ pub fn start_next(
     }
     let job = &mut jobs[index];
     let attempt = job.start(now_ns)?;
-    Ok(Some((index, attempt, job.record())))
+    Ok(Some((index, attempt)))
 }

@@ -33,19 +33,19 @@ fn scheduler_starts_one_earliest_due_job_and_preserves_batch_order() {
     assert_eq!(start_next(&mut jobs, 99), Ok(None));
     assert_eq!(jobs.each_ref().map(Job::record), before);
 
-    let (index, attempt, record) = start_next(&mut jobs, 200).unwrap().unwrap();
+    let (index, attempt) = start_next(&mut jobs, 200).unwrap().unwrap();
     assert_eq!(index, 1);
     assert_eq!(attempt.execution.job, JobId(2));
-    assert_eq!(record, jobs[1].record());
+    let record = jobs[index].record();
     assert_eq!(record.state, JobState::Running { started_ns: 200 });
     assert_eq!(jobs[0].record(), before[0]);
     assert_eq!(jobs[2].record(), before[2]);
     assert_eq!(next_due_ns(&jobs), Some(100));
 
-    let (index, attempt, _) = start_next(&mut jobs, 200).unwrap().unwrap();
+    let (index, attempt) = start_next(&mut jobs, 200).unwrap().unwrap();
     assert_eq!(index, 2);
     assert_eq!(attempt.execution.job, JobId(3));
-    let (index, attempt, _) = start_next(&mut jobs, 200).unwrap().unwrap();
+    let (index, attempt) = start_next(&mut jobs, 200).unwrap().unwrap();
     assert_eq!(index, 0);
     assert_eq!(attempt.execution.job, JobId(1));
     assert_eq!(next_due_ns(&jobs), None);
@@ -90,7 +90,7 @@ fn scheduler_restores_blocked_work_without_redispatch_until_disposition() {
         .unwrap();
     assert_eq!(next_due_ns(&jobs), Some(210));
     assert_eq!(start_next(&mut jobs, 209), Ok(None));
-    let (_, attempt, _) = start_next(&mut jobs, 210).unwrap().unwrap();
+    let (_, attempt) = start_next(&mut jobs, 210).unwrap().unwrap();
     assert_eq!(attempt.execution, uncertain_attempt.execution);
     assert_ne!(attempt.sequence, uncertain_attempt.sequence);
     assert_eq!(jobs[0].record(), before[0]);
@@ -108,7 +108,8 @@ fn scheduler_rechecks_retry_and_recurring_deadlines_after_completion() {
         retry(),
     );
     let mut jobs = [job];
-    let (_, first, intent) = start_next(&mut jobs, 100).unwrap().unwrap();
+    let (index, first) = start_next(&mut jobs, 100).unwrap().unwrap();
+    let intent = jobs[index].record();
     jobs[0] = Job::restore(intent).unwrap();
     jobs[0]
         .finish(first, 100, Outcome::RetryableFailure)
@@ -116,7 +117,8 @@ fn scheduler_rechecks_retry_and_recurring_deadlines_after_completion() {
     jobs[0] = roundtrip(&jobs[0]);
     assert_eq!(next_due_ns(&jobs), Some(110));
     assert_eq!(start_next(&mut jobs, 109), Ok(None));
-    let (_, second, intent) = start_next(&mut jobs, 110).unwrap().unwrap();
+    let (index, second) = start_next(&mut jobs, 110).unwrap().unwrap();
+    let intent = jobs[index].record();
     assert_eq!(first.execution, second.execution);
     assert_ne!(first.sequence, second.sequence);
     jobs[0] = Job::restore(intent).unwrap();
@@ -124,7 +126,7 @@ fn scheduler_rechecks_retry_and_recurring_deadlines_after_completion() {
     jobs[0] = roundtrip(&jobs[0]);
     assert_eq!(next_due_ns(&jobs), Some(200));
     assert_eq!(start_next(&mut jobs, 199), Ok(None));
-    let (_, third, _) = start_next(&mut jobs, 200).unwrap().unwrap();
+    let (_, third) = start_next(&mut jobs, 200).unwrap().unwrap();
     assert_ne!(third.execution, first.execution);
 }
 

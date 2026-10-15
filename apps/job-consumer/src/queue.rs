@@ -47,16 +47,16 @@ impl Snapshot {
         if self.jobs.len() > MAX_JOBS || self.receipts.len() > MAX_JOBS || self.next_id == 0 {
             return Err(Error::InvalidStorage);
         }
-        let mut previous = 0;
+        let mut previous = 0u128;
         for entry in &self.jobs {
             admit_job(entry.job)?;
-            if entry.job.id.0 <= u128::from(previous)
+            if entry.job.id.0 <= previous
                 || entry.job.id.0 >= u128::from(self.next_id)
                 || !task_valid(&entry.task)
             {
                 return Err(Error::InvalidStorage);
             }
-            previous = u64::try_from(entry.job.id.0).map_err(|_| Error::InvalidStorage)?;
+            previous = entry.job.id.0;
         }
         for (index, receipt) in self.receipts.iter().enumerate() {
             if !delivery_valid(receipt)
@@ -402,8 +402,7 @@ impl<M: Memory> Queue<M> {
         let mut deliveries = vec![];
         let mut work = 0;
         for _ in 0..BATCH {
-            let Some((index, attempt, _)) =
-                start_next(&mut snapshot.jobs, now).map_err(job_error)?
+            let Some((index, attempt)) = start_next(&mut snapshot.jobs, now).map_err(job_error)?
             else {
                 break;
             };

@@ -106,8 +106,10 @@ canister fixture uses a distinct storage key; old bytes are not interpreted unde
 the current layout, and this change does not erase retained memory itself.
 
 `next_due_ns` reads a bounded candidate slice of validated `Job` values.
-`start_next` starts one earliest due job through `Job::start`
-and returns the exact Running record for the application's persistence boundary.
+`start_next` starts one earliest due job through `Job::start`, returning its batch
+index and attempt. The application reads the exact Running record from
+`jobs[index].record()` and commits it with immutable payload/index changes before
+dispatching an external effect.
 It does not restore raw records, dispatch effects or admit unresolved jobs. On a
 selected job's transition error, all records remain unchanged and no other job
 is started. The application owns unique job identities, batch bounds and its

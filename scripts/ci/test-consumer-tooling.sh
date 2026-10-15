@@ -85,6 +85,39 @@ LOCK
 done
 echo 'Lock-selected consumer CLI refusal precedes Cargo/PocketIC effects (real caller/parser; substitute compiler identity; no installation)'
 
+# Each server command must admit its selected CLI exactly once, and a refusal
+# must prevent server dispatch. Substitute both executables; no server is run.
+export JOBS_CONSUMER_CLI="$fixture/server" JOBS_CONSUMER_ADMISSION_FAILURE=0
+cat > "$fixture/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --check' ]] || exit 49
+printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+[[ "${JOBS_CONSUMER_ADMISSION_FAILURE:-0}" == 0 ]] || exit 37
+printf '%s\n' "$JOBS_CONSUMER_CLI"
+INSTALLER
+cat > "$fixture/server" <<'SERVER'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $# == 1 && ( "$1" == setup || "$1" == check ) ]] || exit 49
+printf '%s\n' "$1" >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+SERVER
+chmod +x "$fixture/server"
+for command in setup check; do
+    target=consumer-server-check
+    [[ "$command" != setup ]] || target=install-consumer-server
+    : > "$fixture/events"
+    make --no-print-directory -j2 -C "$fixture" "$target" > "$fixture/server-$command.log" 2>&1
+    printf 'admission\n%s\n' "$command" > "$fixture/expected-events"
+    cmp "$fixture/events" "$fixture/expected-events"
+    : > "$fixture/events"
+    status=0
+    JOBS_CONSUMER_ADMISSION_FAILURE=1 make --no-print-directory -j2 -C "$fixture" "$target" \
+        > "$fixture/server-$command-refused.log" 2>&1 || status=$?
+    [[ "$status" == 2 && "$(cat "$fixture/events")" == admission ]] || exit 1
+done
+echo 'Server commands admit the selected CLI once and refuse before server effects (substitute installer/server)'
+
 # Isolate the wrapper's Wasm-file admission after CLI admission. Substitute only
 # the selected CLI and Cargo metadata; invalid inputs must create no attempt or
 # start a server. The shared installer's selection contract is tested above.

@@ -146,12 +146,15 @@ fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error>
     Ok(())
 }
 
-async fn deliver(delivery: Delivery) {
+async fn delivery_confirmed(delivery: &Delivery) -> bool {
     let response = ic_cdk::call::Call::unbounded_wait(delivery.destination, "receive_delivery")
-        .with_arg(&delivery)
+        .with_arg(delivery)
         .await;
-    let confirmed =
-        decode_reply::<Delivery, _>(response).is_some_and(|receipt| receipt == delivery);
+    decode_reply::<Delivery, _>(response).is_some_and(|receipt| receipt == *delivery)
+}
+
+async fn deliver(delivery: Delivery) {
+    let confirmed = delivery_confirmed(&delivery).await;
     // Transport rejection or codec failure cannot establish that no effect ran.
     required(complete_delivery(
         &delivery,
@@ -278,14 +281,8 @@ async fn fixture_dispatch_trap_result(input: Create) -> Result<(), Error> {
     // Intent commits at the real inter-canister call boundary. The receipt lives
     // at the destination; a later sender trap cannot roll back that earlier call.
     if let Some(delivery) = deliveries.into_iter().next() {
-        let response = required(
-            ic_cdk::call::Call::unbounded_wait(delivery.destination, "receive_delivery")
-                .with_arg(&delivery)
-                .await,
-        );
-        let receipt = required(required(response.candid::<Result<Delivery, Error>>()));
-        if receipt != delivery {
-            ic_cdk::trap("fixture receipt mismatch");
+        if !delivery_confirmed(&delivery).await {
+            ic_cdk::trap("fixture delivery was not confirmed");
         }
         ic_cdk::trap("fixture: lost sender result after confirmed external effect");
     }

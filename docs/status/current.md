@@ -2,9 +2,13 @@
 
 ## Source and pending work
 
-Delivered source: Jobs **0.12.0**, `965347d66f1ef9964c057231802fd1c4fcbff93e`.
-The pending compatible release is **0.12.1**: adopt Shared Tooling **0.15.0** at
-`3bef3f2daec7f64f875397ed4d53d5b9e2e68a08`, with the incoming dependency graph below.
+Delivered source: Jobs **0.12.1**, `ead141625b4a4b3b701a47d429e48bbef075ec6f`.
+The pending release is **0.13.0**: `start_next` now returns `(index, attempt)`.
+Persist the updated `jobs[index].record()` with its immutable payload/index before
+external dispatch. The signature changes; stored records, ordering and transition
+errors are unchanged. The pending compatible cleanups are included in this minor.
+The adopted Shared Tooling **0.15.0** revision is
+`3bef3f2daec7f64f875397ed4d53d5b9e2e68a08`, with the dependency graph below.
 The canonical exporter supplies 103 snapshot files. Jobs uses shared fixture
 allocation, completion admission and assertion probes, preserving its own
 cleanup, retained evidence and explicit live gate. Common tool pins are unchanged.
@@ -14,7 +18,8 @@ Own package versions, staged work, Git refs, release
 and publication remain maintainer-owned; no release or upload ran.
 
 Use `next_due_ns(&jobs)` and `start_next(&mut jobs, now_ns)` instead of constructing
-`Scheduler`. Consumers depend on IC Timers directly for watchdog reconciliation
+`Scheduler`. Read dispatch intent from the selected job after `start_next` succeeds.
+Consumers depend on IC Timers directly for watchdog reconciliation
 and completion; Jobs has no runtime Timers dependency. All in-tree callers,
 examples, package docs and floor checks use this contract. Job records, ordering,
 transition errors and uncertain-effect disposition are unchanged.
@@ -25,15 +30,51 @@ capture owner. Jobs still selects original/O3/Os/Oz and PocketIC qualification.
 Failed optimizer/capture attempts retain producer evidence; successful capture
 retires only its producer. Hashing uses the reviewed shared checksum helper.
 
-The current graph selects Memory 0.41.0, Testkit 0.45.0, Timers 0.23.2, Build
-0.6.0 and direct Host FS/Process 0.19.0. Those manifest and lock selections were
-already present on entry to the Memory adoption task; they were preserved.
+The current graph selects Memory 0.41.0, Testkit 0.46.0, Timers 0.24.0, Build
+0.6.0 and direct Host FS/Process 0.19.0. The incoming Testkit/Timers manifest
+and lock updates were preserved during the notification/install/delivery cleanup.
 Earlier receipts retain their original source and graph scope. Prior API-cut
 `before/` and un-suffixed logs retain the Testkit 0.43 graph; its `*-044.log`
 evidence records Testkit 0.44 with Timers 0.22.6. Those receipts do not qualify
-the current Timers 0.23 graph.
+the current Timers 0.24 graph.
 
 ## Current proof and blockers
+
+Scheduler-result cut evidence is in `target/qualification/scheduler-result-cut/`.
+Before files retain incoming dirty work separately from this batch. Every maintained
+caller, example and package guide uses the two-element result; persistence still
+crosses the validated restore boundary. Existing scheduler tests retain ordering,
+retry/recurrence, blocked-effect and unchanged-on-error coverage. Notification
+pagination filters before projection while retaining sorted identity order.
+Server setup/check performs one CLI admission inside its recipe before effects;
+substituted success/refusal checks cover both targets. Core/composition and all
+23 consumer tests, Rust 1.91 core/consumer Wasm checks, example execution, rustdoc,
+recovery-harness compilation and strict Clippy pass. The consumer-tooling fixture
+passes on Bash 5 and genuine Bash 3.2. No full CI, macOS, live PocketIC, release,
+publication, own-version mutation, staging or Git ref changes ran.
+
+Notification/install/delivery cleanup evidence is in
+`target/qualification/notification-install-delivery-cleanup/`. Notification rows
+are consumed once, retaining duplicate-ID-before-restore ordering and aligned
+payloads. Testkit owns create/fund/install mechanics; sender installation precedes
+receiver setup with the same cycles, init identity and default management sender.
+One private helper sends and confirms exact delivery receipts. Production failures
+remain uncertain; the lost-result fixture traps after confirmed external effects
+and also refuses unconfirmed replies. No queue borrow crosses an await.
+All 19 composition tests and 23 consumer tests pass with the incoming Testkit 0.46
+and Timers 0.24 graph. Rust 1.91 consumer Wasm, recovery-harness compilation,
+strict Clippy, formatting, pins and documentation links pass. No full CI, live
+PocketIC, macOS qualification, release or publication ran.
+
+Restore/ID/trap cleanup evidence is in
+`target/qualification/restore-id-trap-cleanup/`, based on delivered 0.12.1
+`ead141625b4a4b3b701a47d429e48bbef075ec6f`. Fixed-rate restore computes interval
+and occurrence offsets once and checks the selected missed-run policy directly.
+Snapshot ordering retains IDs as u128 while preserving next-ID bounds and restore
+ordering. Recovery scenarios share one trap assertion with complete error detail.
+Core/composition and all 23 consumer tests pass, along with separate Rust 1.91
+core/consumer Wasm checks, recovery-harness compilation, strict Clippy, formatting,
+pins and documentation links. No full CI, live PocketIC, release or publication ran.
 
 Memory 0.41 adoption evidence is in `target/qualification/memory041/`. All 23
 consumer tests pass, including refusal of frozen registry Memory 0.40 and old

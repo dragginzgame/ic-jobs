@@ -65,10 +65,10 @@ install-testkit-tools:
 testkit-tools-check:
 	+$(TESTKIT_TOOL) --check
 
-install-consumer-server: testkit-tools-check
+install-consumer-server:
 	+@cli="$$( $(TESTKIT_TOOL) --check )" && "$$cli" setup
 
-consumer-server-check: testkit-tools-check
+consumer-server-check:
 	+@cli="$$( $(TESTKIT_TOOL) --check )" && "$$cli" check
 
 # Only this explicitly selected target launches PocketIC. Admission precedes

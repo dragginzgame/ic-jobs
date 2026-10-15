@@ -2,8 +2,8 @@
 
 use candid::{CandidType, Principal, utils::ArgumentEncoder};
 use ic_testkit::pic::{
-    CandidCallExt, CanisterInstallExt, ErrorCode, PocketIc, PocketIcBuilder, PocketIcInstance,
-    PocketIcStartupConfig, RetryPolicy, tick_until,
+    CandidCallError, CandidCallExt, CanisterInstallExt, ErrorCode, InstallSpec, PocketIc,
+    PocketIcBuilder, PocketIcInstance, PocketIcStartupConfig, RetryPolicy, tick_until,
 };
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
 use serde::de::DeserializeOwned;
@@ -30,21 +30,24 @@ impl Fixture {
             .build_instance(PocketIcBuilder::new().with_application_subnet())
             .expect("bounded PocketIC startup");
         let manager = Principal::self_authenticating(b"jobs-manager");
-        let sender = pic.instance.create_canister();
-        let receiver = pic.instance.create_canister();
-        for (id, delivery_sender) in [(sender, None), (receiver, Some(sender))] {
-            pic.instance.add_cycles(id, 10_000_000_000_000);
-            pic.instance.install_canister(
-                id,
-                wasm.clone(),
-                candid::encode_one(Init {
-                    manager,
-                    delivery_sender,
-                })
-                .unwrap(),
-                None,
-            );
-        }
+        let install = |delivery_sender| {
+            pic.instance
+                .try_create_and_install(
+                    InstallSpec::new(
+                        wasm.clone(),
+                        candid::encode_one(Init {
+                            manager,
+                            delivery_sender,
+                        })
+                        .unwrap(),
+                        10_000_000_000_000,
+                    )
+                    .label("jobs-test-consumer"),
+                )
+                .expect("install Jobs consumer")
+        };
+        let sender = install(None);
+        let receiver = install(Some(sender));
         Self {
             pic,
             wasm,
@@ -102,6 +105,17 @@ impl Fixture {
         })
         .expect("bounded canister progress did not complete");
     }
+}
+
+fn assert_canister_trap(error: CandidCallError) {
+    assert_eq!(
+        error
+            .reject_response
+            .as_ref()
+            .map(|reject| reject.error_code),
+        Some(ErrorCode::CanisterCalledTrap),
+        "expected canister trap: {error:?}"
+    );
 }
 
 fn increment(at: u64, amount: u64) -> Create {
@@ -204,10 +218,7 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
             9,
         ),),
     );
-    assert_eq!(
-        failed.unwrap_err().reject_response.unwrap().error_code,
-        ErrorCode::CanisterCalledTrap
-    );
+    assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.summary(fixture.sender), before);
     let page: Vec<View> = fixture
         .query(fixture.sender, "list", (None::<u64>, 8_u8))
@@ -318,10 +329,7 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
             "fixture_dispatch_trap_result",
             (input,),
         );
-    assert_eq!(
-        failed.unwrap_err().reject_response.unwrap().error_code,
-        ErrorCode::CanisterCalledTrap
-    );
+    assert_canister_trap(failed.unwrap_err());
     let page: Vec<View> = fixture
         .query(fixture.sender, "list", (None::<u64>, 8_u8))
         .unwrap();
@@ -611,10 +619,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
             ),
         ),
     );
-    assert_eq!(
-        failed.unwrap_err().reject_response.unwrap().error_code,
-        ErrorCode::CanisterCalledTrap
-    );
+    assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.view(id), before);
     assert_eq!(fixture.summary(fixture.sender), summary);
     let failed = fixture.pic.instance.update_candid_as::<(), _>(
@@ -623,10 +628,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
         "fixture_trap_after_pause",
         (id,),
     );
-    assert_eq!(
-        failed.unwrap_err().reject_response.unwrap().error_code,
-        ErrorCode::CanisterCalledTrap
-    );
+    assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.view(id), before);
     assert_eq!(fixture.summary(fixture.sender), summary);
     fixture.upgrade(fixture.sender);

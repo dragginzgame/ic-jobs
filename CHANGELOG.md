@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.13.0]
+
+- **Breaking:** `start_next` returns `(index, attempt)` instead of the three-element
+  tuple. Read the updated `jobs[index].record()` for durable intent and commit it
+  with the immutable payload/index before dispatching effects. Stored records,
+  selection order and transition errors are unchanged.
+- Admit the selected Testkit CLI once per server setup/check command, preserving
+  refusal before server effects. Filter notification pages before projecting rows.
+
+- Share delivery confirmation between the qualification canister and its lost-result
+  fixture, retaining uncertain handling and the confirmed-effect trap boundary.
+  Use Testkit's structured canister installation and load notification rows in one pass.
+
+- Simplify fixed-rate restore and consumer ID validation while preserving admitted
+  records and refusal behavior. Improve recovery-test trap failure diagnostics.
+
 ## [0.12.1] - 2026-10-15
 
 - Qualify IC Memory 0.41 in the unpublished consumer. Refuse frozen 0.40 ledger

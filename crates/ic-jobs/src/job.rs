@@ -243,10 +243,13 @@ impl Job {
                 missed,
             } => {
                 let delta = record.scheduled_ns - first_at_ns;
+                let intervals = delta / every_ns.get();
+                let occurrences = record.occurrence - record.schedule_origin;
                 if !delta.is_multiple_of(every_ns.get())
-                    || delta / every_ns.get() < record.occurrence - record.schedule_origin
-                    || (missed == MissedRunPolicy::CatchUp
-                        && delta / every_ns.get() != record.occurrence - record.schedule_origin)
+                    || match missed {
+                        MissedRunPolicy::CatchUp => intervals != occurrences,
+                        MissedRunPolicy::Skip => intervals < occurrences,
+                    }
                 {
                     return invalid();
                 }
