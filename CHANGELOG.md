@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.13.0]
+## [0.13.0] - 2026-10-15
 
 - **Breaking:** `start_next` returns `(index, attempt)` instead of the three-element
   tuple. Read the updated `jobs[index].record()` for durable intent and commit it
