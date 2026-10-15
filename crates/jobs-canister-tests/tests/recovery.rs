@@ -464,7 +464,10 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
         .pic
         .instance
         .retry_install_code(
-            RetryPolicy::try_new(4, Duration::from_secs(600)).unwrap(),
+            RetryPolicy::new(
+                std::num::NonZeroUsize::new(4).expect("non-zero install attempt limit"),
+                Duration::from_secs(600),
+            ),
             || {
                 fixture.pic.instance.upgrade_canister(
                     fixture.sender,

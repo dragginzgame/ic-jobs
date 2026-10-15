@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.11.1]
+
+- Prepare the private recovery harness for Testkit 0.45's non-zero retry policy
+  constructor, preserving four attempts and the ten-minute cooldown. Normal
+  adoption awaits the published Testkit release; job/runtime contracts are unchanged.
+
 ## [0.11.0] - 2026-10-15
 
 - **Breaking:** Replace `Scheduler` with `next_due_ns(&[Job])` and
