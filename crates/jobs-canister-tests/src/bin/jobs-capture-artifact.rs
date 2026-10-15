@@ -93,22 +93,13 @@ fn main() -> io::Result<ExitCode> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        path::PathBuf,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    #[cfg(unix)]
+    use ic_host_process::testing::write_executable_script;
+    use std::path::PathBuf;
 
     fn fixture() -> PathBuf {
-        let root = std::env::temp_dir().join(format!(
-            "jobs-capture-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        fs::create_dir(&root).unwrap();
-        root
+        ic_host_fs::testing::create_fixture_directory(&std::env::temp_dir(), "jobs-capture")
+            .unwrap()
     }
 
     #[test]
@@ -145,13 +136,11 @@ mod tests {
     }
     #[cfg(unix)]
     fn optimizer_fixture() -> (PathBuf, PathBuf, PathBuf) {
-        use std::os::unix::fs::PermissionsExt;
         let root = fixture();
         let source = root.join("frozen input.wasm");
         fs::write(&source, b"exact frozen bytes\n").unwrap();
         let optimizer = root.join("optimizer tool");
-        fs::write(&optimizer, b"#!/bin/sh\n[ \"$3\" = -o ] || exit 49\ncat \"$1\" > \"$4\"\nprintf '%s\\n' \"$2\" >> \"$4\"\necho optimizer-out\necho optimizer-err >&2\n").unwrap();
-        fs::set_permissions(&optimizer, fs::Permissions::from_mode(0o700)).unwrap();
+        write_executable_script(&optimizer, b"#!/bin/sh\n[ \"$3\" = -o ] || exit 49\ncat \"$1\" > \"$4\"\nprintf '%s\\n' \"$2\" >> \"$4\"\necho optimizer-out\necho optimizer-err >&2\n").unwrap();
         (root, source, optimizer)
     }
 
@@ -192,7 +181,7 @@ mod tests {
         let (root, source, optimizer) = optimizer_fixture();
         let failed = root.join("failed");
         fs::create_dir(&failed).unwrap();
-        fs::write(
+        write_executable_script(
             &optimizer,
             b"#!/bin/sh\necho partial > \"$4\"\necho failed >&2\nexit 37\n",
         )
@@ -214,7 +203,7 @@ mod tests {
         assert_eq!(fs::read(failed.join("optimizer.log")).unwrap(), b"failed\n");
         assert!(!failed.join("consumer.wasm").exists());
 
-        fs::write(&optimizer, b"#!/bin/sh\ncat \"$1\" > \"$4\"\n").unwrap();
+        write_executable_script(&optimizer, b"#!/bin/sh\ncat \"$1\" > \"$4\"\n").unwrap();
         let refused = root.join("refused");
         fs::create_dir(&refused).unwrap();
         let destination = refused.join("occupied");

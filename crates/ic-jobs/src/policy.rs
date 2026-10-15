@@ -159,6 +159,11 @@ impl RetryPolicy {
             .min(self.max_delay_ns)
     }
 
+    // Callers admit at least one failed attempt before calculating a retry.
+    pub(crate) fn retry_due_ns(self, failed_at_ns: u64, failed_attempts: u32) -> Option<u64> {
+        failed_at_ns.checked_add(self.delay(failed_attempts))
+    }
+
     pub(crate) fn elapsed_retry_delay(self, retries: u32) -> u128 {
         let mut elapsed = 0;
         let mut failure = 1;

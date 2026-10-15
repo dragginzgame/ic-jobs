@@ -15,7 +15,7 @@ ordered consumer extension `make install-release-tools` installs pinned cargo-ed
 0.13.13 with its set-version feature; `make release-tools-check` checks the
 selected executable without downloads. Versioned cargo-edit roots preserve older
 installations; the selected root precedes other executables in Make's PATH.
-Prepare Rust 1.88.0 and its Wasm target as described in the README, alongside
+Prepare Rust 1.91.0 and its Wasm target as described in the README, alongside
 the development toolchain and its Wasm target for consumer Clippy.
 
 Shared Make entrypoints require recipe execution and failure propagation.
@@ -77,7 +77,7 @@ reported separately from a dirty checkout.
 Package and dry-run checks intentionally permit working edits. The real upload
 does not. Package verification is included in configured CI and the complete
 release gate. The core and consumer-owned Timers paths are checked separately on Rust
-1.88; packaging with the development toolchain does not prove that floor.
+1.91; packaging with the development toolchain does not prove that floor.
 
 ## Release recovery
 

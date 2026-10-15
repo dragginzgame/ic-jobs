@@ -90,10 +90,6 @@ pub(crate) struct Committed<T> {
 }
 
 impl LoadedSnapshot {
-    fn next_due_ns(&self) -> Option<u64> {
-        next_due_ns(&self.jobs)
-    }
-
     fn index(&self, id: u64) -> Result<usize, Error> {
         self.jobs
             .iter()
@@ -149,14 +145,9 @@ fn receipt_key(delivery: &Delivery) -> (u64, u64) {
     (delivery.job, delivery.occurrence)
 }
 
-fn delivery(
-    id: JobId,
-    attempt: Attempt,
-    destination: Principal,
-    message: String,
-) -> Result<Delivery, Error> {
+fn delivery(attempt: Attempt, destination: Principal, message: String) -> Result<Delivery, Error> {
     Ok(Delivery {
-        job: u64::try_from(id.0).map_err(|_| Error::InvalidStorage)?,
+        job: u64::try_from(attempt.execution.job.0).map_err(|_| Error::InvalidStorage)?,
         occurrence: attempt.execution.occurrence,
         sequence: attempt.sequence,
         destination,
@@ -283,7 +274,7 @@ impl<M: Memory> Queue<M> {
             );
         }
         let snapshot = decode(cell.get())?;
-        let next_due_ns = snapshot.next_due_ns();
+        let next_due_ns = next_due_ns(&snapshot.jobs);
         Ok((
             Self {
                 cell,
@@ -309,7 +300,7 @@ impl<M: Memory> Queue<M> {
     }
 
     fn commit<T>(&mut self, snapshot: LoadedSnapshot, value: T) -> Result<Committed<T>, Error> {
-        let next_due_ns = snapshot.next_due_ns();
+        let next_due_ns = next_due_ns(&snapshot.jobs);
         let snapshot = snapshot.into_stored()?;
         let bytes = serde_json::to_vec(&snapshot).map_err(|_| Error::InvalidStorage)?;
         if bytes.len() > MAX_BYTES {
@@ -396,7 +387,7 @@ impl<M: Memory> Queue<M> {
 
     pub(crate) fn summary(&self) -> Result<(Option<u64>, u64, u64), Error> {
         let snapshot = self.load()?;
-        let next_due = snapshot.next_due_ns();
+        let next_due = next_due_ns(&snapshot.jobs);
         Ok((next_due, snapshot.counter, snapshot.receipts.len() as u64))
     }
 
@@ -410,7 +401,7 @@ impl<M: Memory> Queue<M> {
         let mut deliveries = vec![];
         let mut work = 0;
         for _ in 0..BATCH {
-            let Some((index, attempt, record)) =
+            let Some((index, attempt, _)) =
                 start_next(&mut snapshot.jobs, now).map_err(job_error)?
             else {
                 break;
@@ -433,13 +424,13 @@ impl<M: Memory> Queue<M> {
                 Task::Deliver {
                     destination,
                     message,
-                } => deliveries.push(delivery(record.id, attempt, *destination, message.clone())?),
+                } => deliveries.push(delivery(attempt, *destination, message.clone())?),
             }
         }
         let next_due_ns = if work > 0 {
             self.commit(snapshot, ())?.next_due_ns
         } else {
-            snapshot.next_due_ns()
+            next_due_ns(&snapshot.jobs)
         };
         // Mutated batches commit before effects escape; idle batches retain bytes.
         Ok((deliveries, work, next_due_ns))
@@ -449,12 +440,7 @@ impl<M: Memory> Queue<M> {
         let (job, mut task) = self.load()?.take_entry(id)?;
         let (attempt, destination, message) = active_delivery(&job, &mut task)?;
         // This owned row is discarded; transfer its payload without cloning.
-        delivery(
-            job.record().id,
-            attempt,
-            destination,
-            std::mem::take(message),
-        )
+        delivery(attempt, destination, std::mem::take(message))
     }
 
     pub(crate) fn finish(

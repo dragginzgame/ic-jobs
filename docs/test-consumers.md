@@ -2,7 +2,7 @@
 
 Run `make test-consumers` for two small application-owned consumers in
 [the integration fixture](../crates/ic-jobs/tests/consumers.rs). The target tests
-the public slice API and direct Timers composition on Rust 1.88, using the selected locked graph.
+the public slice API and direct Timers composition on Rust 1.91, using the selected locked graph.
 Configured CI also runs this target on the three supported hosts.
 
 These consumers exercise the public API without adding storage, payloads,
@@ -133,7 +133,7 @@ All decoded records still cross `Job::restore`; restored Running/Uncertain work
 stays blocked. It owns a new test installation rather than changing these native
 consumers' existing snapshots or any deployed format.
 
-`make check-consumer` runs native stable-memory tests, builds the Rust 1.88 Wasm,
+`make check-consumer` runs native stable-memory tests, builds the Rust 1.91 Wasm,
 compiles the separate Testkit harness and checks native/Wasm Clippy. Ordinary CI
 includes these checks without launching a server. Explicit Testkit CLI/server
 preparation and `make test-canister` select the live upgrade, rollback, watchdog

@@ -32,7 +32,7 @@ cat > "$fixture/.tools/rust/common/bin/rustc" <<'RUSTC'
 #!/usr/bin/env bash
 case "$*" in
     '--print sysroot') printf '%s\n' "$JOBS_CONSUMER_COMPILER" ;;
-    -vV) printf 'rustc fixture\nhost: fixture-host\nrelease: 1.88.0\n' ;;
+    -vV) printf 'rustc fixture\nhost: fixture-host\nrelease: 1.91.0\n' ;;
     *) printf 'unexpected rustc dispatch\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"; exit 49 ;;
 esac
 RUSTC
@@ -127,7 +127,7 @@ echo 'Invalid Wasm input refuses before attempt/server dispatch (real wrapper; s
 # producer is replaced during qualification. Only transforms/server effects are
 # substituted; flags, paths, hashes, logs and all dispatch plumbing are real.
 mkdir -p "$fixture/selected/bin" "$fixture/ic-bin" "$fixture/.tools/ic"
-target="$(cargo +1.88.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
+target="$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
 mkdir -p "$fixture/wasm/debug"
 cp "$fixture/input" "$input"
 capture="$fixture/wasm/debug/jobs-capture-artifact"
@@ -162,7 +162,7 @@ printf '%040d\n' 1
 GIT
 cat > "$fixture/.tools/rust/common/bin/rustc" <<'RUSTC'
 #!/usr/bin/env bash
-[[ "$*" == '+1.88.0 --version --verbose' ]] || exit 49
+[[ "$*" == '+1.91.0 --version --verbose' ]] || exit 49
 echo 'rustc fixture'
 RUSTC
 cat > "$fixture/ic-bin/wasm-opt" <<'OPTIMIZER'
@@ -182,7 +182,7 @@ variant="${5%/server.stdout}"; variant="${variant##*/}"
 printf 'server stdout\n' > "$5"
 printf 'server stderr\n' > "$7"
 shift 8
-[[ "$*" == 'cargo +1.88.0 test -p jobs-canister-tests --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture' ]] || exit 49
+[[ "$*" == 'cargo +1.91.0 test -p jobs-canister-tests --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture' ]] || exit 49
 printf '%s\n' "$IC_JOBS_CONSUMER_WASM" >> "$JOBS_CONSUMER_CAPTURED/paths"
 cp "$IC_JOBS_CONSUMER_WASM" "$JOBS_CONSUMER_CAPTURED/$variant.wasm"
 printf 'replaced mutable producer\n' > "$JOBS_CONSUMER_PRODUCER"

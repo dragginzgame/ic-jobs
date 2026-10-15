@@ -315,9 +315,10 @@ impl Job {
                                 .last_outcome_ns
                                 .is_none_or(|time| time < record.scheduled_ns)
                             || record.last_outcome != Some(Outcome::RetryableFailure)
-                            || record.last_outcome_ns.and_then(|time| {
-                                time.checked_add(record.retry.delay(record.attempts))
-                            }) != Some(due_ns)))
+                            || record
+                                .last_outcome_ns
+                                .and_then(|time| record.retry.retry_due_ns(time, record.attempts))
+                                != Some(due_ns)))
                 {
                     return invalid();
                 }
@@ -346,7 +347,7 @@ impl Job {
                                 || record
                                     .last_outcome_ns
                                     .and_then(|time| {
-                                        time.checked_add(record.retry.delay(record.attempts - 1))
+                                        record.retry.retry_due_ns(time, record.attempts - 1)
                                     })
                                     .is_none_or(|due| due > started_ns)))
                     {
@@ -389,7 +390,7 @@ impl Job {
                             .is_none_or(|time| time < record.scheduled_ns)
                         || record
                             .last_outcome_ns
-                            .and_then(|time| time.checked_add(record.retry.delay(record.attempts)))
+                            .and_then(|time| record.retry.retry_due_ns(time, record.attempts))
                             .is_none())
                 {
                     return invalid();
@@ -523,8 +524,9 @@ impl Job {
                 }
             }
             Outcome::RetryableFailure if next.attempts < next.retry.max_attempts() => {
-                let due_ns = now_ns
-                    .checked_add(next.retry.delay(next.attempts))
+                let due_ns = next
+                    .retry
+                    .retry_due_ns(now_ns, next.attempts)
                     .ok_or(JobError::DeadlineOverflow)?;
                 next.state = JobState::Pending { due_ns };
             }

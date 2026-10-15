@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.12.0]
+
+- **Breaking:** Require Rust 1.91 or newer for Jobs and its qualification
+  consumers. Prepare Rust 1.91.0 and its Wasm target before running the minimum
+  compiler checks. Native qualification uses IC Build 0.4.0.
+
+- Reuse IC Host's fixture-directory allocation and executable-script writer in
+  capture tests, retaining consumer-owned cleanup and failure evidence.
+
 ## [0.11.0] - 2026-10-15
 
 - **Breaking:** Replace `Scheduler` with `next_due_ns(&[Job])` and
