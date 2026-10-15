@@ -2,6 +2,9 @@
 
 ## [0.11.1]
 
+- Use fallible Candid calls with explicit fixture assertions; preserve inner
+  application results and prepare for Testkit 0.45's removed panic wrappers.
+
 - Prepare the private recovery harness for Testkit 0.45's non-zero retry policy
   constructor, preserving four attempts and the ten-minute cooldown. Normal
   adoption awaits the published Testkit release; job/runtime contracts are unchanged.
