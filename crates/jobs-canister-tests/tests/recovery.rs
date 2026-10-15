@@ -108,12 +108,12 @@ impl Fixture {
 }
 
 fn assert_canister_trap(error: CandidCallError) {
-    assert_eq!(
-        error
-            .reject_response
-            .as_ref()
-            .map(|reject| reject.error_code),
-        Some(ErrorCode::CanisterCalledTrap),
+    assert!(
+        matches!(
+            &error,
+            CandidCallError::CanisterReject { response, .. }
+                if response.error_code == ErrorCode::CanisterCalledTrap
+        ),
         "expected canister trap: {error:?}"
     );
 }

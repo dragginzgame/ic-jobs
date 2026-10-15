@@ -2,6 +2,9 @@
 
 ## [0.13.1]
 
+- Update recovery trap assertions for Testkit 0.47 structured call failures,
+  retaining exact canister-trap admission and full failure diagnostics.
+
 - Remove obsolete cargo-edit setup, admission and fixtures; use Shared metadata
   rendering directly while retaining common-tool and release failure checks.
 - Archive historical qualification receipts and reconcile current native acceptance

@@ -11,7 +11,7 @@ Release preparation now uses Shared's metadata renderer directly. Jobs no longer
 requires cargo-edit, a separate release-tool catalog or local setup/check targets.
 Common tool admission and metadata refusal/rollback boundaries remain in place.
 
-The graph selects Memory 0.42.0, Testkit 0.46.0, Timers 0.24.0, Build 0.6.0 and
+The graph selects Memory 0.42.0, Testkit 0.47.0, Timers 0.25.0, Build 0.7.0 and
 direct Host FS/Process 0.20.1. Rust floor is 1.91.0; development is 1.99.0.
 Incoming manifest/lock edits are preserved. Own versions, index, refs, release and
 publication remain maintainer-owned.
@@ -73,8 +73,12 @@ Jobs #50/#52 await reviewed publication and requalification on the current graph
 [Timers #64](https://github.com/dragginzgame/ic-timers/issues/64) retains the
 completed-batch watchdog proposal; current callers await upstream delivery.
 [Jobs draft PR #51](https://github.com/dragginzgame/ic-jobs/pull/51) now prepares
-Testkit **0.47** rejection assertions. Its earlier retry/Candid changes are already
-delivered; this remaining draft must wait for the new published contract.
+Testkit **0.47** rejection assertions. The selected registry graph now includes
+0.47.0; the working tree matches its `CanisterReject` variant and requires exactly
+`CanisterCalledTrap`, retaining the full error in diagnostics. Rust 1.91 recovery
+harness compilation, focused strict Clippy and formatting pass; receipts are in
+`target/qualification/testkit047-rejection/`. No live recovery ran. The draft is
+superseded by this local repair once delivered; it remains open until then.
 
 Earlier source-bound receipts and original tracker descriptions are preserved in
 [history through 0.13.0](history-through-0.13.0.md). See also the
