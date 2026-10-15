@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.11.0]
+## [0.11.0] - 2026-10-15
 
 - **Breaking:** Replace `Scheduler` with `next_due_ns(&[Job])` and
   `start_next(&mut [Job], now_ns)`. Update batch callers to the slice functions;
