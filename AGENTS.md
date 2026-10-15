@@ -14,7 +14,7 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
   Local focused checks include package tests, MSRV/Wasm checks and tooling
   fixtures; `make ci` is the full release suite. Live PocketIC qualification
   retains its separate explicit selection.
-- Rust floor: 1.88 for both core and optional timers. Qualify both separately.
+- Rust floor: 1.88 for core and consumer-owned Timers integration. Qualify both separately.
 - Host workflows support Linux and macOS Intel/Apple Silicon. Bind native
   qualification to its tested source; IC recovery evidence remains pending and
   native tests do not establish it.

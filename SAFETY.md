@@ -2,7 +2,7 @@
 
 IC Jobs owns checked transitions of one durable metadata record. Applications
 own its storage, payload, effect execution, authorization, clock and lifecycle.
-The optional timer adapter delegates runtime coordination to IC Timers.
+Applications delegate timer runtime coordination directly to IC Timers.
 
 ## Persistence and effects
 
@@ -99,8 +99,8 @@ retirement/reset of this repository's disposable 0.5 test installations. The
 canister fixture uses a distinct storage key; old bytes are not interpreted under
 the current layout, and this change does not erase retained memory itself.
 
-`Scheduler` borrows a bounded candidate batch of validated `Job` values. It
-derives pending deadlines afresh, starts one earliest due job through `Job::start`,
+`next_due_ns` reads a bounded candidate slice of validated `Job` values.
+`start_next` starts one earliest due job through `Job::start`
 and returns the exact Running record for the application's persistence boundary.
 It does not restore raw records, dispatch effects or admit unresolved jobs. On a
 selected job's transition error, all records remain unchanged and no other job
@@ -108,8 +108,8 @@ is started. The application owns unique job identities, batch bounds and its
 global due-time index; a batch's deadline describes only the jobs supplied.
 
 The core creates no threads, platform timers, handler registry or hidden storage.
-The timers feature reconstructs one consumer-owned watchdog and projects next
-deadlines into the canonical runtime. The callback remains synchronous and
+The application reconstructs its consumer-owned watchdog and projects next
+deadlines directly into IC Timers. The callback remains synchronous and
 bounded. Timer handles/claims are volatile and are never persisted as job authority.
 
 A callback budget does not bound the number of future catch-up callbacks or

@@ -219,7 +219,9 @@ export JOBS_CONSUMER_REAL_CAPTURE="$fixture/real-capture"
 cat > "$capture" <<'CAPTURE'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "$1" != */producer.wasm ]] || exit 47
+# Force final capture publication to fail after the real optimizer has run.
+# The binary must retain both its producer and IC Build's exact staging copy.
+if [[ "${3:-}" == --optimize ]]; then mkdir "$2"; fi
 exec "$JOBS_CONSUMER_REAL_CAPTURE" "$@"
 CAPTURE
 chmod +x "$capture"
@@ -228,7 +230,7 @@ cp "$fixture/input" "$input"
 status=0
 (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" RUNNER_TEMP="$fixture/failed-capture-evidence" \
  "$BASH" scripts/ci/test-canister.sh --optimized) > "$fixture/failed-capture.log" 2>&1 || status=$?
-[[ "$status" == 47 ]] || exit 1
+[[ "$status" == 1 ]] || exit 1
 evidence=("$fixture/failed-capture-evidence/"*)
 [[ ${#evidence[@]} == 1 && -f "${evidence[0]}/O3/producer.wasm" && ! -e "${evidence[0]}/O3/server.stdout" ]] || exit 1
 cmp "$fixture/input" "${evidence[0]}/jobs_test_consumer.wasm"

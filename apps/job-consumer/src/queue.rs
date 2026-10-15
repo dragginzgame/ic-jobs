@@ -3,7 +3,7 @@ use std::num::NonZeroU64;
 use candid::Principal;
 use ic_jobs::{
     Attempt, Job, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule,
-    Scheduler,
+    next_due_ns, start_next,
 };
 use ic_memory::{
     GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryManagerConfig,
@@ -91,7 +91,7 @@ pub(crate) struct Committed<T> {
 
 impl LoadedSnapshot {
     fn next_due_ns(&self) -> Option<u64> {
-        self.jobs.iter().filter_map(Job::next_due_ns).min()
+        next_due_ns(&self.jobs)
     }
 
     fn index(&self, id: u64) -> Result<usize, Error> {
@@ -162,6 +162,21 @@ fn delivery(
         destination,
         message,
     })
+}
+
+fn active_delivery<'task>(
+    job: &Job,
+    task: &'task mut Task,
+) -> Result<(Attempt, Principal, &'task mut String), Error> {
+    let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
+    let Task::Deliver {
+        destination,
+        message,
+    } = task
+    else {
+        return Err(Error::InvalidInput);
+    };
+    Ok((attempt, *destination, message))
 }
 
 // The host owns one allocation pool/bootstrap. Cell persists the application
@@ -395,9 +410,8 @@ impl<M: Memory> Queue<M> {
         let mut deliveries = vec![];
         let mut work = 0;
         for _ in 0..BATCH {
-            let Some((index, attempt, record)) = Scheduler::new(&mut snapshot.jobs)
-                .start_next(now)
-                .map_err(job_error)?
+            let Some((index, attempt, record)) =
+                start_next(&mut snapshot.jobs, now).map_err(job_error)?
             else {
                 break;
             };
@@ -432,16 +446,15 @@ impl<M: Memory> Queue<M> {
     }
 
     pub(crate) fn outstanding(&self, id: u64) -> Result<Delivery, Error> {
-        let (job, task) = self.load()?.take_entry(id)?;
-        let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
-        let Task::Deliver {
+        let (job, mut task) = self.load()?.take_entry(id)?;
+        let (attempt, destination, message) = active_delivery(&job, &mut task)?;
+        // This owned row is discarded; transfer its payload without cloning.
+        delivery(
+            job.record().id,
+            attempt,
             destination,
-            message,
-        } = task
-        else {
-            return Err(Error::InvalidInput);
-        };
-        delivery(job.record().id, attempt, destination, message)
+            std::mem::take(message),
+        )
     }
 
     pub(crate) fn finish(
@@ -453,20 +466,12 @@ impl<M: Memory> Queue<M> {
         let mut snapshot = self.load()?;
         let index = snapshot.index(delivery.job)?;
         let job = &mut snapshot.jobs[index];
-        let task = &snapshot.tasks[index];
-        let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
-        let Task::Deliver {
-            destination,
-            message,
-        } = task
-        else {
-            return Err(Error::InvalidInput);
-        };
+        let (attempt, destination, message) = active_delivery(job, &mut snapshot.tasks[index])?;
         let id = u64::try_from(job.record().id.0).map_err(|_| Error::InvalidStorage)?;
         if delivery.job != id
             || delivery.occurrence != attempt.execution.occurrence
             || delivery.sequence != attempt.sequence
-            || delivery.destination != *destination
+            || delivery.destination != destination
             || delivery.message != *message
         {
             return Err(Error::ReceiptMismatch);
@@ -524,12 +529,9 @@ impl<M: Memory> Queue<M> {
     // Normal readers, including post_upgrade, reject malformed configuration
     // during bounded decoding before the aggregate Job::restore boundary.
     pub(crate) fn corrupt_record(&mut self, id: u64) -> Result<(), Error> {
-        let snapshot = self.load()?.into_stored()?;
-        let index = snapshot
-            .jobs
-            .iter()
-            .position(|entry| entry.job.id == JobId(u128::from(id)))
-            .ok_or(Error::UnknownJob)?;
+        let snapshot = self.load()?;
+        let index = snapshot.index(id)?;
+        let snapshot = snapshot.into_stored()?;
         let mut encoded = serde_json::to_value(snapshot).map_err(|_| Error::InvalidStorage)?;
         encoded["jobs"][index]["job"]["retry"]["max_attempts"] = 0.into();
         self.cell

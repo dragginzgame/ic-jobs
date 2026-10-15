@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.11.0]
+
+- **Breaking:** Replace `Scheduler` with `next_due_ns(&[Job])` and
+  `start_next(&mut [Job], now_ns)`. Update batch callers to the slice functions;
+  ordering, transition errors and returned dispatch records are unchanged.
+- **Breaking:** Remove the `timers` feature and adapter module. Applications
+  depend on IC Timers directly for watchdog reconciliation and completion.
+  Job records and effect-reconciliation rules are unchanged.
+- Produce optimized qualification artifacts through the Rust capture tool,
+  reusing IC Build's retained-capture finalization. Preserve optimizer flags,
+  failed producers and diagnostics; retire producers only after successful capture.
+
+- Separate native consumer fixtures from scenarios, reuse admitted corruption
+  lookup, and centralize Testkit CLI selection in developer Make targets.
+- Share native notification lookup and consumer dispatch reconciliation while
+  preserving caller-specific errors, authorization and fault boundaries.
+- Share active-delivery extraction and committed-envelope launching in the test
+  consumer, and remove the empty host qualification library target.
+- Select IC Memory 0.39 and IC Testkit 0.44 for development consumers. Adapting
+  the frozen storage-image qualification and recovery harness remains pending.
+
 ## [0.10.4] - 2026-10-14
 
 - Centralize consumer deadline derivation and Candid reply decoding while keeping

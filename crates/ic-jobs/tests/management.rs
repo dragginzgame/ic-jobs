@@ -1,7 +1,7 @@
 //! Durable management keeps effect identity and independent timing evidence.
 use ic_jobs::{
     Job, JobError, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule,
-    Scheduler,
+    next_due_ns, start_next,
 };
 
 fn restore(job: &Job) -> Job {
@@ -27,8 +27,8 @@ fn pause_restore_resume_preserves_overdue_policy_and_scheduler_exclusion() {
         let mut job = recurring(missed);
         job.pause(50).unwrap();
         let mut jobs = [restore(&job)];
-        assert_eq!(Scheduler::new(&mut jobs).next_due_ns(), None);
-        assert_eq!(Scheduler::new(&mut jobs).start_next(200), Ok(None));
+        assert_eq!(next_due_ns(&jobs), None);
+        assert_eq!(start_next(&mut jobs, 200), Ok(None));
         jobs[0].resume(200).unwrap();
         assert_eq!(restore(&jobs[0]).next_due_ns(), Some(100));
         let attempt = jobs[0].start(200).unwrap();

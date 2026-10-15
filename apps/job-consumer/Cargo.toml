@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 candid.workspace = true
-ic-jobs = { workspace = true, features = ["timers"] }
+ic-jobs.workspace = true
 ic-memory.workspace = true
 ic-timers.workspace = true
 serde = { workspace = true, features = ["derive"] }

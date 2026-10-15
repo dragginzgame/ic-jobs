@@ -3,10 +3,11 @@ use std::{
     time::Duration,
 };
 
-use ic_jobs::{Outcome, timers};
+use ic_jobs::Outcome;
 use ic_memory::ic_stable_structures::DefaultMemoryImpl;
 use ic_timers::{
-    TimerCadence, TimerCompletion, TimerIdentity, WatchdogRegistration, WatchdogRunResult,
+    TimerCadence, TimerCompletion, TimerIdentity, WatchdogDecision, WatchdogReconcileState,
+    WatchdogRegistration, WatchdogRunResult, reconcile_watchdog,
 };
 
 use crate::{
@@ -48,7 +49,7 @@ fn update_queue<T>(
 
 fn reconcile_at(due: Option<u64>) {
     WATCHDOG.with(|watchdog| {
-        required(timers::reconcile(
+        required(reconcile_watchdog(
             &mut watchdog.borrow_mut(),
             &required(TimerIdentity::try_new(
                 "jobs-test-consumer",
@@ -56,7 +57,10 @@ fn reconcile_at(due: Option<u64>) {
                 "dispatch",
             )),
             required(TimerCadence::new(Duration::from_secs(1))),
-            due,
+            due.map_or(
+                WatchdogReconcileState::Inactive,
+                WatchdogReconcileState::ScheduledAt,
+            ),
             |_| wake(),
         ))
     });
@@ -158,6 +162,12 @@ async fn deliver(delivery: Delivery) {
     ));
 }
 
+fn launch_deliveries(deliveries: Vec<Delivery>) {
+    for delivery in deliveries {
+        ic_cdk::futures::spawn(deliver(delivery));
+    }
+}
+
 fn wake() -> WatchdogRunResult {
     let (deliveries, work, due) = required(with_queue(|queue| queue.dispatch(ic_cdk::api::time())));
     if work > 0 && TRAP_WATCHDOG_BATCH.with(Cell::get) {
@@ -165,28 +175,31 @@ fn wake() -> WatchdogRunResult {
         // external delivery escapes before this deliberate rollback boundary.
         ic_cdk::trap("fixture: watchdog trap after stable batch write");
     }
-    for delivery in deliveries {
-        ic_cdk::futures::spawn(deliver(delivery));
-    }
+    launch_deliveries(deliveries);
     let completion = if work == 0 {
         TimerCompletion::no_work()
     } else {
         // Work units count handled attempts, not successful external effects.
         TimerCompletion::success(work)
     };
-    timers::complete_batch(completion, due)
+    WatchdogRunResult::new(
+        completion,
+        due.map_or(WatchdogDecision::Stop, WatchdogDecision::ScheduleAt),
+    )
 }
 
 #[ic_cdk::update]
 fn dispatch_due() -> Result<(), Error> {
     authorize()?;
+    launch_deliveries(dispatch_reconciled()?);
+    Ok(())
+}
+
+fn dispatch_reconciled() -> Result<Vec<Delivery>, Error> {
     let (deliveries, _, due) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
     // Timer refusal still traps the stable write's segment before delivery escapes.
     reconcile_at(due);
-    for delivery in deliveries {
-        ic_cdk::futures::spawn(deliver(delivery));
-    }
-    Ok(())
+    Ok(deliveries)
 }
 
 #[ic_cdk::update]
@@ -264,8 +277,7 @@ fn fixture_mark_uncertain(id: u64) -> Result<(), Error> {
 #[ic_cdk::update]
 async fn fixture_dispatch_trap_result(input: Create) -> Result<(), Error> {
     create(input)?;
-    let (deliveries, _, due) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
-    reconcile_at(due);
+    let deliveries = dispatch_reconciled()?;
     // Intent commits at the real inter-canister call boundary. The receipt lives
     // at the destination; a later sender trap cannot roll back that earlier call.
     if let Some(delivery) = deliveries.into_iter().next() {
@@ -288,8 +300,7 @@ fn fixture_create_blocked(input: Create) -> Result<u64, Error> {
     let id = create(input)?;
     // Simulate interruption after committed intent but before dispatch. This
     // endpoint never sends an envelope or claims an absent receipt is retry safe.
-    let (_, _, due) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
-    reconcile_at(due);
+    dispatch_reconciled()?;
     Ok(id)
 }
 

@@ -76,7 +76,7 @@ reported separately from a dirty checkout.
 
 Package and dry-run checks intentionally permit working edits. The real upload
 does not. Package verification is included in configured CI and the complete
-release gate. The core and optional timer paths are checked separately on Rust
+release gate. The core and consumer-owned Timers paths are checked separately on Rust
 1.88; packaging with the development toolchain does not prove that floor.
 
 ## Release recovery

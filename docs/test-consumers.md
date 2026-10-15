@@ -2,7 +2,7 @@
 
 Run `make test-consumers` for two small application-owned consumers in
 [the integration fixture](../crates/ic-jobs/tests/consumers.rs). The target tests
-core and optional timers separately on Rust 1.88, using the selected locked graph.
+the public slice API and direct Timers composition on Rust 1.88, using the selected locked graph.
 Configured CI also runs this target on the three supported hosts.
 
 These consumers exercise the public API without adding storage, payloads,
@@ -31,7 +31,7 @@ successful execution takes precedence over an earlier rejected attempt. Stale
 attempt evidence cannot resolve the current dispatch. Exhausting the original
 retry budget leaves the job terminal rather than allocating another attempt.
 
-The notification queue supplies all its bounded records to `Scheduler`, so the
+The notification queue supplies all its bounded records to `next_due_ns`, so the
 derived deadline covers its earliest pending work. Equal deadlines retain queue
 order. Enqueue and cancellation update the committed queue before the application
 derives its wakeup again. Duplicate identities and excess records are rejected on
@@ -43,8 +43,8 @@ receipt alone does not establish retry safety.
 
 Cache maintenance has only local effects, so it commits the pruned entries and
 completed job transition in the same replacement. A failed replacement commits
-neither. Its bounded wake result uses `timers::complete_batch` when timers are
-enabled. Tests check future and overdue scheduling decisions and stopping after
+neither. Its bounded wake result constructs a direct IC Timers decision.
+Tests check future and overdue scheduling decisions and stopping after
 cancellation; the native fixture does not call the IC timer provider.
 The store can also refuse the second write in a batch. The first committed
 occurrence survives; reconstruction resumes at the second occurrence without

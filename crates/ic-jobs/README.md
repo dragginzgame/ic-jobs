@@ -1,8 +1,8 @@
 # IC Jobs
 
 Durable job metadata and scheduling policies for Internet Computer applications.
-Applications own persistence and effects; IC Jobs validates metadata transitions
-and offers an optional adapter to IC Timers.
+Applications own persistence, effects and IC Timers integration; IC Jobs
+validates metadata transitions and selects due work from bounded slices.
 
 ## Use
 
@@ -78,19 +78,19 @@ this cut requires no stable-memory reset. See
 
 ## Scheduling a batch
 
-`Scheduler` borrows a bounded batch of application-owned jobs, derives its next
-pending deadline, and starts one earliest due attempt at a time. It leaves storage,
+`next_due_ns` reads a bounded slice of application-owned jobs, and `start_next`
+starts one earliest due attempt from a mutable slice. They leave storage,
 payload lookup, effect execution and completion persistence with the application.
 
 ```rust
-use ic_jobs::{Job, JobId, RetryPolicy, Schedule, Scheduler};
+use ic_jobs::{Job, JobId, RetryPolicy, Schedule, next_due_ns, start_next};
 
 let mut jobs = [
     Job::new(JobId(1), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE),
     Job::new(JobId(2), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE),
 ];
-assert_eq!(Scheduler::new(&mut jobs).next_due_ns(), Some(100));
-if let Some((index, attempt, running_record)) = Scheduler::new(&mut jobs).start_next(100)? {
+assert_eq!(next_due_ns(&jobs), Some(100));
+if let Some((index, attempt, running_record)) = start_next(&mut jobs, 100)? {
     assert_eq!(index, 1); // Position in this batch, not a durable identity.
     assert_eq!(attempt.execution.job, JobId(2));
     // Commit running_record with the payload/index before dispatching the effect.
@@ -124,14 +124,16 @@ under the same effect identity.
 
 ## Timer integration
 
-Enable the `timers` feature for the optional IC Timers adapter. Applications own
+Depend on IC Timers directly when the application needs wakeups. Applications own
 the volatile watchdog, lifecycle initialization, bounded callbacks and any
 consumer-owned asynchronous delivery continuation. This crate supplies no stable
 storage, global queue, handler registry or exactly-once effects.
 
 After committing records and due-time index changes, pass the earliest pending
-deadline to `timers::reconcile`. A bounded callback returns `timers::complete_batch`
-with its actual completion classification and new deadline. Reconcile after job
+deadline to `ic_timers::reconcile_watchdog`, mapping `None` to
+`WatchdogReconcileState::Inactive` and a deadline to `ScheduledAt`. A bounded
+callback returns `WatchdogRunResult::new` with its actual completion classification
+and `WatchdogDecision::Stop` or `ScheduleAt` for the new deadline. Reconcile after job
 insertion or management; after upgrades, restore all records and reconstruct the
 watchdog synchronously before downstream hooks. Unresolved effects need a separate
 application reconciliation workflow. Watchdog callbacks cannot await: external
@@ -145,7 +147,7 @@ it cannot make a permanently failing handler progress. Dispose of known no-effec
 handler failures through the job's exact attempt, retaining fail-closed handling
 for corrupt storage and unresolved external effects.
 
-The optional adapter uses IC Timers 0.22. Align direct timer dependencies and all
+The qualification consumer uses IC Timers 0.22. Align timer dependencies and all
 timer owners in the canister to that package identity. For exchanged measurement
 summaries, use `ic_timers::MeasurementSummary` to share Timers' selected Metrics
 package identity. Direct Metrics dependencies sharing those types must select 0.9.
@@ -158,7 +160,15 @@ empty and releases the new callback; retry can install the callback supplied
 by that retry. Later failures retain existing authority. The instruction-summary
 type selects Metrics 0.9; use the Timers re-export when exchanging summaries.
 
-The package requires Rust 1.88, with or without the optional timers feature.
+## 0.11 API cut
+
+Replace `Scheduler::new(&mut jobs).start_next(now)` with
+`start_next(&mut jobs, now)` and use `next_due_ns(&jobs)` for deadline reads.
+Remove `features = ["timers"]` from the Jobs dependency. Call IC Timers directly
+as described above; the `ic_jobs::timers` module is removed. This cut preserves
+the Jobs stored-record layout, job identities and transition behavior.
+
+The package and its qualification consumer require Rust 1.88.
 See the [repository guide](https://github.com/dragginzgame/ic-jobs) and
 [safety contract](https://github.com/dragginzgame/ic-jobs/blob/main/SAFETY.md)
 for the complete persistence and recovery obligations.

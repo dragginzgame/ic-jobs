@@ -87,7 +87,9 @@ make test-canister
 To qualify the selected Binaryen optimizer against the same seven live recovery
 scenarios, explicitly prepare it with `make install-ic-tools`, then run
 `make test-canister-optimized`. This tests the original Wasm and its `-O3`, `-Os`
-and `-Oz` outputs using the input's declared Wasm features. It
+and `-Oz` outputs using the input's declared Wasm features. The Rust capture tool
+owns each optimizer invocation, its log, exact capture and producer retirement;
+IC Build owns capture finalization and retained-path errors. It
 retains every input/output, hash, optimizer log and per-variant test/server log.
 Failures stop before later variants and retain earlier evidence. This target
 uses the unpublished host harness's `jobs-capture-artifact` executable, backed by

@@ -45,15 +45,10 @@ for variant in "${variants[@]}"; do
         export IC_JOBS_CONSUMER_WASM="$evidence/jobs_test_consumer.wasm"
     else
         export IC_JOBS_CONSUMER_WASM="$evidence/$variant/jobs_test_consumer.wasm"
-        # Respect the input's declared features; do not enable unrelated Wasm
-        # proposals or change the normal product build.
-        "$bin/wasm-opt" "$evidence/jobs_test_consumer.wasm" "-$variant" \
-            -o "$evidence/$variant/producer.wasm" \
-            > "$evidence/$variant/optimizer.log" 2>&1
-        "$capture" "$evidence/$variant/producer.wasm" "$IC_JOBS_CONSUMER_WASM"
-        # The retained capture owns the qualified bytes. Failed captures leave
-        # the optimizer producer intact; successful ones need only one copy.
-        rm -- "$evidence/$variant/producer.wasm"
+        # The Rust tool preserves the exact optimizer arguments, producer/log
+        # custody and capture-before-cleanup order. It enables no extra features.
+        "$capture" "$evidence/jobs_test_consumer.wasm" "$IC_JOBS_CONSUMER_WASM" \
+            --optimize "$bin/wasm-opt" "-$variant"
     fi
     bash scripts/ci/verify-file-checksum.sh --print sha256 "$IC_JOBS_CONSUMER_WASM" \
         > "$evidence/$variant/consumer-wasm.sha256"

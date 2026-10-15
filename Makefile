@@ -5,6 +5,7 @@ LOCAL_TOOL_CHECK_TARGETS := release-tools-check
 override SHARED_TOOLING_ROOT := $(CURDIR)
 include make/consumer.mk
 CARGO_EDIT_TOOL = bash scripts/dev/install-rust-tools.sh --package cargo-edit --version "$(shell . ci/release-tools.env && printf '%s' "$$IC_JOBS_CARGO_EDIT_VERSION")" --bin cargo-set-version --profile release
+TESTKIT_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release
 VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
 	--input .shared-tooling.snapshot --input Makefile --input ci/tool-versions.env \
 	--input ci/ic-tools.tsv --input ci/release-tools.env \
@@ -40,8 +41,7 @@ test-jobs:
 	+cargo test -p ic-jobs --test jobs --test management --test transition_restore --test configuration --test retry_time --all-features --locked --offline
 
 test-consumers:
-	+cargo +1.88.0 test -p ic-jobs --test consumers --no-default-features --locked --offline
-	+cargo +1.88.0 test -p ic-jobs --test consumers --all-features --locked --offline
+	+cargo +1.88.0 test -p ic-jobs --test consumers --locked --offline
 
 .PHONY: check-consumer build-consumer install-testkit-tools testkit-tools-check install-consumer-server consumer-server-check test-canister test-canister-optimized
 check-consumer:
@@ -60,16 +60,16 @@ build-recovery-tools:
 	+cargo +1.88.0 build -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
 
 install-testkit-tools:
-	+bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release
+	+$(TESTKIT_TOOL)
 
 testkit-tools-check:
-	+bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --check
+	+$(TESTKIT_TOOL) --check
 
 install-consumer-server: testkit-tools-check
-	+@cli="$$(bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --check)" && "$$cli" setup
+	+@cli="$$( $(TESTKIT_TOOL) --check )" && "$$cli" setup
 
 consumer-server-check: testkit-tools-check
-	+@cli="$$(bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --check)" && "$$cli" check
+	+@cli="$$( $(TESTKIT_TOOL) --check )" && "$$cli" check
 
 # Only this explicitly selected target launches PocketIC. Admission precedes
 # artifact compilation; normal CI compiles the harness without executing it.
@@ -81,11 +81,11 @@ test-canister test-canister-optimized: consumer-server-check
 
 check-msrv:
 	+cargo +1.88.0 check -p ic-jobs --lib --locked --offline
-	+cargo +1.88.0 check -p ic-jobs --lib --all-features --locked --offline
+	+cargo +1.88.0 check -p ic-jobs --test consumers --locked --offline
 
 check-wasm:
 	+cargo +1.88.0 check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline
-	+cargo +1.88.0 check -p ic-jobs --lib --all-features --target wasm32-unknown-unknown --locked --offline
+	+cargo +1.88.0 check -p jobs-test-consumer --lib --target wasm32-unknown-unknown --locked --offline
 
 clippy:
 	+cargo clippy -p ic-jobs --all-targets --all-features --locked --offline -- -D warnings
