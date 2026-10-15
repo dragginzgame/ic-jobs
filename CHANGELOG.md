@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.12.1]
+## [0.12.1] - 2026-10-15
 
 - Qualify IC Memory 0.41 in the unpublished consumer. Refuse frozen 0.40 ledger
   images without writes or reset; retained installations require explicit owner
