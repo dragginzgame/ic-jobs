@@ -33,6 +33,14 @@ approved retirement/reset of the disposable 0.5 installations for this hard cut;
 create fresh 0.6 fixtures. Upgrading old retained state is unsupported and must
 not reuse its discriminator or allocation as though its format were unchanged.
 
+IC Memory 0.39 also changes the physical ledger envelope to one current snapshot.
+The frozen 0.7.5 two-slot image is deliberately refused during both recovery and
+installation, with zero stable writes. The separate frozen Jobs JSON fixture
+still reopens on fresh current-format memory and retains blocked effects. This
+does not establish an upgrade path for old physical images: their owner must
+explicitly dispose of or preserve retained state before adopting the new ledger.
+There is no compatibility reader, automatic reset or rewrite of historical bytes.
+
 `Increment` performs a local counter effect and completes its job in one stable
 replacement. A counter overflow has no effect and permanently fails that job,
 including recurrence, without undoing unrelated attempts in the bounded batch.

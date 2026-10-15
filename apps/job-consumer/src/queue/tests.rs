@@ -808,7 +808,7 @@ fn raw_invalid_intervals_preserve_storage_and_unknown_job_precedence() {
 }
 
 #[test]
-fn released_075_stable_memory_image_opens_with_the_same_allocation_and_cell() {
+fn released_075_two_slot_memory_is_refused_without_writes_or_reset() {
     // Sparse nonzero runs are a lossless fixture representation of the old
     // producer's complete VectorMemory, including allocator and cell headers.
     #[derive(Deserialize)]
@@ -821,7 +821,14 @@ fn released_075_stable_memory_image_opens_with_the_same_allocation_and_cell() {
     let frozen: FrozenMemory =
         serde_json::from_str(include_str!("fixtures/stable-image-075.json")).unwrap();
     assert_eq!(frozen.producer, "060fb9d226389bab702132ba23f42bd0b887a690");
-    let memory = VectorMemory::default();
+    // The frozen Jobs payload remains valid; the incompatible outer Memory
+    // ledger must be refused before publishing any allocation or overwriting it.
+    decode(frozen.snapshot.as_bytes()).unwrap();
+    let backing = VectorMemory::default();
+    let memory = CountedMemory {
+        backing,
+        writes: std::rc::Rc::new(std::cell::Cell::new(0)),
+    };
     assert_eq!(memory.grow(frozen.pages), 0);
     for (offset, encoded) in frozen.runs {
         assert_eq!(encoded.len() % 2, 0);
@@ -831,19 +838,15 @@ fn released_075_stable_memory_image_opens_with_the_same_allocation_and_cell() {
             .collect::<Vec<_>>();
         memory.write(offset, &bytes);
     }
-    let mut queue = Queue::open(memory.clone(), None).unwrap().0;
-    assert_eq!(queue.cell.get(), frozen.snapshot.as_bytes());
-    assert_eq!(queue.summary().unwrap(), (Some(200), 0, 0));
-    assert_eq!(queue.inspect(1).unwrap().status, Status::Uncertain);
-    // MemoryRuntime republishes its allocation ledger on reopen. The existing
-    // allocation and Jobs cell stay retained; no fresh installation is selected.
-    assert_eq!(memory.size(), frozen.pages);
-    assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1, Some(210)));
-    assert_eq!(queue.inspect(1).unwrap().status, Status::Uncertain);
-    drop(queue);
-    let queue = Queue::open(memory, None).unwrap().0;
-    assert_eq!(queue.summary().unwrap(), (Some(210), 5, 0));
-    assert_eq!(queue.inspect(1).unwrap().status, Status::Uncertain);
+    memory.writes.set(0);
+    for initial in [None, Some(config())] {
+        assert!(matches!(
+            Queue::open(memory.clone(), initial),
+            Err(Error::Memory(_))
+        ));
+        assert_eq!(memory.writes.get(), 0);
+        assert_eq!(memory.size(), frozen.pages);
+    }
 }
 
 #[derive(Clone)]

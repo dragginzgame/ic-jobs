@@ -3,6 +3,7 @@
 ## Source and pending work
 
 Delivered source: Jobs **0.10.4**, `a4a58d18895a2536754216cb665e5efa811b4d01`.
+The current 0.11 preparation source is `5e73064`, with the focused fixes below.
 The pending changelog is **0.11.0** because the public batch API and timer feature
 are removed in a hard cut. Own package versions, staged work, Git refs, release
 and publication remain maintainer-owned; no release or upload ran.
@@ -19,16 +20,16 @@ capture owner. Jobs still selects original/O3/Os/Oz and PocketIC qualification.
 Failed optimizer/capture attempts retain producer evidence; successful capture
 retires only its producer. Hashing uses the reviewed shared checksum helper.
 
-The final graph selects Memory 0.39.0, Testkit 0.44.0, Timers 0.22.6 and Build
-0.3.3. A concurrent edit selected Testkit 0.44 and Host 0.18.4 during this task;
-it is preserved and excluded from task-attributed changes. Earlier `before/`
-and un-suffixed logs retain the Testkit 0.43 graph. Final `*-044.log` evidence
-records the updated graph. The reviewed Shared Tooling snapshot remains 0.12.7.
+The current graph selects Memory 0.39.0, Testkit 0.44.0, Timers 0.23.0 and Build
+0.3.3. The admission repair preserves all dependency selections. Prior API-cut
+`before/` and un-suffixed logs retain the Testkit 0.43 graph; its `*-044.log`
+evidence records Testkit 0.44 with Timers 0.22.6. Those receipts do not qualify
+the current Timers 0.23 graph. The reviewed Shared Tooling snapshot remains 0.12.7.
 
 ## Current proof and blockers
 
-Evidence: `target/qualification/011-cut/`, including the before tree, selected
-source hashes and logs. Focused checks cover 45 core tests, 19 native consumer
+Earlier API-cut evidence: `target/qualification/011-cut/`, including the before
+tree, selected source hashes and logs. Its focused checks cover 45 core tests, 19 native consumer
 scenarios, five capture tests, Rust 1.88 core/consumer native and Wasm floors,
 release Wasm, strict Clippy and rustdoc. The substituted recovery wrapper passes
 on Bash 5 and genuine Bash 3.2, including optimizer arguments, frozen originals,
@@ -37,11 +38,20 @@ The prepared Binaryen executable also produced all three optimized variants from
 the real consumer Wasm; final artifact/tool hashes are under `binaryen-044/`.
 The original `binaryen/` evidence remains bound to its earlier graph.
 
-Two incoming dependency-adoption failures remain, with fresh logs in that evidence:
-Memory 0.39 rejects the frozen 0.7.5 image's `slot0` ledger field (22 consumer tests
-pass, one fails), and Testkit 0.44 does not export the harness's `PocketIcTimeExt`
-(recovery harness compilation fails). Frozen bytes and selected dependencies are
-preserved. Earlier successful checks do not qualify this graph for either gate.
+The earlier Memory/Testkit failures are repaired in
+`target/qualification/memory039-admission/`. All 23 consumer tests, five capture
+tests, release Wasm, recovery harness compilation and native/Wasm Clippy pass via
+`make check-consumer`. The frozen two-slot image is now qualified for refusal on
+Memory 0.39, with zero stable writes and unchanged pages during both recovery and
+installation requests. The separate frozen Jobs JSON still reopens on current
+memory and retains blocked effects. No image was rewritten and no reset was run.
+Retained pre-cut installations still need explicit owner disposition.
+
+The recovery harness reads native PocketIC nanoseconds directly and uses Testkit's
+public rejection field. These are compilation checks; no live test was selected.
+The initial failed attempt and prior failing logs remain with their source scope.
+Current-graph native consumer tests and Rust 1.88 native/Wasm floor checks also
+pass; the two frozen inputs, Cargo manifests and lockfile retain their exact hashes.
 
 Prior focused evidence remains in `target/qualification/consumer-layout-cleanup/`,
 `target/qualification/dispatch-lookup-cleanup/`,

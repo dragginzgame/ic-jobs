@@ -18,8 +18,11 @@
   preserving caller-specific errors, authorization and fault boundaries.
 - Share active-delivery extraction and committed-envelope launching in the test
   consumer, and remove the empty host qualification library target.
-- Select IC Memory 0.39 and IC Testkit 0.44 for development consumers. Adapting
-  the frozen storage-image qualification and recovery harness remains pending.
+- Qualify IC Memory 0.39's refusal of frozen two-slot images without stable
+  writes or implicit reset. Frozen Jobs JSON still reopens on current-format
+  memory; retained pre-cut installations require their owner's explicit disposition.
+- Update the recovery harness to IC Testkit 0.44's direct clock and rejection
+  fields, removing calls to the retired convenience APIs.
 
 ## [0.10.4] - 2026-10-14
 

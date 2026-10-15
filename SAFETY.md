@@ -52,6 +52,12 @@ fails at decoding; valid 0.7 records retain their existing serialized shape and
 need no reset for the 0.8 source API cut. The consumer's bounded JSON codec is
 qualified against independently frozen 0.7.5 records and a reopened stable cell;
 consumers with other codecs own their retained-byte qualification.
+
+That JSON guarantee does not cover IC Memory's physical ledger envelope.
+Memory 0.39 refuses pre-cut two-slot images without writing, including when
+installation is requested. Retained installations need explicit owner disposition;
+this repository supplies no compatibility reader, automatic reset or migration.
+
 The retry writer and checked reader retain the same public Serde structure name
 `RetryPolicy`, including formats that preserve names. The private admission
 projection does not define another wire identity; constructor checks still own
