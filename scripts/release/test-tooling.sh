@@ -9,9 +9,7 @@ root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
 # shellcheck source=scripts/ci/fixture-lifecycle.sh
 source "$root/scripts/ci/fixture-lifecycle.sh"
-fixture="$(mktemp -d "${TMPDIR:-/tmp}/jobs-release-tooling.XXXXXX")"
-fixture="$(cd -P "$fixture" && printf '%s/.' "$PWD")"
-fixture="${fixture%/.}"
+fixture="$(fixture_create "${TMPDIR:-/tmp}/jobs-release-tooling.XXXXXX")"
 fixture_complete=false
 finish() {
     fixture_finish "$?" "$fixture" "Failed release tooling fixture retained"
@@ -44,30 +42,8 @@ done
 # Contradict the first observed command status in each actual fixture. Bash 3.2
 # can ignore a bare [[ ... ]] failure, continue, and delete the evidence after
 # reaching completion; these mandatory checks must explicitly stop the fixture.
-export TOOLING_ASSERTION_ROOT="$root" TOOLING_ASSERTION_PATH="$fixture/assertion-path"
 for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh; do
-    awk '
-        { line=$0 }
-        /^root="\$\{root%\/\.\}"$/ { line="root=\"$TOOLING_ASSERTION_ROOT\"" }
-        /^trap finish EXIT$/ {
-            print line
-            print "printf \"%s\\n\" \"$fixture\" > \"$TOOLING_ASSERTION_PATH\""
-            print "printf \"retained assertion evidence\\n\" > \"$fixture/assertion-evidence\""
-            next
-        }
-        !injected && /^[[:space:]]*\[\[ "\$status" == / {
-            sub(/== .* \]\]/, "== 97 ]]", line)
-            injected=1
-        }
-        { print line }
-        END { if (!injected) exit 1 }
-    ' "$root/$relative" > "$fixture/exit-source/$relative"
-    status=0
-    TMPDIR="$fixture" "$BASH" "$fixture/exit-source/$relative" \
-        > "$fixture/assertion-${relative##*/}.log" 2>&1 || status=$?
-    [[ "$status" == 1 ]] || exit 1
-    retained="$(cat "$TOOLING_ASSERTION_PATH")"
-    [[ -d "$retained" && "$(cat "$retained/assertion-evidence")" == 'retained assertion evidence' ]] || exit 1
+    fixture_probe_assertion "$root/$relative" "$fixture" "$root" "${relative##*/}" || exit 1
 done
 
 export TOOLING_REAL_CARGO

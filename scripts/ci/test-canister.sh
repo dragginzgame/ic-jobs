@@ -6,13 +6,15 @@ set -euo pipefail
 }
 complete=false
 status=0
-trap 'status=$?; [[ "$complete" == true || "$status" != 0 ]] || status=1; exit "$status"' EXIT
+# shellcheck source=scripts/ci/fixture-lifecycle.sh
+source scripts/ci/fixture-lifecycle.sh
+trap 'status=$?; fixture_completion_status "$status" "$complete" || status=$?; exit "$status"' EXIT
 
 # Caller explicitly selects this live gate. The canonical Cargo-tool checker and
 # Testkit own executable selection and PocketIC admission/lifecycle respectively.
 cli="$(bash scripts/dev/install-rust-tools.sh --package ic-testkit \
     --lockfile Cargo.lock --bin ic-testkit-server --profile release --check)"
-target="$(cargo +1.88.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
+target="$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
 input="$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
 [[ -f "$input" && ! -L "$input" ]] || exit 1
 capture="$target/debug/jobs-capture-artifact"
@@ -22,7 +24,7 @@ if [[ $# == 1 ]]; then
     bin="$(bash scripts/dev/install-ic-tools.sh --check)"
     variants+=(O3 Os Oz)
 fi
-evidence="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/jobs-recovery.XXXXXX")"
+evidence="$(fixture_create "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/jobs-recovery.XXXXXX")"
 printf 'Live recovery evidence: %s\n' "$evidence"
 "$capture" "$input" "$evidence/jobs_test_consumer.wasm"
 cp Cargo.lock .shared-tooling.snapshot "$evidence/"
@@ -30,7 +32,7 @@ cp "${cli%/bin/*}/selection.json" "$evidence/testkit-selection.json"
 {
     git rev-parse HEAD
     uname -sm
-    rustc +1.88.0 --version --verbose
+    rustc +1.91.0 --version --verbose
     bash scripts/ci/verify-file-checksum.sh --print sha256 scripts/ci/test-canister.sh
     bash scripts/ci/verify-file-checksum.sh --print sha256 "$capture"
 } > "$evidence/source.txt"
@@ -56,7 +58,7 @@ for variant in "${variants[@]}"; do
     # Testkit's run command checks the prepared server bundle; it never downloads.
     "$cli" run --ttl 900 --server-stdout "$evidence/$variant/server.stdout" \
         --server-stderr "$evidence/$variant/server.stderr" \
-        -- cargo +1.88.0 test -p jobs-canister-tests \
+        -- cargo +1.91.0 test -p jobs-canister-tests \
         --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture \
         2>&1 | tee "$evidence/$variant/test.log"
 done

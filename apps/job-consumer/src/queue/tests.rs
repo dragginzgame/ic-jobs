@@ -808,7 +808,7 @@ fn raw_invalid_intervals_preserve_storage_and_unknown_job_precedence() {
 }
 
 #[test]
-fn released_075_two_slot_memory_is_refused_without_writes_or_reset() {
+fn prior_memory_ledgers_are_refused_without_writes_or_reset() {
     // Sparse nonzero runs are a lossless fixture representation of the old
     // producer's complete VectorMemory, including allocator and cell headers.
     #[derive(Deserialize)]
@@ -818,34 +818,46 @@ fn released_075_two_slot_memory_is_refused_without_writes_or_reset() {
         runs: Vec<(u64, String)>,
         snapshot: String,
     }
-    let frozen: FrozenMemory =
-        serde_json::from_str(include_str!("fixtures/stable-image-075.json")).unwrap();
-    assert_eq!(frozen.producer, "060fb9d226389bab702132ba23f42bd0b887a690");
-    // The frozen Jobs payload remains valid; the incompatible outer Memory
-    // ledger must be refused before publishing any allocation or overwriting it.
-    decode(frozen.snapshot.as_bytes()).unwrap();
-    let backing = VectorMemory::default();
-    let memory = CountedMemory {
-        backing,
-        writes: std::rc::Rc::new(std::cell::Cell::new(0)),
-    };
-    assert_eq!(memory.grow(frozen.pages), 0);
-    for (offset, encoded) in frozen.runs {
-        assert_eq!(encoded.len() % 2, 0);
-        let bytes = (0..encoded.len())
-            .step_by(2)
-            .map(|index| u8::from_str_radix(&encoded[index..index + 2], 16).unwrap())
-            .collect::<Vec<_>>();
-        memory.write(offset, &bytes);
-    }
-    memory.writes.set(0);
-    for initial in [None, Some(config())] {
-        assert!(matches!(
-            Queue::open(memory.clone(), initial),
-            Err(Error::Memory(_))
-        ));
-        assert_eq!(memory.writes.get(), 0);
-        assert_eq!(memory.size(), frozen.pages);
+    for (encoded, producer) in [
+        (
+            include_str!("fixtures/stable-image-075.json"),
+            "060fb9d226389bab702132ba23f42bd0b887a690",
+        ),
+        (
+            include_str!("fixtures/stable-image-memory040.json"),
+            "ic-memory 0.40.0",
+        ),
+    ] {
+        let frozen: FrozenMemory = serde_json::from_str(encoded).unwrap();
+        assert_eq!(frozen.producer, producer);
+        // The frozen Jobs payload remains valid; the incompatible outer Memory
+        // ledger must be refused before publishing any allocation or overwriting it.
+        decode(frozen.snapshot.as_bytes()).unwrap();
+        let backing = VectorMemory::default();
+        let memory = CountedMemory {
+            backing,
+            writes: std::rc::Rc::new(std::cell::Cell::new(0)),
+        };
+        assert_eq!(memory.grow(frozen.pages), 0);
+        for (offset, encoded) in frozen.runs {
+            assert_eq!(encoded.len() % 2, 0);
+            let bytes = (0..encoded.len())
+                .step_by(2)
+                .map(|index| u8::from_str_radix(&encoded[index..index + 2], 16).unwrap())
+                .collect::<Vec<_>>();
+            memory.write(offset, &bytes);
+        }
+        memory.writes.set(0);
+        let before = memory.backing.borrow().clone();
+        for initial in [None, Some(config())] {
+            assert!(matches!(
+                Queue::open(memory.clone(), initial),
+                Err(Error::Memory(_))
+            ));
+            assert_eq!(memory.writes.get(), 0);
+            assert_eq!(memory.size(), frozen.pages);
+            assert_eq!(*memory.backing.borrow(), before);
+        }
     }
 }
 

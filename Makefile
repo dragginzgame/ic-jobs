@@ -41,23 +41,23 @@ test-jobs:
 	+cargo test -p ic-jobs --test jobs --test management --test transition_restore --test configuration --test retry_time --all-features --locked --offline
 
 test-consumers:
-	+cargo +1.88.0 test -p ic-jobs --test consumers --locked --offline
+	+cargo +1.91.0 test -p ic-jobs --test consumers --locked --offline
 
 .PHONY: check-consumer build-consumer install-testkit-tools testkit-tools-check install-consumer-server consumer-server-check test-canister test-canister-optimized
 check-consumer:
-	+cargo +1.88.0 test -p jobs-test-consumer --locked --offline
+	+cargo +1.91.0 test -p jobs-test-consumer --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
-	+cargo +1.88.0 test -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
-	+cargo +1.88.0 test -p jobs-canister-tests --locked --offline --no-run
+	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
+	+cargo +1.91.0 test -p jobs-canister-tests --locked --offline --no-run
 	+cargo clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
 	+cargo clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
 
 build-consumer:
-	+cargo +1.88.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
+	+cargo +1.91.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
 
 .PHONY: build-recovery-tools
 build-recovery-tools:
-	+cargo +1.88.0 build -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
+	+cargo +1.91.0 build -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
 
 install-testkit-tools:
 	+$(TESTKIT_TOOL)
@@ -65,10 +65,10 @@ install-testkit-tools:
 testkit-tools-check:
 	+$(TESTKIT_TOOL) --check
 
-install-consumer-server: testkit-tools-check
+install-consumer-server:
 	+@cli="$$( $(TESTKIT_TOOL) --check )" && "$$cli" setup
 
-consumer-server-check: testkit-tools-check
+consumer-server-check:
 	+@cli="$$( $(TESTKIT_TOOL) --check )" && "$$cli" check
 
 # Only this explicitly selected target launches PocketIC. Admission precedes
@@ -76,16 +76,16 @@ consumer-server-check: testkit-tools-check
 test-canister test-canister-optimized: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
 	+$(MAKE) --no-print-directory build-recovery-tools
-	+cargo +1.88.0 test -p jobs-canister-tests --test recovery --locked --offline --no-run
+	+cargo +1.91.0 test -p jobs-canister-tests --test recovery --locked --offline --no-run
 	+bash scripts/ci/test-canister.sh $(if $(filter test-canister-optimized,$@),--optimized)
 
 check-msrv:
-	+cargo +1.88.0 check -p ic-jobs --lib --locked --offline
-	+cargo +1.88.0 check -p ic-jobs --test consumers --locked --offline
+	+cargo +1.91.0 check -p ic-jobs --lib --locked --offline
+	+cargo +1.91.0 check -p ic-jobs --test consumers --locked --offline
 
 check-wasm:
-	+cargo +1.88.0 check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline
-	+cargo +1.88.0 check -p jobs-test-consumer --lib --target wasm32-unknown-unknown --locked --offline
+	+cargo +1.91.0 check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline
+	+cargo +1.91.0 check -p jobs-test-consumer --lib --target wasm32-unknown-unknown --locked --offline
 
 clippy:
 	+cargo clippy -p ic-jobs --all-targets --all-features --locked --offline -- -D warnings

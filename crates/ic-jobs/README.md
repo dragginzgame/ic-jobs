@@ -90,12 +90,13 @@ let mut jobs = [
     Job::new(JobId(2), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE),
 ];
 assert_eq!(next_due_ns(&jobs), Some(100));
-if let Some((index, attempt, running_record)) = start_next(&mut jobs, 100)? {
+if let Some((index, attempt)) = start_next(&mut jobs, 100)? {
     assert_eq!(index, 1); // Position in this batch, not a durable identity.
     assert_eq!(attempt.execution.job, JobId(2));
+    let running_record = jobs[index].record();
     // Commit running_record with the payload/index before dispatching the effect.
     // Record its outcome with the owning Job's finish method and persist again.
-    # assert_eq!(running_record, jobs[index].record());
+    # let _ = running_record;
 }
 # Ok::<(), ic_jobs::JobError>(())
 ```
@@ -160,6 +161,14 @@ empty and releases the new callback; retry can install the callback supplied
 by that retry. Later failures retain existing authority. The instruction-summary
 type selects Metrics 0.10; use the Timers re-export when exchanging summaries.
 
+## 0.13 API cut
+
+`start_next` returns `(index, attempt)`, updating the selected job in place.
+Replace three-element tuple destructuring with the pair. Read
+`jobs[index].record()` when preparing the durable intent, and commit it with the
+immutable payload/index before dispatching any external effect. This signature
+change does not change stored records, selection order, transitions or recovery.
+
 ## 0.11 API cut
 
 Replace `Scheduler::new(&mut jobs).start_next(now)` with
@@ -168,7 +177,7 @@ Remove `features = ["timers"]` from the Jobs dependency. Call IC Timers directly
 as described above; the `ic_jobs::timers` module is removed. This cut preserves
 the Jobs stored-record layout, job identities and transition behavior.
 
-The package and its qualification consumer require Rust 1.88.
+The package and its qualification consumer require Rust 1.91.
 See the [repository guide](https://github.com/dragginzgame/ic-jobs) and
 [safety contract](https://github.com/dragginzgame/ic-jobs/blob/main/SAFETY.md)
 for the complete persistence and recovery obligations.

@@ -47,16 +47,16 @@ impl Snapshot {
         if self.jobs.len() > MAX_JOBS || self.receipts.len() > MAX_JOBS || self.next_id == 0 {
             return Err(Error::InvalidStorage);
         }
-        let mut previous = 0;
+        let mut previous = 0u128;
         for entry in &self.jobs {
             admit_job(entry.job)?;
-            if entry.job.id.0 <= u128::from(previous)
+            if entry.job.id.0 <= previous
                 || entry.job.id.0 >= u128::from(self.next_id)
                 || !task_valid(&entry.task)
             {
                 return Err(Error::InvalidStorage);
             }
-            previous = u64::try_from(entry.job.id.0).map_err(|_| Error::InvalidStorage)?;
+            previous = entry.job.id.0;
         }
         for (index, receipt) in self.receipts.iter().enumerate() {
             if !delivery_valid(receipt)
@@ -90,10 +90,6 @@ pub(crate) struct Committed<T> {
 }
 
 impl LoadedSnapshot {
-    fn next_due_ns(&self) -> Option<u64> {
-        next_due_ns(&self.jobs)
-    }
-
     fn index(&self, id: u64) -> Result<usize, Error> {
         self.jobs
             .iter()
@@ -124,9 +120,7 @@ impl LoadedSnapshot {
 
     fn take_entry(mut self, id: u64) -> Result<(Job, Task), Error> {
         let index = self.index(id)?;
-        if index >= self.tasks.len() {
-            return Err(Error::UnknownJob);
-        }
+        // Decoding constructed both vectors from the same entries.
         // This snapshot is consumed; temporary reordering never reaches storage.
         Ok((self.jobs.swap_remove(index), self.tasks.swap_remove(index)))
     }
@@ -149,14 +143,9 @@ fn receipt_key(delivery: &Delivery) -> (u64, u64) {
     (delivery.job, delivery.occurrence)
 }
 
-fn delivery(
-    id: JobId,
-    attempt: Attempt,
-    destination: Principal,
-    message: String,
-) -> Result<Delivery, Error> {
+fn delivery(attempt: Attempt, destination: Principal, message: String) -> Result<Delivery, Error> {
     Ok(Delivery {
-        job: u64::try_from(id.0).map_err(|_| Error::InvalidStorage)?,
+        job: u64::try_from(attempt.execution.job.0).map_err(|_| Error::InvalidStorage)?,
         occurrence: attempt.execution.occurrence,
         sequence: attempt.sequence,
         destination,
@@ -283,7 +272,7 @@ impl<M: Memory> Queue<M> {
             );
         }
         let snapshot = decode(cell.get())?;
-        let next_due_ns = snapshot.next_due_ns();
+        let next_due_ns = next_due_ns(&snapshot.jobs);
         Ok((
             Self {
                 cell,
@@ -309,7 +298,7 @@ impl<M: Memory> Queue<M> {
     }
 
     fn commit<T>(&mut self, snapshot: LoadedSnapshot, value: T) -> Result<Committed<T>, Error> {
-        let next_due_ns = snapshot.next_due_ns();
+        let next_due_ns = next_due_ns(&snapshot.jobs);
         let snapshot = snapshot.into_stored()?;
         let bytes = serde_json::to_vec(&snapshot).map_err(|_| Error::InvalidStorage)?;
         if bytes.len() > MAX_BYTES {
@@ -351,13 +340,16 @@ impl<M: Memory> Queue<M> {
             .zip(snapshot.tasks)
             .filter(|(job, _)| job.record().id.0 > u128::from(after.unwrap_or(0)))
             .take(usize::from(limit))
-            .map(|(job, task)| view(job, task))
+            .map(|(job, task)| {
+                let id = u64::try_from(job.record().id.0).map_err(|_| Error::InvalidStorage)?;
+                Ok(view(id, job, task))
+            })
             .collect()
     }
 
     pub(crate) fn inspect(&self, id: u64) -> Result<View, Error> {
         let (job, task) = self.load()?.take_entry(id)?;
-        view(job, task)
+        Ok(view(id, job, task))
     }
 
     pub(crate) fn cancel(&mut self, id: u64, now: u64) -> Result<Committed<()>, Error> {
@@ -396,7 +388,7 @@ impl<M: Memory> Queue<M> {
 
     pub(crate) fn summary(&self) -> Result<(Option<u64>, u64, u64), Error> {
         let snapshot = self.load()?;
-        let next_due = snapshot.next_due_ns();
+        let next_due = next_due_ns(&snapshot.jobs);
         Ok((next_due, snapshot.counter, snapshot.receipts.len() as u64))
     }
 
@@ -410,8 +402,7 @@ impl<M: Memory> Queue<M> {
         let mut deliveries = vec![];
         let mut work = 0;
         for _ in 0..BATCH {
-            let Some((index, attempt, record)) =
-                start_next(&mut snapshot.jobs, now).map_err(job_error)?
+            let Some((index, attempt)) = start_next(&mut snapshot.jobs, now).map_err(job_error)?
             else {
                 break;
             };
@@ -433,13 +424,13 @@ impl<M: Memory> Queue<M> {
                 Task::Deliver {
                     destination,
                     message,
-                } => deliveries.push(delivery(record.id, attempt, *destination, message.clone())?),
+                } => deliveries.push(delivery(attempt, *destination, message.clone())?),
             }
         }
         let next_due_ns = if work > 0 {
             self.commit(snapshot, ())?.next_due_ns
         } else {
-            snapshot.next_due_ns()
+            next_due_ns(&snapshot.jobs)
         };
         // Mutated batches commit before effects escape; idle batches retain bytes.
         Ok((deliveries, work, next_due_ns))
@@ -449,12 +440,7 @@ impl<M: Memory> Queue<M> {
         let (job, mut task) = self.load()?.take_entry(id)?;
         let (attempt, destination, message) = active_delivery(&job, &mut task)?;
         // This owned row is discarded; transfer its payload without cloning.
-        delivery(
-            job.record().id,
-            attempt,
-            destination,
-            std::mem::take(message),
-        )
+        delivery(attempt, destination, std::mem::take(message))
     }
 
     pub(crate) fn finish(
@@ -467,9 +453,7 @@ impl<M: Memory> Queue<M> {
         let index = snapshot.index(delivery.job)?;
         let job = &mut snapshot.jobs[index];
         let (attempt, destination, message) = active_delivery(job, &mut snapshot.tasks[index])?;
-        let id = u64::try_from(job.record().id.0).map_err(|_| Error::InvalidStorage)?;
-        if delivery.job != id
-            || delivery.occurrence != attempt.execution.occurrence
+        if delivery.occurrence != attempt.execution.occurrence
             || delivery.sequence != attempt.sequence
             || delivery.destination != destination
             || delivery.message != *message
@@ -540,10 +524,10 @@ impl<M: Memory> Queue<M> {
     }
 }
 
-fn view(job: Job, task: Task) -> Result<View, Error> {
+fn view(id: u64, job: Job, task: Task) -> View {
     let record = job.record();
-    Ok(View {
-        id: u64::try_from(record.id.0).map_err(|_| Error::InvalidStorage)?,
+    View {
+        id,
         task,
         status: match record.state {
             JobState::Pending { .. } => Status::Pending,
@@ -557,7 +541,7 @@ fn view(job: Job, task: Task) -> Result<View, Error> {
         due_ns: job.next_due_ns(),
         sequence: record.sequence,
         occurrence: record.occurrence,
-    })
+    }
 }
 
 #[cfg(test)]

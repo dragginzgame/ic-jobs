@@ -80,7 +80,7 @@ impl Maintenance {
         let mut completed = 0;
         // Exactly two runs at most, even when CatchUp leaves overdue work.
         for _ in 0..2 {
-            let Some((_, attempt, _)) = start_next(std::slice::from_mut(&mut job), now_ns)? else {
+            let Some((_, attempt)) = start_next(std::slice::from_mut(&mut job), now_ns)? else {
                 break;
             };
             if completed == 0 {

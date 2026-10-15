@@ -29,7 +29,7 @@ bounded recurring work. These fixtures request IC Memory allocations through the
 stable cells. See [test consumers](docs/test-consumers.md) for their storage and
 timer boundaries.
 
-The package and its direct Timers qualification consumer require Rust 1.88. Compiler
+The package and its direct Timers qualification consumer require Rust 1.91. Compiler
 selections are recorded in [rust-toolchain.toml](rust-toolchain.toml) and
 [the local tool catalog](ci/tool-versions.env). Linux and macOS Intel/Apple Silicon
 host workflows are maintained. See [the current handoff](docs/status/current.md)

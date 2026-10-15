@@ -2,8 +2,8 @@
 
 use candid::{CandidType, Principal, utils::ArgumentEncoder};
 use ic_testkit::pic::{
-    CandidCallExt, CanisterInstallExt, ErrorCode, PocketIc, PocketIcBuilder, PocketIcInstance,
-    PocketIcStartupConfig, RetryPolicy, tick_until,
+    CandidCallError, CandidCallExt, CanisterInstallExt, ErrorCode, InstallSpec, PocketIc,
+    PocketIcBuilder, PocketIcInstance, PocketIcStartupConfig, RetryPolicy, tick_until,
 };
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
 use serde::de::DeserializeOwned;
@@ -30,21 +30,24 @@ impl Fixture {
             .build_instance(PocketIcBuilder::new().with_application_subnet())
             .expect("bounded PocketIC startup");
         let manager = Principal::self_authenticating(b"jobs-manager");
-        let sender = pic.instance.create_canister();
-        let receiver = pic.instance.create_canister();
-        for (id, delivery_sender) in [(sender, None), (receiver, Some(sender))] {
-            pic.instance.add_cycles(id, 10_000_000_000_000);
-            pic.instance.install_canister(
-                id,
-                wasm.clone(),
-                candid::encode_one(Init {
-                    manager,
-                    delivery_sender,
-                })
-                .unwrap(),
-                None,
-            );
-        }
+        let install = |delivery_sender| {
+            pic.instance
+                .try_create_and_install(
+                    InstallSpec::new(
+                        wasm.clone(),
+                        candid::encode_one(Init {
+                            manager,
+                            delivery_sender,
+                        })
+                        .unwrap(),
+                        10_000_000_000_000,
+                    )
+                    .label("jobs-test-consumer"),
+                )
+                .expect("install Jobs consumer")
+        };
+        let sender = install(None);
+        let receiver = install(Some(sender));
         Self {
             pic,
             wasm,
@@ -62,7 +65,7 @@ impl Fixture {
         self.pic
             .instance
             .update_candid_as(self.sender, self.manager, method, args)
-            .expect("update Candid harness call")
+            .expect("PocketIC Candid call")
     }
     fn query<T: CandidType + DeserializeOwned, A: ArgumentEncoder>(
         &self,
@@ -73,7 +76,7 @@ impl Fixture {
         self.pic
             .instance
             .query_candid_as(id, self.manager, method, args)
-            .expect("query Candid harness call")
+            .expect("PocketIC Candid call")
     }
     fn view(&self, id: u64) -> View {
         self.query(self.sender, "inspect", (id,)).unwrap()
@@ -104,6 +107,13 @@ impl Fixture {
     }
 }
 
+fn assert_canister_trap(error: CandidCallError) {
+    let CandidCallError::CanisterReject { response, .. } = error else {
+        panic!("expected canister trap: {error}");
+    };
+    assert_eq!(response.error_code, ErrorCode::CanisterCalledTrap);
+}
+
 fn increment(at: u64, amount: u64) -> Create {
     Create {
         timing: Timing::Once(at),
@@ -125,7 +135,7 @@ fn management_upgrade_and_real_watchdog_delivery() {
             "create",
             (increment(now + 20_000_000_000, 5),),
         )
-        .expect("update Candid harness call");
+        .expect("PocketIC Candid call");
     assert_eq!(unauthorized, Err(Error::Unauthorized));
     let first: u64 = fixture
         .update("create", (increment(now + 20_000_000_000, 5),))
@@ -204,10 +214,7 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
             9,
         ),),
     );
-    assert_eq!(
-        failed.unwrap_err().reject_response.unwrap().error_code,
-        ErrorCode::CanisterCalledTrap
-    );
+    assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.summary(fixture.sender), before);
     let page: Vec<View> = fixture
         .query(fixture.sender, "list", (None::<u64>, 8_u8))
@@ -318,10 +325,7 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
             "fixture_dispatch_trap_result",
             (input,),
         );
-    assert_eq!(
-        failed.unwrap_err().reject_response.unwrap().error_code,
-        ErrorCode::CanisterCalledTrap
-    );
+    assert_canister_trap(failed.unwrap_err());
     let page: Vec<View> = fixture
         .query(fixture.sender, "list", (None::<u64>, 8_u8))
         .unwrap();
@@ -471,7 +475,7 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
         .instance
         .retry_install_code(
             RetryPolicy::new(
-                std::num::NonZeroUsize::new(4).expect("non-zero install attempt limit"),
+                std::num::NonZeroUsize::new(4).unwrap(),
                 Duration::from_secs(600),
             ),
             || {
@@ -558,7 +562,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
             .pic
             .instance
             .update_candid_as(fixture.sender, Principal::anonymous(), method, (id,))
-            .expect("update Candid harness call");
+            .expect("PocketIC Candid call");
         assert_eq!(denied, Err(Error::Unauthorized));
     }
     let denied: Result<(), Error> = fixture
@@ -570,7 +574,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
             "reschedule",
             (id, Timing::Once(0)),
         )
-        .expect("update Candid harness call");
+        .expect("PocketIC Candid call");
     assert_eq!(denied, Err(Error::Unauthorized));
     fixture.update::<(), _>("pause", (id,)).unwrap();
     assert_eq!(fixture.view(id).status, Status::Paused);
@@ -611,10 +615,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
             ),
         ),
     );
-    assert_eq!(
-        failed.unwrap_err().reject_response.unwrap().error_code,
-        ErrorCode::CanisterCalledTrap
-    );
+    assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.view(id), before);
     assert_eq!(fixture.summary(fixture.sender), summary);
     let failed = fixture.pic.instance.update_candid_as::<(), _>(
@@ -623,10 +624,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
         "fixture_trap_after_pause",
         (id,),
     );
-    assert_eq!(
-        failed.unwrap_err().reject_response.unwrap().error_code,
-        ErrorCode::CanisterCalledTrap
-    );
+    assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.view(id), before);
     assert_eq!(fixture.summary(fixture.sender), summary);
     fixture.upgrade(fixture.sender);

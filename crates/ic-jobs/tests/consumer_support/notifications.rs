@@ -125,7 +125,8 @@ impl Notifications {
             );
         }
         let mut jobs = Vec::with_capacity(snapshots.len());
-        for snapshot in &snapshots {
+        let mut payloads = Vec::with_capacity(snapshots.len());
+        for snapshot in snapshots {
             if jobs
                 .iter()
                 .any(|job: &Job| job.record().id == snapshot.job.id)
@@ -135,14 +136,9 @@ impl Notifications {
                 );
             }
             jobs.push(Job::restore(snapshot.job)?);
+            payloads.push(snapshot.payload);
         }
-        Ok((
-            jobs,
-            snapshots
-                .into_iter()
-                .map(|snapshot| snapshot.payload)
-                .collect(),
-        ))
+        Ok((jobs, payloads))
     }
 
     pub(crate) fn commit(&mut self, jobs: &[Job], payloads: &[Notification]) -> Result<()> {
@@ -217,13 +213,13 @@ impl Notifications {
                 let mut snapshots: Vec<_> = jobs
                     .iter()
                     .zip(payloads)
+                    .filter(|(job, _)| after.is_none_or(|id| job.record().id > id))
                     .map(|(job, payload)| NotificationSnapshot {
                         job: job.record(),
                         payload,
                     })
                     .collect();
                 snapshots.sort_by_key(|snapshot| snapshot.job.id);
-                snapshots.retain(|snapshot| after.is_none_or(|id| snapshot.job.id > id));
                 snapshots.truncate(limit);
                 ManagementValue::Page(snapshots)
             }
@@ -262,7 +258,7 @@ impl Notifications {
         jobs: &mut [Job],
         payloads: &[Notification],
     ) -> Result<Option<Delivery>> {
-        let Some((index, attempt, _)) = start_next(jobs, now_ns)? else {
+        let Some((index, attempt)) = start_next(jobs, now_ns)? else {
             return Ok(None);
         };
         let payload = payloads[index].clone();

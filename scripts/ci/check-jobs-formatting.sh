@@ -9,9 +9,7 @@ root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
 # shellcheck source=scripts/ci/fixture-lifecycle.sh
 source "$root/scripts/ci/fixture-lifecycle.sh"
-fixture="$(mktemp -d "${TMPDIR:-/tmp}/jobs-formatting.XXXXXX")"
-fixture="$(cd -P "$fixture" && printf '%s/.' "$PWD")"
-fixture="${fixture%/.}"
+fixture="$(fixture_create "${TMPDIR:-/tmp}/jobs-formatting.XXXXXX")"
 fixture_complete=false
 finish() {
     fixture_finish "$?" "$fixture" "Jobs formatting input retained"

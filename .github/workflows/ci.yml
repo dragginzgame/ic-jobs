@@ -29,7 +29,7 @@ jobs:
         uses: ./.github/actions/prepare-rust-toolchains
         with:
           development: '1.99.0'
-          minimum: '1.88.0'
+          minimum: '1.91.0'
           development-target: wasm32-unknown-unknown
           minimum-target: wasm32-unknown-unknown
       - name: Prepare the complete selected toolset

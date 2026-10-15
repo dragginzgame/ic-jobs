@@ -9,9 +9,7 @@ root="${root%/.}"
 export PATH="$root/.tools/host/bin:$PATH"
 # shellcheck source=scripts/ci/fixture-lifecycle.sh
 source "$root/scripts/ci/fixture-lifecycle.sh"
-fixture="$(mktemp -d "${TMPDIR:-/tmp}/jobs-consumer-tooling.XXXXXX")"
-fixture="$(cd -P "$fixture" && printf '%s/.' "$PWD")"
-fixture="${fixture%/.}"
+fixture="$(fixture_create "${TMPDIR:-/tmp}/jobs-consumer-tooling.XXXXXX")"
 fixture_complete=false
 finish() {
     fixture_finish "$?" "$fixture" "Consumer tooling fixture retained"
@@ -21,7 +19,7 @@ mkdir -p "$fixture/scripts/dev" "$fixture/scripts/ci" "$fixture/.tools/rust/comm
 cp "$root/Makefile" "$fixture/"
 cp -R "$root/make" "$root/ci" "$fixture/"
 cp "$root/scripts/dev/"{install-rust-tools,tool-store,cargo-tool-build}.sh "$fixture/scripts/dev/"
-cp "$root/scripts/ci/"{check-make-execution,verify-file-checksum,test-canister}.sh "$fixture/scripts/ci/"
+cp "$root/scripts/ci/"{check-make-execution,verify-file-checksum,test-canister,fixture-lifecycle}.sh "$fixture/scripts/ci/"
 # Substitute only compiler identity probes. Any Cargo effect remains forbidden;
 # the real installer/parser must refuse the isolated, unprepared source cache.
 mkdir -p "$fixture/compiler/bin"
@@ -32,7 +30,7 @@ cat > "$fixture/.tools/rust/common/bin/rustc" <<'RUSTC'
 #!/usr/bin/env bash
 case "$*" in
     '--print sysroot') printf '%s\n' "$JOBS_CONSUMER_COMPILER" ;;
-    -vV) printf 'rustc fixture\nhost: fixture-host\nrelease: 1.88.0\n' ;;
+    -vV) printf 'rustc fixture\nhost: fixture-host\nrelease: 1.91.0\n' ;;
     *) printf 'unexpected rustc dispatch\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"; exit 49 ;;
 esac
 RUSTC
@@ -87,6 +85,39 @@ LOCK
 done
 echo 'Lock-selected consumer CLI refusal precedes Cargo/PocketIC effects (real caller/parser; substitute compiler identity; no installation)'
 
+# Each server command must admit its selected CLI exactly once, and a refusal
+# must prevent server dispatch. Substitute both executables; no server is run.
+export JOBS_CONSUMER_CLI="$fixture/server" JOBS_CONSUMER_ADMISSION_FAILURE=0
+cat > "$fixture/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --check' ]] || exit 49
+printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+[[ "${JOBS_CONSUMER_ADMISSION_FAILURE:-0}" == 0 ]] || exit 37
+printf '%s\n' "$JOBS_CONSUMER_CLI"
+INSTALLER
+cat > "$fixture/server" <<'SERVER'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $# == 1 && ( "$1" == setup || "$1" == check ) ]] || exit 49
+printf '%s\n' "$1" >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+SERVER
+chmod +x "$fixture/server"
+for command in setup check; do
+    target=consumer-server-check
+    [[ "$command" != setup ]] || target=install-consumer-server
+    : > "$fixture/events"
+    make --no-print-directory -j2 -C "$fixture" "$target" > "$fixture/server-$command.log" 2>&1
+    printf 'admission\n%s\n' "$command" > "$fixture/expected-events"
+    cmp "$fixture/events" "$fixture/expected-events"
+    : > "$fixture/events"
+    status=0
+    JOBS_CONSUMER_ADMISSION_FAILURE=1 make --no-print-directory -j2 -C "$fixture" "$target" \
+        > "$fixture/server-$command-refused.log" 2>&1 || status=$?
+    [[ "$status" == 2 && "$(cat "$fixture/events")" == admission ]] || exit 1
+done
+echo 'Server commands admit the selected CLI once and refuse before server effects (substitute installer/server)'
+
 # Isolate the wrapper's Wasm-file admission after CLI admission. Substitute only
 # the selected CLI and Cargo metadata; invalid inputs must create no attempt or
 # start a server. The shared installer's selection contract is tested above.
@@ -127,7 +158,7 @@ echo 'Invalid Wasm input refuses before attempt/server dispatch (real wrapper; s
 # producer is replaced during qualification. Only transforms/server effects are
 # substituted; flags, paths, hashes, logs and all dispatch plumbing are real.
 mkdir -p "$fixture/selected/bin" "$fixture/ic-bin" "$fixture/.tools/ic"
-target="$(cargo +1.88.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
+target="$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
 mkdir -p "$fixture/wasm/debug"
 cp "$fixture/input" "$input"
 capture="$fixture/wasm/debug/jobs-capture-artifact"
@@ -162,7 +193,7 @@ printf '%040d\n' 1
 GIT
 cat > "$fixture/.tools/rust/common/bin/rustc" <<'RUSTC'
 #!/usr/bin/env bash
-[[ "$*" == '+1.88.0 --version --verbose' ]] || exit 49
+[[ "$*" == '+1.91.0 --version --verbose' ]] || exit 49
 echo 'rustc fixture'
 RUSTC
 cat > "$fixture/ic-bin/wasm-opt" <<'OPTIMIZER'
@@ -182,7 +213,7 @@ variant="${5%/server.stdout}"; variant="${variant##*/}"
 printf 'server stdout\n' > "$5"
 printf 'server stderr\n' > "$7"
 shift 8
-[[ "$*" == 'cargo +1.88.0 test -p jobs-canister-tests --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture' ]] || exit 49
+[[ "$*" == 'cargo +1.91.0 test -p jobs-canister-tests --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture' ]] || exit 49
 printf '%s\n' "$IC_JOBS_CONSUMER_WASM" >> "$JOBS_CONSUMER_CAPTURED/paths"
 cp "$IC_JOBS_CONSUMER_WASM" "$JOBS_CONSUMER_CAPTURED/$variant.wasm"
 printf 'replaced mutable producer\n' > "$JOBS_CONSUMER_PRODUCER"

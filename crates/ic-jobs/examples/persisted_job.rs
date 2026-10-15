@@ -7,10 +7,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Schedule::Once { at_ns: 100 },
         RetryPolicy::NONE,
     )];
-    let (_, attempt, intent) = start_next(&mut jobs, 100)?.ok_or(JobError::NotDue)?;
+    let (index, attempt) = start_next(&mut jobs, 100)?.ok_or(JobError::NotDue)?;
     // On IC, persist this record and the immutable payload in the same message
     // segment before issuing an external call. A trap before commit rolls back it.
-    let committed_intent = serde_json::to_vec(&intent)?;
+    let committed_intent = serde_json::to_vec(&jobs[index].record())?;
 
     // An upgrade or lost continuation restores unresolved intent, never a retry.
     let record: JobRecord = serde_json::from_slice(&committed_intent)?;

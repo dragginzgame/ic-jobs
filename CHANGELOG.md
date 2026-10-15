@@ -1,13 +1,53 @@
 # Changelog
 
-## [0.11.1]
+## [0.13.1]
 
-- Use fallible Candid calls with explicit fixture assertions; preserve inner
-  application results and prepare for Testkit 0.45's removed panic wrappers.
+- Prepare recovery rejection assertions for Testkit 0.47 enum variants, preserving
+  the exact canister-trap requirement. Dependency adoption awaits publication.
 
-- Prepare the private recovery harness for Testkit 0.45's non-zero retry policy
-  constructor, preserving four attempts and the ten-minute cooldown. Normal
-  adoption awaits the published Testkit release; job/runtime contracts are unchanged.
+## [0.13.0] - 2026-10-15
+
+- **Breaking:** `start_next` returns `(index, attempt)` instead of the three-element
+  tuple. Read the updated `jobs[index].record()` for durable intent and commit it
+  with the immutable payload/index before dispatching effects. Stored records,
+  selection order and transition errors are unchanged.
+- Admit the selected Testkit CLI once per server setup/check command, preserving
+  refusal before server effects. Filter notification pages before projecting rows.
+
+- Share delivery confirmation between the qualification canister and its lost-result
+  fixture, retaining uncertain handling and the confirmed-effect trap boundary.
+  Use Testkit's structured canister installation and load notification rows in one pass.
+
+- Simplify fixed-rate restore and consumer ID validation while preserving admitted
+  records and refusal behavior. Improve recovery-test trap failure diagnostics.
+
+## [0.12.1] - 2026-10-15
+
+- Qualify IC Memory 0.41 in the unpublished consumer. Refuse frozen 0.40 ledger
+  images without writes or reset; retained installations require explicit owner
+  disposition before deployment. Jobs records and the library API are unchanged.
+- Update recovery-harness calls for the selected IC Testkit 0.45 API.
+
+- Consolidate manager authorization with queue access in the qualification
+  canister, and make view projection use the matched consumer job identity.
+
+- Adopt the committed Shared Tooling 0.15.0 snapshot, including shared release
+  input validation and formatting-source discovery. Existing tool pins remain
+  unchanged.
+- Use shared allocation for disposable fixtures and retained recovery attempts,
+  completion admission and assertion probes, preserving Jobs' cleanup and evidence
+  ([#47 — Adopt shared fixture allocation](https://github.com/dragginzgame/ic-jobs/issues/47),
+  [#48 — Adopt shared completion admission](https://github.com/dragginzgame/ic-jobs/issues/48)).
+- Use IC Host 0.18.6 for native qualification tooling.
+
+## [0.12.0] - 2026-10-15
+
+- **Breaking:** Require Rust 1.91 or newer for Jobs and its qualification
+  consumers. Prepare Rust 1.91.0 and its Wasm target before running the minimum
+  compiler checks. Native qualification uses IC Build 0.4.0.
+
+- Reuse IC Host's fixture-directory allocation and executable-script writer in
+  capture tests, retaining consumer-owned cleanup and failure evidence.
 
 ## [0.11.0] - 2026-10-15
 
