@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.12.0]
+## [0.12.0] - 2026-10-15
 
 - **Breaking:** Require Rust 1.91 or newer for Jobs and its qualification
   consumers. Prepare Rust 1.91.0 and its Wasm target before running the minimum
