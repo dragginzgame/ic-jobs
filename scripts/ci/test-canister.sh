@@ -6,7 +6,9 @@ set -euo pipefail
 }
 complete=false
 status=0
-trap 'status=$?; [[ "$complete" == true || "$status" != 0 ]] || status=1; exit "$status"' EXIT
+# shellcheck source=scripts/ci/fixture-lifecycle.sh
+source scripts/ci/fixture-lifecycle.sh
+trap 'status=$?; fixture_completion_status "$status" "$complete" || status=$?; exit "$status"' EXIT
 
 # Caller explicitly selects this live gate. The canonical Cargo-tool checker and
 # Testkit own executable selection and PocketIC admission/lifecycle respectively.
@@ -22,7 +24,7 @@ if [[ $# == 1 ]]; then
     bin="$(bash scripts/dev/install-ic-tools.sh --check)"
     variants+=(O3 Os Oz)
 fi
-evidence="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/jobs-recovery.XXXXXX")"
+evidence="$(fixture_create "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/jobs-recovery.XXXXXX")"
 printf 'Live recovery evidence: %s\n' "$evidence"
 "$capture" "$input" "$evidence/jobs_test_consumer.wasm"
 cp Cargo.lock .shared-tooling.snapshot "$evidence/"

@@ -9,9 +9,7 @@ root="${root%/.}"
 export PATH="$root/.tools/host/bin:$PATH"
 # shellcheck source=scripts/ci/fixture-lifecycle.sh
 source "$root/scripts/ci/fixture-lifecycle.sh"
-fixture="$(mktemp -d "${TMPDIR:-/tmp}/jobs-consumer-tooling.XXXXXX")"
-fixture="$(cd -P "$fixture" && printf '%s/.' "$PWD")"
-fixture="${fixture%/.}"
+fixture="$(fixture_create "${TMPDIR:-/tmp}/jobs-consumer-tooling.XXXXXX")"
 fixture_complete=false
 finish() {
     fixture_finish "$?" "$fixture" "Consumer tooling fixture retained"
@@ -21,7 +19,7 @@ mkdir -p "$fixture/scripts/dev" "$fixture/scripts/ci" "$fixture/.tools/rust/comm
 cp "$root/Makefile" "$fixture/"
 cp -R "$root/make" "$root/ci" "$fixture/"
 cp "$root/scripts/dev/"{install-rust-tools,tool-store,cargo-tool-build}.sh "$fixture/scripts/dev/"
-cp "$root/scripts/ci/"{check-make-execution,verify-file-checksum,test-canister}.sh "$fixture/scripts/ci/"
+cp "$root/scripts/ci/"{check-make-execution,verify-file-checksum,test-canister,fixture-lifecycle}.sh "$fixture/scripts/ci/"
 # Substitute only compiler identity probes. Any Cargo effect remains forbidden;
 # the real installer/parser must refuse the isolated, unprepared source cache.
 mkdir -p "$fixture/compiler/bin"

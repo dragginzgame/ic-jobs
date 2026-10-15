@@ -13,13 +13,13 @@ repository = "https://github.com/dragginzgame/ic-jobs"
 
 [workspace.dependencies]
 candid = "0.10"
-ic-build = "0.4"
+ic-build = "0.6"
 ic-cdk = "0.20"
-ic-host-fs = "0.18.4"
-ic-host-process = "0.18.5"
+ic-host-fs = "0.19"
+ic-host-process = "0.19"
 ic-jobs = { path = "crates/ic-jobs" }
-ic-memory = "0.40"
-ic-testkit = "0.44"
+ic-memory = "0.41"
+ic-testkit = "0.45"
 ic-timers = "0.23"
 jobs-test-consumer = { path = "apps/job-consumer" }
 serde = "1.0"

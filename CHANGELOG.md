@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.12.1]
+
+- Qualify IC Memory 0.41 in the unpublished consumer. Refuse frozen 0.40 ledger
+  images without writes or reset; retained installations require explicit owner
+  disposition before deployment. Jobs records and the library API are unchanged.
+- Update recovery-harness calls for the selected IC Testkit 0.45 API.
+
+- Consolidate manager authorization with queue access in the qualification
+  canister, and make view projection use the matched consumer job identity.
+
+- Adopt the committed Shared Tooling 0.15.0 snapshot, including shared release
+  input validation and formatting-source discovery. Existing tool pins remain
+  unchanged.
+- Use shared allocation for disposable fixtures and retained recovery attempts,
+  completion admission and assertion probes, preserving Jobs' cleanup and evidence
+  ([#47 — Adopt shared fixture allocation](https://github.com/dragginzgame/ic-jobs/issues/47),
+  [#48 — Adopt shared completion admission](https://github.com/dragginzgame/ic-jobs/issues/48)).
+- Use IC Host 0.18.6 for native qualification tooling.
+
 ## [0.12.0] - 2026-10-15
 
 - **Breaking:** Require Rust 1.91 or newer for Jobs and its qualification

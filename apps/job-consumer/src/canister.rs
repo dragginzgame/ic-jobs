@@ -33,15 +33,19 @@ fn with_queue<T>(
     QUEUE.with(|queue| operation(queue.borrow_mut().as_mut().ok_or(Error::InvalidStorage)?))
 }
 
-fn authorize() -> Result<(), Error> {
-    with_queue(|queue| queue.authorize(ic_cdk::api::msg_caller()))
+fn with_authorized_queue<T>(
+    operation: impl FnOnce(&mut Queue<DefaultMemoryImpl>) -> Result<T, Error>,
+) -> Result<T, Error> {
+    with_queue(|queue| {
+        queue.authorize(ic_cdk::api::msg_caller())?;
+        operation(queue)
+    })
 }
 
 fn update_queue<T>(
     operation: impl FnOnce(&mut Queue<DefaultMemoryImpl>) -> Result<Committed<T>, Error>,
 ) -> Result<T, Error> {
-    authorize()?;
-    let result = with_queue(operation)?;
+    let result = with_authorized_queue(operation)?;
     // Reconciliation failure traps the same message segment as the stable write.
     reconcile_at(result.next_due_ns);
     Ok(result.value)
@@ -91,14 +95,12 @@ fn create(input: Create) -> Result<u64, Error> {
 
 #[ic_cdk::query]
 fn inspect(id: u64) -> Result<View, Error> {
-    authorize()?;
-    with_queue(|queue| queue.inspect(id))
+    with_authorized_queue(|queue| queue.inspect(id))
 }
 
 #[ic_cdk::query]
 fn list(after: Option<u64>, limit: u8) -> Result<Vec<View>, Error> {
-    authorize()?;
-    with_queue(|queue| queue.page(after, limit))
+    with_authorized_queue(|queue| queue.page(after, limit))
 }
 
 #[ic_cdk::update]
@@ -123,8 +125,7 @@ fn reschedule(id: u64, timing: crate::api::Timing) -> Result<(), Error> {
 
 #[ic_cdk::query]
 fn summary() -> Result<Summary, Error> {
-    authorize()?;
-    let (next_due_ns, counter, receipts) = with_queue(|queue| queue.summary())?;
+    let (next_due_ns, counter, receipts) = with_authorized_queue(|queue| queue.summary())?;
     let armed = WATCHDOG.with(|watchdog| {
         watchdog
             .borrow()
@@ -190,13 +191,12 @@ fn wake() -> WatchdogRunResult {
 
 #[ic_cdk::update]
 fn dispatch_due() -> Result<(), Error> {
-    authorize()?;
     launch_deliveries(dispatch_reconciled()?);
     Ok(())
 }
 
 fn dispatch_reconciled() -> Result<Vec<Delivery>, Error> {
-    let (deliveries, _, due) = with_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
+    let (deliveries, _, due) = with_authorized_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
     // Timer refusal still traps the stable write's segment before delivery escapes.
     reconcile_at(due);
     Ok(deliveries)
@@ -217,8 +217,7 @@ fn delivery_receipt(delivery: Delivery) -> Result<Option<Delivery>, Error> {
 
 #[ic_cdk::update]
 async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
-    authorize()?;
-    let delivery = with_queue(|queue| queue.outstanding(id))?;
+    let delivery = with_authorized_queue(|queue| queue.outstanding(id))?;
     let response = ic_cdk::call::Call::unbounded_wait(delivery.destination, "delivery_receipt")
         .with_arg(&delivery)
         .await;
@@ -237,7 +236,7 @@ async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
 // canister. They use real IC traps; there is no production cfg(test) substitute.
 #[ic_cdk::update]
 fn fixture_trap_watchdog_batch(enabled: bool) -> Result<(), Error> {
-    authorize()?;
+    with_authorized_queue(|_| Ok(()))?;
     TRAP_WATCHDOG_BATCH.with(|fault| fault.set(enabled));
     Ok(())
 }
@@ -262,14 +261,12 @@ fn fixture_trap_after_reschedule(id: u64, timing: crate::api::Timing) {
 
 #[ic_cdk::update]
 fn fixture_corrupt_record(id: u64) -> Result<(), Error> {
-    authorize()?;
-    with_queue(|queue| queue.corrupt_record(id))
+    with_authorized_queue(|queue| queue.corrupt_record(id))
 }
 
 #[ic_cdk::update]
 fn fixture_mark_uncertain(id: u64) -> Result<(), Error> {
-    authorize()?;
-    let delivery = with_queue(|queue| queue.outstanding(id))?;
+    let delivery = with_authorized_queue(|queue| queue.outstanding(id))?;
     complete_delivery(&delivery, Outcome::Uncertain)?;
     Ok(())
 }

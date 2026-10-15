@@ -61,7 +61,8 @@ impl Fixture {
     ) -> Result<T, Error> {
         self.pic
             .instance
-            .update_candid_as_or_panic(self.sender, self.manager, method, args)
+            .update_candid_as(self.sender, self.manager, method, args)
+            .expect("PocketIC Candid call")
     }
     fn query<T: CandidType + DeserializeOwned, A: ArgumentEncoder>(
         &self,
@@ -71,7 +72,8 @@ impl Fixture {
     ) -> Result<T, Error> {
         self.pic
             .instance
-            .query_candid_as_or_panic(id, self.manager, method, args)
+            .query_candid_as(id, self.manager, method, args)
+            .expect("PocketIC Candid call")
     }
     fn view(&self, id: u64) -> View {
         self.query(self.sender, "inspect", (id,)).unwrap()
@@ -114,12 +116,16 @@ fn increment(at: u64, amount: u64) -> Create {
 fn management_upgrade_and_real_watchdog_delivery() {
     let fixture = Fixture::new();
     let now = fixture.pic.instance.get_time().as_nanos_since_unix_epoch();
-    let unauthorized: Result<u64, Error> = fixture.pic.instance.update_candid_as_or_panic(
-        fixture.sender,
-        Principal::anonymous(),
-        "create",
-        (increment(now + 20_000_000_000, 5),),
-    );
+    let unauthorized: Result<u64, Error> = fixture
+        .pic
+        .instance
+        .update_candid_as(
+            fixture.sender,
+            Principal::anonymous(),
+            "create",
+            (increment(now + 20_000_000_000, 5),),
+        )
+        .expect("PocketIC Candid call");
     assert_eq!(unauthorized, Err(Error::Unauthorized));
     let first: u64 = fixture
         .update("create", (increment(now + 20_000_000_000, 5),))
@@ -464,7 +470,10 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
         .pic
         .instance
         .retry_install_code(
-            RetryPolicy::try_new(4, Duration::from_secs(600)).unwrap(),
+            RetryPolicy::new(
+                std::num::NonZeroUsize::new(4).unwrap(),
+                Duration::from_secs(600),
+            ),
             || {
                 fixture.pic.instance.upgrade_canister(
                     fixture.sender,
@@ -545,20 +554,23 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
         )
         .unwrap();
     for method in ["pause", "resume"] {
-        let denied: Result<(), Error> = fixture.pic.instance.update_candid_as_or_panic(
-            fixture.sender,
-            Principal::anonymous(),
-            method,
-            (id,),
-        );
+        let denied: Result<(), Error> = fixture
+            .pic
+            .instance
+            .update_candid_as(fixture.sender, Principal::anonymous(), method, (id,))
+            .expect("PocketIC Candid call");
         assert_eq!(denied, Err(Error::Unauthorized));
     }
-    let denied: Result<(), Error> = fixture.pic.instance.update_candid_as_or_panic(
-        fixture.sender,
-        Principal::anonymous(),
-        "reschedule",
-        (id, Timing::Once(0)),
-    );
+    let denied: Result<(), Error> = fixture
+        .pic
+        .instance
+        .update_candid_as(
+            fixture.sender,
+            Principal::anonymous(),
+            "reschedule",
+            (id, Timing::Once(0)),
+        )
+        .expect("PocketIC Candid call");
     assert_eq!(denied, Err(Error::Unauthorized));
     fixture.update::<(), _>("pause", (id,)).unwrap();
     assert_eq!(fixture.view(id).status, Status::Paused);

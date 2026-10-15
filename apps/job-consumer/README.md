@@ -41,6 +41,13 @@ does not establish an upgrade path for old physical images: their owner must
 explicitly dispose of or preserve retained state before adopting the new ledger.
 There is no compatibility reader, automatic reset or rewrite of historical bytes.
 
+IC Memory 0.41 changes the logical ledger discriminator and checked slot encoding.
+The frozen 0.40 registry-produced image is also refused for recovery and installation,
+with zero writes, unchanged pages and identical backing bytes. Existing 0.40
+installations require explicit owner disposition before deployment; adopting the
+crate does not authorize clearing their ledger or preserving untracked cells.
+The unchanged Jobs JSON remains independently readable on fresh current memory.
+
 `Increment` performs a local counter effect and completes its job in one stable
 replacement. A counter overflow has no effect and permanently fails that job,
 including recurrence, without undoing unrelated attempts in the bounded batch.

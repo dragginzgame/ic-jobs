@@ -120,9 +120,7 @@ impl LoadedSnapshot {
 
     fn take_entry(mut self, id: u64) -> Result<(Job, Task), Error> {
         let index = self.index(id)?;
-        if index >= self.tasks.len() {
-            return Err(Error::UnknownJob);
-        }
+        // Decoding constructed both vectors from the same entries.
         // This snapshot is consumed; temporary reordering never reaches storage.
         Ok((self.jobs.swap_remove(index), self.tasks.swap_remove(index)))
     }
@@ -342,13 +340,16 @@ impl<M: Memory> Queue<M> {
             .zip(snapshot.tasks)
             .filter(|(job, _)| job.record().id.0 > u128::from(after.unwrap_or(0)))
             .take(usize::from(limit))
-            .map(|(job, task)| view(job, task))
+            .map(|(job, task)| {
+                let id = u64::try_from(job.record().id.0).map_err(|_| Error::InvalidStorage)?;
+                Ok(view(id, job, task))
+            })
             .collect()
     }
 
     pub(crate) fn inspect(&self, id: u64) -> Result<View, Error> {
         let (job, task) = self.load()?.take_entry(id)?;
-        view(job, task)
+        Ok(view(id, job, task))
     }
 
     pub(crate) fn cancel(&mut self, id: u64, now: u64) -> Result<Committed<()>, Error> {
@@ -453,9 +454,7 @@ impl<M: Memory> Queue<M> {
         let index = snapshot.index(delivery.job)?;
         let job = &mut snapshot.jobs[index];
         let (attempt, destination, message) = active_delivery(job, &mut snapshot.tasks[index])?;
-        let id = u64::try_from(job.record().id.0).map_err(|_| Error::InvalidStorage)?;
-        if delivery.job != id
-            || delivery.occurrence != attempt.execution.occurrence
+        if delivery.occurrence != attempt.execution.occurrence
             || delivery.sequence != attempt.sequence
             || delivery.destination != destination
             || delivery.message != *message
@@ -526,10 +525,10 @@ impl<M: Memory> Queue<M> {
     }
 }
 
-fn view(job: Job, task: Task) -> Result<View, Error> {
+fn view(id: u64, job: Job, task: Task) -> View {
     let record = job.record();
-    Ok(View {
-        id: u64::try_from(record.id.0).map_err(|_| Error::InvalidStorage)?,
+    View {
+        id,
         task,
         status: match record.state {
             JobState::Pending { .. } => Status::Pending,
@@ -543,7 +542,7 @@ fn view(job: Job, task: Task) -> Result<View, Error> {
         due_ns: job.next_due_ns(),
         sequence: record.sequence,
         occurrence: record.occurrence,
-    })
+    }
 }
 
 #[cfg(test)]
