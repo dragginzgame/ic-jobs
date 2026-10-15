@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.13.1]
+## [0.13.1] - 2026-10-15
 
 - Update recovery trap assertions for Testkit 0.47 structured call failures,
   retaining exact canister-trap admission and full failure diagnostics.
