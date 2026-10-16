@@ -6,7 +6,7 @@ use ic_jobs::{
 
 mod support;
 
-use support::roundtrip;
+use support::{recurring_schedules, roundtrip};
 
 fn recurring(missed: MissedRunPolicy) -> Job {
     Job::new(
@@ -83,23 +83,9 @@ fn retry_pause_retains_backoff_and_refuses_rescheduling_after_an_attempt() {
 #[test]
 fn rescheduling_preserves_history_and_rebases_only_the_current_cadence() {
     for paused in [false, true] {
-        for replacement in [
-            Schedule::Once { at_ns: 250 },
-            Schedule::FixedRate {
-                first_at_ns: 250,
-                every_ns: std::num::NonZeroU64::new(20).unwrap(),
-                missed: MissedRunPolicy::CatchUp,
-            },
-            Schedule::FixedRate {
-                first_at_ns: 250,
-                every_ns: std::num::NonZeroU64::new(20).unwrap(),
-                missed: MissedRunPolicy::Skip,
-            },
-            Schedule::AfterCompletion {
-                first_at_ns: 250,
-                every_ns: std::num::NonZeroU64::new(20).unwrap(),
-            },
-        ] {
+        for replacement in
+            std::iter::once(Schedule::Once { at_ns: 250 }).chain(recurring_schedules(250, 20))
+        {
             let mut job = recurring(MissedRunPolicy::CatchUp);
             let previous = job.start(100).unwrap();
             job.finish(previous, 100, Outcome::Success).unwrap();
@@ -149,23 +135,9 @@ fn rescheduling_preserves_history_and_rebases_only_the_current_cadence() {
 #[test]
 fn fresh_rescheduling_retains_identity_and_overflow_keeps_the_active_attempt() {
     for paused in [false, true] {
-        for replacement in [
-            Schedule::Once { at_ns: 250 },
-            Schedule::FixedRate {
-                first_at_ns: 250,
-                every_ns: std::num::NonZeroU64::new(20).unwrap(),
-                missed: MissedRunPolicy::CatchUp,
-            },
-            Schedule::FixedRate {
-                first_at_ns: 250,
-                every_ns: std::num::NonZeroU64::new(20).unwrap(),
-                missed: MissedRunPolicy::Skip,
-            },
-            Schedule::AfterCompletion {
-                first_at_ns: 250,
-                every_ns: std::num::NonZeroU64::new(20).unwrap(),
-            },
-        ] {
+        for replacement in
+            std::iter::once(Schedule::Once { at_ns: 250 }).chain(recurring_schedules(250, 20))
+        {
             let mut job = Job::new(JobId(7), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE);
             if paused {
                 job.pause(50).unwrap();

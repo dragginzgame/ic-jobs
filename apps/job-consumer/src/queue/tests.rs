@@ -464,31 +464,33 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
             let outstanding = matches!(task, Task::Deliver { .. })
                 && matches!(state, JobState::Running { .. } | JobState::Uncertain { .. });
             let before = queue.cell.get().clone();
-            for candidate in [
-                Delivery {
-                    occurrence: delivery.occurrence + 1,
-                    ..delivery.clone()
-                },
-                Delivery {
-                    sequence: delivery.sequence + 1,
-                    ..delivery.clone()
-                },
-                Delivery {
-                    destination: Principal::anonymous(),
-                    ..delivery.clone()
-                },
-            ] {
-                assert_eq!(
-                    queue.finish(&candidate, 9, Outcome::Success),
-                    Err(if outstanding {
-                        Error::ReceiptMismatch
-                    } else {
-                        Error::InvalidInput
-                    })
-                );
-                assert_eq!(*queue.cell.get(), before);
-            }
+            let mismatch = if outstanding {
+                Error::ReceiptMismatch
+            } else {
+                Error::InvalidInput
+            };
             for (candidate, expected) in [
+                (
+                    Delivery {
+                        occurrence: delivery.occurrence + 1,
+                        ..delivery.clone()
+                    },
+                    mismatch.clone(),
+                ),
+                (
+                    Delivery {
+                        sequence: delivery.sequence + 1,
+                        ..delivery.clone()
+                    },
+                    mismatch.clone(),
+                ),
+                (
+                    Delivery {
+                        destination: Principal::anonymous(),
+                        ..delivery.clone()
+                    },
+                    mismatch.clone(),
+                ),
                 (
                     Delivery {
                         job: id + 1,
@@ -501,11 +503,7 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
                         message: "changed".into(),
                         ..delivery.clone()
                     },
-                    if outstanding {
-                        Error::ReceiptMismatch
-                    } else {
-                        Error::InvalidInput
-                    },
+                    mismatch,
                 ),
                 (
                     delivery,
@@ -575,6 +573,23 @@ fn corrupt_future_record_blocks_due_dispatch_and_recovery_without_reset() {
     assert!(Queue::open(backing, None).is_err());
 }
 
+fn assert_invalid_record_blocks_queue(
+    mut queue: Queue<VectorMemory>,
+    backing: VectorMemory,
+    now: u64,
+    healthy: u64,
+) {
+    let bytes = queue.cell.get().clone();
+    let expected = job_error(ic_jobs::JobError::InvalidRecord);
+    assert_eq!(queue.dispatch(now), Err(expected.clone()));
+    assert_eq!(queue.summary(), Err(expected.clone()));
+    assert_eq!(queue.inspect(healthy), Err(expected.clone()));
+    assert_eq!(*queue.cell.get(), bytes);
+    let memory = queue.cell.into_memory();
+    assert!(matches!(Queue::open(backing, None), Err(error) if error == expected));
+    assert_eq!(Cell::init(memory, Vec::<u8>::new()).get(), &bytes);
+}
+
 #[test]
 fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
     for uncertain in [false, true] {
@@ -608,15 +623,7 @@ fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
             .unwrap();
         entry.job.sequence += 1;
         queue.cell.set(serde_json::to_vec(&snapshot).unwrap());
-        let bytes = queue.cell.get().clone();
-        let expected = job_error(ic_jobs::JobError::InvalidRecord);
-        assert_eq!(queue.dispatch(200), Err(expected.clone()));
-        assert_eq!(queue.summary(), Err(expected.clone()));
-        assert_eq!(queue.inspect(healthy), Err(expected.clone()));
-        assert_eq!(*queue.cell.get(), bytes);
-        let memory = queue.cell.into_memory();
-        assert!(matches!(Queue::open(backing, None), Err(error) if error == expected));
-        assert_eq!(Cell::init(memory, Vec::<u8>::new()).get(), &bytes);
+        assert_invalid_record_blocks_queue(queue, backing, 200, healthy);
     }
 }
 
@@ -664,23 +671,12 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
     ] {
         let backing = VectorMemory::default();
         let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
-        queue.create(increment(100)).unwrap();
+        let healthy = queue.create(increment(100)).unwrap().value;
         queue.create(increment(200)).unwrap();
         let mut snapshot: Snapshot = serde_json::from_slice(queue.cell.get()).unwrap();
         snapshot.jobs[1].job = corrupt;
         queue.cell.set(serde_json::to_vec(&snapshot).unwrap());
-        let bytes = queue.cell.get().clone();
-        assert_eq!(
-            queue.dispatch(100),
-            Err(job_error(ic_jobs::JobError::InvalidRecord))
-        );
-        assert_eq!(*queue.cell.get(), bytes);
-        let memory = queue.cell.into_memory();
-        assert!(matches!(
-            Queue::open(backing.clone(), None),
-            Err(Error::Job(_))
-        ));
-        assert_eq!(Cell::init(memory, Vec::<u8>::new()).get(), &bytes);
+        assert_invalid_record_blocks_queue(queue, backing, 100, healthy);
     }
 }
 

@@ -3,7 +3,8 @@
 use candid::{CandidType, Principal, utils::ArgumentEncoder};
 use ic_testkit::pic::{
     CandidCallError, CandidCallExt, CanisterInstallExt, ErrorCode, InstallSpec, PocketIc,
-    PocketIcBuilder, PocketIcInstance, PocketIcStartupConfig, RetryPolicy, tick_until,
+    PocketIcBuilder, PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy,
+    advance_and_tick, tick_until,
 };
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
 use serde::de::DeserializeOwned;
@@ -62,10 +63,18 @@ impl Fixture {
         method: &str,
         args: A,
     ) -> Result<T, Error> {
+        self.update_as(self.manager, method, args)
+            .expect("PocketIC Candid call")
+    }
+    fn update_as<T: CandidType + DeserializeOwned, A: ArgumentEncoder>(
+        &self,
+        caller: Principal,
+        method: &str,
+        args: A,
+    ) -> Result<T, CandidCallError> {
         self.pic
             .instance
-            .update_candid_as(self.sender, self.manager, method, args)
-            .expect("PocketIC Candid call")
+            .update_candid_as(self.sender, caller, method, args)
     }
     fn query<T: CandidType + DeserializeOwned, A: ArgumentEncoder>(
         &self,
@@ -84,16 +93,13 @@ impl Fixture {
     fn summary(&self, id: Principal) -> Summary {
         self.query(id, "summary", ()).unwrap()
     }
-    fn upgrade(&self, id: Principal) {
-        self.pic
-            .instance
-            .upgrade_canister(
-                id,
-                self.wasm.clone(),
-                candid::encode_args(()).unwrap(),
-                None,
-            )
-            .unwrap();
+    fn upgrade(&self, id: Principal) -> Result<(), RejectResponse> {
+        self.pic.instance.upgrade_canister(
+            id,
+            self.wasm.clone(),
+            candid::encode_args(()).unwrap(),
+            None,
+        )
     }
     fn until(&self, predicate: impl Fn() -> bool) {
         tick_until(&self.pic.instance, 30, Duration::ZERO, |_| {
@@ -131,10 +137,7 @@ fn management_upgrade_and_real_watchdog_delivery() {
     let fixture = Fixture::new();
     let now = fixture.pic.instance.get_time().as_nanos_since_unix_epoch();
     let unauthorized: Result<u64, Error> = fixture
-        .pic
-        .instance
-        .update_candid_as(
-            fixture.sender,
+        .update_as(
             Principal::anonymous(),
             "create",
             (increment(now + 20_000_000_000, 5),),
@@ -149,7 +152,7 @@ fn management_upgrade_and_real_watchdog_delivery() {
         .unwrap();
     let before = fixture.view(second);
     assert!(fixture.summary(fixture.sender).armed);
-    fixture.upgrade(fixture.sender);
+    fixture.upgrade(fixture.sender).unwrap();
     assert_eq!(fixture.view(second), before);
     assert_eq!(
         fixture.summary(fixture.sender).next_due_ns,
@@ -183,15 +186,13 @@ fn management_upgrade_and_real_watchdog_delivery() {
             },),
         )
         .unwrap();
-    fixture.upgrade(fixture.sender);
+    fixture.upgrade(fixture.sender).unwrap();
     fixture.pic.instance.advance_time(Duration::from_secs(15));
     fixture.until(|| fixture.view(third).status == Status::Completed);
     assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
-    fixture.upgrade(fixture.sender);
-    fixture.upgrade(fixture.receiver);
-    for _ in 0..3 {
-        fixture.pic.instance.tick();
-    }
+    fixture.upgrade(fixture.sender).unwrap();
+    fixture.upgrade(fixture.receiver).unwrap();
+    advance_and_tick(&fixture.pic.instance, Duration::ZERO, 3);
     assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
 }
 
@@ -209,8 +210,7 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
         )
         .unwrap();
     let before = fixture.summary(fixture.sender);
-    let failed = fixture.pic.instance.update_candid_as::<(), _>(
-        fixture.sender,
+    let failed = fixture.update_as::<(), _>(
         fixture.manager,
         "fixture_trap_after_create",
         (increment(
@@ -224,7 +224,7 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
         .query(fixture.sender, "list", (None::<u64>, 8_u8))
         .unwrap();
     assert_eq!(page.len(), 1);
-    fixture.upgrade(fixture.sender);
+    fixture.upgrade(fixture.sender).unwrap();
     assert_eq!(fixture.summary(fixture.sender), before);
     let next: u64 = fixture
         .update(
@@ -299,11 +299,8 @@ fn watchdog_batch_trap_rolls_back_then_recovers_without_repeating_local_effects(
     fixture.until(|| fixture.view(later).status == Status::Completed);
     assert_eq!(fixture.summary(fixture.sender).counter, 5);
     assert!(!fixture.summary(fixture.sender).armed);
-    fixture.upgrade(fixture.sender);
-    fixture.pic.instance.advance_time(Duration::from_secs(3));
-    for _ in 0..12 {
-        fixture.pic.instance.tick();
-    }
+    fixture.upgrade(fixture.sender).unwrap();
+    advance_and_tick(&fixture.pic.instance, Duration::from_secs(3), 12);
     assert_eq!(fixture.summary(fixture.sender).counter, 5);
     assert_eq!(fixture.view(failed).status, Status::Failed);
     assert!(!fixture.summary(fixture.sender).armed);
@@ -320,15 +317,11 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
             message: "retained external effect".into(),
         },
     };
-    let failed = fixture
-        .pic
-        .instance
-        .update_candid_as::<Result<(), Error>, _>(
-            fixture.sender,
-            fixture.manager,
-            "fixture_dispatch_trap_result",
-            (input,),
-        );
+    let failed = fixture.update_as::<Result<(), Error>, _>(
+        fixture.manager,
+        "fixture_dispatch_trap_result",
+        (input,),
+    );
     assert_canister_trap(failed.unwrap_err());
     let page: Vec<View> = fixture
         .query(fixture.sender, "list", (None::<u64>, 8_u8))
@@ -336,14 +329,14 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
     let id = page[0].id;
     assert_eq!(page[0].status, Status::Running);
     assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
-    fixture.upgrade(fixture.sender);
-    fixture.upgrade(fixture.receiver);
+    fixture.upgrade(fixture.sender).unwrap();
+    fixture.upgrade(fixture.receiver).unwrap();
     fixture.update::<(), _>("dispatch_due", ()).unwrap();
     assert_eq!(fixture.view(id).status, Status::Running);
     fixture
         .update::<(), _>("fixture_mark_uncertain", (id,))
         .unwrap();
-    fixture.upgrade(fixture.sender);
+    fixture.upgrade(fixture.sender).unwrap();
     assert_eq!(fixture.view(id).status, Status::Uncertain);
     assert!(
         fixture
@@ -365,7 +358,7 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
             },),
         )
         .unwrap();
-    fixture.upgrade(fixture.sender);
+    fixture.upgrade(fixture.sender).unwrap();
     assert!(
         !fixture
             .update::<bool, _>("reconcile_delivery", (absent,))
@@ -373,37 +366,30 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
     );
     assert_eq!(fixture.view(absent).status, Status::Running);
     assert!(fixture.update::<(), _>("cancel", (absent,)).is_err());
-    assert!(fixture.update::<(), _>("pause", (absent,)).is_err());
-    assert!(fixture.update::<(), _>("resume", (absent,)).is_err());
-    assert!(
-        fixture
-            .update::<(), _>(
-                "reschedule",
-                (
-                    absent,
-                    Timing::Once(fixture.pic.instance.get_time().as_nanos_since_unix_epoch())
+    for state in [Status::Running, Status::Uncertain] {
+        if state == Status::Uncertain {
+            fixture
+                .update::<(), _>("fixture_mark_uncertain", (absent,))
+                .unwrap();
+        }
+        let before = fixture.view(absent);
+        assert_eq!(before.status, state);
+        for method in ["pause", "resume"] {
+            assert!(fixture.update::<(), _>(method, (absent,)).is_err());
+        }
+        assert!(
+            fixture
+                .update::<(), _>(
+                    "reschedule",
+                    (
+                        absent,
+                        Timing::Once(fixture.pic.instance.get_time().as_nanos_since_unix_epoch())
+                    )
                 )
-            )
-            .is_err()
-    );
-    fixture
-        .update::<(), _>("fixture_mark_uncertain", (absent,))
-        .unwrap();
-    let before = fixture.view(absent);
-    assert!(fixture.update::<(), _>("pause", (absent,)).is_err());
-    assert!(fixture.update::<(), _>("resume", (absent,)).is_err());
-    assert!(
-        fixture
-            .update::<(), _>(
-                "reschedule",
-                (
-                    absent,
-                    Timing::Once(fixture.pic.instance.get_time().as_nanos_since_unix_epoch())
-                )
-            )
-            .is_err()
-    );
-    assert_eq!(fixture.view(absent), before);
+                .is_err()
+        );
+        assert_eq!(fixture.view(absent), before);
+    }
     assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
 }
 
@@ -445,16 +431,7 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
             .unwrap_err(),
         Error::InvalidStorage
     ));
-    let rejected = fixture
-        .pic
-        .instance
-        .upgrade_canister(
-            fixture.sender,
-            fixture.wasm.clone(),
-            candid::encode_args(()).unwrap(),
-            None,
-        )
-        .unwrap_err();
+    let rejected = fixture.upgrade(fixture.sender).unwrap_err();
     assert_eq!(rejected.error_code, ErrorCode::CanisterCalledTrap);
     fixture
         .pic
@@ -482,14 +459,7 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
                 std::num::NonZeroUsize::new(4).unwrap(),
                 Duration::from_secs(600),
             ),
-            || {
-                fixture.pic.instance.upgrade_canister(
-                    fixture.sender,
-                    fixture.wasm.clone(),
-                    candid::encode_args(()).unwrap(),
-                    None,
-                )
-            },
+            || fixture.upgrade(fixture.sender),
         )
         .unwrap();
     assert_eq!(fixture.view(id).status, Status::Pending);
@@ -519,7 +489,7 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
         ids.push(id);
         fixture.update::<(), _>("pause", (id,)).unwrap();
     }
-    fixture.upgrade(fixture.sender);
+    fixture.upgrade(fixture.sender).unwrap();
     fixture.pic.instance.advance_time(Duration::from_secs(13));
     for id in &ids {
         assert_eq!(fixture.view(*id).status, Status::Paused);
@@ -527,7 +497,7 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
     }
     assert_eq!(fixture.summary(fixture.sender).counter, 0);
     assert!(!fixture.summary(fixture.sender).armed);
-    fixture.upgrade(fixture.sender);
+    fixture.upgrade(fixture.sender).unwrap();
     for id in &ids {
         fixture.update::<(), _>("resume", (*id,)).unwrap();
     }
@@ -541,10 +511,7 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
     }
     assert!(!fixture.summary(fixture.sender).armed);
     let before = fixture.summary(fixture.sender).counter;
-    fixture.pic.instance.advance_time(Duration::from_secs(30));
-    for _ in 0..3 {
-        fixture.pic.instance.tick();
-    }
+    advance_and_tick(&fixture.pic.instance, Duration::from_secs(30), 3);
     assert_eq!(fixture.summary(fixture.sender).counter, before);
 }
 
@@ -563,32 +530,20 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
         .unwrap();
     for method in ["pause", "resume"] {
         let denied: Result<(), Error> = fixture
-            .pic
-            .instance
-            .update_candid_as(fixture.sender, Principal::anonymous(), method, (id,))
+            .update_as(Principal::anonymous(), method, (id,))
             .expect("PocketIC Candid call");
         assert_eq!(denied, Err(Error::Unauthorized));
     }
     let denied: Result<(), Error> = fixture
-        .pic
-        .instance
-        .update_candid_as(
-            fixture.sender,
-            Principal::anonymous(),
-            "reschedule",
-            (id, Timing::Once(0)),
-        )
+        .update_as(Principal::anonymous(), "reschedule", (id, Timing::Once(0)))
         .expect("PocketIC Candid call");
     assert_eq!(denied, Err(Error::Unauthorized));
     fixture.update::<(), _>("pause", (id,)).unwrap();
     assert_eq!(fixture.view(id).status, Status::Paused);
     assert_eq!(fixture.summary(fixture.sender).next_due_ns, None);
     assert!(!fixture.summary(fixture.sender).armed);
-    fixture.upgrade(fixture.sender);
-    fixture.pic.instance.advance_time(Duration::from_secs(40));
-    for _ in 0..3 {
-        fixture.pic.instance.tick();
-    }
+    fixture.upgrade(fixture.sender).unwrap();
+    advance_and_tick(&fixture.pic.instance, Duration::from_secs(40), 3);
     assert_eq!(fixture.summary(fixture.sender).counter, 0);
     let later = fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 100_000_000_000;
     fixture
@@ -597,7 +552,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
     let paused = fixture.view(id);
     assert_eq!(paused.status, Status::Paused);
     assert_eq!((paused.sequence, paused.occurrence), (0, 0));
-    fixture.upgrade(fixture.sender);
+    fixture.upgrade(fixture.sender).unwrap();
     assert_eq!(fixture.view(id), paused);
     fixture.update::<(), _>("resume", (id,)).unwrap();
     assert_eq!(fixture.summary(fixture.sender).next_due_ns, Some(later));
@@ -608,8 +563,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
         .unwrap();
     let before = fixture.view(id);
     let summary = fixture.summary(fixture.sender);
-    let failed = fixture.pic.instance.update_candid_as::<(), _>(
-        fixture.sender,
+    let failed = fixture.update_as::<(), _>(
         fixture.manager,
         "fixture_trap_after_reschedule",
         (
@@ -622,16 +576,11 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
     assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.view(id), before);
     assert_eq!(fixture.summary(fixture.sender), summary);
-    let failed = fixture.pic.instance.update_candid_as::<(), _>(
-        fixture.sender,
-        fixture.manager,
-        "fixture_trap_after_pause",
-        (id,),
-    );
+    let failed = fixture.update_as::<(), _>(fixture.manager, "fixture_trap_after_pause", (id,));
     assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.view(id), before);
     assert_eq!(fixture.summary(fixture.sender), summary);
-    fixture.upgrade(fixture.sender);
+    fixture.upgrade(fixture.sender).unwrap();
     fixture.pic.instance.advance_time(Duration::from_secs(20));
     fixture.until(|| fixture.view(id).status == Status::Completed);
     assert_eq!(fixture.summary(fixture.sender).counter, 5);

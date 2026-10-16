@@ -1,5 +1,5 @@
 # Consuming Shared Tooling Snapshots
-<!-- Shared companions: docs/rust-toolchains.md -->
+<!-- Shared companions: docs/rust-toolchains.md scripts/distribution/maintenance-files.txt -->
 
 CI and release behavior must not depend on a sibling checkout, a moving Git
 branch, or network availability. Consumers vendor a reviewed file set and
@@ -516,11 +516,21 @@ Consumers using the maintenance rule's exact-commit CI inspection command also
 refresh `scripts/dev/gh-ci.sh` from that reviewed revision. It remains a read-only
 interactive helper using the consumer checkout and authenticated GitHub CLI.
 When adopting the repeatable task commands, include the `tasks/` catalog,
-definitions, prompt and schedule guidance plus linked companions from the
-governance file list. Shared Tooling coordinates central runs; consumers retain
-their focused commands and product scope. Copying those files never installs a
-timer, activates an agent, grants sibling edit authority or requires Codex/systemd
-on every consumer host. Enable one local scheduler separately when requested.
+definitions, prompt and schedule guidance from the governance file list. Shared
+Tooling coordinates central runs; consumers retain their focused commands and
+product scope. The operational runner and systemd units are optional: their
+selection roots are listed in
+[`scripts/distribution/maintenance-files.txt`](../scripts/distribution/maintenance-files.txt).
+A host that needs copied operational files may add those roots explicitly with
+`--add-entrypoint`; their normal owner is the selected Shared Tooling checkout.
+Existing snapshots retain recorded roots on ordinary refresh. To stop carrying
+these files, pass the complete retained `--entrypoint` selection without the
+optional roots. Canonical retirement refuses modified payloads; preserve local
+work and resolve it before retrying. Never hand-edit a snapshot or delete its
+owned files to bypass that check. Catalog/guidance adoption does not select
+operational files, install a timer, activate an agent, grant sibling edit authority
+or require Codex/systemd on every consumer host. Enable one local scheduler
+separately when requested.
 The portable-suite prerequisite check is Shared Tooling's own test setup, not a
 required consumer gate. If vendoring the complete portable suite, include its
 new `scripts/ci/check-portable-prerequisites.sh`, `scripts/ci/test-portable-prerequisites.sh`
@@ -793,13 +803,16 @@ recipes only after testing their actual callers and hook, following the
 Rust toolchain. Shared Tooling itself selects `CLOC_REPORT` and `CLOC_ROOT` before
 the include to summarize sibling workspaces; consumers normally use the defaults.
 Installing the raw cloc executable alone does not add these Make commands.
-The optional `make cloc-tooling` scans sibling CI and tooling, including non-Rust repositories;
-`CLOC_PARENT` selects its parent directory. It needs Git, cloc and core Perl
-modules, with no Cargo dependency or consumer command execution. Run it from
-Shared Tooling by default. A consumer that intentionally needs its own command
-can explicitly select `scripts/dev/cloc-tooling.pl`; existing selections continue
-to work. Without that file the target explains where to run or adopt the report,
-and never invokes another checkout implicitly.
+In Shared Tooling, `make cloc-tooling` scans sibling CI and tooling, including
+non-Rust repositories; `CLOC_PARENT` selects its parent directory. It needs Git,
+cloc and core Perl modules, with no Cargo dependency or consumer command execution.
+As of 0.16.0, the common consumer include no longer exports this fleet command or
+its `CLOC_PARENT` input. Move Make/CI/help callers to the central command before
+refreshing, and refresh `test-tool-commands.sh` too if it is selected. Consumers
+that deliberately select `scripts/dev/cloc-tooling.pl` can
+invoke `perl scripts/dev/cloc-tooling.pl PARENT` directly from their reviewed
+snapshot. The reporter and its snapshot contract remain available; no command
+implicitly invokes another checkout.
 
 The report includes each recorded `version@revision` and complete declared-file
 integrity, with separate identities for multiple bundles. Missing versions remain
@@ -843,7 +856,9 @@ claim deployment or PocketIC client/server compatibility from `--version` alone.
 Snapshot integrity and consumer adoption remain separate from upstream fixtures.
 
 The Rust setup action is an independent entrypoint:
-`.github/actions/prepare-rust-toolchains/action.yml`. It has no helper dependencies.
+`.github/actions/prepare-rust-toolchains/action.yml`. Its declared companion is
+`scripts/dev/prepare-rust-toolchain.sh`; the canonical exporter includes that
+helper automatically when selecting or refreshing the action.
 Select `docs/rust-toolchains.md` too for its [caller contract](rust-toolchains.md).
 
 The evidence archiver can be adopted independently as
@@ -896,6 +911,10 @@ Replace `install-actionlint.sh`, `install-gitleaks.sh`, `install-shellcheck.sh`,
 TOOL is respectively `actionlint`, `gitleaks`, `shellcheck`, `sccache` or `yq`.
 Keep existing `--version`, `--sha256` and `--install-dir` arguments and local pins.
 There are no forwarding aliases in 0.11.
+
+As of 0.16.0, every invocation must include `--install-dir`; an environment-only
+destination or the former home-directory default is no longer accepted. Update
+callers before refreshing the command and its selected installer fixture.
 
 Before refresh, replace each recorded wrapper entrypoint with
 `scripts/ci/install-ci-tool.sh` in the reviewed selection. Pass the complete new

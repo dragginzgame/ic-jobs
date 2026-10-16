@@ -119,11 +119,12 @@ impl LoadedSnapshot {
         })
     }
 
-    fn take_entry(mut self, id: u64) -> Result<(Job, Task), Error> {
-        let index = self.index(id)?;
-        // Decoding constructed both vectors from the same entries.
-        // This snapshot is consumed; temporary reordering never reaches storage.
-        Ok((self.jobs.swap_remove(index), self.tasks.swap_remove(index)))
+    fn take_entry(self, id: u64) -> Result<(Job, Task), Error> {
+        self.jobs
+            .into_iter()
+            .zip(self.tasks)
+            .find(|(job, _)| job.record().id == JobId(u128::from(id)))
+            .ok_or(Error::UnknownJob)
     }
 
     fn receipt_index(&self, delivery: &Delivery) -> Option<usize> {
@@ -152,21 +153,6 @@ fn delivery(attempt: Attempt, destination: Principal, message: String) -> Result
         destination,
         message,
     })
-}
-
-fn active_delivery<'task>(
-    job: &Job,
-    task: &'task Task,
-) -> Result<(Attempt, Principal, &'task str), Error> {
-    let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
-    let Task::Deliver {
-        destination,
-        message,
-    } = task
-    else {
-        return Err(Error::InvalidInput);
-    };
-    Ok((attempt, *destination, message))
 }
 
 // The host owns one allocation pool/bootstrap. Cell persists the application
@@ -456,11 +442,18 @@ impl<M: Memory> Queue<M> {
         let mut snapshot = self.load()?;
         let index = snapshot.index(delivery.job)?;
         let job = &mut snapshot.jobs[index];
-        let (attempt, destination, message) = active_delivery(job, &snapshot.tasks[index])?;
+        let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
+        let Task::Deliver {
+            destination,
+            message,
+        } = &snapshot.tasks[index]
+        else {
+            return Err(Error::InvalidInput);
+        };
         if delivery.occurrence != attempt.execution.occurrence
             || delivery.sequence != attempt.sequence
-            || delivery.destination != destination
-            || delivery.message != message
+            || delivery.destination != *destination
+            || delivery.message != *message
         {
             return Err(Error::ReceiptMismatch);
         }
@@ -507,10 +500,11 @@ impl<M: Memory> Queue<M> {
         if self.init.delivery_sender != Some(caller) {
             return Err(Error::Unauthorized);
         }
-        let mut snapshot = self.load()?;
+        let snapshot = self.load()?;
         Ok(snapshot
-            .receipt_index(delivery)
-            .map(|index| snapshot.receipts.swap_remove(index)))
+            .receipts
+            .into_iter()
+            .find(|receipt| receipt_key(receipt) == receipt_key(delivery)))
     }
 
     // Deliberate corruption endpoint in an unpublished qualification artifact.

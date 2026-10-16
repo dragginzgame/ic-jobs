@@ -4,6 +4,7 @@ use std::num::NonZeroU64;
 
 use ic_jobs::{Job, JobError, JobId, JobRecord, JobState, RetryPolicy, Schedule};
 use serde::Deserialize;
+use serde_test::{Token, assert_tokens};
 
 #[test]
 fn retry_construction_and_decoding_share_the_same_numeric_constraints() {
@@ -32,6 +33,24 @@ fn retry_construction_and_decoding_share_the_same_numeric_constraints() {
         assert_eq!(
             serde_json::from_slice::<RetryPolicy>(&bytes).unwrap(),
             policy
+        );
+        // The public writer's named structure is also the reader's contract.
+        // JSON ignores this metadata; the canonical token codec checks it.
+        assert_tokens(
+            &policy,
+            &[
+                Token::Struct {
+                    name: "RetryPolicy",
+                    len: 3,
+                },
+                Token::Str("max_attempts"),
+                Token::U32(attempts),
+                Token::Str("initial_delay_ns"),
+                Token::U64(initial),
+                Token::Str("max_delay_ns"),
+                Token::U64(maximum),
+                Token::StructEnd,
+            ],
         );
     }
     assert_eq!(RetryPolicy::new(1, 1, 1).unwrap(), RetryPolicy::NONE);
@@ -111,32 +130,5 @@ fn zero_absolute_deadlines_and_maximum_intervals_remain_valid() {
         job.finish(attempt, 0, ic_jobs::Outcome::Success).unwrap();
         assert_eq!(job.next_due_ns(), Some(interval));
         assert_eq!(Job::restore(job.record()).unwrap().record(), job.record());
-    }
-}
-
-#[test]
-fn named_retry_policy_tokens_roundtrip_without_exposing_the_decode_projection() {
-    use serde_test::{Token, assert_tokens};
-
-    for (attempts, initial, maximum) in [(1, 1, 1), (3, 5, 10), (u32::MAX, u64::MAX, u64::MAX)] {
-        let policy = RetryPolicy::new(attempts, initial, maximum).unwrap();
-        // The public writer's named structure is also the reader's contract.
-        // JSON ignores this metadata; the canonical token codec checks it.
-        assert_tokens(
-            &policy,
-            &[
-                Token::Struct {
-                    name: "RetryPolicy",
-                    len: 3,
-                },
-                Token::Str("max_attempts"),
-                Token::U32(attempts),
-                Token::Str("initial_delay_ns"),
-                Token::U64(initial),
-                Token::Str("max_delay_ns"),
-                Token::U64(maximum),
-                Token::StructEnd,
-            ],
-        );
     }
 }

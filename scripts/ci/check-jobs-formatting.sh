@@ -11,10 +11,7 @@ root="${root%/.}"
 source "$root/scripts/ci/fixture-lifecycle.sh"
 fixture="$(fixture_create "${TMPDIR:-/tmp}/jobs-formatting.XXXXXX")"
 fixture_complete=false
-finish() {
-    fixture_finish "$?" "$fixture" "Jobs formatting input retained"
-}
-trap finish EXIT
+trap 'fixture_finish "$?" "$fixture" "Jobs formatting input retained"' EXIT
 
 # Only reorder two adjacent dependencies; keep names, versions and features.
 perl "$root/scripts/ci/prepare-cargo-formatting-fixture.pl" \

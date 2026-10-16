@@ -11,15 +11,13 @@ export PATH="$root/.tools/host/bin:$PATH"
 source "$root/scripts/ci/fixture-lifecycle.sh"
 fixture="$(fixture_create "${TMPDIR:-/tmp}/jobs-consumer-tooling.XXXXXX")"
 fixture_complete=false
-finish() {
-    fixture_finish "$?" "$fixture" "Consumer tooling fixture retained"
-}
-trap finish EXIT
-mkdir -p "$fixture/scripts/dev" "$fixture/scripts/ci" "$fixture/.tools/rust/common/bin"
+trap 'fixture_finish "$?" "$fixture" "Consumer tooling fixture retained"' EXIT
+mkdir -p "$fixture/scripts/dev" "$fixture/.tools/rust/common/bin"
+bash "$root/scripts/ci/prepare-make-fixture.sh" "$root" "$fixture"
 cp "$root/Makefile" "$fixture/"
-cp -R "$root/make" "$root/ci" "$fixture/"
+cp -R "$root/ci" "$fixture/"
 cp "$root/scripts/dev/"{install-rust-tools,tool-store,cargo-tool-build}.sh "$fixture/scripts/dev/"
-cp "$root/scripts/ci/"{check-make-execution,verify-file-checksum,test-canister,fixture-lifecycle}.sh "$fixture/scripts/ci/"
+cp "$root/scripts/ci/"{verify-file-checksum,test-canister,fixture-lifecycle}.sh "$fixture/scripts/ci/"
 # Substitute only compiler identity probes. Any Cargo effect remains forbidden;
 # the real installer/parser must refuse the isolated, unprepared source cache.
 mkdir -p "$fixture/compiler/bin"
@@ -91,10 +89,16 @@ export JOBS_CONSUMER_CLI="$fixture/server" JOBS_CONSUMER_ADMISSION_FAILURE=0
 cat > "$fixture/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "$*" == '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --check' ]] || exit 49
-printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
-[[ "${JOBS_CONSUMER_ADMISSION_FAILURE:-0}" == 0 ]] || exit 37
-printf '%s\n' "$JOBS_CONSUMER_CLI"
+case "$*" in
+    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release')
+        printf 'setup\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS" ;;
+    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --check')
+        printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+        echo 'selected CLI admission diagnostic' >&2
+        [[ "$JOBS_CONSUMER_ADMISSION_FAILURE" == 0 ]] || exit 37
+        printf '%s\n' "$JOBS_CONSUMER_CLI" ;;
+    *) exit 49 ;;
+esac
 INSTALLER
 cat > "$fixture/server" <<'SERVER'
 #!/usr/bin/env bash
@@ -126,20 +130,6 @@ bash "$root/scripts/ci/extract-workflow-step.sh" "$fixture/recovery-steps.json" 
 export JOBS_CONSUMER_CLI="$fixture/testkit selected/bin/ic-testkit-server"
 mkdir -p "${JOBS_CONSUMER_CLI%/bin/*}/bin"
 printf '{"selected":"fixture"}\n' > "${JOBS_CONSUMER_CLI%/bin/*}/selection.json"
-cat > "$fixture/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
-#!/usr/bin/env bash
-set -euo pipefail
-case "$*" in
-    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release')
-        printf 'setup\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS" ;;
-    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --check')
-        printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
-        echo 'selected CLI admission diagnostic' >&2
-        [[ "$JOBS_CONSUMER_ADMISSION_FAILURE" == 0 ]] || exit 37
-        printf '%s\n' "$JOBS_CONSUMER_CLI" ;;
-    *) exit 49 ;;
-esac
-INSTALLER
 for outcome in accepted refused; do
     mkdir -p "$fixture/$outcome-workflow/jobs-recovery"
     : > "$fixture/events"
@@ -165,14 +155,10 @@ for outcome in accepted refused; do
 done
 echo 'Hosted CLI selection admits once, retains diagnostics and refuses before receipt copying (actual workflow/Make; substitute installer)'
 
-# Isolate the wrapper's Wasm-file admission after CLI admission. Substitute only
-# the selected CLI and Cargo metadata; invalid inputs must create no attempt or
-# start a server. The shared installer's selection contract is tested above.
-mkdir -p "$fixture/evidence" "$fixture/wasm/wasm32-unknown-unknown/release"
-cat > "$fixture/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
-#!/usr/bin/env bash
-printf '%s\n' "$JOBS_CONSUMER_CLI"
-INSTALLER
+# Isolate both file-admission stages after CLI admission. Substitute only the
+# selected CLI and Cargo metadata; invalid inputs must create no attempt or
+# start a server. Capture admission requires the preceding Wasm input to be valid.
+mkdir -p "$fixture/evidence" "$fixture/wasm/wasm32-unknown-unknown/release" "$fixture/wasm/debug"
 cat > "$fixture/.tools/rust/common/bin/cargo" <<'CARGO'
 #!/usr/bin/env bash
 printf 'metadata\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
@@ -187,40 +173,34 @@ SERVER
 chmod +x "$fixture/server"
 printf 'retained Wasm input\n' > "$fixture/input"
 input="$fixture/wasm/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
-for kind in absent symlink directory; do
-    [[ "$kind" != symlink ]] || ln -s "$fixture/input" "$input"
-    [[ "$kind" != directory ]] || mkdir "$input"
-    : > "$fixture/events"
-    status=0
-    (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" RUNNER_TEMP="$fixture/evidence" \
-        "$BASH" scripts/ci/test-canister.sh) > "$fixture/wasm-$kind.log" 2>&1 || status=$?
-    [[ "$status" == 1 && "$(cat "$fixture/events")" == metadata ]] || exit 1
-    [[ -z "$(ls -A "$fixture/evidence")" && "$(cat "$fixture/input")" == 'retained Wasm input' ]] || exit 1
-    if [[ "$kind" == symlink ]]; then rm "$input"
-    elif [[ "$kind" == directory ]]; then rmdir "$input"; fi
+capture="$fixture/wasm/debug/jobs-capture-artifact"
+for stage in wasm capture; do
+    invalid_input="$input"; link_target="$fixture/input"
+    if [[ "$stage" == capture ]]; then
+        cp "$fixture/input" "$input"
+        invalid_input="$capture"; link_target="$fixture/server"
+    fi
+    for kind in absent symlink directory; do
+        [[ "$kind" != symlink ]] || ln -s "$link_target" "$invalid_input"
+        [[ "$kind" != directory ]] || mkdir "$invalid_input"
+        : > "$fixture/events"
+        status=0
+        (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" RUNNER_TEMP="$fixture/evidence" \
+            "$BASH" scripts/ci/test-canister.sh) > "$fixture/$stage-$kind.log" 2>&1 || status=$?
+        [[ "$status" == 1 && "$(cat "$fixture/events")" == $'admission\nmetadata' ]] || exit 1
+        [[ -z "$(ls -A "$fixture/evidence")" && "$(cat "$fixture/input")" == 'retained Wasm input' ]] || exit 1
+        if [[ "$stage" == capture ]]; then cmp "$fixture/input" "$input"; fi
+        if [[ "$kind" == symlink ]]; then rm "$invalid_input"
+        elif [[ "$kind" == directory ]]; then rmdir "$invalid_input"; fi
+    done
 done
-echo 'Invalid Wasm input refuses before attempt/server dispatch (real wrapper; substitute metadata/CLI)'
+echo 'Invalid Wasm/capture inputs refuse before attempt/server dispatch (real wrapper; substitute metadata/CLI)'
 
 # The real recovery wrapper must consume one frozen original even if the live
 # producer is replaced during qualification. Only transforms/server effects are
 # substituted; flags, paths, hashes, logs and all dispatch plumbing are real.
 mkdir -p "$fixture/selected/bin" "$fixture/ic-bin" "$fixture/.tools/ic"
 target="$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
-mkdir -p "$fixture/wasm/debug"
-cp "$fixture/input" "$input"
-capture="$fixture/wasm/debug/jobs-capture-artifact"
-for kind in absent symlink directory; do
-    [[ "$kind" != symlink ]] || ln -s "$fixture/server" "$capture"
-    [[ "$kind" != directory ]] || mkdir "$capture"
-    : > "$fixture/events"
-    status=0
-    (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" RUNNER_TEMP="$fixture/evidence" \
-        "$BASH" scripts/ci/test-canister.sh) > "$fixture/capture-$kind.log" 2>&1 || status=$?
-    [[ "$status" == 1 && "$(cat "$fixture/events")" == metadata ]] || exit 1
-    [[ -z "$(ls -A "$fixture/evidence")" ]] || exit 1
-    if [[ "$kind" == symlink ]]; then rm "$capture"
-    elif [[ "$kind" == directory ]]; then rmdir "$capture"; fi
-done
 cp "$target/debug/jobs-capture-artifact" "$fixture/wasm/debug/"
 cp "$root/.tools/ic/"{pins.tsv,files.sha256} "$fixture/.tools/ic/"
 cp "$root/.shared-tooling.snapshot" "$fixture/"

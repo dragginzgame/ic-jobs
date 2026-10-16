@@ -11,10 +11,7 @@ root="${root%/.}"
 source "$root/scripts/ci/fixture-lifecycle.sh"
 fixture="$(fixture_create "${TMPDIR:-/tmp}/jobs-formatting-evidence.XXXXXX")"
 fixture_complete=false
-finish() {
-    fixture_finish "$?" "$fixture" "Formatting evidence fixture retained"
-}
-trap finish EXIT
+trap 'fixture_finish "$?" "$fixture" "Formatting evidence fixture retained"' EXIT
 mkdir "$fixture/temp" "$fixture/repository" "$fixture/unpacked"
 (umask 077; mkdir "$fixture/store")
 yq -o json '.' "$root/.github/workflows/ci.yml" > "$fixture/workflow.json"
@@ -61,18 +58,17 @@ attempts=("$gate_temp/"*)
 # Exercise Jobs' actual Makefile and selected includes, substituting only Cargo
 # in this disposable checkout. A sorter failure must stop the later rustfmt call.
 consumer="$fixture/jobs"
-mkdir -p "$consumer/scripts/ci" "$consumer/.tools/rust/common/bin"
+mkdir -p "$consumer/.tools/rust/common/bin"
+bash "$root/scripts/ci/prepare-make-fixture.sh" "$root" "$consumer"
 cp "$root/Makefile" "$consumer/"
-cp -R "$root/make" "$root/ci" "$consumer/"
-cp "$root/scripts/ci/"{check-format-tools,check-make-execution,run-formatting}.sh "$consumer/scripts/ci/"
+cp -R "$root/ci" "$consumer/"
+cp "$root/scripts/ci/check-format-tools.sh" "$consumer/scripts/ci/"
+export JOBSERVER_PROBE="$root/scripts/ci/check-pipe-jobserver.pl"
 cat > "$consumer/.tools/rust/common/bin/formatting-fixture-cargo" <<'CARGO'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ "$CARGO_NET_OFFLINE" == true && "$RUSTUP_AUTO_INSTALL" == 0 ]] || exit 1
-[[ "${MAKEFLAGS:-}" =~ --jobserver-(auth|fds)=([0-9]+),([0-9]+) ]] || exit 1
-reader="${BASH_REMATCH[2]}"; writer="${BASH_REMATCH[3]}"
-: <&"$reader"
-: >&"$writer"
+perl "$JOBSERVER_PROBE"
 case "$*" in
     'sort --version') echo "cargo-sort ${FORMAT_EVIDENCE_VERSION:?}"; exit 0 ;;
     'fmt --version') exit 0 ;;
@@ -133,50 +129,8 @@ for log in "${logs[@]}"; do cmp "$log" "$fixture/unpacked/${log##*/}"; done
 cmp "${attempts[0]}/failure.log" \
     "$fixture/unpacked/portable-fixtures/${attempts[0]##*/}/failure.log"
 
-# A refused store must still archive safe local evidence and expose incomplete
-# collection. Exercise the selected action's archive and final failure commands;
-# the hosted upload remains substituted by local unpacking.
-mkdir "$fixture/refused-temp" "$fixture/refused-unpacked"
-mkdir -p "$fixture/repository/.tools/rust"
-printf 'retained-local-rust-evidence\n' > "$fixture/repository/.tools/rust/evidence.log"
-printf 'retained-local-setup-failure\n' > "$fixture/refused-temp/tools-failure.log"
-ln -s "$fixture/store" "$fixture/refused-store"
-SHARED_TOOLING_STORE="$fixture/refused-store" \
-    EVIDENCE_TEMP_ROOT="$fixture/refused-temp" EVIDENCE_REPOSITORY_ROOT="$fixture/repository" \
-    EVIDENCE_ACTION_ROOT="$root/.github/actions/retain-failure-evidence" \
-    RUNNER_TEMP="$fixture/refused-temp" GITHUB_OUTPUT="$fixture/refused-output" \
-    bash "$fixture/collect.sh" > "$fixture/refused-collection.log" 2>&1
-grep -Fx 'collection-complete=false' "$fixture/refused-output" > /dev/null
-archive="$(sed -n 's/^path=//p' "$fixture/refused-output")"
-[[ -f "$archive" ]] || exit 1
-tar -xzf "$archive" -C "$fixture/refused-unpacked"
-cmp "$fixture/refused-temp/tools-failure.log" "$fixture/refused-unpacked/tools-failure.log"
-cmp "$fixture/repository/.tools/rust/evidence.log" "$fixture/refused-unpacked/.tools/rust/evidence.log"
-diagnostics=("$fixture/refused-unpacked"/tool-evidence.*)
-[[ ${#diagnostics[@]} == 1 && "$(cat "${diagnostics[0]}/selection-status")" == 1 ]] || exit 1
-[[ -s "${diagnostics[0]}/selection.log" ]] || exit 1
-jq -e '
-    .runs.steps as $steps |
-    [$steps | to_entries[] | select(.value.id == "archive")] as $archives |
-    [$steps | to_entries[] | select(.value.id == "upload")] as $uploads |
-    [$steps | to_entries[] | select(.value.id == "completeness")] as $failures |
-    ($archives | length) == 1 and ($uploads | length) == 1 and ($failures | length) == 1 and
-    $archives[0].key < $uploads[0].key and $uploads[0].key < $failures[0].key and
-    ($failures[0].value.if | contains("collection-complete == '\''false'\''"))
-' "$fixture/collector.json" > /dev/null
-bash "$root/scripts/ci/extract-workflow-step.sh" "$fixture/collector-steps.json" completeness \
-    > "$fixture/incomplete.sh"
-status=0
-bash "$fixture/incomplete.sh" > "$fixture/incomplete.log" 2>&1 || status=$?
-[[ "$status" == 1 ]] || exit 1
-# Successful formatting reports one line and removes only its own temporary log.
-RUNNER_TEMP="$fixture/temp" bash "$root/scripts/ci/run-formatting.sh" --write \
-    bash -c 'echo successful-formatter-detail' > "$fixture/success"
-printf 'Formatting... ok\n' > "$fixture/expected"
-cmp "$fixture/expected" "$fixture/success"
-remaining=("$fixture/temp"/formatting.*)
-[[ ${#remaining[@]} == 1 ]] || exit 1
-for log in "${logs[@]}"; do [[ -f "$log" ]] || exit 1; done
+# Shared test-tool-evidence.sh owns refused-store collection, retained local
+# diagnostics and incomplete-collection refusal. The Jobs caller/archive proof
+# above retains its actual workflow ordering and formatting/fixture logs.
 echo 'Formatting failure propagation and local archive retention passed (no hosted upload)'
-echo 'Refused shared-store admission retains local evidence before incomplete collection fails (no hosted upload)'
 fixture_complete=true

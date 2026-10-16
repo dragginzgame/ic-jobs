@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.13.3]
+
+- Adopt Shared Tooling 0.16.0 and qualify actual formatting/release callers,
+  retaining delivered Cargo-order fixture acceptance
+  ([#53 — Shared Cargo dependency-order fixture preparation](https://github.com/dragginzgame/ic-jobs/issues/53)).
+- Select retained-failure assertions explicitly and use the standard cleanup-inclusive
+  probes ([#61 — Select retained-failure assertions explicitly](https://github.com/dragginzgame/ic-jobs/issues/61),
+  [#60 — Standard shared cleanup-inclusive fixture probes](https://github.com/dragginzgame/ic-jobs/issues/60)).
+- Delegate Make-fixture copying and locked release preparation to Shared, preserving
+  selected Make execution
+  ([#58 — Shared Make-fixture bootstrap](https://github.com/dragginzgame/ic-jobs/issues/58),
+  [#59 — Shared release preflight with selected Make preservation](https://github.com/dragginzgame/ic-jobs/issues/59)).
+- Retire unselected maintenance runtime/service payloads through canonical export;
+  retain maintenance guidance and task catalogs
+  ([#54 — Retire optional maintenance runtime payloads](https://github.com/dragginzgame/ic-jobs/issues/54)).
+
+- Simplify consumer read-only extraction and replace the native fixture's
+  command/result protocol with typed operations and committed-deadline replies.
+- Keep generic refused-store evidence qualification at the Shared owner while
+  retaining Jobs workflow ordering and formatting/fixture archive integration.
+
+- Requalify the proposed Testkit memory observer, Timers batch result and Host
+  status projection against current source, retaining registry publication gates.
+
+- Reuse Testkit tick batches, register fixture cleanup directly and share recurring
+  schedule construction across scheduler, history and management tests.
+- Use one checked Testkit installer substitute across consumer qualification,
+  retaining admission events before metadata and server effects.
+
+- Reuse Shared's pipe-jobserver probe in formatting qualification and consolidate
+  corrupted-queue assertions and valid retry-policy serialization cases.
+
+- Consolidate completion-refusal and blocked-management qualification while
+  keeping generic release-source allowance/rename checks at the Shared owner.
+
+- Consolidate capture-failure and file-admission fixtures while retaining exact
+  evidence custody; compile only the recovery target after running capture tests.
+
+- Inline the consumer's single-use completion lookup and share upgrade invocation
+  across recovery success, rejection and selective retry checks. Recovery updates
+  share caller-explicit transport while retaining structured trap failures.
+- Keep standalone formatter success/cleanup qualification at the Shared owner,
+  retaining Jobs workflow and archive integration checks locally.
+
+- Reuse raw committed-byte reconstruction in native consumer fixtures, resetting
+  volatile fault controls without changing restore admission.
+- Exercise release adapters through the actual Jobs Makefile and keep focused
+  publication wiring/recovery checks while Shared owns generic eligibility cases.
+
 ## [0.13.2] - 2026-10-16
 
 - Derive consumer inspection/list identities from the validated job at one view

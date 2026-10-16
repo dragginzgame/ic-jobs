@@ -35,35 +35,21 @@ pub(crate) struct Notifications {
 // canister obtains that identity from the IC caller API, never request payloads.
 pub(crate) const NOTIFICATION_MANAGER: &str = "notification-manager";
 
-#[derive(Clone)]
-pub(crate) enum ManagementCommand {
-    Enqueue {
-        id: JobId,
-        at_ns: u64,
-        payload: Notification,
-    },
-    Inspect(JobId),
-    List {
-        after: Option<JobId>,
-        limit: usize,
-    },
-    Cancel(JobId),
-    DispatchDue,
-}
-
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) enum ManagementValue {
-    Job(NotificationSnapshot),
-    Page(Vec<NotificationSnapshot>),
-    Dispatch(Option<Delivery>),
-}
-
-#[derive(Debug, Eq, PartialEq)]
-pub(crate) struct ManagementReply {
-    pub(crate) value: ManagementValue,
+pub(crate) struct ManagementReply<T> {
+    pub(crate) value: T,
     // The application projects this committed queue deadline into its watchdog.
     // Native execution does not register or qualify a platform timer.
     pub(crate) next_due_ns: Option<u64>,
+}
+
+impl<T> ManagementReply<T> {
+    fn new(value: T, jobs: &[Job]) -> Self {
+        Self {
+            value,
+            next_due_ns: next_due_ns(jobs),
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -160,86 +146,123 @@ impl Notifications {
         self.store.write(&snapshots)
     }
 
-    pub(crate) fn enqueue(&mut self, id: JobId, at_ns: u64, payload: Notification) -> Result<()> {
-        self.manage(
-            NOTIFICATION_MANAGER,
-            0,
-            ManagementCommand::Enqueue { id, at_ns, payload },
-        )
-        .map(|_| ())
-    }
-
-    pub(crate) fn manage(
-        &mut self,
-        caller: &str,
-        now_ns: u64,
-        command: ManagementCommand,
-    ) -> Result<ManagementReply> {
+    fn authorize(caller: &str) -> Result<()> {
         // Authorization precedes decoding, reads of private payloads and writes.
         if caller != NOTIFICATION_MANAGER {
             return Err(ManagementError::Unauthorized.into());
         }
-        if matches!(&command, ManagementCommand::List { limit, .. } if !(1..=4).contains(limit)) {
+        Ok(())
+    }
+
+    pub(crate) fn enqueue(
+        &mut self,
+        caller: &str,
+        id: JobId,
+        at_ns: u64,
+        payload: Notification,
+    ) -> Result<ManagementReply<NotificationSnapshot>> {
+        Self::authorize(caller)?;
+        let (mut jobs, mut payloads) = self.load()?;
+        if jobs.len() == 4 || jobs.iter().any(|job| job.record().id == id) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "queue full or identity reused",
+            )
+            .into());
+        }
+        let job = Job::new(id, Schedule::Once { at_ns }, RetryPolicy::NONE);
+        let record = job.record();
+        payloads.push(payload);
+        jobs.push(job);
+        self.commit(&jobs, &payloads)?;
+        Ok(ManagementReply::new(
+            NotificationSnapshot {
+                job: record,
+                payload: payloads.pop().unwrap(),
+            },
+            &jobs,
+        ))
+    }
+
+    pub(crate) fn inspect(
+        &self,
+        caller: &str,
+        id: JobId,
+    ) -> Result<ManagementReply<NotificationSnapshot>> {
+        Self::authorize(caller)?;
+        let (jobs, mut payloads) = self.load()?;
+        let index = Self::index(&jobs, id).ok_or(ManagementError::UnknownJob)?;
+        Ok(ManagementReply::new(
+            NotificationSnapshot {
+                job: jobs[index].record(),
+                payload: payloads.swap_remove(index),
+            },
+            &jobs,
+        ))
+    }
+
+    pub(crate) fn page(
+        &self,
+        caller: &str,
+        after: Option<JobId>,
+        limit: usize,
+    ) -> Result<ManagementReply<Vec<NotificationSnapshot>>> {
+        Self::authorize(caller)?;
+        if !(1..=4).contains(&limit) {
             return Err(ManagementError::InvalidPageLimit.into());
         }
+        let (jobs, payloads) = self.load()?;
+        let mut snapshots: Vec<_> = jobs
+            .iter()
+            .zip(payloads)
+            .filter(|(job, _)| after.is_none_or(|id| job.record().id > id))
+            .map(|(job, payload)| NotificationSnapshot {
+                job: job.record(),
+                payload,
+            })
+            .collect();
+        snapshots.sort_by_key(|snapshot| snapshot.job.id);
+        snapshots.truncate(limit);
+        Ok(ManagementReply::new(snapshots, &jobs))
+    }
+
+    pub(crate) fn cancel(
+        &mut self,
+        caller: &str,
+        id: JobId,
+        now_ns: u64,
+    ) -> Result<ManagementReply<NotificationSnapshot>> {
+        Self::authorize(caller)?;
         let (mut jobs, mut payloads) = self.load()?;
-        let value = match command {
-            ManagementCommand::Enqueue { id, at_ns, payload } => {
-                if jobs.len() == 4 || jobs.iter().any(|job| job.record().id == id) {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "queue full or identity reused",
-                    )
-                    .into());
-                }
-                let job = Job::new(id, Schedule::Once { at_ns }, RetryPolicy::NONE);
-                let record = job.record();
-                payloads.push(payload);
-                jobs.push(job);
-                self.commit(&jobs, &payloads)?;
-                ManagementValue::Job(NotificationSnapshot {
-                    job: record,
-                    payload: payloads.pop().unwrap(),
-                })
-            }
-            ManagementCommand::Inspect(id) => {
-                let index = Self::index(&jobs, id).ok_or(ManagementError::UnknownJob)?;
-                ManagementValue::Job(NotificationSnapshot {
-                    job: jobs[index].record(),
-                    payload: payloads.swap_remove(index),
-                })
-            }
-            ManagementCommand::List { after, limit } => {
-                let mut snapshots: Vec<_> = jobs
-                    .iter()
-                    .zip(payloads)
-                    .filter(|(job, _)| after.is_none_or(|id| job.record().id > id))
-                    .map(|(job, payload)| NotificationSnapshot {
-                        job: job.record(),
-                        payload,
-                    })
-                    .collect();
-                snapshots.sort_by_key(|snapshot| snapshot.job.id);
-                snapshots.truncate(limit);
-                ManagementValue::Page(snapshots)
-            }
-            ManagementCommand::Cancel(id) => {
-                let index = Self::index(&jobs, id).ok_or(ManagementError::UnknownJob)?;
-                jobs[index].cancel(now_ns)?;
-                self.commit(&jobs, &payloads)?;
-                ManagementValue::Job(NotificationSnapshot {
-                    job: jobs[index].record(),
-                    payload: payloads.swap_remove(index),
-                })
-            }
-            ManagementCommand::DispatchDue => {
-                ManagementValue::Dispatch(self.dispatch_batch(now_ns, &mut jobs, payloads)?)
-            }
+        let index = Self::index(&jobs, id).ok_or(ManagementError::UnknownJob)?;
+        jobs[index].cancel(now_ns)?;
+        self.commit(&jobs, &payloads)?;
+        Ok(ManagementReply::new(
+            NotificationSnapshot {
+                job: jobs[index].record(),
+                payload: payloads.swap_remove(index),
+            },
+            &jobs,
+        ))
+    }
+
+    pub(crate) fn dispatch_due(
+        &mut self,
+        caller: &str,
+        now_ns: u64,
+    ) -> Result<ManagementReply<Option<Delivery>>> {
+        Self::authorize(caller)?;
+        let (mut jobs, mut payloads) = self.load()?;
+        let Some((index, attempt)) = start_next(&mut jobs, now_ns)? else {
+            return Ok(ManagementReply::new(None, &jobs));
         };
-        Ok(ManagementReply {
-            value,
-            next_due_ns: next_due_ns(&jobs),
-        })
+        self.commit(&jobs, &payloads)?;
+        // No delivery capability escapes before the intent and payload commit.
+        let payload = payloads.swap_remove(index);
+        Ok(ManagementReply::new(
+            Some(Delivery { attempt, payload }),
+            &jobs,
+        ))
     }
 
     pub(crate) fn next_due_ns(&self) -> Result<Option<u64>> {
@@ -248,23 +271,7 @@ impl Notifications {
     }
 
     pub(crate) fn prepare(&mut self, now_ns: u64) -> Result<Option<Delivery>> {
-        let (mut jobs, payloads) = self.load()?;
-        self.dispatch_batch(now_ns, &mut jobs, payloads)
-    }
-
-    fn dispatch_batch(
-        &mut self,
-        now_ns: u64,
-        jobs: &mut [Job],
-        mut payloads: Vec<Notification>,
-    ) -> Result<Option<Delivery>> {
-        let Some((index, attempt)) = start_next(jobs, now_ns)? else {
-            return Ok(None);
-        };
-        self.commit(jobs, &payloads)?;
-        // No delivery capability escapes before the intent and payload commit.
-        let payload = payloads.swap_remove(index);
-        Ok(Some(Delivery { attempt, payload }))
+        Ok(self.dispatch_due(NOTIFICATION_MANAGER, now_ns)?.value)
     }
 
     pub(crate) fn outstanding(&self) -> Result<Vec<Delivery>> {

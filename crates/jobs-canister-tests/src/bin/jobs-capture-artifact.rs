@@ -115,27 +115,6 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
-    #[test]
-    fn failed_final_rename_preserves_exact_capture_after_producer_removal() {
-        let root = fixture();
-        let source = root.join("producer");
-        let destination = root.join("occupied");
-        fs::write(&source, b"exact failed evidence").unwrap();
-        fs::create_dir(&destination).unwrap();
-        let error = capture(&source, &destination).unwrap_err();
-        fs::remove_file(source).unwrap();
-        let retained = error
-            .get_ref()
-            .unwrap()
-            .downcast_ref::<ic_build::artifacts::CaptureRetentionError>()
-            .unwrap();
-        assert_eq!(
-            fs::read(&retained.retained_path).unwrap(),
-            b"exact failed evidence"
-        );
-        assert_eq!(fs::read_dir(destination).unwrap().count(), 0);
-        fs::remove_dir_all(root).unwrap();
-    }
     #[cfg(unix)]
     fn optimizer_fixture() -> (PathBuf, PathBuf, PathBuf) {
         let root = fixture();
@@ -223,14 +202,20 @@ mod tests {
             .downcast_ref::<ic_build::artifacts::CaptureRetentionError>()
             .unwrap();
         assert_eq!(
-            fs::read(&retained.retained_path).unwrap(),
-            b"exact frozen bytes\n"
-        );
-        assert_eq!(
             fs::read(refused.join("producer.wasm")).unwrap(),
             b"exact frozen bytes\n"
         );
         assert_eq!(fs::read(&source).unwrap(), b"exact frozen bytes\n");
+        assert!(refused.join("optimizer.log").is_file());
+        assert_eq!(fs::read_dir(destination).unwrap().count(), 0);
+        // Failure preserves its diagnostic inputs. Remove them explicitly only
+        // after that proof, then require the retained copy to own the exact bytes.
+        fs::remove_file(refused.join("producer.wasm")).unwrap();
+        fs::remove_file(source).unwrap();
+        assert_eq!(
+            fs::read(&retained.retained_path).unwrap(),
+            b"exact frozen bytes\n"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

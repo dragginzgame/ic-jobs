@@ -6,9 +6,13 @@ use std::{
 };
 
 use ic_jobs::{
-    Attempt, ExecutionId, Job, JobError, JobId, JobRecord, JobState, MissedRunPolicy, Outcome,
-    RetryPolicy, Schedule,
+    Attempt, ExecutionId, Job, JobError, JobId, JobRecord, JobState, Outcome, RetryPolicy, Schedule,
 };
+
+#[path = "support/schedules.rs"]
+mod schedules;
+
+use schedules::recurring_schedules;
 
 #[derive(Clone, Copy, Debug)]
 enum Operation {
@@ -44,22 +48,12 @@ impl Operation {
 
 #[test]
 fn public_transition_histories_remain_restorable_and_failures_preserve_records() {
+    let [after_completion, skip, catch_up] = recurring_schedules(100, 10);
     let schedules = [
         Schedule::Once { at_ns: 100 },
-        Schedule::AfterCompletion {
-            first_at_ns: 100,
-            every_ns: std::num::NonZeroU64::new(10).unwrap(),
-        },
-        Schedule::FixedRate {
-            first_at_ns: 100,
-            every_ns: std::num::NonZeroU64::new(10).unwrap(),
-            missed: MissedRunPolicy::CatchUp,
-        },
-        Schedule::FixedRate {
-            first_at_ns: 100,
-            every_ns: std::num::NonZeroU64::new(10).unwrap(),
-            missed: MissedRunPolicy::Skip,
-        },
+        after_completion,
+        catch_up,
+        skip,
     ];
     let mut operations = vec![
         Operation::Start,

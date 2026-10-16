@@ -312,6 +312,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "command-fds"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b60b5124979fccd9addd89d8b97a1d6eebb4950694520c75ddd722535ea443f"
+dependencies = [
+ "nix",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -500,16 +510,6 @@ name = "fastrand"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
-
-[[package]]
-name = "filetime"
-version = "0.2.29"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c287a33c7f0a620c38e641e7f60827713987b3c0f26e8ddc9462cc69cf75759"
-dependencies = [
- "cfg-if",
- "libc",
-]
 
 [[package]]
 name = "find-msvc-tools"
@@ -805,14 +805,14 @@ dependencies = [
 
 [[package]]
 name = "ic-build"
-version = "0.9.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "240e8a4d44883a00575eacb69bd349860913154a762e1fe811e3af0121789f66"
+checksum = "260e3b9871c838623dfd6b85554274289a981d1c11e1087752560349c679d122"
 dependencies = [
  "cargo_metadata",
- "ic-host-artifacts 0.21.0",
- "ic-host-fs 0.21.0",
- "ic-host-process 0.21.0",
+ "ic-host-artifacts 0.23.1",
+ "ic-host-fs 0.23.1",
+ "ic-host-process 0.23.1",
  "libc",
  "rustix",
  "serde",
@@ -897,34 +897,25 @@ dependencies = [
 
 [[package]]
 name = "ic-host-artifacts"
-version = "0.21.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9a5215ee0a28d7db14cc79a05f35fa0e87f189b021134406d45dcad95831249"
+checksum = "e6f3a928ca2e39a011d0b651d9c224b12b4f5fb36b8e1119e397f8191ad67a0f"
 dependencies = [
  "flate2",
  "leb128",
  "sha2",
- "tar",
  "wasmparser",
 ]
 
 [[package]]
 name = "ic-host-artifacts"
-version = "0.22.1"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6f3a928ca2e39a011d0b651d9c224b12b4f5fb36b8e1119e397f8191ad67a0f"
+checksum = "9d4f11586e48daf91d5490243eba65fa19f62bdf2589f5738c868a366bec9020"
 dependencies = [
+ "leb128",
  "sha2",
-]
-
-[[package]]
-name = "ic-host-fs"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30461a795ad433f19ed23c515d47ba27fded4115033f01c7005307cbb15f6854"
-dependencies = [
- "ic-host-artifacts 0.21.0",
- "rustix",
+ "wasmparser",
 ]
 
 [[package]]
@@ -938,14 +929,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "ic-host-process"
-version = "0.21.0"
+name = "ic-host-fs"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d052b089a517cf9f598d17712c0757d276b6b969532d68c21aabbac4a358736f"
+checksum = "62862b96ea31b6f2e916c23b8303cbe622dea2e8690ef6d18af09fb9d8385bca"
 dependencies = [
- "ic-host-artifacts 0.21.0",
- "ic-host-fs 0.21.0",
- "libc",
+ "ic-host-artifacts 0.23.1",
  "rustix",
 ]
 
@@ -957,6 +946,19 @@ checksum = "d819b7ae33a757762adc24ac78ea55cb5b6821bd47dfc60496adca86d2d57fe0"
 dependencies = [
  "ic-host-artifacts 0.22.1",
  "ic-host-fs 0.22.1",
+ "libc",
+ "rustix",
+]
+
+[[package]]
+name = "ic-host-process"
+version = "0.23.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b59b1a37d2fb44842c08c0879473e4e6fa9623aa5fb8da7d5642efd139ad4d47"
+dependencies = [
+ "command-fds",
+ "ic-host-artifacts 0.23.1",
+ "ic-host-fs 0.23.1",
  "libc",
  "rustix",
 ]
@@ -983,9 +985,9 @@ dependencies = [
 
 [[package]]
 name = "ic-memory"
-version = "0.43.0"
+version = "0.44.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a321697e96666e161eedcde442a61031dba53092dddb57bbb16415bab10bb0b6"
+checksum = "3748848531c332950798af83d7e97dcefe4929797133d7d0c0d60e9692218fb0"
 dependencies = [
  "ciborium",
  "ic-stable-structures",
@@ -995,9 +997,9 @@ dependencies = [
 
 [[package]]
 name = "ic-metrics"
-version = "0.11.5"
+version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8fd222c253f7db55b9bc3393b24ad7895edef6641bed28e45bdc49c3a228f7b"
+checksum = "3aa440238acf049dc652b9cd9a932b79b19e5562f8e80d6994d3eb92523221a4"
 
 [[package]]
 name = "ic-stable-structures"
@@ -1010,15 +1012,15 @@ dependencies = [
 
 [[package]]
 name = "ic-testkit"
-version = "0.48.0"
+version = "0.49.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71c584f66454e751d649faab9b8747189f5344f666ef04171df89b0d0f1dd040"
+checksum = "813ab2dba4d44d657255a6b46689de512d0432a60a82f078fef784ceaaaee3b2"
 dependencies = [
  "candid",
  "ic-cdk",
- "ic-host-artifacts 0.21.0",
- "ic-host-fs 0.21.0",
- "ic-host-process 0.21.0",
+ "ic-host-artifacts 0.22.1",
+ "ic-host-fs 0.22.1",
+ "ic-host-process 0.22.1",
  "ic-metrics",
  "libc",
  "pocket-ic",
@@ -1030,9 +1032,9 @@ dependencies = [
 
 [[package]]
 name = "ic-timers"
-version = "0.25.1"
+version = "0.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6aa1fe5157794696b4718e6b10a2519281d22d76276bc7ffffe761294e85fc40"
+checksum = "aabfccb24b7cc56480f20f750b98e08bbeae318d1e317d85ecedf2c322c352c4"
 dependencies = [
  "ic-cdk-timers",
  "ic-metrics",
@@ -1264,8 +1266,8 @@ version = "0.13.2"
 dependencies = [
  "candid",
  "ic-build",
- "ic-host-fs 0.22.1",
- "ic-host-process 0.22.1",
+ "ic-host-fs 0.23.1",
+ "ic-host-process 0.23.1",
  "ic-testkit",
  "jobs-test-consumer",
  "serde",
@@ -1406,6 +1408,18 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "nix"
+version = "0.31.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
+dependencies = [
+ "bitflags",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
 ]
 
 [[package]]
@@ -2271,16 +2285,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
-]
-
-[[package]]
-name = "tar"
-version = "0.4.46"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f6221d9a6003c78398e3b239969f352578258df48c8eb051caadae0015bc840"
-dependencies = [
- "filetime",
- "libc",
 ]
 
 [[package]]

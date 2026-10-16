@@ -29,18 +29,16 @@ case "$operation" in
         # Refuse conflicting pending notes before a gate or preparation intent.
         awk -v version="${RELEASE_VERSION:?}" -v previous="$RELEASE_PREVIOUS" -v date="${RELEASE_DATE:?}" \
             -f scripts/ci/finalize-release-changelog.awk CHANGELOG.md > /dev/null
-        # Standard releases prepare the admitted graph before offline validation.
-        # Cargo still honours an explicit offline environment/configuration.
-        cargo fetch --locked || {
+        # Jobs admits source/candidate first; Shared owns locked preparation,
+        # selected Make execution and unchanged tool-catalog admission.
+        bash "$root/scripts/ci/cargo-release-preflight.sh" "$root" 1 \
+            --pin "$root/ci/tool-versions.env" --pin "$root/ci/ic-tools.tsv" \
+            --check tools-check --prepare install-tools --prepare tools-check || {
             status=$?
-            echo 'release dependency preparation failed; selected metadata is unchanged' >&2
-            echo 'prepare the selected graph with cargo fetch --locked; explicit offline settings still apply' >&2
+            echo 'release dependency/tool preparation failed; selected metadata is unchanged' >&2
+            echo 'prepare the graph with cargo fetch --locked and tools with make install-tools; explicit offline settings still apply' >&2
             exit "$status"
         }
-        # The runner has already reconciled saved release intent. Prepare only
-        # the complete selected toolset after source/cache admission.
-        "${RELEASE_MAKE:-make}" --no-print-directory install-tools
-        "${RELEASE_MAKE:-make}" --no-print-directory tools-check
         ;;
     prepare)
         current_version="$(bash "$reader" Cargo.toml)"

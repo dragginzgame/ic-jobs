@@ -10,11 +10,17 @@ pub(crate) struct Store {
 }
 
 impl Store {
-    pub(crate) fn new(value: &impl Serialize) -> Result<Self> {
-        let mut store = Self {
-            bytes: Vec::new(),
+    // Reconstruct only committed bytes; fault injection is volatile fixture state.
+    // Consumer loads still own bounded decoding and Job::restore admission.
+    pub(crate) fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self {
+            bytes,
             writes_before_failure: None,
-        };
+        }
+    }
+
+    pub(crate) fn new(value: &impl Serialize) -> Result<Self> {
+        let mut store = Self::from_bytes(Vec::new());
         store.write(value)?;
         Ok(store)
     }

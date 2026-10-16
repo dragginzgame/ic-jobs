@@ -6,7 +6,7 @@ use ic_jobs::{
 
 mod support;
 
-use support::roundtrip;
+use support::{recurring_schedules, roundtrip};
 
 fn retry() -> RetryPolicy {
     RetryPolicy::new(4, 10, 15).unwrap()
@@ -240,31 +240,8 @@ fn interrupted_running_intent_can_be_marked_uncertain_then_confirmed() {
 
 #[test]
 fn missed_run_policy_distinguishes_skip_catchup_and_after_completion() {
-    let schedules = [
-        (
-            Schedule::FixedRate {
-                first_at_ns: 100,
-                every_ns: std::num::NonZeroU64::new(10).unwrap(),
-                missed: MissedRunPolicy::Skip,
-            },
-            140,
-        ),
-        (
-            Schedule::FixedRate {
-                first_at_ns: 100,
-                every_ns: std::num::NonZeroU64::new(10).unwrap(),
-                missed: MissedRunPolicy::CatchUp,
-            },
-            110,
-        ),
-        (
-            Schedule::AfterCompletion {
-                first_at_ns: 100,
-                every_ns: std::num::NonZeroU64::new(10).unwrap(),
-            },
-            145,
-        ),
-    ];
+    let [after_completion, skip, catch_up] = recurring_schedules(100, 10);
+    let schedules = [(skip, 140), (catch_up, 110), (after_completion, 145)];
     for (schedule, next_due) in schedules {
         let mut job = Job::new(JobId(1), schedule, RetryPolicy::NONE);
         let attempt = job.start(130).unwrap();
@@ -531,22 +508,7 @@ fn restore_keeps_the_first_occurrence_at_its_original_deadline() {
 
 #[test]
 fn restore_rejects_cancellation_before_the_prior_recurring_completion() {
-    for schedule in [
-        Schedule::AfterCompletion {
-            first_at_ns: 100,
-            every_ns: std::num::NonZeroU64::new(10).unwrap(),
-        },
-        Schedule::FixedRate {
-            first_at_ns: 100,
-            every_ns: std::num::NonZeroU64::new(10).unwrap(),
-            missed: MissedRunPolicy::Skip,
-        },
-        Schedule::FixedRate {
-            first_at_ns: 100,
-            every_ns: std::num::NonZeroU64::new(10).unwrap(),
-            missed: MissedRunPolicy::CatchUp,
-        },
-    ] {
+    for schedule in recurring_schedules(100, 10) {
         let mut job = Job::new(JobId(7), schedule, retry());
         let attempt = job.start(100).unwrap();
         job.finish(attempt, 200, Outcome::Success).unwrap();
@@ -564,22 +526,7 @@ fn restore_rejects_cancellation_before_the_prior_recurring_completion() {
 #[test]
 fn recurring_recovery_preserves_zero_and_maximum_deadlines() {
     for every_ns in [1, u64::MAX] {
-        for schedule in [
-            Schedule::AfterCompletion {
-                first_at_ns: 0,
-                every_ns: std::num::NonZeroU64::new(every_ns).unwrap(),
-            },
-            Schedule::FixedRate {
-                first_at_ns: 0,
-                every_ns: std::num::NonZeroU64::new(every_ns).unwrap(),
-                missed: MissedRunPolicy::Skip,
-            },
-            Schedule::FixedRate {
-                first_at_ns: 0,
-                every_ns: std::num::NonZeroU64::new(every_ns).unwrap(),
-                missed: MissedRunPolicy::CatchUp,
-            },
-        ] {
+        for schedule in recurring_schedules(0, every_ns) {
             let mut job = Job::new(JobId(7), schedule, retry());
             let attempt = job.start(0).unwrap();
             job = roundtrip(&job);
@@ -669,22 +616,7 @@ fn completion_from_another_job_cannot_change_state() {
 
 #[test]
 fn transition_sequences_remain_restorable() {
-    for schedule in [
-        Schedule::AfterCompletion {
-            first_at_ns: 100,
-            every_ns: std::num::NonZeroU64::new(20).unwrap(),
-        },
-        Schedule::FixedRate {
-            first_at_ns: 100,
-            every_ns: std::num::NonZeroU64::new(20).unwrap(),
-            missed: MissedRunPolicy::Skip,
-        },
-        Schedule::FixedRate {
-            first_at_ns: 100,
-            every_ns: std::num::NonZeroU64::new(20).unwrap(),
-            missed: MissedRunPolicy::CatchUp,
-        },
-    ] {
+    for schedule in recurring_schedules(100, 20) {
         let mut job = Job::new(JobId(7), schedule, retry());
         let mut now = 200;
         for _ in 0..50 {
