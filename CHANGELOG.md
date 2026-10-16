@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.13.2]
+## [0.13.2] - 2026-10-16
 
 - Derive consumer inspection/list identities from the validated job at one view
   boundary and remove unused snapshot cloning from the composition fixture.
