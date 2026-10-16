@@ -2,42 +2,31 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.13.2**: `c497c0f7d2ac5c812c5592bb54a04b4d7350f15a`.
-Pending compatible **0.13.3** consolidates raw-byte fixture reconstruction,
-qualifies release wiring through the actual Jobs Makefile and transfers generic
-publication eligibility coverage to its Shared owner. It also consolidates capture
-failure/file-admission fixtures and narrows compile-only recovery qualification.
-Completion-refusal cases and blocked-management checks now share their respective
-assertion paths; generic source allowance/rename preservation belongs to Shared.
-Corrupted-queue rejection assertions and valid retry-policy codec cases also
-share their fixture paths; formatting qualification uses Shared's jobserver probe.
-Recovery uses Testkit's exact tick batches; recurring schedule fixtures share a
-constructor, and local EXIT traps call the shared lifecycle helper directly.
-Scheduler/history fixtures also reuse that constructor, recovery updates share
-caller-explicit transport, and consumer qualification uses one checked installer
-substitute after real-parser admission tests.
-Read-only extraction consumes validated snapshots without temporary removals;
-native management operations return typed values with their committed deadline.
-Generic refused-store collector qualification belongs to Shared; Jobs retains
-its actual workflow and formatting/fixture archive integration.
-The three upstream helper handoffs are requalified against current source;
-their active local implementations remain until reviewed registry publication.
+Delivered Jobs **0.13.3**: `684cf173af893c56f87ac462e830de960807240b`.
+Pending compatible **0.13.4** restores install-failure diagnostic collection in
+the recovery harness, integrating the maintained change from
+[PR #55](https://github.com/dragginzgame/ic-jobs/pull/55) against published Testkit
+0.49.0. The fixture supplies exact anonymous status/log senders and keeps the
+original installation error authoritative if collection or output panics.
+Creation/funding errors retain their separate failure paths; no retry or reset
+is introduced. The library API, consumer storage and dependency graph are unchanged.
 Shared Tooling is **0.16.0** at
 `989752490b392f7f4c542c7652dcb84e75ecf363` (111 payloads), from canonical export
 of the delivered, three-host-qualified source. Jobs selects its retained-failure
 assertions explicitly, uses the standard cleanup-inclusive probes and delegates
 Make skeleton copying and locked release preflight to their Shared owners.
 Optional maintenance runtime/service payloads are retired; guidance and catalogs
-remain. This contributor-only adoption keeps the pending library patch at 0.13.3.
+remain. That contributor-only adoption was delivered in 0.13.3; the new pending
+patch changes recovery-host diagnostics only.
 Release preparation now uses Shared's metadata renderer directly. Jobs no longer
 requires cargo-edit, a separate release-tool catalog or local setup/check targets.
 Common tool admission and metadata refusal/rollback boundaries remain in place.
 
-The incoming graph selects Memory 0.44.0, Testkit 0.49.0, Timers 0.25.2, Metrics 0.11.7,
+The graph selects Memory 0.44.0, Testkit 0.49.0, Timers 0.25.2, Metrics 0.11.7,
 Build 0.11.0 and direct Host FS/Process 0.23.1. Rust floor is 1.91.0;
 development is 1.99.0.
-Incoming manifest/lock edits are preserved. Own versions, index, refs, release and
-publication remain maintainer-owned.
+The selected manifest/lock graph is unchanged. Own versions, index, refs, release
+and publication remain maintainer-owned.
 
 `start_next` returns `(index, attempt)`. Commit `jobs[index].record()` with its
 immutable payload/index before external dispatch. All restore paths retain
@@ -47,6 +36,42 @@ runtime Timers dependency or lifecycle exports. The capture tool owns Jobs'
 optimizer recipe and uses IC Build's retained path; Jobs selects the live gate.
 
 ## Qualification
+
+Memory #105 caller evidence is in
+`target/qualification/memory105-current-adoption/`. The exact producer head
+`5ce93dc8903642f4a0725ceafc75a78a07bd5494` is qualified only in a separate consumer
+copy, based on delivered Jobs 0.13.3 plus the pending install-diagnostics edit.
+Its 24 consumer and 19 composition tests, separate Rust 1.91 core/consumer Wasm
+checks, recovery compilation and strict native/Wasm consumer Clippy pass.
+Only Memory's source changes in that qualification lock; all package versions
+and other lock rows match the active graph. Normal consumer Wasm excludes
+Testkit, PocketIC and Host. The complete caller patch passes apply-check against
+the active tree and is attached to [Jobs #50](https://github.com/dragginzgame/ic-jobs/issues/50).
+
+The candidate uses existing 24 KiB bounds for distinct fresh/retained admission.
+Oversize refusal preserves the cell header and payload, while documented
+allocation-bookkeeping effects remain possible. Earlier zero-write/whole-backing
+assumptions failed and are retained as such; the corrected proof scopes exact
+preservation to the admitted cell. The frozen incompatible-ledger cases still
+prove zero writes and unchanged backing separately. Temporary preparation-path
+failures are retained; final source and caller copies live under qualification.
+The active Rust/registry graph and the pending 0.13.4 fix remain untouched.
+No actual adoption, full CI, live recovery, native macOS Jobs run or release ran.
+
+Recovery install-diagnostic evidence for pending 0.13.4 is in
+`target/qualification/recovery-install-diagnostics-0134/`. The actual recovery
+target compiles on Rust 1.91 against locked registry Testkit 0.49.0; strict recovery
+Clippy, formatting, documentation links and diff checks pass. This qualifies API
+integration, not live installation failure or installed recovery. No full CI,
+PocketIC execution, release or publication ran for this pending change.
+
+Delivered 0.13.3 acceptance is
+[CI run 38923932920](https://github.com/dragginzgame/ic-jobs/actions/runs/38923932920),
+source `684cf173af893c56f87ac462e830de960807240b`. Linux and macOS Apple Silicon
+pass; macOS Intel is still running at this review. Jobs #54/#58/#59/#60/#61 remain open for that
+complete matrix. Source-incorporated PRs #51 and #62 are closed without merging;
+PR #55 remains open until this newer local integration is delivered. Earlier
+receipts below retain their original source and pending/delivery observations.
 
 Issue-reduction/adoption evidence is in
 `target/qualification/issue-reduction-shared-adoption/`. Jobs
@@ -71,8 +96,8 @@ source-following ShellCheck, documentation links and diff checks pass. Release,
 registry/upload, optimizer and server effects remain substituted in disposable
 fixtures. Shared's delivered source has its own
 [three-host CI](https://github.com/dragginzgame/shared-tooling/actions/runs/38906056937).
-Jobs #54/#58/#59/#60/#61 retain delivered Jobs/native acceptance for this adoption;
-PR #62's green matrix covers its own earlier source, not this dirty batch.
+At that qualification, Jobs #54/#58/#59/#60/#61 retained delivered/native
+acceptance; PR #62's green matrix covered its own earlier source.
 No Rust source, incoming Cargo selections, own version or real index/ref changes
 are part of this tooling batch. No full CI, live recovery, release, publication,
 service installation or native macOS execution ran locally. Earlier qualification
@@ -433,9 +458,8 @@ no reset, migration or deployment ran.
 ## Upstream follow-up
 
 GitHub owns live tracker status. Shared's dependency-order adoption (#53) has
-completed delivered/native acceptance. The current local 0.16.0 adoption prepares
-Jobs #54/#58/#59/#60/#61 for delivered/native acceptance; their source and producer
-history remain linked from those issues rather than forming another local queue.
+completed delivered/native acceptance. The 0.16.0 adoption is delivered in Jobs
+0.13.3; #54/#58/#59/#60/#61 retain its running native acceptance gate.
 
 [Memory PR #105](https://github.com/dragginzgame/ic-memory/pull/105), reconciled at
 `5ce93dc8903642f4a0725ceafc75a78a07bd5494` on Memory 0.44.0, supersedes closed
@@ -445,13 +469,11 @@ PR #116; Jobs #50 still requires reviewed publication and actual adoption.
 Jobs #52/#56 await publication and current-graph qualification.
 [Timers #64](https://github.com/dragginzgame/ic-timers/issues/64) retains the
 completed-batch watchdog proposal; Jobs #57 awaits upstream delivery.
-[Jobs draft PR #51](https://github.com/dragginzgame/ic-jobs/pull/51) prepared
-Testkit **0.47** rejection assertions. Its recorded registry graph selected
-0.47.0; the maintained assertion matches `CanisterReject` and requires exactly
-`CanisterCalledTrap`, retaining the full error in diagnostics. Rust 1.91 recovery
-harness compilation, focused strict Clippy and formatting pass; receipts are in
-`target/qualification/testkit047-rejection/`. No live recovery ran. The draft is
-superseded by the assertion repair delivered in 0.13.1; GitHub owns its disposition.
+The source-incorporated rejection/retention preparation PRs #51/#62 are closed.
+[PR #55](https://github.com/dragginzgame/ic-jobs/pull/55) remains the existing
+install-diagnostics contribution; its maintained change is prepared locally for
+0.13.4 on the published registry graph. It is distinct from the older PR branch's
+qualification-only source overrides.
 
 Earlier source-bound receipts and original tracker descriptions are preserved in
 [history through 0.13.0](history-through-0.13.0.md). See also the

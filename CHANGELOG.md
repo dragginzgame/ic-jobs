@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.4]
+
+- Retain bounded status/log diagnostics when recovery-canister installation fails,
+  preserving explicit anonymous senders and the original installation failure
+  even if diagnostic collection or output fails
+  ([PR #55 — Recovery install diagnostics](https://github.com/dragginzgame/ic-jobs/pull/55)).
+
 ## [0.13.3] - 2026-10-16
 
 - Adopt Shared Tooling 0.16.0 and qualify actual formatting/release callers,

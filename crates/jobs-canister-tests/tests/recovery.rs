@@ -2,9 +2,10 @@
 
 use candid::{CandidType, Principal, utils::ArgumentEncoder};
 use ic_testkit::pic::{
-    CandidCallError, CandidCallExt, CanisterInstallExt, ErrorCode, InstallSpec, PocketIc,
-    PocketIcBuilder, PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy,
-    advance_and_tick, tick_until,
+    CandidCallError, CandidCallExt, CanisterDiagnosticsRequest, CanisterInstallError,
+    CanisterInstallExt, ErrorCode, InstallSpec, PocketIc, PocketIcBuilder, PocketIcDiagnosticsExt,
+    PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy, advance_and_tick,
+    tick_until,
 };
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
 use serde::de::DeserializeOwned;
@@ -45,7 +46,23 @@ impl Fixture {
                     )
                     .label("jobs-test-consumer"),
                 )
-                .expect("install Jobs consumer")
+                .unwrap_or_else(|error| {
+                    if let CanisterInstallError::InstallCode { canister_id, .. } = &error {
+                        // Diagnostics are subordinate to the original install failure,
+                        // including a failed stderr write or collection panic.
+                        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            let report = pic.instance.collect_canister_diagnostics(
+                                CanisterDiagnosticsRequest::new(
+                                    *canister_id,
+                                    Principal::anonymous(),
+                                    Principal::anonymous(),
+                                ),
+                            );
+                            eprintln!("install Jobs consumer: {report}");
+                        }));
+                    }
+                    panic!("install Jobs consumer: {error:?}");
+                })
         };
         let sender = install(None);
         let receiver = install(Some(sender));
