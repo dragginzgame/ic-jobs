@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.13.3]
+## [0.13.3] - 2026-10-16
 
 - Adopt Shared Tooling 0.16.0 and qualify actual formatting/release callers,
   retaining delivered Cargo-order fixture acceptance
