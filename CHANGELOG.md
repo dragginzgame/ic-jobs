@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.13.3]
+
+- Select each retained-failure assertion explicitly in the release fixture,
+  preserving its existing evidence checks without running preceding setup
+  ([Shared #245 — Explicit assertion selection](https://github.com/dragginzgame/shared-tooling/issues/245)).
+
 ## [0.13.2] - 2026-10-16
 
 - Derive consumer inspection/list identities from the validated job at one view

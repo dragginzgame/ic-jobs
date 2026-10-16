@@ -39,11 +39,18 @@ for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evide
     FIXTURE_PROBE_ROOT_VARIABLE=root fixture_probe_exit "$root/$relative" "$fixture" "$root" "${relative##*/}" cleanup-failure || exit 1
 done
 
-# Contradict the first observed command status in each actual fixture. Bash 3.2
+# Contradict one explicit command-status assertion in each actual fixture. Bash 3.2
 # can ignore a bare [[ ... ]] failure, continue, and delete the evidence after
 # reaching completion; these mandatory checks must explicitly stop the fixture.
 for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh; do
-    FIXTURE_PROBE_ROOT_VARIABLE=root fixture_probe_assertion "$root/$relative" "$fixture" "$root" "${relative##*/}" || exit 1
+    # shellcheck disable=SC2016 # Select literal assertions from maintained sources.
+    case "$relative" in
+        scripts/release/test-tooling.sh) assertion='[[ "$status" == 0 ]]' ;;
+        scripts/ci/test-formatting-evidence.sh) assertion='[[ "$status" == 37 ]]' ;;
+        scripts/ci/test-consumer-tooling.sh) assertion='[[ "$status" == 2 ]]' ;;
+    esac
+    fixture_probe_assertion "$root/$relative" "$fixture" "$root" "${relative##*/}" \
+        --selected "$root/$relative" "$assertion" 'status=97' || exit 1
 done
 
 export TOOLING_REAL_CARGO
