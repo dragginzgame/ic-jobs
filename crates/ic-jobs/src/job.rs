@@ -215,6 +215,7 @@ impl Job {
         {
             return invalid();
         }
+        let occurrences_since_origin = record.occurrence - record.schedule_origin;
         // Every allocated retry consumed at least the immutable initial delay.
         // Wide arithmetic also rejects histories needing more than u64 time;
         // this lower bound does not iterate over untrusted counters.
@@ -245,11 +246,10 @@ impl Job {
             } => {
                 let delta = record.scheduled_ns - first_at_ns;
                 let intervals = delta / every_ns.get();
-                let occurrences = record.occurrence - record.schedule_origin;
                 if !delta.is_multiple_of(every_ns.get())
                     || match missed {
-                        MissedRunPolicy::CatchUp => intervals != occurrences,
-                        MissedRunPolicy::Skip => intervals < occurrences,
+                        MissedRunPolicy::CatchUp => intervals != occurrences_since_origin,
+                        MissedRunPolicy::Skip => intervals < occurrences_since_origin,
                     }
                 {
                     return invalid();
@@ -258,10 +258,8 @@ impl Job {
             Schedule::AfterCompletion {
                 first_at_ns,
                 every_ns,
-            } if record
-                .occurrence
-                .checked_sub(record.schedule_origin)
-                .and_then(|n| n.checked_mul(every_ns.get()))
+            } if occurrences_since_origin
+                .checked_mul(every_ns.get())
                 .and_then(|n| first_at_ns.checked_add(n))
                 .is_none_or(|n| n > record.scheduled_ns) =>
             {
@@ -283,7 +281,7 @@ impl Job {
         {
             return invalid();
         }
-        if record.occurrence > record.schedule_origin
+        if occurrences_since_origin > 0
             && (record.attempts == 0
                 || (record.attempts == 1 && matches!(record.state, JobState::Running { .. })))
         {

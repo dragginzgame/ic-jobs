@@ -82,7 +82,8 @@ struct LoadedSnapshot {
     receipts: Vec<Delivery>,
 }
 
-/// Consumer-local reply and deadline, returned only after a successful stable write.
+/// Consumer-local reply and deadline from successfully admitted durable state.
+/// Mutated state is committed before return; idle dispatch does not write.
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Committed<T> {
     pub(crate) value: T,
@@ -155,8 +156,8 @@ fn delivery(attempt: Attempt, destination: Principal, message: String) -> Result
 
 fn active_delivery<'task>(
     job: &Job,
-    task: &'task mut Task,
-) -> Result<(Attempt, Principal, &'task mut String), Error> {
+    task: &'task Task,
+) -> Result<(Attempt, Principal, &'task str), Error> {
     let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
     let Task::Deliver {
         destination,
@@ -340,16 +341,13 @@ impl<M: Memory> Queue<M> {
             .zip(snapshot.tasks)
             .filter(|(job, _)| job.record().id.0 > u128::from(after.unwrap_or(0)))
             .take(usize::from(limit))
-            .map(|(job, task)| {
-                let id = u64::try_from(job.record().id.0).map_err(|_| Error::InvalidStorage)?;
-                Ok(view(id, job, task))
-            })
+            .map(|(job, task)| view(job, task))
             .collect()
     }
 
     pub(crate) fn inspect(&self, id: u64) -> Result<View, Error> {
         let (job, task) = self.load()?.take_entry(id)?;
-        Ok(view(id, job, task))
+        view(job, task)
     }
 
     pub(crate) fn cancel(&mut self, id: u64, now: u64) -> Result<Committed<()>, Error> {
@@ -394,10 +392,7 @@ impl<M: Memory> Queue<M> {
 
     // No await: the complete bounded batch commits local effects and outstanding
     // external intent before any caller is given a delivery envelope.
-    pub(crate) fn dispatch(
-        &mut self,
-        now: u64,
-    ) -> Result<(Vec<Delivery>, u64, Option<u64>), Error> {
+    pub(crate) fn dispatch(&mut self, now: u64) -> Result<Committed<(Vec<Delivery>, u64)>, Error> {
         let mut snapshot = self.load()?;
         let mut deliveries = vec![];
         let mut work = 0;
@@ -427,20 +422,29 @@ impl<M: Memory> Queue<M> {
                 } => deliveries.push(delivery(attempt, *destination, message.clone())?),
             }
         }
-        let next_due_ns = if work > 0 {
-            self.commit(snapshot, ())?.next_due_ns
+        if work > 0 {
+            // Commit the complete batch before delivery envelopes escape.
+            self.commit(snapshot, (deliveries, work))
         } else {
-            next_due_ns(&snapshot.jobs)
-        };
-        // Mutated batches commit before effects escape; idle batches retain bytes.
-        Ok((deliveries, work, next_due_ns))
+            // Idle batches project existing durable state without writing it.
+            Ok(Committed {
+                value: (deliveries, work),
+                next_due_ns: next_due_ns(&snapshot.jobs),
+            })
+        }
     }
 
     pub(crate) fn outstanding(&self, id: u64) -> Result<Delivery, Error> {
-        let (job, mut task) = self.load()?.take_entry(id)?;
-        let (attempt, destination, message) = active_delivery(&job, &mut task)?;
-        // This owned row is discarded; transfer its payload without cloning.
-        delivery(attempt, destination, std::mem::take(message))
+        let (job, task) = self.load()?.take_entry(id)?;
+        let attempt = job.active_attempt().ok_or(Error::InvalidInput)?;
+        let Task::Deliver {
+            destination,
+            message,
+        } = task
+        else {
+            return Err(Error::InvalidInput);
+        };
+        delivery(attempt, destination, message)
     }
 
     pub(crate) fn finish(
@@ -452,11 +456,11 @@ impl<M: Memory> Queue<M> {
         let mut snapshot = self.load()?;
         let index = snapshot.index(delivery.job)?;
         let job = &mut snapshot.jobs[index];
-        let (attempt, destination, message) = active_delivery(job, &mut snapshot.tasks[index])?;
+        let (attempt, destination, message) = active_delivery(job, &snapshot.tasks[index])?;
         if delivery.occurrence != attempt.execution.occurrence
             || delivery.sequence != attempt.sequence
             || delivery.destination != destination
-            || delivery.message != *message
+            || delivery.message != message
         {
             return Err(Error::ReceiptMismatch);
         }
@@ -524,10 +528,10 @@ impl<M: Memory> Queue<M> {
     }
 }
 
-fn view(id: u64, job: Job, task: Task) -> View {
+fn view(job: Job, task: Task) -> Result<View, Error> {
     let record = job.record();
-    View {
-        id,
+    Ok(View {
+        id: u64::try_from(record.id.0).map_err(|_| Error::InvalidStorage)?,
         task,
         status: match record.state {
             JobState::Pending { .. } => Status::Pending,
@@ -541,7 +545,7 @@ fn view(id: u64, job: Job, task: Task) -> View {
         due_ns: job.next_due_ns(),
         sequence: record.sequence,
         occurrence: record.occurrence,
-    }
+    })
 }
 
 #[cfg(test)]

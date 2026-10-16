@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Consumer adapter. Dependencies: Cargo/cargo-sort, jq, yq, Git, tar, awk and Unix utilities.
+# Consumer adapter. Dependencies: Cargo, jq, yq, Git, tar, awk and Unix utilities.
 operation="${1:-}"
 [[ $# -eq 1 ]] || exit 2
 if [[ "${RELEASE_DELIVERY-direct}" != direct ]]; then
@@ -41,7 +41,6 @@ case "$operation" in
         # the complete selected toolset after source/cache admission.
         "${RELEASE_MAKE:-make}" --no-print-directory install-tools
         "${RELEASE_MAKE:-make}" --no-print-directory tools-check
-        cargo sort --help >/dev/null
         ;;
     prepare)
         current_version="$(bash "$reader" Cargo.toml)"

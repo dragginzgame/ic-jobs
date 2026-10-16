@@ -137,9 +137,15 @@ tags, failure before version mutation, and completed-release recovery. Publicati
 checks cover source admission, local/remote tag identity, Make execution modes,
 registry availability and upload failure. The complete gate and registry/upload
 effects are substituted; the fixture performs no live release or publication.
-Direct and inherited Make modes are checked at the outer release and formatting
-entrypoints, including cleared/replaced `MAKEFLAGS`, verifying refusal before
-fetch, gate or source changes. Harmless external-root selection and parallel
+One common installer substitute retains Jobs catalog/root routing. Shared owns
+exhaustive common-leaf and selected-source metadata cases; Jobs keeps late
+parallel admission, setup/check refusal and actual adapter propagation checks
+inside its existing patch-release fixture.
+Jobs keeps eleven representative outer-entrypoint cases spanning release,
+formatting and publication, including inherited, cleared/replaced `MAKEFLAGS`
+and erased `MFLAGS`. Each checks refusal before fetch, gate, source/index or
+release-state effects. Shared Tooling owns the exhaustive flag/control matrix
+in its release-command and formatting-Make fixtures. Harmless external-root selection and parallel
 argument-bearing recursive Make preserve quoted caller selections.
 The fetch substitute also exercises cold-cache preparation, explicit offline
 refusal, fetch failure and prepared-cache reuse, verifying unchanged metadata

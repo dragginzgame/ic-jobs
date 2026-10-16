@@ -1,9 +1,12 @@
 # Test consumers
 
 Run `make test-consumers` for two small application-owned consumers in
-[the integration fixture](../crates/ic-jobs/tests/consumers.rs). The target tests
+[the integration fixture](../apps/job-consumer/tests/composition.rs). The target tests
 the public slice API and direct Timers composition on Rust 1.91, using the selected locked graph.
-Configured CI also runs this target on the three supported hosts.
+Configured CI also runs this target on the three supported hosts. The harness
+and its support modules belong to the unpublished consumer package; the core
+package has no Memory or Timers development dependency. `check-consumer` selects
+the consumer library tests separately, avoiding a second composition run.
 
 These consumers exercise the public API without adding storage, payloads,
 handlers or lifecycle ownership to the Jobs library. Each application decodes a

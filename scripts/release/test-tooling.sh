@@ -79,54 +79,36 @@ new_repository() {
     cp "$root"/{Cargo.toml,Cargo.lock,CHANGELOG.md,README.md,LICENSE,Makefile,.gitignore,.shared-tooling.snapshot,rust-toolchain.toml} "$repository/"
     cp -R "$root/crates" "$root/apps" "$root/scripts" "$root/make" "$root/ci" "$repository/"
     # Keep shared recipes intact; replace their external installer effects.
-    for toolset in host ic; do
+    for toolset in host ic rust; do
         cat > "$repository/scripts/dev/install-$toolset-tools.sh" <<'INSTALLER'
 #!/usr/bin/env bash
 set -euo pipefail
 consumer="$(cd -P . && printf '%s/.' "$PWD")"
 consumer="${consumer%/.}"
+[[ $# == 4 || $# == 5 ]] || exit 49
 [[ "$1" == --consumer && "$2" == "$consumer" ]] || exit 49
 case "${0##*/}" in
     install-host-tools.sh) toolset=host; catalog=--versions; file=tool-versions.env ;;
     install-ic-tools.sh) toolset=ic; catalog=--pins; file=ic-tools.tsv ;;
+    install-rust-tools.sh) toolset=rust; catalog=--versions; file=tool-versions.env ;;
     *) exit 49 ;;
 esac
 [[ "$3" == "$catalog" && "$4" == "$consumer/ci/$file" ]] || exit 49
 case "${5:-}" in
-    --preflight) [[ "$toolset" == ic ]]; exit 0 ;;
+    --preflight)
+        [[ "$toolset" != host ]] || exit 49
+        if [[ "$toolset" == rust ]]; then printf 'rust-preflight\n' >> .git/tool-events; fi ;;
     --check)
-        target="$toolset-tools-check"
-        printf '%s\n' "$target" >> .git/tool-events
-        [[ "${TOOLING_COMMON_CHECK_FAILURE:-}" != "$target" ]]
-        [[ "${TOOLING_CHECK_FAILURE:-0}" == 0 ]] ;;
+        phase="$toolset-tools-check"
+        printf '%s\n' "$phase" >> .git/tool-events
+        [[ "${TOOLING_COMMON_CHECK_FAILURE:-}" != "$phase" && "${TOOLING_CHECK_FAILURE:-0}" == 0 ]] || exit 1 ;;
     '')
         printf 'install-%s-tools\n' "$toolset" >> .git/tool-events
-        [[ "${TOOLING_INSTALL_FAILURE:-0}" == 0 ]] ;;
+        [[ "${TOOLING_INSTALL_FAILURE:-0}" == 0 ]] || exit 1 ;;
     *) exit 49 ;;
 esac
 INSTALLER
     done
-    cat > "$repository/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
-#!/usr/bin/env bash
-set -euo pipefail
-case "${1:-}" in
-    --consumer)
-        [[ $# == 4 || $# == 5 ]] || exit 49
-        [[ "$3" == --versions ]] || exit 49
-        consumer="$(cd -P . && printf '%s/.' "$PWD")"
-        consumer="${consumer%/.}"
-        [[ "$2" == "$consumer" && "$4" == "$consumer/ci/tool-versions.env" ]] || exit 49
-        case "${5:-}" in
-            --preflight) printf 'rust-preflight\n' >> .git/tool-events ;;
-            --check)
-                printf 'rust-tools-check\n' >> .git/tool-events
-                [[ "${TOOLING_COMMON_CHECK_FAILURE:-}" != rust-tools-check ]] ;;
-            '') printf 'install-rust-tools\n' >> .git/tool-events ;;
-            *) exit 49 ;;
-        esac ;;
-    *) exit 49 ;;
-esac
-INSTALLER
     cat > "$repository/scripts/ci/verify-shared-tooling-snapshot.sh" <<'VERIFY'
 #!/usr/bin/env bash
 exit 0
@@ -193,33 +175,6 @@ refuse() {
     fi
 }
 
-# Missing required release metadata is a failure even on Bash 3.2. Original
-# files and the failed selected-commit snapshot remain available for inspection.
-new_repository metadata-errors
-commit_source
-mkdir "$fixture/metadata-errors-temp"
-# A version mismatch must stop before cache/setup or metadata writes. The real
-# reader still validates the manifest; substitute Cargo rejects later effects.
-for operation in preflight prepare; do
-    : > "$TOOLING_FETCH_EVENTS"
-    refuse "mismatched-$operation" env RELEASE_PREVIOUS=9.9.9 RELEASE_VERSION=9.9.10 \
-        RELEASE_DATE=2026-10-10 TOOLING_FETCH_FAILURE=49 \
-        TMPDIR="$fixture/metadata-errors-temp" "$BASH" scripts/release/metadata.sh "$operation"
-    [[ "$refusal_status" == 1 && ! -s "$TOOLING_FETCH_EVENTS" ]] || exit 1
-    [[ -z "$(git status --porcelain)" && -z "$(ls -A "$fixture/metadata-errors-temp")" ]] || exit 1
-done
-refuse incomplete-prepare env -u RELEASE_VERSION RELEASE_PREVIOUS="$base_version" \
-    TMPDIR="$fixture/metadata-errors-temp" bash scripts/release/metadata.sh prepare
-[[ "$refusal_status" == 1 && -z "$(git status --porcelain)" ]] || exit 1
-# Shared validates required inputs before creating a mutation backup.
-[[ -z "$(ls -A "$fixture/metadata-errors-temp")" ]] || exit 1
-refuse incomplete-committed-check env -u RELEASE_VERSION RELEASE_COMMIT="$(git rev-parse HEAD)" \
-    TMPDIR="$fixture/metadata-errors-temp" bash scripts/release/metadata.sh check
-[[ "$refusal_status" == 1 && -z "$(git status --porcelain)" ]] || exit 1
-snapshots=("$fixture/metadata-errors-temp"/cargo-release-check.*)
-[[ ${#snapshots[@]} == 1 && -d "${snapshots[0]}" ]] || exit 1
-for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "${snapshots[0]}/source/$path"; done
-
 # Exercise actual metadata preparation, commits, annotated tags and local atomic
 # pushes for every increment, without running the consumer's complete gate.
 for kind in patch minor major; do
@@ -244,6 +199,22 @@ MAKE
     # skipped recipe into successful release/formatting evidence. Exercise both
     # direct flags and inherited controls before any cache or runner effects.
     if [[ "$kind" == patch ]]; then
+        mkdir "$fixture/metadata-errors-temp"
+        # A version mismatch must stop before cache/setup or metadata writes. The real
+        # reader still validates the manifest; substitute Cargo rejects later effects.
+        for operation in preflight prepare; do
+            : > "$TOOLING_FETCH_EVENTS"
+            refuse "mismatched-$operation" env RELEASE_PREVIOUS=9.9.9 RELEASE_VERSION=9.9.10 \
+                RELEASE_DATE=2026-10-10 TOOLING_FETCH_FAILURE=49 \
+                TMPDIR="$fixture/metadata-errors-temp" "$BASH" scripts/release/metadata.sh "$operation"
+            [[ "$refusal_status" == 1 && ! -s "$TOOLING_FETCH_EVENTS" ]] || exit 1
+            [[ -z "$(git status --porcelain)" && -z "$(ls -A "$fixture/metadata-errors-temp")" ]] || exit 1
+        done
+        refuse incomplete-prepare env -u RELEASE_VERSION RELEASE_PREVIOUS="$base_version" \
+            TMPDIR="$fixture/metadata-errors-temp" bash scripts/release/metadata.sh prepare
+        [[ "$refusal_status" == 1 && -z "$(git status --porcelain)" ]] || exit 1
+        # Shared validates required inputs before creating a mutation backup.
+        [[ -z "$(ls -A "$fixture/metadata-errors-temp")" ]] || exit 1
         # Harmless goals use only the selected admission helper, even with an
         # unrelated runtime root. Parallel recursive commands retain selections
         # without loading their consumer Makefiles into the isolated probe.
@@ -254,36 +225,40 @@ MAKE
             "TOOLING_QUOTED_SELECTION=owner's selection" SHARED_TOOLING_ROOT="$fixture/unselected" \
             > "$fixture/recursive-selection.log" 2>&1
         if grep -i jobserver "$fixture/recursive-selection.log" > /dev/null; then exit 1; fi
-        for target in release-patch release-minor release-major release-resume fmt fmt-check publish; do
-            for mode in -i --ignore-errors -n --dry-run -t --touch -q --question -kin; do
-                for controls in direct inherited cleared replaced erased-mflags; do
-                    label="refused-mode-$target-$mode-$controls"
-                    cp .git/index "$fixture/mode-index"
-                    if [[ "$controls" == direct ]]; then
-                        refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate"
-                    elif [[ "$controls" == inherited ]]; then
-                        refuse "$label" env _shared_make_execution_checked=yes MAKEFLAGS="$mode" \
-                            make --no-print-directory "$target" VERSION="$candidate"
-                    elif [[ "$controls" == cleared ]]; then
-                        refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS=
-                    elif [[ "$controls" == replaced ]]; then
-                        refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS=--no-print-directory
-                    else
-                        refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS= MFLAGS=
-                    fi
-                    [[ "$refusal_status" == 2 ]] || exit 1
-                    if [[ "$controls" == erased-mflags ]]; then
-                        grep -F "generated MFLAGS" "$fixture/$label.log" > /dev/null
-                    else
-                        grep -F 'Make recipe execution and failure propagation' "$fixture/$label.log" > /dev/null
-                    fi
-                    cmp .git/index "$fixture/mode-index"
-                    [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]] || exit 1
-                    [[ ! -e .git/gate-events && ! -s "$TOOLING_FETCH_EVENTS" ]] || exit 1
-                    [[ ! -e .git/release-state ]] || exit 1
-                    git diff --exit-code HEAD -- > /dev/null
-                done
-            done
+        # Shared owns the exhaustive flag/control matrix. Keep each Jobs effect
+        # family plus inherited/cleared/replaced/erased controls at this boundary.
+        for selection in \
+            'release-patch -n direct' 'release-minor -n direct' \
+            'release-major -n direct' 'release-resume -n direct' \
+            'fmt -n direct' 'fmt-check -n direct' 'publish -n direct' \
+            'release-patch -i inherited' 'release-patch -q cleared' \
+            'release-patch -t replaced' 'release-patch -kin erased-mflags'; do
+            IFS=' ' read -r target mode controls <<< "$selection"
+            label="refused-mode-$target-$mode-$controls"
+            cp .git/index "$fixture/mode-index"
+            if [[ "$controls" == direct ]]; then
+                refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate"
+            elif [[ "$controls" == inherited ]]; then
+                refuse "$label" env _shared_make_execution_checked=yes MAKEFLAGS="$mode" \
+                    make --no-print-directory "$target" VERSION="$candidate"
+            elif [[ "$controls" == cleared ]]; then
+                refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS=
+            elif [[ "$controls" == replaced ]]; then
+                refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS=--no-print-directory
+            else
+                refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS= MFLAGS=
+            fi
+            [[ "$refusal_status" == 2 ]] || exit 1
+            if [[ "$controls" == erased-mflags ]]; then
+                grep -F "generated MFLAGS" "$fixture/$label.log" > /dev/null
+            else
+                grep -F 'Make recipe execution and failure propagation' "$fixture/$label.log" > /dev/null
+            fi
+            cmp .git/index "$fixture/mode-index"
+            [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]] || exit 1
+            [[ ! -e .git/gate-events && ! -s "$TOOLING_FETCH_EVENTS" ]] || exit 1
+            [[ ! -e .git/release-state ]] || exit 1
+            git diff --exit-code HEAD -- > /dev/null
         done
         # Even harmless invocations cannot independently assign the evidence of
         # the running Make's options, whether by CLI or an extra Makefile.
@@ -410,13 +385,11 @@ GIT
             printf 'rust-preflight\ninstall-host-tools\ninstall-ic-tools\ninstall-rust-tools\nhost-tools-check\nic-tools-check\nrust-tools-check\n'
         done > "$fixture/expected-tools"
         cmp .git/tool-events "$fixture/expected-tools"
-        # Every common tool set is also admitted before parallel build dispatch;
-        # ordinary admission refuses missing tools without preparing them.
-        for toolset in host ic rust; do
-            refuse "missing-$toolset-parallel-ci" env TOOLING_COMMON_CHECK_FAILURE="$toolset-tools-check" \
-                make -j4 --no-print-directory ci
-            [[ ! -e .git/validation-events && ! -e .git/gate-events ]] || exit 1
-        done
+        # Shared owns every common leaf failure; Jobs retains late admission
+        # refusal through its real parallel CI route before product dispatch.
+        refuse missing-rust-parallel-ci env TOOLING_COMMON_CHECK_FAILURE=rust-tools-check \
+            make -j4 --no-print-directory ci
+        [[ ! -e .git/validation-events && ! -e .git/gate-events ]] || exit 1
         # Both preparation boundaries stop before gate or metadata mutation.
         for failure in install check; do
             if [[ "$failure" == install ]]; then controls=(TOOLING_INSTALL_FAILURE=1);

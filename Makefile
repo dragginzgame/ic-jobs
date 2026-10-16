@@ -28,14 +28,14 @@ check:
 	+cargo check -p ic-jobs --all-targets --all-features --locked --offline
 
 test-jobs:
-	+cargo test -p ic-jobs --test jobs --test management --test transition_restore --test configuration --test retry_time --all-features --locked --offline
+	+cargo test -p ic-jobs --tests --all-features --locked --offline
 
 test-consumers:
-	+cargo +1.91.0 test -p ic-jobs --test consumers --locked --offline
+	+cargo +1.91.0 test -p jobs-test-consumer --test composition --locked --offline
 
 .PHONY: check-consumer build-consumer install-testkit-tools testkit-tools-check install-consumer-server consumer-server-check test-canister test-canister-optimized
 check-consumer:
-	+cargo +1.91.0 test -p jobs-test-consumer --locked --offline
+	+cargo +1.91.0 test -p jobs-test-consumer --lib --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
 	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
 	+cargo +1.91.0 test -p jobs-canister-tests --locked --offline --no-run
@@ -71,7 +71,7 @@ test-canister test-canister-optimized: consumer-server-check
 
 check-msrv:
 	+cargo +1.91.0 check -p ic-jobs --lib --locked --offline
-	+cargo +1.91.0 check -p ic-jobs --test consumers --locked --offline
+	+cargo +1.91.0 check -p jobs-test-consumer --test composition --locked --offline
 
 check-wasm:
 	+cargo +1.91.0 check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline

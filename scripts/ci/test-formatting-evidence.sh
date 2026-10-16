@@ -19,9 +19,11 @@ mkdir "$fixture/temp" "$fixture/repository" "$fixture/unpacked"
 (umask 077; mkdir "$fixture/store")
 yq -o json '.' "$root/.github/workflows/ci.yml" > "$fixture/workflow.json"
 yq -o json '.' "$root/.github/actions/retain-failure-evidence/action.yml" > "$fixture/collector.json"
+jq '.jobs.validate.steps' "$fixture/workflow.json" > "$fixture/workflow-steps.json"
+jq '.runs.steps' "$fixture/collector.json" > "$fixture/collector-steps.json"
 jq -e '
     .jobs.validate.steps as $steps |
-    [$steps | to_entries[] | select(.value.name == "Validate the selected graph")] as $gates |
+    [$steps | to_entries[] | select(.value.id == "validate")] as $gates |
     [$steps | to_entries[] | select(.value.uses == "./.github/actions/retain-failure-evidence")] as $collectors |
     ($gates | length) == 1 and ($collectors | length) == 1 and
     $gates[0].value["continue-on-error"] != true and
@@ -30,9 +32,9 @@ jq -e '
 
 # Execute the actual workflow gate with a failed fixture. Its temporary root
 # must be one the actual collector archives, and the child status must survive.
-jq -er '.jobs.validate.steps[] | select(.name == "Validate the selected graph") | .run' \
-    "$fixture/workflow.json" > "$fixture/gate.sh"
-temporary_selection="$(jq -er '.jobs.validate.steps[] | select(.name == "Validate the selected graph") | .env.TMPDIR' "$fixture/workflow.json")"
+bash "$root/scripts/ci/extract-workflow-step.sh" "$fixture/workflow-steps.json" validate \
+    > "$fixture/gate.sh"
+temporary_selection="$(jq -er '.[] | select(.id == "validate") | .env.TMPDIR' "$fixture/workflow-steps.json")"
 # Substitute the literal GitHub expression, not a shell variable.
 # shellcheck disable=SC2016
 gate_temp="${temporary_selection//'${{ runner.temp }}'/$fixture/temp}"
@@ -117,7 +119,8 @@ cmp "$fixture/expected-events" "$FORMAT_EVIDENCE_EVENTS"
 printf 'Checking formatting... ok\n' > "$fixture/expected"
 cmp "$fixture/expected" "$fixture/make-success"
 
-jq -er '.runs.steps[] | select(.id == "archive") | .run' "$fixture/collector.json" > "$fixture/collect.sh"
+bash "$root/scripts/ci/extract-workflow-step.sh" "$fixture/collector-steps.json" archive \
+    > "$fixture/collect.sh"
 SHARED_TOOLING_STORE="$fixture/store" \
     EVIDENCE_TEMP_ROOT="$fixture/temp" EVIDENCE_REPOSITORY_ROOT="$fixture/repository" \
     EVIDENCE_ACTION_ROOT="$root/.github/actions/retain-failure-evidence" \
@@ -161,8 +164,8 @@ jq -e '
     $archives[0].key < $uploads[0].key and $uploads[0].key < $failures[0].key and
     ($failures[0].value.if | contains("collection-complete == '\''false'\''"))
 ' "$fixture/collector.json" > /dev/null
-jq -er '.runs.steps[] | select(.id == "completeness") | .run' \
-    "$fixture/collector.json" > "$fixture/incomplete.sh"
+bash "$root/scripts/ci/extract-workflow-step.sh" "$fixture/collector-steps.json" completeness \
+    > "$fixture/incomplete.sh"
 status=0
 bash "$fixture/incomplete.sh" > "$fixture/incomplete.log" 2>&1 || status=$?
 [[ "$status" == 1 ]] || exit 1

@@ -32,13 +32,19 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
         })
         .unwrap()
         .value;
-    assert_eq!(queue.dispatch(100).unwrap().1, 1);
+    assert_eq!(queue.dispatch(100).unwrap().value.1, 1);
     queue.pause(id, 101).unwrap();
     assert_eq!(queue.summary().unwrap(), (None, 2, 0));
     drop(queue);
     let mut queue = Queue::open(memory.clone(), None).unwrap().0;
     assert_eq!(queue.inspect(id).unwrap().status, Status::Paused);
-    assert_eq!(queue.dispatch(400).unwrap(), (vec![], 0, None));
+    assert_eq!(
+        queue.dispatch(400).unwrap(),
+        Committed {
+            value: (vec![], 0),
+            next_due_ns: None
+        }
+    );
     queue
         .reschedule(
             id,
@@ -58,8 +64,8 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
     assert_eq!(queue.inspect(id).unwrap(), before);
     queue.resume(id, 450).unwrap();
     assert_eq!(queue.summary().unwrap().0, Some(500));
-    assert_eq!(queue.dispatch(499).unwrap().1, 0);
-    assert_eq!(queue.dispatch(500).unwrap().1, 1);
+    assert_eq!(queue.dispatch(499).unwrap().value.1, 0);
+    assert_eq!(queue.dispatch(500).unwrap().value.1, 1);
     assert_eq!(queue.summary().unwrap(), (Some(510), 4, 0));
     assert_eq!(
         (
@@ -95,7 +101,10 @@ fn resume_preserves_overdue_policy_and_bounded_batch() {
         let mut queue = Queue::open(memory, None).unwrap().0;
         queue.resume(id, 200).unwrap();
         assert_eq!(queue.summary().unwrap().0, Some(100));
-        assert_eq!(queue.dispatch(200).unwrap().1, if catch_up { 2 } else { 1 });
+        assert_eq!(
+            queue.dispatch(200).unwrap().value.1,
+            if catch_up { 2 } else { 1 }
+        );
         assert_eq!(
             queue.summary().unwrap().0,
             Some(if catch_up { 120 } else { 210 })
@@ -118,7 +127,10 @@ fn refused_management_preserves_stable_bytes_and_blocked_delivery() {
         })
         .unwrap()
         .value;
-    let (deliveries, _, _) = queue.dispatch(0).unwrap();
+    let Committed {
+        value: (deliveries, _),
+        ..
+    } = queue.dispatch(0).unwrap();
     for uncertain in [false, true] {
         if uncertain {
             queue.finish(&deliveries[0], 1, Outcome::Uncertain).unwrap();
@@ -128,7 +140,7 @@ fn refused_management_preserves_stable_bytes_and_blocked_delivery() {
         assert!(queue.resume(id, 2).is_err());
         assert!(queue.reschedule(id, Timing::Once(100), 2).is_err());
         assert_eq!(*queue.cell.get(), before);
-        assert_eq!(queue.dispatch(2).unwrap().1, 0);
+        assert_eq!(queue.dispatch(2).unwrap().value.1, 0);
         assert_eq!(*queue.cell.get(), before);
     }
     let pending = queue.create(increment(100)).unwrap().value;
@@ -189,7 +201,13 @@ fn local_effects_and_bounded_overdue_work_commit_together() {
         })
         .unwrap()
         .value;
-    assert_eq!(queue.dispatch(125).unwrap(), (vec![], 2, Some(120)));
+    assert_eq!(
+        queue.dispatch(125).unwrap(),
+        Committed {
+            value: (vec![], 2),
+            next_due_ns: Some(120)
+        }
+    );
     assert_eq!(queue.summary().unwrap(), (Some(120), 4, 0));
     drop(queue);
     let mut queue = Queue::open(memory, None).unwrap().0;
@@ -216,7 +234,7 @@ fn skip_and_refused_mutations_preserve_committed_bytes() {
         })
         .unwrap()
         .value;
-    assert_eq!(queue.dispatch(125).unwrap().1, 1);
+    assert_eq!(queue.dispatch(125).unwrap().value.1, 1);
     assert_eq!(queue.inspect(id).unwrap().due_ns, Some(130));
     let before = queue.cell.get().clone();
     assert!(
@@ -242,7 +260,13 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
         let memory = VectorMemory::default();
         let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
         queue.create(increment(0)).unwrap();
-        assert_eq!(queue.dispatch(0).unwrap(), (vec![], 1, None));
+        assert_eq!(
+            queue.dispatch(0).unwrap(),
+            Committed {
+                value: (vec![], 1),
+                next_due_ns: None
+            }
+        );
 
         let failed = Create {
             timing: Timing::FixedRate {
@@ -266,7 +290,13 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
             (queue.create(failed).unwrap().value, healthy)
         };
         let remaining = queue.create(increment(100)).unwrap().value;
-        assert_eq!(queue.dispatch(100).unwrap(), (vec![], 2, Some(100)));
+        assert_eq!(
+            queue.dispatch(100).unwrap(),
+            Committed {
+                value: (vec![], 2),
+                next_due_ns: Some(100)
+            }
+        );
         assert_eq!(queue.summary().unwrap(), (Some(100), 3, 0));
         assert_eq!(queue.inspect(failed).unwrap().status, Status::Failed);
         assert_eq!(queue.inspect(healthy).unwrap().status, Status::Completed);
@@ -279,10 +309,22 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
         drop(queue);
         let mut restored = Queue::open(memory, None).unwrap().0;
         assert_eq!(restored.inspect(failed).unwrap(), failed_record);
-        assert_eq!(restored.dispatch(100).unwrap(), (vec![], 1, None));
+        assert_eq!(
+            restored.dispatch(100).unwrap(),
+            Committed {
+                value: (vec![], 1),
+                next_due_ns: None
+            }
+        );
         assert_eq!(restored.summary().unwrap(), (None, 4, 0));
         assert_eq!(restored.inspect(failed).unwrap(), failed_record);
-        assert_eq!(restored.dispatch(200).unwrap(), (vec![], 0, None));
+        assert_eq!(
+            restored.dispatch(200).unwrap(),
+            Committed {
+                value: (vec![], 0),
+                next_due_ns: None
+            }
+        );
         assert_eq!(restored.summary().unwrap(), (None, 4, 0));
     }
 }
@@ -303,7 +345,10 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
             })
             .unwrap()
             .value;
-        let (deliveries, _, _) = sender.dispatch(100).unwrap();
+        let Committed {
+            value: (deliveries, _),
+            ..
+        } = sender.dispatch(100).unwrap();
         let delivery = &deliveries[0];
         if uncertain {
             sender.finish(delivery, 101, Outcome::Uncertain).unwrap();
@@ -312,7 +357,13 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
         let mut sender = Queue::open(backing, None).unwrap().0;
         assert_eq!(sender.outstanding(id).unwrap(), *delivery);
         assert!(sender.cancel(id, 102).is_err());
-        assert_eq!(sender.dispatch(102).unwrap(), (vec![], 0, None));
+        assert_eq!(
+            sender.dispatch(102).unwrap(),
+            Committed {
+                value: (vec![], 0),
+                next_due_ns: None
+            }
+        );
         let receiver_memory = VectorMemory::default();
         let mut receiver = Queue::open(
             receiver_memory.clone(),
@@ -347,7 +398,7 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
         assert_eq!(*sender.cell.get(), before);
         sender.finish(delivery, 102, Outcome::Success).unwrap();
         assert_eq!(sender.inspect(id).unwrap().status, Status::Completed);
-        assert_eq!(sender.dispatch(103).unwrap().1, 0);
+        assert_eq!(sender.dispatch(103).unwrap().value.1, 0);
     }
 }
 
@@ -488,7 +539,7 @@ fn unrelated_corruption_precedes_completion_lookup_receipt_and_clock_checks() {
         .unwrap();
 
     let corrupt = queue.create(increment(20)).unwrap().value;
-    let delivery = queue.dispatch(10).unwrap().0.remove(0);
+    let delivery = queue.dispatch(10).unwrap().value.0.remove(0);
     queue.corrupt_record(corrupt).unwrap();
     let before = queue.cell.get().clone();
     for candidate in [
@@ -540,7 +591,10 @@ fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
             .unwrap()
             .value;
         let healthy = queue.create(increment(200)).unwrap().value;
-        let (deliveries, _, _) = queue.dispatch(100).unwrap();
+        let Committed {
+            value: (deliveries, _),
+            ..
+        } = queue.dispatch(100).unwrap();
         if uncertain {
             queue
                 .finish(&deliveries[0], 101, Outcome::Uncertain)
@@ -748,7 +802,13 @@ fn released_075_snapshot_reopens_without_reset_and_retains_blocked_effects() {
         queue.outstanding(2).unwrap().message,
         "uncertain external effect"
     );
-    assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1, Some(210)));
+    assert_eq!(
+        queue.dispatch(200).unwrap(),
+        Committed {
+            value: (vec![], 1),
+            next_due_ns: Some(210)
+        }
+    );
     assert_eq!(queue.summary().unwrap(), (Some(210), 5, 0));
     assert_eq!(queue.inspect(1).unwrap(), running);
     assert_eq!(queue.inspect(2).unwrap(), uncertain);
@@ -925,7 +985,10 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
         memory.writes.set(0);
         assert_eq!(
             queue.dispatch(99).unwrap(),
-            (vec![], 0, expected_due),
+            Committed {
+                value: (vec![], 0),
+                next_due_ns: expected_due
+            },
             "state {state}"
         );
         assert_eq!(memory.writes.get(), 0, "state {state}");
@@ -947,7 +1010,13 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
     let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
     queue.create(increment(100)).unwrap();
     memory.writes.set(0);
-    assert_eq!(queue.dispatch(100).unwrap(), (vec![], 1, None));
+    assert_eq!(
+        queue.dispatch(100).unwrap(),
+        Committed {
+            value: (vec![], 1),
+            next_due_ns: None
+        }
+    );
     assert!(memory.writes.get() > 0);
     assert_eq!(queue.summary().unwrap().1, 1);
 }
@@ -992,7 +1061,13 @@ fn mutation_replies_return_the_fresh_committed_deadline() {
     );
     assert_eq!(queue.resume(early.value, 0).unwrap().next_due_ns, Some(100));
     assert_eq!(queue.cancel(early.value, 0).unwrap().next_due_ns, Some(200));
-    assert_eq!(queue.dispatch(200).unwrap(), (vec![], 1, None));
+    assert_eq!(
+        queue.dispatch(200).unwrap(),
+        Committed {
+            value: (vec![], 1),
+            next_due_ns: None
+        }
+    );
     let external = queue
         .create(Create {
             timing: Timing::Once(250),
@@ -1003,7 +1078,10 @@ fn mutation_replies_return_the_fresh_committed_deadline() {
         })
         .unwrap();
     assert_eq!(external.next_due_ns, Some(250));
-    let (deliveries, _, due) = queue.dispatch(250).unwrap();
+    let Committed {
+        value: (deliveries, _),
+        next_due_ns: due,
+    } = queue.dispatch(250).unwrap();
     assert_eq!(due, None);
     assert_eq!(
         queue

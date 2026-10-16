@@ -13,8 +13,6 @@ readme = "README.md"
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-ic-memory.workspace = true
-ic-timers.workspace = true
 serde_json.workspace = true
 serde_test.workspace = true
 

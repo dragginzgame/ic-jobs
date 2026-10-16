@@ -173,7 +173,8 @@ fn launch_deliveries(deliveries: Vec<Delivery>) {
 }
 
 fn wake() -> WatchdogRunResult {
-    let (deliveries, work, due) = required(with_queue(|queue| queue.dispatch(ic_cdk::api::time())));
+    let result = required(with_queue(|queue| queue.dispatch(ic_cdk::api::time())));
+    let (deliveries, work) = result.value;
     if work > 0 && TRAP_WATCHDOG_BATCH.with(Cell::get) {
         // A stable write in this segment is not independently committed. No
         // external delivery escapes before this deliberate rollback boundary.
@@ -188,7 +189,9 @@ fn wake() -> WatchdogRunResult {
     };
     WatchdogRunResult::new(
         completion,
-        due.map_or(WatchdogDecision::Stop, WatchdogDecision::ScheduleAt),
+        result
+            .next_due_ns
+            .map_or(WatchdogDecision::Stop, WatchdogDecision::ScheduleAt),
     )
 }
 
@@ -199,9 +202,7 @@ fn dispatch_due() -> Result<(), Error> {
 }
 
 fn dispatch_reconciled() -> Result<Vec<Delivery>, Error> {
-    let (deliveries, _, due) = with_authorized_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
-    // Timer refusal still traps the stable write's segment before delivery escapes.
-    reconcile_at(due);
+    let (deliveries, _) = update_queue(|queue| queue.dispatch(ic_cdk::api::time()))?;
     Ok(deliveries)
 }
 

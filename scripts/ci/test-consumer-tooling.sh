@@ -118,6 +118,53 @@ for command in setup check; do
 done
 echo 'Server commands admit the selected CLI once and refuse before server effects (substitute installer/server)'
 
+# Execute the hosted selection step against the actual Make adapter. Its checked
+# stdout is the executable path; diagnostics must stay out of that selection.
+yq -o json '.jobs.recovery.steps' "$root/.github/workflows/recovery.yml" > "$fixture/recovery-steps.json"
+bash "$root/scripts/ci/extract-workflow-step.sh" "$fixture/recovery-steps.json" testkit \
+    > "$fixture/testkit-step.sh"
+export JOBS_CONSUMER_CLI="$fixture/testkit selected/bin/ic-testkit-server"
+mkdir -p "${JOBS_CONSUMER_CLI%/bin/*}/bin"
+printf '{"selected":"fixture"}\n' > "${JOBS_CONSUMER_CLI%/bin/*}/selection.json"
+cat > "$fixture/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
+#!/usr/bin/env bash
+set -euo pipefail
+case "$*" in
+    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release')
+        printf 'setup\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS" ;;
+    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --check')
+        printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+        echo 'selected CLI admission diagnostic' >&2
+        [[ "$JOBS_CONSUMER_ADMISSION_FAILURE" == 0 ]] || exit 37
+        printf '%s\n' "$JOBS_CONSUMER_CLI" ;;
+    *) exit 49 ;;
+esac
+INSTALLER
+for outcome in accepted refused; do
+    mkdir -p "$fixture/$outcome-workflow/jobs-recovery"
+    : > "$fixture/events"
+    failure=0; expected=0
+    if [[ "$outcome" == refused ]]; then failure=1; expected=2; fi
+    status=0
+    (cd "$fixture" && RUNNER_TEMP="$fixture/$outcome-workflow" \
+        JOBS_CONSUMER_ADMISSION_FAILURE="$failure" \
+        "$BASH" --noprofile --norc -e -o pipefail "$fixture/testkit-step.sh") \
+        > "$fixture/workflow-$outcome.log" 2>&1 || status=$?
+    [[ "$status" == "$expected" ]] || exit 1
+    printf 'setup\nadmission\n' > "$fixture/expected-events"
+    cmp "$fixture/events" "$fixture/expected-events"
+    grep -F 'selected CLI admission diagnostic' "$fixture/$outcome-workflow/tools-testkit-check-stderr.log" > /dev/null
+    grep -F 'selected CLI admission diagnostic' "$fixture/workflow-$outcome.log" > /dev/null
+    if [[ "$outcome" == accepted ]]; then
+        [[ "$(cat "$fixture/$outcome-workflow/tools-testkit-check.log")" == "$JOBS_CONSUMER_CLI" ]] || exit 1
+        cmp "${JOBS_CONSUMER_CLI%/bin/*}/selection.json" \
+            "$fixture/$outcome-workflow/jobs-recovery/testkit-selection.json"
+    else
+        [[ ! -e "$fixture/$outcome-workflow/jobs-recovery/testkit-selection.json" ]] || exit 1
+    fi
+done
+echo 'Hosted CLI selection admits once, retains diagnostics and refuses before receipt copying (actual workflow/Make; substitute installer)'
+
 # Isolate the wrapper's Wasm-file admission after CLI admission. Substitute only
 # the selected CLI and Cargo metadata; invalid inputs must create no attempt or
 # start a server. The shared installer's selection contract is tested above.

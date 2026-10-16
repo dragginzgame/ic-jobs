@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.13.2]
+
+- Derive consumer inspection/list identities from the validated job at one view
+  boundary and remove unused snapshot cloning from the composition fixture.
+
+- Keep recovery-only dependencies in the harness development graph, so the
+  standalone capture tool builds without Testkit or the consumer package.
+- Reuse one checked Testkit CLI selection in the recovery workflow, retaining
+  admission diagnostics. Let Cargo discover core integration-test targets.
+
+- Consolidate release-fixture installer substitutes and retain focused Jobs
+  admission checks. Reuse the patch-release fixture for metadata refusals
+  instead of creating another complete repository.
+
+- Use the canonical workflow run-body extractor with a stable CI gate ID while
+  retaining Jobs evidence-ordering and failure checks.
+- Remove unused Clone implementations from consumer request/response types.
+
+- Move native consumer composition tests into the unpublished consumer package
+  and remove Memory/Timers development dependencies from the core package.
+- Reuse the admitted occurrence offset during restore and keep focused Jobs
+  release-refusal checks while Shared owns the exhaustive Make-mode matrix.
+
+- Remove redundant cargo-sort help probing after complete tool admission.
+
+- Reuse the consumer durable-result wrapper for dispatch and management timer
+  reconciliation, preserving idle zero-write and commit-before-delivery behavior.
+- Inspect delivery payloads through shared references and move owned outstanding
+  messages directly, retaining exact attempt and receipt checks.
+- Replace local dependency-order fixture parsing with the canonical Shared helper.
+
 ## [0.13.1] - 2026-10-15
 
 - Update recovery trap assertions for Testkit 0.47 structured call failures,

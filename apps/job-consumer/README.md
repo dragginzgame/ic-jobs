@@ -1,5 +1,10 @@
 # Jobs test consumer
 
+This package also owns the native notification/maintenance composition harness
+in `tests/composition.rs`. Run `make test-consumers` for its 19 scenarios;
+`check-msrv` qualifies core and composition separately on Rust 1.91. Memory and
+Timers integration dependencies belong here, outside the core package tests.
+
 This unpublished canister is an application-owned consumer of Jobs, Memory and
 Timers. It is a qualification fixture with deliberate fault endpoints, and must
 not be deployed as a production service. The Jobs library acquires no storage,

@@ -97,6 +97,8 @@ revision	ca98798920188da9a21041ff9fabb76ec18f41ac
 # entrypoint	scripts/ci/fixture-retention-probes.sh
 # entrypoint	scripts/ci/cargo-release-metadata.sh
 # entrypoint	.github/actions/prepare-rust-toolchains/action.yml
+# entrypoint	scripts/ci/prepare-cargo-formatting-fixture.pl
+# entrypoint	scripts/ci/extract-workflow-step.sh
 file	4778d50d3ebdd40132866174e5eb7a85901b20da7b0fa63207b9006999a04e8d	-	DRAGGINZGAME.md
 file	ef2a017ec18674af6b67329424bcebf4a211f0c4ec69fa70a4ff3a9da4a17583	-	rules/contributions.md
 file	372e8a256767514d119ecd3e584cd20f15732b3eb169b212716069be7c3f9c80	-	rules/changelogs.md
@@ -191,6 +193,8 @@ file	c9971d3de02546e81e25f19ab74dfa7997164fa05fe76e0d323b200a30f28318	-	docs/car
 file	90a367a3f71e147333a9316b5260b5143a60ec58eea3a62da517fc1074265a5d	-	scripts/ci/fixture-retention-probes.sh
 file	37757b1a2f423a0d0b703a9c39fa840c37998d841a9f5e8c6ae5e61a33843a2a	x	scripts/ci/cargo-release-metadata.sh
 file	b9406061ebc1765ab9552b8e5d1bbd43e3d468fde11063f2046867a58ce77254	-	.github/actions/prepare-rust-toolchains/action.yml
+file	cab304269146b6dc25d7cfc98a4838fc94de83e5d935aee0789e442a0cd6ee35	-	scripts/ci/prepare-cargo-formatting-fixture.pl
+file	e2825c554ea3952515ecb2938f7ad592d6539ec5304c3b3107d32a1bfc6b4eda	-	scripts/ci/extract-workflow-step.sh
 file	567f3e1618305539cf99365454040638788d035fe59742e574bcd4c30b9ba546	x	scripts/ci/validate-release-inputs.pl
 file	d8262e16afce59b65b5a9ef6142b20170a6c6459efa1d30d9dd8d292614c854f	-	docs/rust-toolchains.md
 file	2866f395df1ec7b19b4281261414be897a18987744eb8322df172291b8015bc8	x	scripts/ci/report-tool-versions.sh

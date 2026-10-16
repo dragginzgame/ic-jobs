@@ -4,7 +4,7 @@ use candid::{CandidType, Principal};
 use serde::{Deserialize, Serialize};
 
 /// Installation configuration, retained across upgrades.
-#[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize, Serialize)]
+#[derive(Debug, Eq, PartialEq, CandidType, Deserialize, Serialize)]
 pub struct Init {
     /// Identity permitted to manage tasks and fixture controls.
     pub manager: Principal,
@@ -50,7 +50,7 @@ pub enum Timing {
 }
 
 /// Task creation request. Identities are allocated by the retained queue.
-#[derive(Clone, Debug, CandidType, Deserialize)]
+#[derive(Debug, CandidType, Deserialize)]
 pub struct Create {
     /// Scheduling policy.
     pub timing: Timing,
@@ -59,7 +59,7 @@ pub struct Create {
 }
 
 /// Projection of the checked job state.
-#[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize)]
+#[derive(Debug, Eq, PartialEq, CandidType, Deserialize)]
 pub enum Status {
     /// Pending work with a durable deadline.
     Pending,
@@ -78,7 +78,7 @@ pub enum Status {
 }
 
 /// Authorized inspection response.
-#[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize)]
+#[derive(Debug, Eq, PartialEq, CandidType, Deserialize)]
 pub struct View {
     /// Consumer-allocated job identity.
     pub id: u64,
@@ -110,7 +110,7 @@ pub struct Delivery {
 }
 
 /// Bounded state summary used by the host harness.
-#[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize)]
+#[derive(Debug, Eq, PartialEq, CandidType, Deserialize)]
 pub struct Summary {
     /// Earliest pending deadline over the entire bounded queue.
     pub next_due_ns: Option<u64>,

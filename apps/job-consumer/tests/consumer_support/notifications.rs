@@ -13,7 +13,7 @@ pub(crate) struct Notification {
     pub(crate) body: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct NotificationSnapshot<P = Notification> {
     pub(crate) job: JobRecord,
     pub(crate) payload: P,

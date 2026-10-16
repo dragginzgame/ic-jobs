@@ -17,16 +17,8 @@ finish() {
 trap finish EXIT
 
 # Only reorder two adjacent dependencies; keep names, versions and features.
-awk '
-    $0 == "[workspace.dependencies]" { select=1; print; next }
-    select {
-        if ($0 !~ /^[[:alnum:]_-]+[[:space:]]*=/) exit 1
-        if (saved == "") { saved=$0; next }
-        print; print saved; saved=""; swapped=1; select=0; next
-    }
-    { print }
-    END { if (!swapped || saved != "") exit 1 }
-' "$root/Cargo.toml" > "$fixture/unsorted.toml"
+perl "$root/scripts/ci/prepare-cargo-formatting-fixture.pl" \
+    "$root/Cargo.toml" workspace.dependencies candid ic-build > "$fixture/unsorted.toml"
 bash "$root/scripts/ci/check-formatting-hooks.sh" "$root" \
     crates/ic-jobs/src/job.rs Cargo.toml "$fixture/unsorted.toml" \
     Cargo.lock make/consumer.mk make/tools.mk make/rust-format.mk make/release.mk make/execution.mk \

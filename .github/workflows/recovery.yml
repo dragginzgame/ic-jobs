@@ -55,11 +55,12 @@ jobs:
       - name: Prepare the selected dependency cache
         run: cargo fetch --locked 2>&1 | tee "$RUNNER_TEMP/tools-dependency-cache.log"
       - name: Prepare and admit the selected Testkit CLI
+        id: testkit
         run: |
           make install-testkit-tools 2>&1 | tee "$RUNNER_TEMP/tools-testkit-setup.log"
-          make testkit-tools-check 2>&1 | tee "$RUNNER_TEMP/tools-testkit-check.log"
-          cli="$(bash scripts/dev/install-rust-tools.sh --package ic-testkit \
-            --lockfile Cargo.lock --bin ic-testkit-server --profile release --check)"
+          cli="$(make --silent --no-print-directory testkit-tools-check \
+            2> >(tee "$RUNNER_TEMP/tools-testkit-check-stderr.log" >&2) \
+            | tee "$RUNNER_TEMP/tools-testkit-check.log")"
           cp "${cli%/bin/*}/selection.json" "$RUNNER_TEMP/jobs-recovery/testkit-selection.json"
       - name: Prepare and admit the Testkit-owned PocketIC bundle
         run: |
