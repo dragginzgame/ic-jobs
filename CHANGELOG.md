@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.14.0]
+## [0.14.0] - 2026-10-16
 
 - **Breaking:** Batch scheduling accepts finite iterators of job references,
   allowing consumers to keep jobs and payloads together. Returned indexes refer
