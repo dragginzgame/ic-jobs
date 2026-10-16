@@ -105,10 +105,11 @@ retirement/reset of this repository's disposable 0.5 test installations. The
 canister fixture uses a distinct storage key; old bytes are not interpreted under
 the current layout, and this change does not erase retained memory itself.
 
-`next_due_ns` reads a bounded candidate slice of validated `Job` values.
-`start_next` starts one earliest due job through `Job::start`, returning its batch
-index and attempt. The application reads the exact Running record from
-`jobs[index].record()` and commits it with immutable payload/index changes before
+`next_due_ns` reads a finite, bounded candidate iterator of validated `Job` references.
+`start_next` starts one earliest due job through `Job::start`, returning its iterator
+index and attempt. That index identifies the supplied iterator order, which may
+differ from the backing collection when filtered or reordered. The application
+reads the selected job's exact Running record and commits it with immutable payload/index changes before
 dispatching an external effect.
 It does not restore raw records, dispatch effects or admit unresolved jobs. On a
 selected job's transition error, all records remain unchanged and no other job

@@ -22,32 +22,57 @@ fn scheduler_starts_one_earliest_due_job_and_preserves_batch_order() {
     assert_eq!(next_due_ns(&empty), None);
     assert_eq!(start_next(&mut empty, 100), Ok(None));
     let mut jobs = [
-        Job::new(JobId(1), Schedule::Once { at_ns: 200 }, retry()),
-        Job::new(JobId(2), Schedule::Once { at_ns: 100 }, retry()),
-        Job::new(JobId(3), Schedule::Once { at_ns: 100 }, retry()),
+        (
+            Job::new(JobId(1), Schedule::Once { at_ns: 200 }, retry()),
+            "later",
+        ),
+        (
+            Job::new(JobId(2), Schedule::Once { at_ns: 100 }, retry()),
+            "first",
+        ),
+        (
+            Job::new(JobId(3), Schedule::Once { at_ns: 100 }, retry()),
+            "second",
+        ),
     ];
-    let before = jobs.each_ref().map(Job::record);
-    assert_eq!(next_due_ns(&jobs), Some(100));
-    assert_eq!(start_next(&mut jobs, 99), Ok(None));
-    assert_eq!(jobs.each_ref().map(Job::record), before);
+    let before = jobs.each_ref().map(|(job, _)| job.record());
+    assert_eq!(next_due_ns(jobs.iter().map(|(job, _)| job)), Some(100));
+    assert_eq!(
+        start_next(jobs.iter_mut().map(|(job, _)| job), 99),
+        Ok(None)
+    );
+    assert_eq!(jobs.each_ref().map(|(job, _)| job.record()), before);
 
-    let (index, attempt) = start_next(&mut jobs, 200).unwrap().unwrap();
+    let (index, attempt) = start_next(jobs.iter_mut().map(|(job, _)| job), 200)
+        .unwrap()
+        .unwrap();
     assert_eq!(index, 1);
     assert_eq!(attempt.execution.job, JobId(2));
-    let record = jobs[index].record();
+    let record = jobs[index].0.record();
     assert_eq!(record.state, JobState::Running { started_ns: 200 });
-    assert_eq!(jobs[0].record(), before[0]);
-    assert_eq!(jobs[2].record(), before[2]);
-    assert_eq!(next_due_ns(&jobs), Some(100));
+    assert_eq!(jobs[0].0.record(), before[0]);
+    assert_eq!(jobs[2].0.record(), before[2]);
+    assert_eq!(next_due_ns(jobs.iter().map(|(job, _)| job)), Some(100));
 
-    let (index, attempt) = start_next(&mut jobs, 200).unwrap().unwrap();
+    let (index, attempt) = start_next(jobs.iter_mut().map(|(job, _)| job), 200)
+        .unwrap()
+        .unwrap();
     assert_eq!(index, 2);
     assert_eq!(attempt.execution.job, JobId(3));
-    let (index, attempt) = start_next(&mut jobs, 200).unwrap().unwrap();
+    let (index, attempt) = start_next(jobs.iter_mut().map(|(job, _)| job), 200)
+        .unwrap()
+        .unwrap();
     assert_eq!(index, 0);
     assert_eq!(attempt.execution.job, JobId(1));
-    assert_eq!(next_due_ns(&jobs), None);
-    assert_eq!(start_next(&mut jobs, 300), Ok(None));
+    assert_eq!(next_due_ns(jobs.iter().map(|(job, _)| job)), None);
+    assert_eq!(
+        start_next(jobs.iter_mut().map(|(job, _)| job), 300),
+        Ok(None)
+    );
+    assert_eq!(
+        jobs.map(|(_, payload)| payload),
+        ["later", "first", "second"]
+    );
 }
 
 #[test]

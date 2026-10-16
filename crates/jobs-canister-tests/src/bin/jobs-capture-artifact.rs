@@ -102,19 +102,8 @@ mod tests {
             .unwrap()
     }
 
-    #[test]
-    fn final_evidence_survives_producer_removal_and_leaves_no_staging_child() {
-        let root = fixture();
-        let source = root.join("producer");
-        let destination = root.join("jobs_test_consumer.wasm");
-        fs::write(&source, b"\0asm\x01\0\0\0").unwrap();
-        capture(&source, &destination).unwrap();
-        fs::remove_file(source).unwrap();
-        assert_eq!(fs::read(destination).unwrap(), b"\0asm\x01\0\0\0");
-        assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
-        fs::remove_dir_all(root).unwrap();
-    }
-
+    // IC Build owns generic capture/retention proofs. Keep Jobs optimizer
+    // ordering here and the original-capture command path in consumer tooling.
     #[cfg(unix)]
     fn optimizer_fixture() -> (PathBuf, PathBuf, PathBuf) {
         let root = fixture();

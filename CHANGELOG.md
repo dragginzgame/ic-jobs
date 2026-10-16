@@ -1,6 +1,22 @@
 # Changelog
 
-## [0.13.4]
+## [0.14.0]
+
+- **Breaking:** Batch scheduling accepts finite iterators of job references,
+  allowing consumers to keep jobs and payloads together. Returned indexes refer
+  to iterator order. Pass an explicit slice or iterator for wrappers that relied
+  on slice coercion, and adapt code tied to the old function signatures. Direct
+  slice/vector calls remain supported. Job records and stored
+  consumer payloads retain their current format.
+- Keep validated jobs beside their payloads in both qualification consumers and
+  use one expected delivery envelope for dispatch, inspection and completion.
+- Keep generic capture-retention qualification at IC Build while retaining Jobs'
+  optimizer and recovery-wrapper coverage.
+- Adapt allocation requests to the selected Memory 0.45 key-only API. Its outer
+  ledger format requires explicit owner disposition of earlier installations;
+  this change supplies no reset, migration or old-format reader.
+- Select finite reply-decoding limits for the Testkit 0.50 recovery calls and
+  qualify the maximum consumer page without launching PocketIC.
 
 - Retain bounded status/log diagnostics when recovery-canister installation fails,
   preserving explicit anonymous senders and the original installation failure

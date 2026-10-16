@@ -7,9 +7,20 @@ use ic_testkit::pic::{
     PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy, advance_and_tick,
     tick_until,
 };
+use ic_testkit_candid::DecodeLimits;
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
 use serde::de::DeserializeOwned;
 use std::{convert::Infallible, path::PathBuf, task::Poll, time::Duration};
+
+// Replies contain at most eight views with 256-byte messages. Keep wire/header
+// and decoder work finite without changing PocketIC transport or execution.
+const REPLY_LIMITS: DecodeLimits = DecodeLimits {
+    reply_bytes: 64 * 1024,
+    decoding_quota: 1_000_000,
+    skipping_quota: 10_000,
+    type_entries: 128,
+    header_bytes: 8 * 1024,
+};
 
 struct Fixture {
     pic: PocketIcInstance<PocketIc>,
@@ -91,7 +102,7 @@ impl Fixture {
     ) -> Result<T, CandidCallError> {
         self.pic
             .instance
-            .update_candid_as(self.sender, caller, method, args)
+            .update_candid_as(self.sender, caller, method, args, REPLY_LIMITS)
     }
     fn query<T: CandidType + DeserializeOwned, A: ArgumentEncoder>(
         &self,
@@ -101,7 +112,7 @@ impl Fixture {
     ) -> Result<T, Error> {
         self.pic
             .instance
-            .query_candid_as(id, self.manager, method, args)
+            .query_candid_as(id, self.manager, method, args, REPLY_LIMITS)
             .expect("PocketIC Candid call")
     }
     fn view(&self, id: u64) -> View {
@@ -146,6 +157,32 @@ fn increment(at: u64, amount: u64) -> Create {
         timing: Timing::Once(at),
         task: Task::Increment(amount),
     }
+}
+
+#[test]
+fn reply_limits_admit_the_largest_consumer_page() {
+    let views = (0..8)
+        .map(|id| View {
+            id,
+            task: Task::Deliver {
+                destination: Principal::self_authenticating(b"receiver"),
+                message: "x".repeat(256),
+            },
+            status: Status::Uncertain,
+            due_ns: Some(u64::MAX),
+            sequence: u64::MAX,
+            occurrence: u64::MAX,
+        })
+        .collect::<Vec<_>>();
+    let bytes = candid::encode_one(Ok::<_, Error>(&views)).unwrap();
+    let decoded: Result<Vec<View>, Error> =
+        ic_testkit_candid::decode_one(&bytes, REPLY_LIMITS).unwrap();
+    assert_eq!(decoded.unwrap(), views);
+    let oversized = vec![0; REPLY_LIMITS.reply_bytes + 1];
+    assert!(matches!(
+        ic_testkit_candid::decode_one::<()>(&oversized, REPLY_LIMITS),
+        Err(ic_testkit_candid::DecodeError::ReplyTooLarge { .. })
+    ));
 }
 
 #[test]

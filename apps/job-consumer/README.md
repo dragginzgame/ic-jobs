@@ -28,9 +28,10 @@ delivery payload is at most 256 UTF-8 bytes, and serialized state is at most
 24 KiB. The complete bounded queue supplies the global earliest deadline, so no
 separate unbounded due index is needed. Every decoded record crosses
 `Job::restore`, including future work. Successful decoding retains validated jobs
-for the complete synchronous operation. Jobs and payloads preserve their common order for the canonical slice
-scheduler; commit refuses misaligned collections and revalidates the encoded
-snapshot before replacing stable bytes. The stored JSON shape is unchanged.
+for the complete synchronous operation. Each in-memory entry keeps its job and
+payload together; the scheduler borrows only the jobs through an iterator. Commit
+revalidates the encoded snapshot before replacing stable bytes. Separate
+job/payload alignment state is unnecessary. The stored JSON shape is unchanged.
 Invalid retained state refuses recovery; installation cannot overwrite existing
 state. This is a new test installation
 format, not a replacement reader for any existing deployment. The maintainer
@@ -52,6 +53,12 @@ with zero writes, unchanged pages and identical backing bytes. Existing 0.40
 installations require explicit owner disposition before deployment; adopting the
 crate does not authorize clearing their ledger or preserving untracked cells.
 The unchanged Jobs JSON remains independently readable on fresh current memory.
+
+Memory 0.45 removes allocator schema metadata and changes the outer ledger format.
+Requests now contain only their authority and key. Earlier physical installations
+require their owner's explicit retention/disposition decision before deployment;
+this source update does not clear, convert or reset their backing memory. Jobs'
+JSON entries and restore boundary remain unchanged on fresh current memory.
 
 `Increment` performs a local counter effect and completes its job in one stable
 replacement. A counter overflow has no effect and permanently fails that job,

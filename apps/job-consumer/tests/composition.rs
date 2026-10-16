@@ -9,7 +9,7 @@ use std::io;
 use ic_jobs::{Job, JobError, JobId, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule};
 use ic_memory::{
     GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryManagerConfig,
-    MemoryRequest, MemoryRuntime, RuntimeOpenError, SchemaMetadata, SealedDeclarationSnapshot,
+    MemoryRequest, MemoryRuntime, RuntimeOpenError, SealedDeclarationSnapshot,
     ic_stable_structures::{Cell, VectorMemory},
 };
 mod consumer_support;
@@ -81,7 +81,6 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
         let foreign = SealedDeclarationSnapshot::new(vec![MemoryRequest::new(
             "test.maintenance",
             requests[0].stable_key().as_str(),
-            SchemaMetadata::default(),
         )?])?;
         {
             let mut rejected = MemoryRuntime::new_with_config(backing.clone(), config)?;
@@ -141,8 +140,8 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
 fn notification_commit_failure_never_exposes_delivery() -> Result<()> {
     let mut sender = Notifications::new()?;
     let before = sender.store.bytes.clone();
-    let (jobs, payloads) = sender.load()?;
-    sender.commit(&jobs, &payloads)?;
+    let jobs = sender.load()?;
+    sender.commit(&jobs)?;
     assert_eq!(
         sender.store.bytes, before,
         "borrowed projection preserves stored bytes"
@@ -188,7 +187,7 @@ fn lost_reply_and_failed_result_commit_reconcile_without_redelivery() -> Result<
         assert_eq!(restored.prepare(201)?, None);
         assert!(!restored.reconcile(delivery.attempt, &Destination::default(), 201)?);
         assert_eq!(
-            restored.load()?.0[0].record().state,
+            restored.load()?[0].job.record().state,
             JobState::Uncertain { started_ns: 100 }
         );
         let unresolved = restored.store.bytes.clone();
@@ -201,7 +200,7 @@ fn lost_reply_and_failed_result_commit_reconcile_without_redelivery() -> Result<
         assert_eq!(restored.store.bytes, unresolved);
         assert_eq!(restored.prepare(202)?, None);
         assert!(restored.reconcile(delivery.attempt, &destination, 202)?);
-        assert_eq!(restored.load()?.0[0].record().state, JobState::Completed);
+        assert_eq!(restored.load()?[0].job.record().state, JobState::Completed);
         assert_eq!(restored.prepare(300)?, None);
         assert_eq!(destination.calls, 1);
         assert_eq!(destination.receipts.len(), 1);
@@ -424,7 +423,7 @@ fn interruption_before_delivery_keeps_committed_intent_blocked() -> Result<()> {
     assert_eq!(restored.prepare(1000)?, None);
     assert_eq!(destination.calls, 0);
     assert_eq!(
-        restored.load()?.0[0].record().state,
+        restored.load()?[0].job.record().state,
         JobState::Uncertain { started_ns: 100 }
     );
     Ok(())
@@ -433,7 +432,7 @@ fn interruption_before_delivery_keeps_committed_intent_blocked() -> Result<()> {
 #[test]
 fn notification_queue_rejects_reused_identities_and_excess_work() -> Result<()> {
     let mut sender = Notifications::new()?;
-    let payload = sender.load()?.1[0].clone();
+    let payload = sender.load()?[0].payload.clone();
     let before = sender.store.bytes.clone();
     assert!(
         sender
@@ -536,7 +535,7 @@ fn lost_rejection_reply_uses_exact_evidence_and_retains_retry_budget() -> Result
         assert_eq!(restored.store.bytes, before);
         assert!(restored.reconcile(second.attempt, &destination, 114)?);
         assert_eq!(
-            restored.load()?.0[0].record().state,
+            restored.load()?[0].job.record().state,
             if second_succeeds {
                 JobState::Completed
             } else {
@@ -575,7 +574,7 @@ fn reconciliation_requires_matching_payload_and_prefers_success_evidence() -> Re
         .rejections
         .push((delivery.attempt, delivery.payload));
     assert!(sender.reconcile(delivery.attempt, &destination, 102)?);
-    assert_eq!(sender.load()?.0[0].record().state, JobState::Completed);
+    assert_eq!(sender.load()?[0].job.record().state, JobState::Completed);
     assert_eq!(destination.calls, 0);
     Ok(())
 }

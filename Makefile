@@ -38,7 +38,7 @@ check-consumer:
 	+cargo +1.91.0 test -p jobs-test-consumer --lib --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
 	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
-	+cargo +1.91.0 test -p jobs-canister-tests --test recovery --locked --offline --no-run
+	+cargo +1.91.0 test -p jobs-canister-tests --test recovery --locked --offline
 	+cargo clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
 	+cargo clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
 

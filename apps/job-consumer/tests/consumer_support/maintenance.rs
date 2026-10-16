@@ -1,6 +1,6 @@
 use super::{Result, Store};
 use ic_jobs::{Job, JobId, JobRecord, MissedRunPolicy, Outcome, RetryPolicy, Schedule, start_next};
-use ic_memory::{MemoryRequest, SchemaMetadata};
+use ic_memory::MemoryRequest;
 use serde::{Deserialize, Serialize};
 use std::io;
 
@@ -44,7 +44,6 @@ impl Maintenance {
         Ok(MemoryRequest::new(
             "test.maintenance",
             "test.maintenance.state.v1",
-            SchemaMetadata::default(),
         )?)
     }
 

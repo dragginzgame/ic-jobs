@@ -432,7 +432,7 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
                 .unwrap()
                 .value;
             let mut snapshot = queue.load().unwrap();
-            let job = &mut snapshot.jobs[0];
+            let job = &mut snapshot.jobs[0].job;
             match state {
                 JobState::Pending { .. } => {}
                 JobState::Paused { .. } => job.pause(10).unwrap(),
@@ -681,25 +681,6 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
 }
 
 #[test]
-fn misaligned_loaded_jobs_and_payloads_refuse_commit_without_losing_storage() {
-    let mut queue = Queue::open(VectorMemory::default(), Some(config()))
-        .unwrap()
-        .0;
-    queue.create(increment(100)).unwrap();
-    for drop_job in [false, true] {
-        let before = queue.cell.get().clone();
-        let mut loaded = queue.load().unwrap();
-        if drop_job {
-            loaded.jobs.pop();
-        } else {
-            loaded.tasks.pop();
-        }
-        assert_eq!(queue.commit(loaded, ()), Err(Error::InvalidStorage));
-        assert_eq!(queue.cell.get(), &before);
-    }
-}
-
-#[test]
 fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
     let mut queue = Queue::open(VectorMemory::default(), Some(config()))
         .unwrap()
@@ -719,13 +700,13 @@ fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
             0 => loaded.next_id = 0,
             1 => loaded.next_id = 1,
             2 => {
-                loaded
-                    .jobs
-                    .push(Job::restore(loaded.jobs[0].record()).unwrap());
-                loaded.tasks.push(Task::Increment(1));
+                loaded.jobs.push(Entry {
+                    job: Job::restore(loaded.jobs[0].job.record()).unwrap(),
+                    task: Task::Increment(1),
+                });
             }
             3 => {
-                loaded.tasks[0] = Task::Deliver {
+                loaded.jobs[0].task = Task::Deliver {
                     destination: manager(),
                     message: "x".repeat(MAX_MESSAGE + 1),
                 }
@@ -762,7 +743,7 @@ fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
     let before = queue.cell.get().clone();
     let mut loaded = queue.load().unwrap();
     loaded.next_id = 0;
-    loaded.tasks[0] = Task::Deliver {
+    loaded.jobs[0].task = Task::Deliver {
         destination: manager(),
         message: "x".repeat(MAX_BYTES),
     };
@@ -953,7 +934,8 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
             Some(queue.create(increment(100)).unwrap().value)
         };
         let mut loaded = queue.load().unwrap();
-        if let Some(job) = loaded.jobs.first_mut() {
+        if let Some(entry) = loaded.jobs.first_mut() {
+            let job = &mut entry.job;
             match state {
                 2 => job.pause(0).unwrap(),
                 3 => {

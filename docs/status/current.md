@@ -3,39 +3,74 @@
 ## Source and pending work
 
 Delivered Jobs **0.13.3**: `684cf173af893c56f87ac462e830de960807240b`.
-Pending compatible **0.13.4** restores install-failure diagnostic collection in
-the recovery harness, integrating the maintained change from
-[PR #55](https://github.com/dragginzgame/ic-jobs/pull/55) against published Testkit
-0.49.0. The fixture supplies exact anonymous status/log senders and keeps the
-original installation error authoritative if collection or output panics.
-Creation/funding errors retain their separate failure paths; no retry or reset
-is introduced. The library API, consumer storage and dependency graph are unchanged.
+Pending **0.14.0** changes batch scheduling to finite job-reference iterators.
+Consumers keep each validated job beside its immutable payload; selection returns
+an index into the supplied iterator order. Direct slice/vector calls remain valid;
+callers tied to the old slice-specific function signatures need adaptation.
+Jobs records and consumer JSON retain their format, `Job::restore` admission,
+transition errors and commit-before-delivery ordering. One checked delivery
+projection serves dispatch, inspection and exact completion comparison.
+Generic capture-retention proof stays at Build; Jobs retains its optimizer recipe
+and actual wrapper coverage. The pending install-diagnostics change from
+[PR #55](https://github.com/dragginzgame/ic-jobs/pull/55) is carried forward,
+including explicit anonymous diagnostic senders and primary-error preservation.
 Shared Tooling is **0.16.0** at
 `989752490b392f7f4c542c7652dcb84e75ecf363` (111 payloads), from canonical export
 of the delivered, three-host-qualified source. Jobs selects its retained-failure
 assertions explicitly, uses the standard cleanup-inclusive probes and delegates
 Make skeleton copying and locked release preflight to their Shared owners.
 Optional maintenance runtime/service payloads are retired; guidance and catalogs
-remain. That contributor-only adoption was delivered in 0.13.3; the new pending
-patch changes recovery-host diagnostics only.
+remain. That contributor-only adoption was delivered in 0.13.3.
 Release preparation now uses Shared's metadata renderer directly. Jobs no longer
 requires cargo-edit, a separate release-tool catalog or local setup/check targets.
 Common tool admission and metadata refusal/rollback boundaries remain in place.
 
-The graph selects Memory 0.44.0, Testkit 0.49.0, Timers 0.25.2, Metrics 0.11.7,
-Build 0.11.0 and direct Host FS/Process 0.23.1. Rust floor is 1.91.0;
-development is 1.99.0.
-The selected manifest/lock graph is unchanged. Own versions, index, refs, release
-and publication remain maintainer-owned.
+Incoming dependency work selects Memory 0.45.0, Testkit/Candid 0.50.0, Timers
+0.26.0, Metrics 0.11.8, Build 0.12.0 and direct Host FS/Process 0.24.0.
+Rust floor is 1.91.0; development is 1.99.0.
+The cleanup preserves those incoming selections and names the already-selected
+Testkit Candid decoder as a direct harness development dependency. Own versions,
+index, refs, release and publication remain maintainer-owned. Memory requests
+follow its key-only API. Its incompatible outer ledger requires explicit owner
+disposition before deployment of retained earlier installations; no reset or
+migration is authorized or executed by this source update. Recovery replies now
+have finite wire, header, type-table and decoding/skipping work limits. The
+maximum-page and oversize-refusal proof runs natively without starting PocketIC.
 
-`start_next` returns `(index, attempt)`. Commit `jobs[index].record()` with its
-immutable payload/index before external dispatch. All restore paths retain
+`start_next` returns `(index, attempt)`. Commit the selected job record with its
+immutable payload/index before external dispatch. Indexes refer to iterator order.
+All restore paths retain
 `Job::restore`; ordering, transition errors and uncertain-effect disposition are
 unchanged. Consumers own storage and depend on Timers directly. Jobs has no
 runtime Timers dependency or lifecycle exports. The capture tool owns Jobs'
 optimizer recipe and uses IC Build's retained path; Jobs selects the live gate.
 
 ## Qualification
+
+Paired-entry cleanup evidence is in
+`target/qualification/paired-entry-cleanup/`, based on local source `2e7a3f7`
+with the incoming dependency updates preserved. All 44 core integration tests,
+22 consumer and 19 composition tests pass on Rust 1.91, including exact frozen
+Jobs JSON, incompatible-ledger zero-write refusal, full-snapshot validation,
+failed commits and completion-refusal ordering. The scheduler's existing ordering
+case now projects jobs from paired payload entries. Alignment state and its
+synthetic mismatch test are removed because the loaded shape cannot split them.
+The delivery projection constructs one full expected envelope for dispatch,
+inspection and completion; comparison may copy the bounded 256-byte message,
+while transitions and durable-write order remain unchanged.
+
+The three remaining capture tests, native maximum-page/oversize-reply test,
+separate Rust 1.91 core/consumer Wasm checks, strict native/Wasm Clippy, rustdoc
+and all five doctests pass on the selected graph. The recovery harness compiles;
+its seven live scenarios remain ignored. `check-consumer` runs the native reply
+proof without selecting live execution. The actual consumer-tooling fixture
+passes Bash 5 with substituted optimizer/server effects, including original
+capture, producer replacement, exact variant flags and retained failure evidence.
+Generic capture/retention behavior is already owned by Build's staging tests.
+Initial checks exposed Memory/Testkit API fallout and concurrent graph changes;
+failed receipts remain alongside passing current-graph logs. Earlier sections
+below retain their historical source/graph scope and pending-version names.
+No full CI, live PocketIC, native macOS, reset, release or publication ran.
 
 Memory #105 caller evidence is in
 `target/qualification/memory105-current-adoption/`. The exact producer head
@@ -472,7 +507,7 @@ completed-batch watchdog proposal; Jobs #57 awaits upstream delivery.
 The source-incorporated rejection/retention preparation PRs #51/#62 are closed.
 [PR #55](https://github.com/dragginzgame/ic-jobs/pull/55) remains the existing
 install-diagnostics contribution; its maintained change is prepared locally for
-0.13.4 on the published registry graph. It is distinct from the older PR branch's
+the current pending minor on the published registry graph. It is distinct from the older PR branch's
 qualification-only source overrides.
 
 Earlier source-bound receipts and original tracker descriptions are preserved in

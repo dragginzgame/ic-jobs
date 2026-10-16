@@ -2,7 +2,7 @@
 
 Durable job metadata and scheduling policies for Internet Computer applications.
 Applications own persistence, effects and IC Timers integration; IC Jobs
-validates metadata transitions and selects due work from bounded slices.
+validates metadata transitions and selects due work from bounded iterators.
 
 ## Use
 
@@ -78,30 +78,33 @@ this cut requires no stable-memory reset. See
 
 ## Scheduling a batch
 
-`next_due_ns` reads a bounded slice of application-owned jobs, and `start_next`
-starts one earliest due attempt from a mutable slice. They leave storage,
+`next_due_ns` reads a finite iterator of job references, and `start_next`
+starts one earliest due attempt from an iterator of mutable job references.
+Slices and vectors can still be supplied directly. They leave storage,
 payload lookup, effect execution and completion persistence with the application.
 
 ```rust
 use ic_jobs::{Job, JobId, RetryPolicy, Schedule, next_due_ns, start_next};
 
-let mut jobs = [
-    Job::new(JobId(1), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE),
-    Job::new(JobId(2), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE),
+// Application-owned payloads stay beside the validated jobs.
+let mut entries = [
+    (Job::new(JobId(1), Schedule::Once { at_ns: 200 }, RetryPolicy::NONE), "later"),
+    (Job::new(JobId(2), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE), "first"),
 ];
-assert_eq!(next_due_ns(&jobs), Some(100));
-if let Some((index, attempt)) = start_next(&mut jobs, 100)? {
-    assert_eq!(index, 1); // Position in this batch, not a durable identity.
+assert_eq!(next_due_ns(entries.iter().map(|(job, _)| job)), Some(100));
+if let Some((index, attempt)) = start_next(entries.iter_mut().map(|(job, _)| job), 100)? {
+    assert_eq!(index, 1); // Position in this iterator, not a durable identity.
     assert_eq!(attempt.execution.job, JobId(2));
-    let running_record = jobs[index].record();
-    // Commit running_record with the payload/index before dispatching the effect.
+    let running_record = entries[index].0.record();
+    // Commit running_record with entries[index].1 before dispatching the effect.
     // Record its outcome with the owning Job's finish method and persist again.
     # let _ = running_record;
 }
 # Ok::<(), ic_jobs::JobError>(())
 ```
 
-Equal deadlines follow the supplied batch order. A selected job's transition error
+Equal deadlines follow the supplied iterator order. Returned indexes refer to
+that order, including when an iterator filters or reorders the source collection. A selected job's transition error
 leaves every record unchanged; it does not select another job. Use a bounded
 candidate batch from the application's due-time index. The reported deadline
 covers only that batch; the storage owner supplies any wider queue's earliest
@@ -160,6 +163,15 @@ initial state succeeds. A failed first reconciliation leaves the consumer slot
 empty and releases the new callback; retry can install the callback supplied
 by that retry. Later failures retain existing authority. The instruction-summary
 type selects Metrics 0.10; use the Timers re-export when exchanging summaries.
+
+## 0.14 API cut
+
+The two batch functions accept finite iterators of job references. Existing direct
+slice/vector calls remain valid. Wrappers relying on implicit slice coercion
+should pass an explicit slice or iterator; adapt code tied to the old function
+signatures. Use `entries.iter().map(|entry| &entry.job)` for deadline
+reads and the mutable projection for selection. The index belongs to that
+iterator's order. This changes neither stored records nor transition semantics.
 
 ## 0.13 API cut
 

@@ -3,7 +3,7 @@ use ic_jobs::{
     Attempt, ExecutionId, Job, JobError, JobId, JobRecord, Outcome, RetryPolicy, Schedule,
     next_due_ns, start_next,
 };
-use ic_memory::{MemoryRequest, SchemaMetadata};
+use ic_memory::MemoryRequest;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt, io};
 
@@ -14,8 +14,8 @@ pub(crate) struct Notification {
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(crate) struct NotificationSnapshot<P = Notification> {
-    pub(crate) job: JobRecord,
+pub(crate) struct NotificationSnapshot<J = JobRecord, P = Notification> {
+    pub(crate) job: J,
     pub(crate) payload: P,
 }
 
@@ -44,11 +44,8 @@ pub(crate) struct ManagementReply<T> {
 }
 
 impl<T> ManagementReply<T> {
-    fn new(value: T, jobs: &[Job]) -> Self {
-        Self {
-            value,
-            next_due_ns: next_due_ns(jobs),
-        }
+    fn new(value: T, next_due_ns: Option<u64>) -> Self {
+        Self { value, next_due_ns }
     }
 }
 
@@ -72,8 +69,8 @@ impl fmt::Display for ManagementError {
 impl Error for ManagementError {}
 
 impl Notifications {
-    fn index(jobs: &[Job], id: JobId) -> Option<usize> {
-        jobs.iter().position(|job| job.record().id == id)
+    fn index(jobs: &[NotificationSnapshot<Job>], id: JobId) -> Option<usize> {
+        jobs.iter().position(|entry| entry.job.record().id == id)
     }
 
     // One consumer-owned store holds records and immutable payloads together.
@@ -82,7 +79,6 @@ impl Notifications {
         Ok(MemoryRequest::new(
             "test.notifications",
             "test.notifications.queue.v1",
-            SchemaMetadata::default(),
         )?)
     }
 
@@ -103,7 +99,7 @@ impl Notifications {
         })
     }
 
-    pub(crate) fn load(&self) -> Result<(Vec<Job>, Vec<Notification>)> {
+    pub(crate) fn load(&self) -> Result<Vec<NotificationSnapshot<Job>>> {
         let snapshots: Vec<NotificationSnapshot> = self.store.read()?;
         if snapshots.len() > 4 {
             return Err(
@@ -111,36 +107,29 @@ impl Notifications {
             );
         }
         let mut jobs = Vec::with_capacity(snapshots.len());
-        let mut payloads = Vec::with_capacity(snapshots.len());
         for snapshot in snapshots {
             if jobs
                 .iter()
-                .any(|job: &Job| job.record().id == snapshot.job.id)
+                .any(|entry: &NotificationSnapshot<Job>| entry.job.record().id == snapshot.job.id)
             {
                 return Err(
                     io::Error::new(io::ErrorKind::InvalidData, "duplicate job identity").into(),
                 );
             }
-            jobs.push(Job::restore(snapshot.job)?);
-            payloads.push(snapshot.payload);
+            jobs.push(NotificationSnapshot {
+                job: Job::restore(snapshot.job)?,
+                payload: snapshot.payload,
+            });
         }
-        Ok((jobs, payloads))
+        Ok(jobs)
     }
 
-    pub(crate) fn commit(&mut self, jobs: &[Job], payloads: &[Notification]) -> Result<()> {
-        if jobs.len() != payloads.len() {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "unaligned notification payloads",
-            )
-            .into());
-        }
+    pub(crate) fn commit(&mut self, jobs: &[NotificationSnapshot<Job>]) -> Result<()> {
         let snapshots: Vec<_> = jobs
             .iter()
-            .zip(payloads)
-            .map(|(job, payload)| NotificationSnapshot {
-                job: job.record(),
-                payload,
+            .map(|entry| NotificationSnapshot {
+                job: entry.job.record(),
+                payload: &entry.payload,
             })
             .collect();
         self.store.write(&snapshots)
@@ -162,8 +151,8 @@ impl Notifications {
         payload: Notification,
     ) -> Result<ManagementReply<NotificationSnapshot>> {
         Self::authorize(caller)?;
-        let (mut jobs, mut payloads) = self.load()?;
-        if jobs.len() == 4 || jobs.iter().any(|job| job.record().id == id) {
+        let mut jobs = self.load()?;
+        if jobs.len() == 4 || jobs.iter().any(|entry| entry.job.record().id == id) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "queue full or identity reused",
@@ -172,15 +161,15 @@ impl Notifications {
         }
         let job = Job::new(id, Schedule::Once { at_ns }, RetryPolicy::NONE);
         let record = job.record();
-        payloads.push(payload);
-        jobs.push(job);
-        self.commit(&jobs, &payloads)?;
+        jobs.push(NotificationSnapshot { job, payload });
+        self.commit(&jobs)?;
+        let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
         Ok(ManagementReply::new(
             NotificationSnapshot {
                 job: record,
-                payload: payloads.pop().unwrap(),
+                payload: jobs.pop().unwrap().payload,
             },
-            &jobs,
+            due,
         ))
     }
 
@@ -190,14 +179,15 @@ impl Notifications {
         id: JobId,
     ) -> Result<ManagementReply<NotificationSnapshot>> {
         Self::authorize(caller)?;
-        let (jobs, mut payloads) = self.load()?;
+        let mut jobs = self.load()?;
         let index = Self::index(&jobs, id).ok_or(ManagementError::UnknownJob)?;
+        let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
         Ok(ManagementReply::new(
             NotificationSnapshot {
-                job: jobs[index].record(),
-                payload: payloads.swap_remove(index),
+                job: jobs[index].job.record(),
+                payload: jobs.swap_remove(index).payload,
             },
-            &jobs,
+            due,
         ))
     }
 
@@ -211,19 +201,19 @@ impl Notifications {
         if !(1..=4).contains(&limit) {
             return Err(ManagementError::InvalidPageLimit.into());
         }
-        let (jobs, payloads) = self.load()?;
+        let jobs = self.load()?;
+        let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
         let mut snapshots: Vec<_> = jobs
-            .iter()
-            .zip(payloads)
-            .filter(|(job, _)| after.is_none_or(|id| job.record().id > id))
-            .map(|(job, payload)| NotificationSnapshot {
-                job: job.record(),
-                payload,
+            .into_iter()
+            .filter(|entry| after.is_none_or(|id| entry.job.record().id > id))
+            .map(|entry| NotificationSnapshot {
+                job: entry.job.record(),
+                payload: entry.payload,
             })
             .collect();
         snapshots.sort_by_key(|snapshot| snapshot.job.id);
         snapshots.truncate(limit);
-        Ok(ManagementReply::new(snapshots, &jobs))
+        Ok(ManagementReply::new(snapshots, due))
     }
 
     pub(crate) fn cancel(
@@ -233,16 +223,17 @@ impl Notifications {
         now_ns: u64,
     ) -> Result<ManagementReply<NotificationSnapshot>> {
         Self::authorize(caller)?;
-        let (mut jobs, mut payloads) = self.load()?;
+        let mut jobs = self.load()?;
         let index = Self::index(&jobs, id).ok_or(ManagementError::UnknownJob)?;
-        jobs[index].cancel(now_ns)?;
-        self.commit(&jobs, &payloads)?;
+        jobs[index].job.cancel(now_ns)?;
+        self.commit(&jobs)?;
+        let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
         Ok(ManagementReply::new(
             NotificationSnapshot {
-                job: jobs[index].record(),
-                payload: payloads.swap_remove(index),
+                job: jobs[index].job.record(),
+                payload: jobs.swap_remove(index).payload,
             },
-            &jobs,
+            due,
         ))
     }
 
@@ -252,22 +243,28 @@ impl Notifications {
         now_ns: u64,
     ) -> Result<ManagementReply<Option<Delivery>>> {
         Self::authorize(caller)?;
-        let (mut jobs, mut payloads) = self.load()?;
-        let Some((index, attempt)) = start_next(&mut jobs, now_ns)? else {
-            return Ok(ManagementReply::new(None, &jobs));
+        let mut jobs = self.load()?;
+        let Some((index, attempt)) =
+            start_next(jobs.iter_mut().map(|entry| &mut entry.job), now_ns)?
+        else {
+            return Ok(ManagementReply::new(
+                None,
+                next_due_ns(jobs.iter().map(|entry| &entry.job)),
+            ));
         };
-        self.commit(&jobs, &payloads)?;
+        self.commit(&jobs)?;
         // No delivery capability escapes before the intent and payload commit.
-        let payload = payloads.swap_remove(index);
+        let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
+        let payload = jobs.swap_remove(index).payload;
         Ok(ManagementReply::new(
             Some(Delivery { attempt, payload }),
-            &jobs,
+            due,
         ))
     }
 
     pub(crate) fn next_due_ns(&self) -> Result<Option<u64>> {
-        let (jobs, _) = self.load()?;
-        Ok(next_due_ns(&jobs))
+        let jobs = self.load()?;
+        Ok(next_due_ns(jobs.iter().map(|entry| &entry.job)))
     }
 
     pub(crate) fn prepare(&mut self, now_ns: u64) -> Result<Option<Delivery>> {
@@ -276,22 +273,23 @@ impl Notifications {
 
     pub(crate) fn outstanding(&self) -> Result<Vec<Delivery>> {
         // Inspect unresolved envelopes for reconciliation, never for automatic replay.
-        let (jobs, payloads) = self.load()?;
+        let jobs = self.load()?;
         Ok(jobs
-            .iter()
-            .zip(payloads)
-            .filter_map(|(job, payload)| {
-                job.active_attempt()
-                    .map(|attempt| Delivery { attempt, payload })
+            .into_iter()
+            .filter_map(|entry| {
+                entry.job.active_attempt().map(|attempt| Delivery {
+                    attempt,
+                    payload: entry.payload,
+                })
             })
             .collect())
     }
 
     pub(crate) fn finish(&mut self, attempt: Attempt, now_ns: u64, outcome: Outcome) -> Result<()> {
-        let (mut jobs, payloads) = self.load()?;
+        let mut jobs = self.load()?;
         let index = Self::index(&jobs, attempt.execution.job).ok_or(JobError::StaleAttempt)?;
-        jobs[index].finish(attempt, now_ns, outcome)?;
-        self.commit(&jobs, &payloads)
+        jobs[index].job.finish(attempt, now_ns, outcome)?;
+        self.commit(&jobs)
     }
 
     pub(crate) fn reconcile(
@@ -300,16 +298,16 @@ impl Notifications {
         destination: &Destination,
         now_ns: u64,
     ) -> Result<bool> {
-        let (mut jobs, payloads) = self.load()?;
+        let mut jobs = self.load()?;
         let index = Self::index(&jobs, attempt.execution.job).ok_or(JobError::StaleAttempt)?;
         let outcome = if destination.receipts.iter().any(|(execution, payload)| {
-            *execution == attempt.execution && payload == &payloads[index]
+            *execution == attempt.execution && payload == &jobs[index].payload
         }) {
             Outcome::Success
         } else if destination
             .rejections
             .iter()
-            .any(|(rejected, payload)| *rejected == attempt && payload == &payloads[index])
+            .any(|(rejected, payload)| *rejected == attempt && payload == &jobs[index].payload)
         {
             // Exact destination evidence confirms this attempt had no effect.
             Outcome::RetryableFailure
@@ -317,8 +315,8 @@ impl Notifications {
             // A missing receipt is not proof that delivery failed.
             return Ok(false);
         };
-        jobs[index].resolve(attempt, now_ns, outcome)?;
-        self.commit(&jobs, &payloads)?;
+        jobs[index].job.resolve(attempt, now_ns, outcome)?;
+        self.commit(&jobs)?;
         Ok(true)
     }
 }
