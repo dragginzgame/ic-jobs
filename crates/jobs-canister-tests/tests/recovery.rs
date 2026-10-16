@@ -2,9 +2,9 @@
 
 use candid::{CandidType, Principal, utils::ArgumentEncoder};
 use ic_testkit::pic::{
-    CandidCallError, CandidCallExt, CanisterDiagnosticsRequest, CanisterInstallExt,
-    CanisterInstallPhase, ErrorCode, InstallSpec, PocketIc, PocketIcBuilder,
-    PocketIcDiagnosticsExt, PocketIcInstance, PocketIcStartupConfig, RetryPolicy, tick_until,
+    CandidCallError, CandidCallExt, CanisterDiagnosticsRequest, CanisterInstallError,
+    CanisterInstallExt, ErrorCode, InstallSpec, PocketIc, PocketIcBuilder, PocketIcDiagnosticsExt,
+    PocketIcInstance, PocketIcStartupConfig, RetryPolicy, tick_until,
 };
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
 use serde::de::DeserializeOwned;
@@ -46,15 +46,13 @@ impl Fixture {
                     .label("jobs-test-consumer"),
                 )
                 .unwrap_or_else(|error| {
-                    if error.phase() == CanisterInstallPhase::InstallCode
-                        && let Some(canister_id) = error.canister_id()
-                    {
+                    if let CanisterInstallError::InstallCode { canister_id, .. } = &error {
                         // Diagnostics are subordinate to the original install failure,
                         // including a failed stderr write or diagnostic collection panic.
                         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                             let report = pic.instance.collect_canister_diagnostics(
                                 CanisterDiagnosticsRequest::new(
-                                    canister_id,
+                                    *canister_id,
                                     Principal::anonymous(),
                                     Principal::anonymous(),
                                 ),
