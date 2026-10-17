@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.16.0]
+## [0.16.0] - 2026-10-17
 
 - **Breaking:** `JobState::Running` is a unit variant; its dispatch time is
   `JobRecord::updated_ns`. Entering Uncertain preserves that original time.
