@@ -28,17 +28,26 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::Delivery;
+    use crate::api::{Delivery, DeliveryPayload};
     use candid::Principal;
 
     #[test]
     fn reply_decoding_preserves_evidence_and_distinguishes_absent_receipts() {
+        // This previously valid flat envelope grants no result disposition.
+        assert_eq!(
+            decode_reply::<Delivery, ()>(Ok(include_bytes!(
+                "reply/fixtures/delivery-reply-015.didbin"
+            ))),
+            None
+        );
         let receipt = Delivery {
             job: 1,
             occurrence: 0,
             sequence: 2,
-            destination: Principal::anonymous(),
-            message: "x".repeat(256),
+            payload: DeliveryPayload {
+                destination: Principal::anonymous(),
+                message: "x".repeat(256),
+            },
         };
         let bytes = candid::encode_one(Ok::<_, Error>(&receipt)).unwrap();
         assert_eq!(
@@ -46,7 +55,10 @@ mod tests {
             Some(receipt.clone())
         );
         let oversized = Delivery {
-            message: "x".repeat(REPLY_LIMITS.reply_bytes),
+            payload: DeliveryPayload {
+                message: "x".repeat(REPLY_LIMITS.reply_bytes),
+                ..receipt.payload.clone()
+            },
             ..receipt.clone()
         };
         let bytes = candid::encode_one(Ok::<_, Error>(Some(oversized))).unwrap();

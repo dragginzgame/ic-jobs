@@ -27,7 +27,7 @@ ic-stable-structures = "0.7.2"
 ic-testkit = "0.51"
 # Bounded Candid decoding for qualification; this still depends on candid.
 ic-testkit-candid = "0.51"
-ic-timers = "0.26"
+ic-timers = "0.27"
 jobs-test-consumer = { path = "apps/job-consumer" }
 serde = "1.0"
 serde_json = "1.0"

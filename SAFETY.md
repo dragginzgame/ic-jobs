@@ -48,15 +48,20 @@ Recurring intervals cannot be zero in a `Schedule`. `RetryPolicy` construction
 and deserialization share the same positive-budget/delay and cap checks. These
 local configuration guarantees do not establish a valid `JobRecord` history:
 all decoded aggregates still require `Job::restore`. Malformed configuration
-fails at decoding; valid 0.7 records retain their existing serialized shape and
-need no reset for the 0.8 source API cut. The consumer's bounded JSON codec is
-qualified against independently frozen 0.7.5 records and a reopened stable cell;
-consumers with other codecs own their retained-byte qualification.
+fails at decoding. The 0.16 current JSON contract uses a unit Running state,
+whose start time is its transition timestamp. Entering Uncertain preserves that
+original dispatch time; later unresolved reconciliation must not replace it.
+Timestamp-bearing Running records are refused. The qualification consumer also
+requires nested delivery payloads in receipts and wire replies; flat envelopes
+are refused. Frozen old inputs qualify refusal, not compatibility. Other codecs
+remain consumer-owned and require their own retained-byte qualification.
 
-That JSON guarantee does not cover IC Memory's physical ledger envelope.
-Memory 0.39 refuses pre-cut two-slot images without writing, including when
-installation is requested. Retained installations need explicit owner disposition;
-this repository supplies no compatibility reader, automatic reset or migration.
+The selected hard cut retires affected earlier installations without a conversion
+or fallback reader. Consumers own fresh installation/reset authority; source
+adoption executes none of those effects. Refused cells retain their bytes.
+IC Memory's physical ledger is an independent boundary: frozen incompatible
+images must also refuse without stable writes, including on installation.
+
 
 The retry writer and checked reader retain the same public Serde structure name
 `RetryPolicy`, including formats that preserve names. The private admission

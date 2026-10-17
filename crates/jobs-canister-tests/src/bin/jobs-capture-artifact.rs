@@ -1,5 +1,5 @@
 //! Jobs-owned optimizer recipe and evidence names around IC Build's exact capture.
-use ic_build::artifacts::CapturedArtifact;
+use ic_build::artifacts::{CapturedArtifact, produce_and_retain_artifact};
 use std::{
     ffi::OsStr,
     fs, io,
@@ -51,27 +51,28 @@ fn optimize(
         .parent()
         .ok_or_else(|| io::Error::other("missing evidence parent"))?;
     let producer = parent.join("producer.wasm");
-    // The variant directory is caller-owned. Refuse collisions rather than
-    // overwriting retained evidence from an earlier attempt.
-    fs::File::create_new(&producer)?;
-    let log = fs::File::create_new(parent.join("optimizer.log"))?;
-    let status = Command::new(optimizer)
-        .arg(source)
-        .arg(level)
-        .arg("-o")
-        .arg(&producer)
-        .stdout(log.try_clone()?)
-        .stderr(log)
-        .status()?;
-    if !status.success() {
-        // Preserve partial output, logs and the frozen input on failure.
-        return Ok(optimizer_exit(status));
+    // Admit the complete optimizer output, as in the original capture path.
+    // Build owns exclusive producer/log admission and capture-before-removal.
+    let status = produce_and_retain_artifact(
+        &producer,
+        &parent.join("optimizer.log"),
+        destination,
+        usize::MAX,
+        |producer, log| {
+            Command::new(optimizer)
+                .arg(source)
+                .arg(level)
+                .arg("-o")
+                .arg(producer)
+                .stdout(log.try_clone()?)
+                .stderr(log)
+                .status()
+        },
+    )?;
+    if status.success() {
+        eprintln!("Retained capture: {}", destination.display());
     }
-    capture(&producer, destination)?;
-    // Exact capture now owns the qualified bytes. Failure before this point
-    // leaves the optimizer's producer available for diagnosis.
-    fs::remove_file(producer)?;
-    Ok(ExitCode::SUCCESS)
+    Ok(optimizer_exit(status))
 }
 
 fn main() -> io::Result<ExitCode> {

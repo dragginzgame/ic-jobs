@@ -12,18 +12,23 @@ pub struct Init {
     pub delivery_sender: Option<Principal>,
 }
 
+/// Immutable delivery payload shared by retained tasks and receipt envelopes.
+#[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeliveryPayload {
+    /// Independent receipt canister.
+    pub destination: Principal,
+    /// Immutable UTF-8 payload, at most 256 bytes.
+    pub message: String,
+}
+
 /// Immutable effect payload.
 #[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize, Serialize)]
 pub enum Task {
     /// A local effect committed atomically with its job completion.
     Increment(u64),
     /// Delivery to the independent consumer receipt endpoint.
-    Deliver {
-        /// Independent receipt canister.
-        destination: Principal,
-        /// Immutable UTF-8 payload, at most 256 bytes.
-        message: String,
-    },
+    Deliver(DeliveryPayload),
 }
 
 /// Consumer's supported scheduling policies.
@@ -96,6 +101,7 @@ pub struct View {
 
 /// Exact delivery identity and payload. Correlation is not authentication.
 #[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct Delivery {
     /// Job identity within the authenticated sending canister.
     pub job: u64,
@@ -103,10 +109,8 @@ pub struct Delivery {
     pub occurrence: u64,
     /// Exact dispatch sequence.
     pub sequence: u64,
-    /// Destination canister.
-    pub destination: Principal,
-    /// Immutable bounded payload.
-    pub message: String,
+    /// Immutable destination and bounded message.
+    pub payload: DeliveryPayload,
 }
 
 /// Bounded state summary used by the host harness.

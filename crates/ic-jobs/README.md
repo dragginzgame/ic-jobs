@@ -42,7 +42,15 @@ occurrence refuses, including retry waiting. Running and Uncertain effects remai
 blocked until explicit disposition. Management does not change payloads or retry
 budgets. Commit each record and its due-time index before reconciling a timer.
 
-## 0.15 stored-record hard cut
+## 0.16 stored-record hard cut
+
+`JobState::Running` is a unit variant. For a running attempt, the dispatch time
+is `JobRecord::updated_ns`; match `JobState::Running` without a timestamp field.
+JSON encodes this state as `"Running"`. The previous
+`{"Running":{"started_ns":100}}` shape is refused. Transitioning to
+`Uncertain { started_ns }` preserves the original dispatch time before updating
+the transition timestamp, including across later unresolved reconciliation.
+Both states remain blocked after validated restoration.
 
 `JobRecord::last_outcome` is `Option<RecordedOutcome>`: an outcome and its
 `at_ns` timestamp are present together. Read them with
@@ -53,7 +61,7 @@ result; it cannot replace the result's timestamp with a later management time.
 
 The JSON field is now `"last_outcome":{"outcome":"Success","at_ns":101}`,
 or `"last_outcome":null` before any recorded outcome. Both fields inside a
-recorded result are required. Earlier serialized records are refused, including
+recorded result are required. Retired serialized shapes are refused, including
 records with the old `last_outcome_ns` field. There is one current codec and no
 compatibility reader, converter or automatic reset.
 

@@ -11,7 +11,7 @@ use ic_memory::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::api::{Create, Delivery, Error, Init, Status, Task, Timing, View};
+use crate::api::{Create, Delivery, DeliveryPayload, Error, Init, Status, Task, Timing, View};
 
 const MAX_JOBS: usize = 32;
 const MAX_BYTES: usize = 24 * 1024;
@@ -134,7 +134,7 @@ impl Entry<Job> {
             status: match record.state {
                 JobState::Pending { .. } => Status::Pending,
                 JobState::Paused { .. } => Status::Paused,
-                JobState::Running { .. } => Status::Running,
+                JobState::Running => Status::Running,
                 JobState::Uncertain { .. } => Status::Uncertain,
                 JobState::Completed => Status::Completed,
                 JobState::Failed => Status::Failed,
@@ -148,11 +148,7 @@ impl Entry<Job> {
 
     fn delivery(&self) -> Result<(Attempt, Delivery), Error> {
         let attempt = self.job.active_attempt().ok_or(Error::InvalidInput)?;
-        let Task::Deliver {
-            destination,
-            message,
-        } = &self.task
-        else {
+        let Task::Deliver(payload) = &self.task else {
             return Err(Error::InvalidInput);
         };
         Ok((
@@ -161,15 +157,14 @@ impl Entry<Job> {
                 job: u64::try_from(attempt.execution.job.0).map_err(|_| Error::InvalidStorage)?,
                 occurrence: attempt.execution.occurrence,
                 sequence: attempt.sequence,
-                destination: *destination,
-                message: message.clone(),
+                payload: payload.clone(),
             },
         ))
     }
 }
 
 fn delivery_valid(delivery: &Delivery) -> bool {
-    delivery.job != 0 && delivery.sequence != 0 && delivery.message.len() <= MAX_MESSAGE
+    delivery.job != 0 && delivery.sequence != 0 && payload_valid(&delivery.payload)
 }
 
 // Receipt identity is one logical occurrence within the authenticated sender.
@@ -195,8 +190,12 @@ fn memory_error(error: impl std::fmt::Display) -> Error {
 fn task_valid(task: &Task) -> bool {
     match task {
         Task::Increment(_) => true,
-        Task::Deliver { message, .. } => message.len() <= MAX_MESSAGE,
+        Task::Deliver(payload) => payload_valid(payload),
     }
+}
+
+fn payload_valid(payload: &DeliveryPayload) -> bool {
+    payload.message.len() <= MAX_MESSAGE
 }
 
 fn schedule(timing: Timing) -> Result<Schedule, Error> {
@@ -410,7 +409,7 @@ impl<M: Memory> Queue<M> {
                         .finish(attempt, now, outcome)
                         .map_err(job_error)?;
                 }
-                Task::Deliver { .. } => deliveries.push(snapshot.jobs[index].delivery()?.1),
+                Task::Deliver(_) => deliveries.push(snapshot.jobs[index].delivery()?.1),
             }
         }
         if work > 0 {
@@ -486,11 +485,10 @@ impl<M: Memory> Queue<M> {
         if self.init.delivery_sender != Some(caller) {
             return Err(Error::Unauthorized);
         }
-        let snapshot = self.load()?;
+        let mut snapshot = self.load()?;
         Ok(snapshot
-            .receipts
-            .into_iter()
-            .find(|receipt| receipt_key(receipt) == receipt_key(delivery)))
+            .receipt_index(delivery)
+            .map(|index| snapshot.receipts.swap_remove(index)))
     }
 
     // Deliberate corruption endpoint in an unpublished qualification artifact.

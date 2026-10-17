@@ -147,9 +147,10 @@ fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error>
 }
 
 async fn delivery_confirmed(delivery: &Delivery) -> bool {
-    let response = ic_cdk::call::Call::unbounded_wait(delivery.destination, "receive_delivery")
-        .with_arg(delivery)
-        .await;
+    let response =
+        ic_cdk::call::Call::unbounded_wait(delivery.payload.destination, "receive_delivery")
+            .with_arg(delivery)
+            .await;
     decode_reply::<Delivery, _>(response).is_some_and(|receipt| receipt == *delivery)
 }
 
@@ -208,7 +209,7 @@ fn dispatch_reconciled() -> Result<Vec<Delivery>, Error> {
 
 #[ic_cdk::update]
 fn receive_delivery(delivery: Delivery) -> Result<Delivery, Error> {
-    if delivery.destination != ic_cdk::api::canister_self() {
+    if delivery.payload.destination != ic_cdk::api::canister_self() {
         return Err(Error::ReceiptMismatch);
     }
     with_queue(|queue| queue.receive(ic_cdk::api::msg_caller(), delivery))
@@ -222,9 +223,10 @@ fn delivery_receipt(delivery: Delivery) -> Result<Option<Delivery>, Error> {
 #[ic_cdk::update]
 async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
     let delivery = with_authorized_queue(|queue| queue.outstanding(id))?;
-    let response = ic_cdk::call::Call::unbounded_wait(delivery.destination, "delivery_receipt")
-        .with_arg(&delivery)
-        .await;
+    let response =
+        ic_cdk::call::Call::unbounded_wait(delivery.payload.destination, "delivery_receipt")
+            .with_arg(&delivery)
+            .await;
     let receipt = decode_reply::<Option<Delivery>, _>(response).flatten();
     let Some(receipt) = receipt else {
         return Ok(false);

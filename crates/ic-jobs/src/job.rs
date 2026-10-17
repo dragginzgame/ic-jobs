@@ -41,11 +41,8 @@ pub enum JobState {
         /// Original pending deadline, including any retry backoff.
         due_ns: u64,
     },
-    /// Dispatch intent exists; its result has not been recorded.
-    Running {
-        /// Time at which this attempt started.
-        started_ns: u64,
-    },
+    /// Dispatch intent exists; its start time is [JobRecord::updated_ns].
+    Running,
     /// The effect may have occurred. Automatic dispatch is blocked.
     Uncertain {
         /// Time at which the unresolved attempt started.
@@ -254,7 +251,8 @@ impl Job {
         let previous_retries = previous_dispatches - record.occurrence;
         let delay = u128::from(record.retry.initial_delay_ns());
         let evidence_ns = match record.state {
-            JobState::Running { started_ns } | JobState::Uncertain { started_ns } => started_ns,
+            JobState::Running => record.updated_ns,
+            JobState::Uncertain { started_ns } => started_ns,
             _ => outcome_ns.unwrap_or(0),
         };
         if u128::from(outcome_ns.unwrap_or(0)) < u128::from(previous_retries) * delay
@@ -314,7 +312,7 @@ impl Job {
         }
         if occurrences_since_origin > 0
             && (record.attempts == 0
-                || (record.attempts == 1 && matches!(record.state, JobState::Running { .. })))
+                || (record.attempts == 1 && matches!(record.state, JobState::Running)))
         {
             let every_ns = match record.schedule {
                 Schedule::FixedRate { every_ns, .. }
@@ -347,14 +345,18 @@ impl Job {
                     return invalid();
                 }
             }
-            JobState::Running { started_ns } | JobState::Uncertain { started_ns } => {
+            JobState::Running | JobState::Uncertain { .. } => {
+                let started_ns = match record.state {
+                    JobState::Uncertain { started_ns } => started_ns,
+                    _ => record.updated_ns,
+                };
                 if record.attempts == 0
                     || started_ns < record.scheduled_ns
                     || started_ns > record.updated_ns
                 {
                     return invalid();
                 }
-                if matches!(record.state, JobState::Running { .. }) {
+                if matches!(record.state, JobState::Running) {
                     let previous_outcome = if record.attempts > 1 {
                         Some(Outcome::RetryableFailure)
                     } else if record.occurrence > 0 {
@@ -362,8 +364,7 @@ impl Job {
                     } else {
                         None
                     };
-                    if started_ns != record.updated_ns
-                        || last_outcome != previous_outcome
+                    if last_outcome != previous_outcome
                         || (record.attempts > 1
                             && (outcome_ns.is_none_or(|time| time < record.scheduled_ns)
                                 || outcome_ns
@@ -428,7 +429,7 @@ impl Job {
     #[must_use]
     pub const fn active_attempt(&self) -> Option<Attempt> {
         match self.0.state {
-            JobState::Running { .. } | JobState::Uncertain { .. } => Some(self.attempt()),
+            JobState::Running | JobState::Uncertain { .. } => Some(self.attempt()),
             _ => None,
         }
     }
@@ -472,7 +473,7 @@ impl Job {
         let attempts = self.0.attempts + 1;
         self.0.sequence = sequence;
         self.0.attempts = attempts;
-        self.0.state = JobState::Running { started_ns: now_ns };
+        self.0.state = JobState::Running;
         self.0.updated_ns = now_ns;
         Ok(self.attempt())
     }
@@ -487,7 +488,7 @@ impl Job {
         now_ns: u64,
         outcome: Outcome,
     ) -> Result<(), JobError> {
-        if !matches!(self.0.state, JobState::Running { .. }) || attempt != self.attempt() {
+        if !matches!(self.0.state, JobState::Running) || attempt != self.attempt() {
             return Err(JobError::StaleAttempt);
         }
         self.transition(now_ns, outcome)
@@ -545,8 +546,10 @@ impl Job {
             Outcome::Uncertain => {
                 // The only callers admit Running or Uncertain. Reconciliation
                 // that remains uncertain preserves the existing start time.
-                if let JobState::Running { started_ns } = next.state {
-                    next.state = JobState::Uncertain { started_ns };
+                if matches!(next.state, JobState::Running) {
+                    next.state = JobState::Uncertain {
+                        started_ns: self.0.updated_ns,
+                    };
                 }
             }
         }
@@ -562,7 +565,7 @@ impl Job {
         self.check_time(now_ns)?;
         let due_ns = match self.0.state {
             JobState::Pending { due_ns } => due_ns,
-            JobState::Running { .. } | JobState::Uncertain { .. } => {
+            JobState::Running | JobState::Uncertain { .. } => {
                 return Err(JobError::InFlight);
             }
             _ => return Err(JobError::NotPending),
@@ -580,7 +583,7 @@ impl Job {
         self.check_time(now_ns)?;
         let due_ns = match self.0.state {
             JobState::Paused { due_ns } => due_ns,
-            JobState::Running { .. } | JobState::Uncertain { .. } => {
+            JobState::Running | JobState::Uncertain { .. } => {
                 return Err(JobError::InFlight);
             }
             _ => return Err(JobError::NotPaused),
@@ -601,7 +604,7 @@ impl Job {
         let paused = match self.0.state {
             JobState::Pending { .. } => false,
             JobState::Paused { .. } => true,
-            JobState::Running { .. } | JobState::Uncertain { .. } => {
+            JobState::Running | JobState::Uncertain { .. } => {
                 return Err(JobError::InFlight);
             }
             _ => return Err(JobError::NotPending),
@@ -626,7 +629,7 @@ impl Job {
     pub fn cancel(&mut self, now_ns: u64) -> Result<(), JobError> {
         self.check_time(now_ns)?;
         match self.0.state {
-            JobState::Running { .. } | JobState::Uncertain { .. } => {
+            JobState::Running | JobState::Uncertain { .. } => {
                 return Err(JobError::InFlight);
             }
             JobState::Pending { .. } | JobState::Paused { .. } => {}

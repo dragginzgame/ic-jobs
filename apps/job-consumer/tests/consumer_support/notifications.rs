@@ -52,12 +52,6 @@ pub(crate) struct ManagementReply<T> {
     pub(crate) next_due_ns: Option<u64>,
 }
 
-impl<T> ManagementReply<T> {
-    fn new(value: T, next_due_ns: Option<u64>) -> Self {
-        Self { value, next_due_ns }
-    }
-}
-
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) enum ManagementError {
     Unauthorized,
@@ -161,7 +155,10 @@ impl Notifications {
         jobs.push(NotificationSnapshot { job, payload });
         self.commit(&jobs)?;
         let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
-        Ok(ManagementReply::new(jobs.pop().unwrap().into_stored(), due))
+        Ok(ManagementReply {
+            value: jobs.pop().unwrap().into_stored(),
+            next_due_ns: due,
+        })
     }
 
     pub(crate) fn inspect(
@@ -173,10 +170,10 @@ impl Notifications {
         let mut jobs = self.load()?;
         let index = Self::index(&jobs, id).ok_or(ManagementError::UnknownJob)?;
         let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
-        Ok(ManagementReply::new(
-            jobs.swap_remove(index).into_stored(),
-            due,
-        ))
+        Ok(ManagementReply {
+            value: jobs.swap_remove(index).into_stored(),
+            next_due_ns: due,
+        })
     }
 
     pub(crate) fn page(
@@ -189,16 +186,19 @@ impl Notifications {
         if !(1..=4).contains(&limit) {
             return Err(ManagementError::InvalidPageLimit.into());
         }
-        let jobs = self.load()?;
+        let mut jobs = self.load()?;
         let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
-        let mut snapshots: Vec<_> = jobs
+        jobs.sort_by_key(|entry| entry.job.record().id);
+        let snapshots = jobs
             .into_iter()
             .filter(|entry| after.is_none_or(|id| entry.job.record().id > id))
+            .take(limit)
             .map(NotificationSnapshot::into_stored)
             .collect();
-        snapshots.sort_by_key(|snapshot| snapshot.job.id);
-        snapshots.truncate(limit);
-        Ok(ManagementReply::new(snapshots, due))
+        Ok(ManagementReply {
+            value: snapshots,
+            next_due_ns: due,
+        })
     }
 
     pub(crate) fn cancel(
@@ -213,10 +213,10 @@ impl Notifications {
         jobs[index].job.cancel(now_ns)?;
         self.commit(&jobs)?;
         let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
-        Ok(ManagementReply::new(
-            jobs.swap_remove(index).into_stored(),
-            due,
-        ))
+        Ok(ManagementReply {
+            value: jobs.swap_remove(index).into_stored(),
+            next_due_ns: due,
+        })
     }
 
     pub(crate) fn dispatch_due(
@@ -229,28 +229,24 @@ impl Notifications {
         let Some((index, attempt)) =
             start_next(jobs.iter_mut().map(|entry| &mut entry.job), now_ns)?
         else {
-            return Ok(ManagementReply::new(
-                None,
-                next_due_ns(jobs.iter().map(|entry| &entry.job)),
-            ));
+            return Ok(ManagementReply {
+                value: None,
+                next_due_ns: next_due_ns(jobs.iter().map(|entry| &entry.job)),
+            });
         };
         self.commit(&jobs)?;
         // No delivery capability escapes before the intent and payload commit.
         let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
         let payload = jobs.swap_remove(index).payload;
-        Ok(ManagementReply::new(
-            Some(Delivery { attempt, payload }),
-            due,
-        ))
+        Ok(ManagementReply {
+            value: Some(Delivery { attempt, payload }),
+            next_due_ns: due,
+        })
     }
 
     pub(crate) fn next_due_ns(&self) -> Result<Option<u64>> {
         let jobs = self.load()?;
         Ok(next_due_ns(jobs.iter().map(|entry| &entry.job)))
-    }
-
-    pub(crate) fn prepare(&mut self, now_ns: u64) -> Result<Option<Delivery>> {
-        Ok(self.dispatch_due(NOTIFICATION_MANAGER, now_ns)?.value)
     }
 
     pub(crate) fn outstanding(&self) -> Result<Vec<Delivery>> {

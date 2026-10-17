@@ -8,7 +8,9 @@ use ic_testkit::pic::{
     advance_and_tick, tick_until,
 };
 use ic_testkit_candid::DecodeLimits;
-use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
+use jobs_test_consumer::api::{
+    Create, DeliveryPayload, Error, Init, Status, Summary, Task, Timing, View,
+};
 use serde::de::DeserializeOwned;
 use std::{convert::Infallible, path::PathBuf, task::Poll, time::Duration};
 
@@ -164,10 +166,10 @@ fn reply_limits_admit_the_largest_consumer_page() {
     let views = (0..8)
         .map(|id| View {
             id,
-            task: Task::Deliver {
+            task: Task::Deliver(DeliveryPayload {
                 destination: Principal::self_authenticating(b"receiver"),
                 message: "x".repeat(256),
-            },
+            }),
             status: Status::Uncertain,
             due_ns: Some(u64::MAX),
             sequence: u64::MAX,
@@ -233,10 +235,10 @@ fn management_upgrade_and_real_watchdog_delivery() {
                 timing: Timing::Once(
                     fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 10_000_000_000,
                 ),
-                task: Task::Deliver {
+                task: Task::Deliver(DeliveryPayload {
                     destination: fixture.receiver,
                     message: "timer delivery".into(),
-                },
+                }),
             },),
         )
         .unwrap();
@@ -366,10 +368,10 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
     let fixture = Fixture::new();
     let input = Create {
         timing: Timing::Once(0),
-        task: Task::Deliver {
+        task: Task::Deliver(DeliveryPayload {
             destination: fixture.receiver,
             message: "retained external effect".into(),
-        },
+        }),
     };
     let failed = fixture.update_as::<Result<(), Error>, _>(
         fixture.manager,
@@ -405,10 +407,10 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
             "fixture_create_blocked",
             (Create {
                 timing: Timing::Once(0),
-                task: Task::Deliver {
+                task: Task::Deliver(DeliveryPayload {
                     destination: fixture.receiver,
                     message: "never sent".into(),
-                },
+                }),
             },),
         )
         .unwrap();

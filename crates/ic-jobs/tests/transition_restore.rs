@@ -124,7 +124,7 @@ fn public_transition_histories_remain_restorable_and_failures_preserve_records()
     for state in [
         JobState::Pending { due_ns: 0 },
         JobState::Paused { due_ns: 0 },
-        JobState::Running { started_ns: 0 },
+        JobState::Running,
         JobState::Uncertain { started_ns: 0 },
         JobState::Completed,
         JobState::Failed,

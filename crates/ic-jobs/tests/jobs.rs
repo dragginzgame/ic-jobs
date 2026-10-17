@@ -49,7 +49,7 @@ fn scheduler_starts_one_earliest_due_job_and_preserves_batch_order() {
     assert_eq!(index, 1);
     assert_eq!(attempt.execution.job, JobId(2));
     let record = jobs[index].0.record();
-    assert_eq!(record.state, JobState::Running { started_ns: 200 });
+    assert_eq!(record.state, JobState::Running);
     assert_eq!(jobs[0].0.record(), before[0]);
     assert_eq!(jobs[2].0.record(), before[2]);
     assert_eq!(next_due_ns(jobs.iter().map(|(job, _)| job)), Some(100));
@@ -454,7 +454,7 @@ fn corrupt_decoded_configuration_and_state_are_rejected() {
         JobError::InvalidRecord
     );
     let mut fake_active = record;
-    fake_active.state = JobState::Running { started_ns: 100 };
+    fake_active.state = JobState::Running;
     assert_eq!(
         Job::restore(fake_active).unwrap_err(),
         JobError::InvalidRecord

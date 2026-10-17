@@ -14,3 +14,24 @@ retain earlier physical images for the independent incompatible-ledger refusal
 proof. Their zero bytes are implicit; nonzero runs and producer bytes remain exact.
 These are negative inputs, not compatibility readers or an upgrade path.
 Native fixture checks do not establish live IC upgrades or message rollback.
+
+## 0.16 refusal inputs
+
+`running-record-015.json` freezes the previous timestamp-bearing Running record.
+The consumer also retains `snapshot-running-015.json` and
+`snapshot-receipt-015.json` under its queue fixtures and
+`delivery-reply-015.didbin` under its reply fixtures. These freeze the old Running
+snapshot, flat receipt snapshot and successful flat Candid delivery reply.
+
+They were produced using the incoming 0.15 Job/Task/Delivery serializers at Jobs
+`71761e0c8ce3c6b2a4ce0226b80691892aa57f63`, with the existing Build/consumer
+cleanup and selected Timers 0.27 graph. Snapshot headers were assembled around
+those typed values. The prior queue decoder admits both snapshots, and the prior
+Candid decoder admits the reply; that focused qualification is retained in
+`target/qualification/running-payload-cut/`. The capture helper and original
+source remain in `/tmp/jobs-running-payload-cut.9krmjk9u/before-source/`.
+
+Current checks refuse each changed shape, preserving refused stable payloads
+through recovery and fresh-install refusal. No reader, converter or deployed
+reset is added. The unchanged current Uncertain fixture above remains positive
+blocked-restoration evidence.

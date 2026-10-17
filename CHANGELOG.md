@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.16.0]
+
+- **Breaking:** `JobState::Running` is a unit variant; its dispatch time is
+  `JobRecord::updated_ns`. Entering Uncertain preserves that original time.
+  Update Running constructors/patterns and rebuild consumers together. The old
+  timestamp-bearing Running JSON shape is refused.
+- Share the qualification consumer's `DeliveryPayload` between tasks and delivery
+  envelopes. Construct `Task::Deliver(payload)` and use `delivery.payload`;
+  envelopes/receipts now nest destination and message under `payload`. Update
+  senders and receivers together; flat retained receipts/replies are refused.
+- **Installation action:** Retire affected earlier installations under the
+  approved hard-cut disposition and create fresh qualification state. Source
+  adoption performs no reset, conversion or deployment. Current-format unresolved
+  attempts remain blocked until explicit result disposition.
+- Native management replies use their fields directly, preserving authorization,
+  commit ordering and complete-queue deadline projection.
+
+- Delegate optimizer producer/log admission and capture-before-removal to Build
+  0.13's published helper. Keep Jobs' exact optimizer flags, full-output capture,
+  failure evidence, log routing and command exit policy.
+- Share receipt lookup and select notification pages before response conversion.
+  Native dispatch tests retain the complete committed reply and independent
+  durable-state checks.
+
 ## [0.15.0] - 2026-10-17
 
 - Fix recovery-harness compilation with Testkit 0.51's input records and

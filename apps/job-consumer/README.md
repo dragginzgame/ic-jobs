@@ -53,11 +53,22 @@ direct development dependency on `ic-stable-structures` for raw Cell setup and
 deliberate corruption; runtime code does not import collections through Memory.
 Memory leases are consumed by their cell owner rather than cloned.
 
-**0.15 hard cut:** Earlier Jobs JSON, including the frozen 0.7.5 snapshot,
-is refused even on current Memory backing. The maintainer approved retiring
-earlier installations without preserving jobs for this cut; create fresh test
-installations. Source adoption and failed recovery do not clear, convert or
+**0.16 hard cut:** Construct `Task::Deliver(DeliveryPayload { destination,
+message })`; delivery and receipt envelopes contain `payload` beside their
+job/occurrence/sequence identity. Rebuild senders, receivers and the recovery
+harness together. The payload owns one validation rule, applied independently
+to retained tasks and incoming/retained delivery envelopes. Exact whole-envelope
+comparison and missing-evidence blocking remain unchanged.
+
+Timestamp-bearing Running records and flat receipt envelopes from 0.15 are
+refused, as is the older 0.7.5 snapshot. The maintainer selected the hard cut
+without preserving affected earlier installations; create fresh test state under
+consumer authority. Source adoption and failed recovery do not clear, convert or
 overwrite retained cells. There is no compatibility reader or automatic reset.
+Current-format Running/Uncertain jobs still restore as blocked. Frozen previous
+record, snapshot and Candid bytes are negative inputs only; their prior reader
+qualification and provenance are recorded with the stored-record fixtures.
+
 
 The frozen 0.7.5 and Memory 0.40 physical images are also refused during both
 recovery and installation, before payload admission and with zero stable writes,

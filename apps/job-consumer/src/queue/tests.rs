@@ -28,7 +28,7 @@ fn set_job_state(job: &mut Job, state: JobState, at_ns: u64) {
         _ => {
             let attempt = job.start(at_ns).unwrap();
             match state {
-                JobState::Running { .. } => {}
+                JobState::Running => {}
                 JobState::Uncertain { .. } => {
                     job.finish(attempt, at_ns, Outcome::Uncertain).unwrap()
                 }
@@ -146,10 +146,10 @@ fn refused_management_preserves_stable_bytes_and_blocked_delivery() {
     let id = queue
         .create(Create {
             timing: Timing::Once(0),
-            task: Task::Deliver {
+            task: Task::Deliver(DeliveryPayload {
                 destination: Principal::self_authenticating(b"receiver"),
                 message: "retained".into(),
-            },
+            }),
         })
         .unwrap()
         .value;
@@ -364,10 +364,10 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
         let id = sender
             .create(Create {
                 timing: Timing::Once(100),
-                task: Task::Deliver {
+                task: Task::Deliver(DeliveryPayload {
                     destination,
                     message: "report".into(),
-                },
+                }),
             })
             .unwrap()
             .value;
@@ -433,15 +433,15 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
     let destination = Principal::self_authenticating(b"receiver");
     for task in [
         Task::Increment(1),
-        Task::Deliver {
+        Task::Deliver(DeliveryPayload {
             destination,
             message: "report".into(),
-        },
+        }),
     ] {
         for state in [
             JobState::Pending { due_ns: 10 },
             JobState::Paused { due_ns: 10 },
-            JobState::Running { started_ns: 10 },
+            JobState::Running,
             JobState::Uncertain { started_ns: 10 },
             JobState::Completed,
             JobState::Failed,
@@ -466,11 +466,13 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
                 job: id,
                 occurrence: record.occurrence,
                 sequence: record.sequence,
-                destination,
-                message: "report".into(),
+                payload: DeliveryPayload {
+                    destination,
+                    message: "report".into(),
+                },
             };
-            let outstanding = matches!(task, Task::Deliver { .. })
-                && matches!(state, JobState::Running { .. } | JobState::Uncertain { .. });
+            let outstanding = matches!(task, Task::Deliver(_))
+                && matches!(state, JobState::Running | JobState::Uncertain { .. });
             let before = queue.cell.bytes().to_vec();
             let mismatch = if outstanding {
                 Error::ReceiptMismatch
@@ -494,7 +496,10 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
                 ),
                 (
                     Delivery {
-                        destination: Principal::anonymous(),
+                        payload: DeliveryPayload {
+                            destination: Principal::anonymous(),
+                            ..delivery.payload.clone()
+                        },
                         ..delivery.clone()
                     },
                     mismatch.clone(),
@@ -508,7 +513,10 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
                 ),
                 (
                     Delivery {
-                        message: "changed".into(),
+                        payload: DeliveryPayload {
+                            message: "changed".into(),
+                            ..delivery.payload.clone()
+                        },
                         ..delivery.clone()
                     },
                     mismatch,
@@ -537,10 +545,10 @@ fn unrelated_corruption_precedes_completion_lookup_receipt_and_clock_checks() {
     queue
         .create(Create {
             timing: Timing::Once(10),
-            task: Task::Deliver {
+            task: Task::Deliver(DeliveryPayload {
                 destination: Principal::self_authenticating(b"receiver"),
                 message: "report".into(),
-            },
+            }),
         })
         .unwrap();
 
@@ -606,10 +614,10 @@ fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
         let corrupt = queue
             .create(Create {
                 timing: Timing::Once(100),
-                task: Task::Deliver {
+                task: Task::Deliver(DeliveryPayload {
                     destination: Principal::self_authenticating(b"receiver"),
                     message: "retained intent".into(),
-                },
+                }),
             })
             .unwrap()
             .value;
@@ -650,7 +658,7 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
     cancelled_retry.last_outcome.as_mut().unwrap().at_ns = 99;
     retry.start(110).unwrap();
     let mut running_retry = retry.record();
-    running_retry.state = JobState::Running { started_ns: 109 };
+    running_retry.state = JobState::Running;
     running_retry.updated_ns = 109;
 
     let mut recurring = Job::new(
@@ -710,10 +718,10 @@ fn snapshot_admission_preserves_restore_and_collection_error_order() {
                 job_error(ic_jobs::JobError::InvalidRecord)
             }
             2 => {
-                snapshot.jobs[0].task = Task::Deliver {
+                snapshot.jobs[0].task = Task::Deliver(DeliveryPayload {
                     destination: manager(),
                     message: "x".repeat(MAX_MESSAGE + 1),
-                };
+                });
                 Error::InvalidStorage
             }
             3 => {
@@ -721,8 +729,10 @@ fn snapshot_admission_preserves_restore_and_collection_error_order() {
                     job: 0,
                     occurrence: 0,
                     sequence: 0,
-                    destination: manager(),
-                    message: String::new(),
+                    payload: DeliveryPayload {
+                        destination: manager(),
+                        message: String::new(),
+                    },
                 });
                 job_error(ic_jobs::JobError::InvalidRecord)
             }
@@ -753,10 +763,10 @@ fn typed_commit_preserves_canonical_snapshot_bytes_and_metadata() {
     queue
         .create(Create {
             timing: Timing::Once(100),
-            task: Task::Deliver {
+            task: Task::Deliver(DeliveryPayload {
                 destination: manager(),
                 message: "paired payload".into(),
-            },
+            }),
         })
         .unwrap();
     let delivery = queue.dispatch(100).unwrap().value.0.pop().unwrap();
@@ -789,8 +799,10 @@ fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
         job: 1,
         occurrence: 0,
         sequence: 1,
-        destination: manager(),
-        message: "confirmed".into(),
+        payload: DeliveryPayload {
+            destination: manager(),
+            message: "confirmed".into(),
+        },
     };
     for case in 0..8 {
         let before = queue.cell.bytes().to_vec();
@@ -805,10 +817,10 @@ fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
                 });
             }
             3 => {
-                loaded.jobs[0].task = Task::Deliver {
+                loaded.jobs[0].task = Task::Deliver(DeliveryPayload {
                     destination: manager(),
                     message: "x".repeat(MAX_MESSAGE + 1),
-                }
+                })
             }
             4 => loaded.receipts.push(Delivery {
                 job: 0,
@@ -819,7 +831,10 @@ fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
                 ..receipt.clone()
             }),
             6 => loaded.receipts.push(Delivery {
-                message: "x".repeat(MAX_MESSAGE + 1),
+                payload: DeliveryPayload {
+                    message: "x".repeat(MAX_MESSAGE + 1),
+                    ..receipt.payload.clone()
+                },
                 ..receipt.clone()
             }),
             7 => {
@@ -842,10 +857,10 @@ fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
     let before = queue.cell.bytes().to_vec();
     let mut loaded = queue.load().unwrap();
     loaded.next_id = 0;
-    loaded.jobs[0].task = Task::Deliver {
+    loaded.jobs[0].task = Task::Deliver(DeliveryPayload {
         destination: manager(),
         message: "x".repeat(MAX_BYTES),
-    };
+    });
     assert_eq!(queue.commit(loaded, ()), Err(Error::Capacity));
     assert_eq!(queue.cell.bytes(), before);
 }
@@ -853,20 +868,26 @@ fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
 #[test]
 fn retired_snapshot_is_refused_without_replacing_the_cell() {
     // Exact old producer bytes remain only as a refusal/preservation fixture.
-    let bytes = include_bytes!("fixtures/snapshot-075.json").to_vec();
-    let backing = VectorMemory::default();
-    let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
-    queue.cell.set(bytes.clone());
-    let memory = queue.cell.into_memory();
-    for initial in [None, Some(config())] {
-        assert!(matches!(
-            Queue::open(backing.clone(), initial),
-            Err(Error::InvalidStorage)
-        ));
-        assert_eq!(
-            ic_memory::decode_stable_cell_payload(&memory).unwrap(),
-            bytes
-        );
+    for frozen in [
+        include_bytes!("fixtures/snapshot-075.json").as_slice(),
+        include_bytes!("fixtures/snapshot-running-015.json").as_slice(),
+        include_bytes!("fixtures/snapshot-receipt-015.json").as_slice(),
+    ] {
+        let bytes = frozen.to_vec();
+        let backing = VectorMemory::default();
+        let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
+        queue.cell.set(bytes.clone());
+        let memory = queue.cell.into_memory();
+        for initial in [None, Some(config())] {
+            assert!(matches!(
+                Queue::open(backing.clone(), initial),
+                Err(Error::InvalidStorage)
+            ));
+            assert_eq!(
+                ic_memory::decode_stable_cell_payload(&memory).unwrap(),
+                bytes
+            );
+        }
     }
 }
 
@@ -1004,7 +1025,7 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
         None,
         Some((JobState::Pending { due_ns: 100 }, 0)),
         Some((JobState::Paused { due_ns: 100 }, 0)),
-        Some((JobState::Running { started_ns: 100 }, 100)),
+        Some((JobState::Running, 100)),
         Some((JobState::Uncertain { started_ns: 100 }, 100)),
         Some((JobState::Completed, 100)),
     ] {
@@ -1110,10 +1131,10 @@ fn mutation_replies_return_the_fresh_committed_deadline() {
     let external = queue
         .create(Create {
             timing: Timing::Once(250),
-            task: Task::Deliver {
+            task: Task::Deliver(DeliveryPayload {
                 destination: manager(),
                 message: "exact immutable payload".into(),
-            },
+            }),
         })
         .unwrap();
     assert_eq!(external.next_due_ns, Some(250));
@@ -1164,8 +1185,10 @@ fn receipt_extraction_and_duplicate_acknowledgement_leave_storage_unchanged() {
             job,
             occurrence: 0,
             sequence: 1,
-            destination: manager(),
-            message: format!("payload-{job}"),
+            payload: DeliveryPayload {
+                destination: manager(),
+                message: format!("payload-{job}"),
+            },
         })
         .collect();
     for receipt in &receipts {

@@ -271,7 +271,7 @@ fn restore_rejects_running_retry_before_retained_backoff() {
     for (outcome_ns, started_ns) in [(100, 109), (99, 110), (u64::MAX, u64::MAX)] {
         let mut corrupt = job.record();
         corrupt.last_outcome.as_mut().unwrap().at_ns = outcome_ns;
-        corrupt.state = JobState::Running { started_ns };
+        corrupt.state = JobState::Running;
         corrupt.updated_ns = started_ns;
         assert_eq!(Job::restore(corrupt).unwrap_err(), JobError::InvalidRecord);
     }

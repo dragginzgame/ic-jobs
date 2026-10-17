@@ -86,6 +86,37 @@ fn configuration_decoding_rejects_invalid_numbers_before_aggregate_restore() {
 }
 
 #[test]
+fn running_uses_transition_time_and_uncertainty_retains_original_dispatch() {
+    let mut job = Job::new(JobId(1), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE);
+    let attempt = job.start(110).unwrap();
+    let encoded = serde_json::to_value(&job).unwrap();
+    assert_eq!(encoded["state"], "Running");
+    assert_eq!(encoded["updated_ns"], 110);
+    let mut invalid = job.record();
+    invalid.updated_ns = 99;
+    assert_eq!(Job::restore(invalid).unwrap_err(), JobError::InvalidRecord);
+
+    job = Job::restore(serde_json::from_value(encoded).unwrap()).unwrap();
+    assert_eq!(job.next_due_ns(), None);
+    assert_eq!(job.start(120), Err(JobError::NotPending));
+    job.finish(attempt, 150, Outcome::Uncertain).unwrap();
+    assert_eq!(job.record().state, JobState::Uncertain { started_ns: 110 });
+    assert_eq!(job.record().updated_ns, 150);
+    job = Job::restore(job.record()).unwrap();
+    job.resolve(attempt, 200, Outcome::Uncertain).unwrap();
+    assert_eq!(job.record().state, JobState::Uncertain { started_ns: 110 });
+    assert_eq!(job.record().updated_ns, 200);
+    assert_eq!(job.next_due_ns(), None);
+    job.resolve(attempt, 201, Outcome::Success).unwrap();
+    assert_eq!(job.record().state, JobState::Completed);
+
+    assert!(
+        serde_json::from_slice::<JobRecord>(include_bytes!("fixtures/running-record-015.json"))
+            .is_err()
+    );
+}
+
+#[test]
 fn recorded_outcome_json_roundtrips_without_unblocking_an_effect() {
     // Hand-authored current-format bytes, independent of the writer under test.
     let bytes = include_str!("fixtures/uncertain-record.json").trim_end();

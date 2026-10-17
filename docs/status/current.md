@@ -2,8 +2,38 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.14.1**: `cc9587c` (Release 0.14.1).
-Pending **0.15.0** hard-cuts the latest result to
+Delivered Jobs **0.15.0**: `71761e0` (Release 0.15.0).
+Pending **0.16.0** removes the duplicate Running timestamp: `JobState::Running`
+is a unit variant and its start time is `JobRecord::updated_ns`. Entering
+Uncertain copies the original dispatch time before replacing the transition
+time; subsequent unresolved reconciliation preserves that start. Restoration,
+retry history admission, error precedence and effect blocking remain.
+The qualification consumer uses one `DeliveryPayload` for its retained tasks
+and delivery/receipt envelopes. Payload bounds still apply at each storage/wire
+boundary; exact-envelope comparison and unknown-effect refusal remain.
+The maintainer selected these hard cuts under the earlier no-preservation
+instruction. Retire affected prior installations under their own authority and
+create fresh qualification state; this source change performs no reset,
+conversion or deployment. Timestamp-bearing Running and flat receipt shapes
+refuse. Current-format unresolved attempts remain blocked until disposition.
+Core callers must update Running constructors/patterns; consumer callers use
+`Task::Deliver(payload)` and `delivery.payload`, rebuilding both peers and harness.
+Own package versions remain unchanged; 0.16.0 is the pending changelog selection.
+
+The candidate carries the earlier published Build 0.13 capture-helper adoption,
+receipt lookup and notification paging/dispatch cleanup. Native management replies
+now use explicit fields, retaining authorization, commit and deadline ordering.
+Incoming Timers 0.27, other dependency selections and capture edits are preserved.
+
+Host's status helper and Testkit's panic-safe reporter are qualified as source
+candidates only. Their current selected registry packages do not export those
+helpers; active Jobs callers keep their local implementations until publication.
+The prepared callers and their source-bound checks are described below. Follow
+[#52](https://github.com/dragginzgame/ic-jobs/issues/52),
+[#63](https://github.com/dragginzgame/ic-jobs/issues/63) and
+[#64](https://github.com/dragginzgame/ic-jobs/issues/64) at their GitHub owners.
+
+Delivered **0.15.0** hard-cuts the latest result to
 `JobRecord::last_outcome: Option<RecordedOutcome>`, pairing `outcome` and `at_ns`.
 The separate timestamp field and mismatched-presence admission check are removed.
 The same batch restores stored consumer entries directly with their payloads,
@@ -83,7 +113,7 @@ requires cargo-edit, a separate release-tool catalog or local setup/check target
 Common tool admission and metadata refusal/rollback boundaries remain in place.
 
 The selected graph uses Memory 0.47.0, Testkit/Candid 0.51.0, Timers
-0.26.1, Metrics 0.12.0, Build 0.13.0 and direct Host FS/Process 0.25.1.
+0.27.0, Metrics 0.12.0, Build 0.13.0 and direct Host FS/Process 0.25.1.
 Rust floor is 1.91.0; development is 1.99.0.
 The cleanup preserves those incoming registry selections. Memory 0.46's narrowed
 exports supply backing IO types directly, without a full substrate re-export;
@@ -111,6 +141,90 @@ runtime Timers dependency or lifecycle exports. The capture tool owns Jobs'
 optimizer recipe and uses IC Build's retained path; Jobs selects the live gate.
 
 ## Qualification
+
+Running/payload hard-cut evidence is in `target/qualification/running-payload-cut/`,
+relative to Jobs 0.15.0 `71761e0c8ce3c6b2a4ce0226b80691892aa57f63` plus the
+incoming Build/receipt/page/dispatch cleanup and selected Timers 0.27 graph.
+All 48 core tests and six doctests pass on Rust 1.91, including bounded public
+transition histories, Running's exact unit JSON shape, chronology refusal and
+preservation of dispatch time through delayed uncertainty and reconciliation.
+All 25 consumer and 19 composition tests pass, retaining admission/error order,
+failed writes, independent Cell reopening, complete-queue bounds and blocked
+unresolved effects. The recovery target compiles and its native reply case passes;
+all seven live scenarios remain ignored.
+
+The frozen 0.15 Running record, Running snapshot, flat receipt snapshot and flat
+Candid reply were captured using the incoming serializers in an isolated copy.
+Its original queue decoder admits both snapshots and its Candid decoder admits
+the reply. Current code refuses the retired shapes, preserving refused Cell
+payloads through both recovery and fresh-install refusal. They are negative
+fixtures only; no old reader, converter or reset is added. The unchanged current
+Uncertain JSON remains exact positive blocked-restoration evidence.
+
+Separate core and consumer Rust 1.91 Wasm checks, the consumer Wasm build,
+strict native all-target and Wasm Clippy, warning-denied Rust 1.91 rustdoc,
+formatting, documentation links and diff checks pass. Incoming manifests/lock,
+shared snapshot, capture edits, own versions and primary index/refs are preserved.
+The numbered notes move the complete candidate to 0.16.0; no release, publication,
+deployment, installation reset, full CI, live PocketIC or native macOS ran.
+Earlier source qualifications below retain their original shapes and identities.
+
+Receipt/page/dispatch cleanup evidence is in
+`target/qualification/receipt-page-dispatch-cleanup/`, relative to Jobs 0.15.0
+`71761e0c8ce3c6b2a4ce0226b80691892aa57f63` plus the incoming Build cleanup and
+Timers 0.27 manifest/lock selection. All 25 consumer and 19 composition tests pass
+on Rust 1.91. Existing cases preserve logical receipt lookup with exact-envelope
+checks, zero-write queries/duplicate acknowledgements, out-of-order paging,
+full-queue admission/deadline projection, failed commits and uncertain effects.
+Dispatch assertions now also inspect both idle and committed reply deadlines;
+independent stored reads and real Cell reopening proofs remain.
+
+The consumer's separate Rust 1.91 Wasm check, strict native all-target and Wasm
+Clippy, changed-source formatting, documentation links and diff checks pass.
+Core source is unchanged; earlier core-floor evidence retains its source scope.
+This batch preserves incoming manifests/lock, capture edits, snapshot, own
+versions and primary index/refs. No full CI, live PocketIC, native macOS,
+release, publication, deployment or reset ran.
+
+Current Build/Host/reporter evidence is in
+`target/qualification/build-host-report-cleanup/`, against Jobs 0.15.0
+`71761e0c8ce3c6b2a4ce0226b80691892aa57f63` plus the retained Build caller diff.
+On the actual registry graph, all three optimizer/capture tests pass on Rust
+1.91, together with the actual consumer-tooling wrapper fixture (optimizer and
+server effects substituted), recovery-target compilation and its native bounded
+reply case. Strict harness Clippy and Rust formatting pass. Seven live recovery
+scenarios remain ignored; no server is started by this qualification.
+
+[Testkit PR #117](https://github.com/dragginzgame/ic-testkit/pull/117) is refreshed
+without rewriting history at `5036ff00005badba183b599fb6ec8a092ea0a558`, merging
+released 0.51 main `fca91d828e123bc6a5fc49bc703fb30981990bcc`. Its added reporter
+case now uses public-field requests and both pending notes select 0.51.1;
+package versions are unchanged. All seven diagnostic tests pass on Rust 1.91,
+including exact independent senders, collection/writer panic containment,
+ordinary writer errors and reports containing failed diagnostic calls. Strict
+library/test Clippy, warning-denied Rust 1.91 rustdoc, the Wasm library floor,
+formatting and changed-document local links pass.
+
+The status module from
+[Host PR #172](https://github.com/dragginzgame/ic-host-tooling/pull/172), source
+`2de898dd5ddad41582acc676e607a44bc4778b45`, is qualified byte-identically on
+published Host 0.25.1 with only that module/export added in an isolated clone.
+Both real exit/signal and unclassified-status tests pass on Rust 1.88, with strict
+Process Clippy and formatting. The owning integration branch is untouched.
+
+Combined prepared Jobs callers pass three capture tests, native recovery reply
+coverage with all seven live cases ignored, and strict all-target harness Clippy.
+All 308 package names/versions remain identical; only the five explicit Host
+Artifacts/FS/Process and Testkit/Candid source/checksum rows change in that
+isolated lock. Both caller patches apply to the current working tree. The first
+candidate build exposed duplicate Host artifact source identities; the corrected
+qualification unifies that source and passes. Active Cargo manifests/lock, shared
+snapshot, own versions, primary index and refs are unchanged. No full CI, live
+PocketIC, native macOS qualification, release, publication, deployment or reset
+ran. Delivered/native acceptance remains with the linked adoption issues.
+
+Earlier receipts below retain their original source, graph and pending-version
+scope. They do not override the current registry adoption or publication facts.
 
 The Testkit 0.51 recovery-harness repair is qualified in
 `target/qualification/testkit-051-recovery-fix/`, against clean incoming source
