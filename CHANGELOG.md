@@ -4,7 +4,8 @@
 
 - Prepare field-based Testkit diagnostic inputs for the recovery fixture,
   preserving exact anonymous senders, default rendering limits and the original
-  install failure. This draft needs Testkit 0.51 publication and normal dependency
+  install failure. Installation and retry inputs use fields, and typed calls pass
+  their existing principal explicitly under the single query/update API. This draft needs Testkit 0.51 publication and normal dependency
   adoption before integration; the published Jobs API and stored data are unchanged.
 
 ## [0.14.1] - 2026-10-17
