@@ -6,8 +6,7 @@ use ic_jobs::{
     next_due_ns, start_next,
 };
 use ic_memory::{
-    MemoryManagerConfig,
-    ic_stable_structures::Memory,
+    Memory, MemoryManagerConfig,
     testing::{FixtureCell, FixtureCellError},
 };
 use serde::{Deserialize, Serialize};
@@ -37,37 +36,63 @@ struct Snapshot<J = JobRecord> {
     receipts: Vec<Delivery>,
 }
 
-impl Snapshot {
-    // Aggregate checks are shared by stored admission and typed write admission.
-    // The callback preserves restore-before-entry-check ordering on storage reads.
-    fn validate(
-        &self,
-        mut admit_job: impl FnMut(JobRecord) -> Result<(), Error>,
-    ) -> Result<(), Error> {
+impl<J> Snapshot<J> {
+    fn check_header(&self) -> Result<(), Error> {
         if self.jobs.len() > MAX_JOBS || self.receipts.len() > MAX_JOBS || self.next_id == 0 {
             return Err(Error::InvalidStorage);
         }
-        let mut previous = 0u128;
-        for entry in &self.jobs {
-            admit_job(entry.job)?;
-            if entry.job.id.0 <= previous
-                || entry.job.id.0 >= u128::from(self.next_id)
-                || !task_valid(&entry.task)
-            {
-                return Err(Error::InvalidStorage);
-            }
-            previous = entry.job.id.0;
-        }
-        for (index, receipt) in self.receipts.iter().enumerate() {
-            if !delivery_valid(receipt)
-                || self.receipts[..index]
-                    .iter()
-                    .any(|other| receipt_key(other) == receipt_key(receipt))
-            {
-                return Err(Error::InvalidStorage);
-            }
-        }
         Ok(())
+    }
+}
+
+fn check_entry(id: JobId, task: &Task, next_id: u64, previous: &mut u128) -> Result<(), Error> {
+    if id.0 <= *previous || id.0 >= u128::from(next_id) || !task_valid(task) {
+        return Err(Error::InvalidStorage);
+    }
+    *previous = id.0;
+    Ok(())
+}
+
+fn check_receipts(receipts: &[Delivery]) -> Result<(), Error> {
+    for (index, receipt) in receipts.iter().enumerate() {
+        if !delivery_valid(receipt)
+            || receipts[..index]
+                .iter()
+                .any(|other| receipt_key(other) == receipt_key(receipt))
+        {
+            return Err(Error::InvalidStorage);
+        }
+    }
+    Ok(())
+}
+
+impl Snapshot {
+    // Consume each record and payload together, restoring before checking that
+    // entry's metadata. Typed writes use the same collection checks by borrowing.
+    fn admit(self) -> Result<Snapshot<Job>, Error> {
+        self.check_header()?;
+        let mut previous = 0u128;
+        let jobs = self
+            .jobs
+            .into_iter()
+            .map(|entry| {
+                let id = entry.job.id;
+                let job = Job::restore(entry.job).map_err(job_error)?;
+                check_entry(id, &entry.task, self.next_id, &mut previous)?;
+                Ok(Entry {
+                    job,
+                    task: entry.task,
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        check_receipts(&self.receipts)?;
+        Ok(Snapshot {
+            init: self.init,
+            next_id: self.next_id,
+            jobs,
+            counter: self.counter,
+            receipts: self.receipts,
+        })
     }
 }
 
@@ -87,28 +112,9 @@ impl Snapshot<Job> {
             .ok_or(Error::UnknownJob)
     }
 
-    fn into_stored(self) -> Snapshot {
-        Snapshot {
-            init: self.init,
-            next_id: self.next_id,
-            jobs: self
-                .jobs
-                .into_iter()
-                .map(|entry| Entry {
-                    job: entry.job.record(),
-                    task: entry.task,
-                })
-                .collect(),
-            counter: self.counter,
-            receipts: self.receipts,
-        }
-    }
-
-    fn take_entry(self, id: u64) -> Result<Entry<Job>, Error> {
-        self.jobs
-            .into_iter()
-            .find(|entry| entry.job.record().id == JobId(u128::from(id)))
-            .ok_or(Error::UnknownJob)
+    fn take_entry(mut self, id: u64) -> Result<Entry<Job>, Error> {
+        let index = self.index(id)?;
+        Ok(self.jobs.swap_remove(index))
     }
 
     fn receipt_index(&self, delivery: &Delivery) -> Option<usize> {
@@ -120,6 +126,26 @@ impl Snapshot<Job> {
 }
 
 impl Entry<Job> {
+    fn into_view(self) -> Result<View, Error> {
+        let record = self.job.record();
+        Ok(View {
+            id: u64::try_from(record.id.0).map_err(|_| Error::InvalidStorage)?,
+            task: self.task,
+            status: match record.state {
+                JobState::Pending { .. } => Status::Pending,
+                JobState::Paused { .. } => Status::Paused,
+                JobState::Running { .. } => Status::Running,
+                JobState::Uncertain { .. } => Status::Uncertain,
+                JobState::Completed => Status::Completed,
+                JobState::Failed => Status::Failed,
+                JobState::Cancelled => Status::Cancelled,
+            },
+            due_ns: self.job.next_due_ns(),
+            sequence: record.sequence,
+            occurrence: record.occurrence,
+        })
+    }
+
     fn delivery(&self) -> Result<(Attempt, Delivery), Error> {
         let attempt = self.job.active_attempt().ok_or(Error::InvalidInput)?;
         let Task::Deliver {
@@ -201,26 +227,8 @@ fn decode(bytes: &[u8]) -> Result<Snapshot<Job>, Error> {
         return Err(Error::InvalidStorage);
     }
     let snapshot: Snapshot = serde_json::from_slice(bytes).map_err(|_| Error::InvalidStorage)?;
-    let mut jobs = Vec::with_capacity(snapshot.jobs.len().min(MAX_JOBS));
-    snapshot.validate(|record| {
-        // Every decoded JobRecord enters through the validated restore boundary.
-        jobs.push(Job::restore(record).map_err(job_error)?);
-        Ok(())
-    })?;
-    Ok(Snapshot {
-        init: snapshot.init,
-        next_id: snapshot.next_id,
-        jobs: jobs
-            .into_iter()
-            .zip(snapshot.jobs)
-            .map(|(job, entry)| Entry {
-                job,
-                task: entry.task,
-            })
-            .collect(),
-        counter: snapshot.counter,
-        receipts: snapshot.receipts,
-    })
+    // Every decoded JobRecord enters through the validated restore boundary.
+    snapshot.admit()
 }
 
 impl<M: Memory> Queue<M> {
@@ -276,14 +284,23 @@ impl<M: Memory> Queue<M> {
 
     fn commit<T>(&mut self, snapshot: Snapshot<Job>, value: T) -> Result<Committed<T>, Error> {
         let next_due_ns = next_due_ns(snapshot.jobs.iter().map(|entry| &entry.job));
-        let snapshot = snapshot.into_stored();
         let bytes = serde_json::to_vec(&snapshot).map_err(|_| Error::InvalidStorage)?;
         if bytes.len() > MAX_BYTES {
             return Err(Error::Capacity);
         }
         // Records came from validated Jobs and maintained public transitions.
         // Check collection invariants without serializing and restoring them again.
-        snapshot.validate(|_| Ok(()))?;
+        snapshot.check_header()?;
+        let mut previous = 0;
+        for entry in &snapshot.jobs {
+            check_entry(
+                entry.job.record().id,
+                &entry.task,
+                snapshot.next_id,
+                &mut previous,
+            )?;
+        }
+        check_receipts(&snapshot.receipts)?;
         self.cell.set(bytes);
         Ok(Committed { value, next_due_ns })
     }
@@ -316,13 +333,12 @@ impl<M: Memory> Queue<M> {
             .into_iter()
             .filter(|entry| entry.job.record().id.0 > u128::from(after.unwrap_or(0)))
             .take(usize::from(limit))
-            .map(|entry| view(entry.job, entry.task))
+            .map(Entry::into_view)
             .collect()
     }
 
     pub(crate) fn inspect(&self, id: u64) -> Result<View, Error> {
-        let entry = self.load()?.take_entry(id)?;
-        view(entry.job, entry.task)
+        self.load()?.take_entry(id)?.into_view()
     }
 
     pub(crate) fn cancel(&mut self, id: u64, now: u64) -> Result<Committed<()>, Error> {
@@ -483,33 +499,12 @@ impl<M: Memory> Queue<M> {
     pub(crate) fn corrupt_record(&mut self, id: u64) -> Result<(), Error> {
         let snapshot = self.load()?;
         let index = snapshot.index(id)?;
-        let snapshot = snapshot.into_stored();
         let mut encoded = serde_json::to_value(snapshot).map_err(|_| Error::InvalidStorage)?;
         encoded["jobs"][index]["job"]["retry"]["max_attempts"] = 0.into();
         self.cell
             .set(serde_json::to_vec(&encoded).map_err(|_| Error::InvalidStorage)?);
         Ok(())
     }
-}
-
-fn view(job: Job, task: Task) -> Result<View, Error> {
-    let record = job.record();
-    Ok(View {
-        id: u64::try_from(record.id.0).map_err(|_| Error::InvalidStorage)?,
-        task,
-        status: match record.state {
-            JobState::Pending { .. } => Status::Pending,
-            JobState::Paused { .. } => Status::Paused,
-            JobState::Running { .. } => Status::Running,
-            JobState::Uncertain { .. } => Status::Uncertain,
-            JobState::Completed => Status::Completed,
-            JobState::Failed => Status::Failed,
-            JobState::Cancelled => Status::Cancelled,
-        },
-        due_ns: job.next_due_ns(),
-        sequence: record.sequence,
-        occurrence: record.occurrence,
-    })
 }
 
 #[cfg(test)]

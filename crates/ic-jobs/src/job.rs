@@ -72,6 +72,16 @@ pub enum Outcome {
     Uncertain,
 }
 
+/// One recorded outcome and its timestamp, independent of later management.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecordedOutcome {
+    /// Application classification of this result.
+    pub outcome: Outcome,
+    /// Time the result was recorded, in application-supplied nanoseconds.
+    pub at_ns: u64,
+}
+
 /// Canonical, fixed-size metadata to persist beside the application's payload.
 ///
 /// Decode within your storage boundary and pass through [Job::restore].
@@ -99,17 +109,39 @@ pub struct JobRecord {
     pub state: JobState,
     /// Time of the last transition; clocks must not move behind it.
     pub updated_ns: u64,
-    /// Latest recorded outcome; this is not a full execution history.
-    pub last_outcome: Option<Outcome>,
-    /// Timestamp of that outcome, independent of later management transitions.
-    pub last_outcome_ns: Option<u64>,
+    /// Latest outcome and its timestamp; this is not a full execution history.
+    pub last_outcome: Option<RecordedOutcome>,
+}
+
+impl JobRecord {
+    // A retained retry must be safe to repeat, within budget and representable.
+    // Cancellation retains this evidence without retaining a pending deadline.
+    fn retained_retry_due_ns(&self) -> Option<u64> {
+        let RecordedOutcome { outcome, at_ns } = self.last_outcome?;
+        if self.attempts == 0
+            || self.attempts >= self.retry.max_attempts()
+            || outcome != Outcome::RetryableFailure
+            || at_ns < self.scheduled_ns
+        {
+            return None;
+        }
+        self.retry.retry_due_ns(at_ns, self.attempts)
+    }
 }
 
 /// Checked transitions of one application-owned durable job.
 ///
 /// Persist each successful transition. No method performs an external effect.
 /// Errors leave the record unchanged.
-#[derive(Debug)]
+/// Serialization delegates to the canonical [JobRecord]. Decode a record and
+/// use [Self::restore] to validate it; `Job` cannot be deserialized directly.
+///
+/// ```compile_fail
+/// let job: ic_jobs::Job = serde_json::from_str("{}")?;
+/// # Ok::<(), serde_json::Error>(())
+/// ```
+#[derive(Debug, Serialize)]
+#[serde(transparent)]
 pub struct Job(JobRecord);
 
 /// A rejected configuration, stored record or state transition.
@@ -182,7 +214,6 @@ impl Job {
             },
             updated_ns: 0,
             last_outcome: None,
-            last_outcome_ns: None,
         })
     }
 
@@ -191,6 +222,8 @@ impl Job {
     /// Running and uncertain records remain blocked after reconstruction.
     /// Restoring does not grant permission to repeat an external effect.
     pub fn restore(record: JobRecord) -> Result<Self, JobError> {
+        let last_outcome = record.last_outcome.map(|result| result.outcome);
+        let outcome_ns = record.last_outcome.map(|result| result.at_ns);
         let invalid = || Err(JobError::InvalidRecord);
         let previous_dispatches = record
             .sequence
@@ -201,9 +234,7 @@ impl Job {
             || record.scheduled_ns < record.schedule.first()
             || (record.occurrence == record.schedule_origin
                 && record.scheduled_ns != record.schedule.first())
-            || record.last_outcome.is_some() != record.last_outcome_ns.is_some()
-            || record
-                .last_outcome_ns
+            || outcome_ns
                 .is_some_and(|time| time > record.updated_ns)
             // Every completed occurrence used at most the immutable retry
             // budget. Rescheduling preserves that history; use the total
@@ -224,9 +255,9 @@ impl Job {
         let delay = u128::from(record.retry.initial_delay_ns());
         let evidence_ns = match record.state {
             JobState::Running { started_ns } | JobState::Uncertain { started_ns } => started_ns,
-            _ => record.last_outcome_ns.unwrap_or(0),
+            _ => outcome_ns.unwrap_or(0),
         };
-        if u128::from(record.last_outcome_ns.unwrap_or(0)) < u128::from(previous_retries) * delay
+        if u128::from(outcome_ns.unwrap_or(0)) < u128::from(previous_retries) * delay
             || u128::from(evidence_ns) < u128::from(retries) * delay
             || (record.attempts > 0
                 && u128::from(evidence_ns)
@@ -268,7 +299,7 @@ impl Job {
             _ => {}
         }
         if record.sequence == 0 {
-            if record.last_outcome.is_some()
+            if last_outcome.is_some()
                 || !matches!(
                     record.state,
                     JobState::Pending { .. } | JobState::Paused { .. } | JobState::Cancelled
@@ -277,7 +308,7 @@ impl Job {
                 return invalid();
             }
         } else if record.attempts == 0
-            && (record.occurrence == 0 || record.last_outcome != Some(Outcome::Success))
+            && (record.occurrence == 0 || last_outcome != Some(Outcome::Success))
         {
             return invalid();
         }
@@ -296,7 +327,7 @@ impl Job {
                 .scheduled_ns
                 .checked_sub(every_ns.get())
                 .ok_or(JobError::InvalidRecord)?;
-            let Some(completed_ns) = record.last_outcome_ns.filter(|&time| time >= floor) else {
+            let Some(completed_ns) = outcome_ns.filter(|&time| time >= floor) else {
                 return invalid();
             };
             // Management and dispatch retain this successful completion.
@@ -311,16 +342,7 @@ impl Job {
             JobState::Pending { due_ns } | JobState::Paused { due_ns } => {
                 if due_ns < record.scheduled_ns
                     || (record.attempts == 0 && due_ns != record.scheduled_ns)
-                    || (record.attempts > 0
-                        && (record.attempts >= record.retry.max_attempts()
-                            || record
-                                .last_outcome_ns
-                                .is_none_or(|time| time < record.scheduled_ns)
-                            || record.last_outcome != Some(Outcome::RetryableFailure)
-                            || record
-                                .last_outcome_ns
-                                .and_then(|time| record.retry.retry_due_ns(time, record.attempts))
-                                != Some(due_ns)))
+                    || (record.attempts > 0 && record.retained_retry_due_ns() != Some(due_ns))
                 {
                     return invalid();
                 }
@@ -341,13 +363,10 @@ impl Job {
                         None
                     };
                     if started_ns != record.updated_ns
-                        || record.last_outcome != previous_outcome
+                        || last_outcome != previous_outcome
                         || (record.attempts > 1
-                            && (record
-                                .last_outcome_ns
-                                .is_none_or(|time| time < record.scheduled_ns)
-                                || record
-                                    .last_outcome_ns
+                            && (outcome_ns.is_none_or(|time| time < record.scheduled_ns)
+                                || outcome_ns
                                     .and_then(|time| {
                                         record.retry.retry_due_ns(time, record.attempts - 1)
                                     })
@@ -355,46 +374,34 @@ impl Job {
                     {
                         return invalid();
                     }
-                } else if record.last_outcome != Some(Outcome::Uncertain)
-                    || record.last_outcome_ns != Some(record.updated_ns)
+                } else if last_outcome != Some(Outcome::Uncertain)
+                    || outcome_ns != Some(record.updated_ns)
                 {
                     return invalid();
                 }
             }
 
-            JobState::Completed => {
-                if !matches!(record.schedule, Schedule::Once { .. })
-                    || record.attempts == 0
-                    || record.updated_ns < record.scheduled_ns
-                    || record.last_outcome != Some(Outcome::Success)
-                    || record.last_outcome_ns != Some(record.updated_ns)
-                {
-                    return invalid();
-                }
-            }
-            JobState::Failed => {
+            JobState::Completed | JobState::Failed => {
+                let valid_outcome = match (record.state, last_outcome) {
+                    (JobState::Completed, Some(Outcome::Success)) => {
+                        matches!(record.schedule, Schedule::Once { .. })
+                    }
+                    (JobState::Failed, Some(Outcome::PermanentFailure)) => true,
+                    (JobState::Failed, Some(Outcome::RetryableFailure)) => {
+                        record.attempts == record.retry.max_attempts()
+                    }
+                    _ => false,
+                };
                 if record.attempts == 0
                     || record.updated_ns < record.scheduled_ns
-                    || record.last_outcome_ns != Some(record.updated_ns)
-                    || !(record.last_outcome == Some(Outcome::PermanentFailure)
-                        || (record.last_outcome == Some(Outcome::RetryableFailure)
-                            && record.attempts == record.retry.max_attempts()))
+                    || outcome_ns != Some(record.updated_ns)
+                    || !valid_outcome
                 {
                     return invalid();
                 }
             }
             JobState::Cancelled => {
-                if record.attempts > 0
-                    && (record.attempts >= record.retry.max_attempts()
-                        || record.last_outcome != Some(Outcome::RetryableFailure)
-                        || record
-                            .last_outcome_ns
-                            .is_none_or(|time| time < record.scheduled_ns)
-                        || record
-                            .last_outcome_ns
-                            .and_then(|time| record.retry.retry_due_ns(time, record.attempts))
-                            .is_none())
-                {
+                if record.attempts > 0 && record.retained_retry_due_ns().is_none() {
                     return invalid();
                 }
             }
@@ -509,8 +516,10 @@ impl Job {
         self.check_time(now_ns)?;
         let mut next = self.0;
         next.updated_ns = now_ns;
-        next.last_outcome = Some(outcome);
-        next.last_outcome_ns = Some(now_ns);
+        next.last_outcome = Some(RecordedOutcome {
+            outcome,
+            at_ns: now_ns,
+        });
         match outcome {
             Outcome::Success => {
                 if let Some(deadline) = next.schedule.successor(next.scheduled_ns, now_ns)? {

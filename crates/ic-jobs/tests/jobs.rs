@@ -598,7 +598,7 @@ fn restore_checks_successor_deadlines_against_the_recorded_completion() {
         record.updated_ns = 99;
         assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
         record.updated_ns = u64::MAX;
-        record.last_outcome_ns = Some(u64::MAX);
+        record.last_outcome.as_mut().unwrap().at_ns = u64::MAX;
         assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
 
         // Cancellation records a later transition time, not another completion.

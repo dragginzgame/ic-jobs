@@ -14,9 +14,18 @@ pub(crate) struct Notification {
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub(crate) struct NotificationSnapshot<J = JobRecord, P = Notification> {
+pub(crate) struct NotificationSnapshot<J = JobRecord> {
     pub(crate) job: J,
-    pub(crate) payload: P,
+    pub(crate) payload: Notification,
+}
+
+impl NotificationSnapshot<Job> {
+    fn into_stored(self) -> NotificationSnapshot {
+        NotificationSnapshot {
+            job: self.job.record(),
+            payload: self.payload,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -89,8 +98,7 @@ impl Notifications {
                     JobId(1),
                     Schedule::Once { at_ns: 100 },
                     RetryPolicy::new(2, 10, 10).unwrap(),
-                )
-                .record(),
+                ),
                 payload: Notification {
                     recipient: "alice".into(),
                     body: "Your report is ready".into(),
@@ -108,10 +116,7 @@ impl Notifications {
         }
         let mut jobs = Vec::with_capacity(snapshots.len());
         for snapshot in snapshots {
-            if jobs
-                .iter()
-                .any(|entry: &NotificationSnapshot<Job>| entry.job.record().id == snapshot.job.id)
-            {
+            if Self::index(&jobs, snapshot.job.id).is_some() {
                 return Err(
                     io::Error::new(io::ErrorKind::InvalidData, "duplicate job identity").into(),
                 );
@@ -125,14 +130,7 @@ impl Notifications {
     }
 
     pub(crate) fn commit(&mut self, jobs: &[NotificationSnapshot<Job>]) -> Result<()> {
-        let snapshots: Vec<_> = jobs
-            .iter()
-            .map(|entry| NotificationSnapshot {
-                job: entry.job.record(),
-                payload: &entry.payload,
-            })
-            .collect();
-        self.store.write(&snapshots)
+        self.store.write(&jobs)
     }
 
     fn authorize(caller: &str) -> Result<()> {
@@ -152,7 +150,7 @@ impl Notifications {
     ) -> Result<ManagementReply<NotificationSnapshot>> {
         Self::authorize(caller)?;
         let mut jobs = self.load()?;
-        if jobs.len() == 4 || jobs.iter().any(|entry| entry.job.record().id == id) {
+        if jobs.len() == 4 || Self::index(&jobs, id).is_some() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "queue full or identity reused",
@@ -160,17 +158,10 @@ impl Notifications {
             .into());
         }
         let job = Job::new(id, Schedule::Once { at_ns }, RetryPolicy::NONE);
-        let record = job.record();
         jobs.push(NotificationSnapshot { job, payload });
         self.commit(&jobs)?;
         let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
-        Ok(ManagementReply::new(
-            NotificationSnapshot {
-                job: record,
-                payload: jobs.pop().unwrap().payload,
-            },
-            due,
-        ))
+        Ok(ManagementReply::new(jobs.pop().unwrap().into_stored(), due))
     }
 
     pub(crate) fn inspect(
@@ -183,10 +174,7 @@ impl Notifications {
         let index = Self::index(&jobs, id).ok_or(ManagementError::UnknownJob)?;
         let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
         Ok(ManagementReply::new(
-            NotificationSnapshot {
-                job: jobs[index].job.record(),
-                payload: jobs.swap_remove(index).payload,
-            },
+            jobs.swap_remove(index).into_stored(),
             due,
         ))
     }
@@ -206,10 +194,7 @@ impl Notifications {
         let mut snapshots: Vec<_> = jobs
             .into_iter()
             .filter(|entry| after.is_none_or(|id| entry.job.record().id > id))
-            .map(|entry| NotificationSnapshot {
-                job: entry.job.record(),
-                payload: entry.payload,
-            })
+            .map(NotificationSnapshot::into_stored)
             .collect();
         snapshots.sort_by_key(|snapshot| snapshot.job.id);
         snapshots.truncate(limit);
@@ -229,10 +214,7 @@ impl Notifications {
         self.commit(&jobs)?;
         let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
         Ok(ManagementReply::new(
-            NotificationSnapshot {
-                job: jobs[index].job.record(),
-                payload: jobs.swap_remove(index).payload,
-            },
+            jobs.swap_remove(index).into_stored(),
             due,
         ))
     }
@@ -300,20 +282,12 @@ impl Notifications {
     ) -> Result<bool> {
         let mut jobs = self.load()?;
         let index = Self::index(&jobs, attempt.execution.job).ok_or(JobError::StaleAttempt)?;
-        let outcome = if destination.receipts.iter().any(|(execution, payload)| {
-            *execution == attempt.execution && payload == &jobs[index].payload
-        }) {
-            Outcome::Success
-        } else if destination
-            .rejections
-            .iter()
-            .any(|(rejected, payload)| *rejected == attempt && payload == &jobs[index].payload)
-        {
+        let outcome = match destination.recorded_result(attempt, &jobs[index].payload) {
+            Some(true) => Outcome::Success,
             // Exact destination evidence confirms this attempt had no effect.
-            Outcome::RetryableFailure
-        } else {
+            Some(false) => Outcome::RetryableFailure,
             // A missing receipt is not proof that delivery failed.
-            return Ok(false);
+            None => return Ok(false),
         };
         jobs[index].job.resolve(attempt, now_ns, outcome)?;
         self.commit(&jobs)?;
@@ -332,6 +306,26 @@ pub(crate) struct Destination {
 }
 
 impl Destination {
+    // Match the immutable payload, preferring a logical execution receipt over
+    // an exact-attempt rejection. No recorded result grants no retry permission.
+    fn recorded_result(&self, attempt: Attempt, payload: &Notification) -> Option<bool> {
+        if self
+            .receipts
+            .iter()
+            .any(|(execution, recorded)| *execution == attempt.execution && recorded == payload)
+        {
+            Some(true)
+        } else if self
+            .rejections
+            .iter()
+            .any(|(rejected, recorded)| *rejected == attempt && recorded == payload)
+        {
+            Some(false)
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn deliver(&mut self, delivery: &Delivery) -> bool {
         self.calls += 1;
         if let Some((_, payload)) = self

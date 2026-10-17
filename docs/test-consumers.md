@@ -46,7 +46,11 @@ receipt alone does not establish retry safety.
 
 Cache maintenance has only local effects, so it commits the pruned entries and
 completed job transition in the same replacement. A failed replacement commits
-neither. Its bounded wake result constructs a direct IC Timers decision.
+neither. The loaded snapshot holds one validated job with its entries/counter;
+there is no second record copy to synchronize. Notification and maintenance
+snapshots serialize validated jobs directly through the canonical `JobRecord`
+writer. Reads still decode records and pass through `Job::restore`.
+Its bounded wake result constructs a direct IC Timers decision.
 Tests check future and overdue scheduling decisions and stopping after
 cancellation; the native fixture does not call the IC timer provider.
 The store can also refuse the second write in a batch. The first committed
@@ -95,9 +99,8 @@ range-based bootstrap is added here.
 
 ## Consumer memory requests
 
-IC Memory is a development dependency selected from the root workspace catalog
-(`0.36`; the exact patch is selected by `Cargo.lock`). Each fixture contributes
-one checked `MemoryRequest`
+The unpublished consumer selects IC Memory from the root workspace catalog;
+`Cargo.lock` records the exact release. Each fixture contributes one checked `MemoryRequest`
 with a distinct authority and permanent logical key: `test.notifications.queue.v1`
 for job records and immutable notification payloads, and
 `test.maintenance.state.v1` for the maintenance record, entries and counter.
@@ -112,7 +115,7 @@ sealed requests alone do not grant committed allocation authority. Authority
 labels express ownership policy, not caller authentication.
 
 The fault-injection consumers retain their bounded byte store. A separate native
-host fixture adopts IC Memory 0.36 directly: one shared pool grants the
+host fixture uses that selected Memory dependency directly: one shared pool grants the
 two namespaces without component ranges or numeric IDs; the host bootstraps once
 before component adoption/open. Stable cells persist the same bounded snapshot
 bytes. Cold reopens retain allocation IDs, payloads and pending deadlines; reads

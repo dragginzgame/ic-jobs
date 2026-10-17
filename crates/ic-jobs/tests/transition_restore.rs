@@ -103,7 +103,8 @@ fn public_transition_histories_remain_restorable_and_failures_preserve_records()
                         assert_eq!(job.record(), record, "{operation:?} at {now}");
                         continue;
                     }
-                    let bytes = serde_json::to_vec(&job.record()).unwrap();
+                    let bytes = serde_json::to_vec(&job).unwrap();
+                    assert_eq!(bytes, serde_json::to_vec(&job.record()).unwrap());
                     let decoded: JobRecord = serde_json::from_slice(&bytes).unwrap();
                     let restored = Job::restore(decoded).unwrap_or_else(|error| {
                         panic!("{operation:?} at {now}: {error}; {decoded:?}")

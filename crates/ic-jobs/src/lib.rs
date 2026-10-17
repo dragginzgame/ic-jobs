@@ -16,6 +16,8 @@ mod job;
 mod policy;
 mod scheduler;
 
-pub use job::{Attempt, ExecutionId, Job, JobError, JobId, JobRecord, JobState, Outcome};
+pub use job::{
+    Attempt, ExecutionId, Job, JobError, JobId, JobRecord, JobState, Outcome, RecordedOutcome,
+};
 pub use policy::{MissedRunPolicy, RetryPolicy, Schedule};
 pub use scheduler::{next_due_ns, start_next};

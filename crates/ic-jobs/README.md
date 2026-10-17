@@ -29,6 +29,11 @@ completion, missed-run policies, bounded retries, pending cancellation and exact
 attempt correlation. Persist the canonical `JobRecord` beside the application
 payload and reconstruct it through `Job::restore`.
 
+Validated `Job` values implement `Serialize` transparently through the canonical
+`JobRecord` writer, so application snapshots may serialize jobs directly.
+`Job` has no `Deserialize` implementation: decode `JobRecord`, then call
+`Job::restore` before using the job.
+
 `pause` suspends pending work durably; `resume` restores its original deadline
 and missed-run policy. `reschedule` replaces scheduling intent from an unstarted
 occurrence forward, retaining job/effect identity and dispatch sequence. Paused
@@ -37,14 +42,29 @@ occurrence refuses, including retry waiting. Running and Uncertain effects remai
 blocked until explicit disposition. Management does not change payloads or retry
 budgets. Commit each record and its due-time index before reconciling a timer.
 
-**0.6 stored-record hard cut:** update exhaustive state/error matches and codecs
-for Paused, `schedule_origin` and `last_outcome_ns`. Retire/reset 0.5 snapshots
-under the consumer's explicit disposition before creating current state; there is
-no compatibility reader or automatic reset. The repository's maintainer approved
-that disposition for its disposable test installations
-([#23](https://github.com/dragginzgame/ic-jobs/issues/23)).
+## 0.15 stored-record hard cut
 
-## Checked configuration (0.8)
+`JobRecord::last_outcome` is `Option<RecordedOutcome>`: an outcome and its
+`at_ns` timestamp are present together. Read them with
+`record.last_outcome.map(|result| result.outcome)` and
+`record.last_outcome.map(|result| result.at_ns)`. The separate
+`last_outcome_ns` field is removed. Management preserves the complete latest
+result; it cannot replace the result's timestamp with a later management time.
+
+The JSON field is now `"last_outcome":{"outcome":"Success","at_ns":101}`,
+or `"last_outcome":null` before any recorded outcome. Both fields inside a
+recorded result are required. Earlier serialized records are refused, including
+records with the old `last_outcome_ns` field. There is one current codec and no
+compatibility reader, converter or automatic reset.
+
+The repository maintainer explicitly approved retiring earlier installations
+without preserving their records for this cut. Consumers must retire/reset
+earlier installations under their own authority and create fresh state before
+adopting this format. Updating source or invoking restore never clears storage.
+Current-format Running/Uncertain records still restore as blocked; only explicit
+result or retry-safety evidence permits disposition through the Jobs API.
+
+## Checked configuration
 
 Recurring `Schedule` intervals use `std::num::NonZeroU64`; absolute deadlines
 still use `u64` and may be zero. Build retry budgets with
@@ -66,15 +86,11 @@ assert_eq!(job.next_due_ns(), Some(0));
 # Ok::<(), ic_jobs::JobError>(())
 ```
 
-This is a source API cut: replace numeric interval literals and retry struct
-literals, remove `?`/`unwrap()` from `Job::new`, and update exhaustive error matches
-for the removed `ZeroInterval` variant. Raw inputs must reject zero before
-constructing a schedule. Invalid retry configuration returns
-`JobError::InvalidRetryPolicy`; invalid serialized configuration fails decoding.
+Raw inputs must reject zero before constructing a schedule. Invalid retry
+configuration returns `JobError::InvalidRetryPolicy`; invalid serialized
+configuration fails decoding.
 Every decoded `JobRecord` still passes through `Job::restore` to check its history.
-Valid retained records keep their numeric fields, variant names and JSON bytes;
-this cut requires no stable-memory reset. See
-[#28](https://github.com/dragginzgame/ic-jobs/issues/28).
+Checked configuration does not grant admission to a retired record format.
 
 ## Scheduling a batch
 

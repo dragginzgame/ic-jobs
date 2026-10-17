@@ -2,20 +2,66 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.14.0**: `242445f` (Release 0.14.0).
-Pending compatible **0.14.1** adopts Memory 0.45's bounded fixture-cell API in the
-unpublished consumer and uses the standalone Candid decoder for delivery replies.
+Delivered Jobs **0.14.1**: `cc9587c` (Release 0.14.1).
+Pending **0.15.0** hard-cuts the latest result to
+`JobRecord::last_outcome: Option<RecordedOutcome>`, pairing `outcome` and `at_ns`.
+The separate timestamp field and mismatched-presence admission check are removed.
+The same batch restores stored consumer entries directly with their payloads,
+removing the temporary job vector and positional reassembly.
+Validated `Job` now serializes transparently through the canonical `JobRecord`
+writer, without direct deserialization. Native notifications persist typed entries
+directly and no longer need a borrowed-payload projection type parameter.
+Maintenance keeps one validated job with its cache entries/counter rather than a
+validated job plus a manually synchronized raw record. Reads still pass through
+`Job::restore`; bounds admission and per-occurrence commit ordering remain.
+Completed/Failed restoration shares its common timing/attempt checks while
+retaining Once-only success, permanent failure and exhausted-retry admission.
+Pending/Paused and Cancelled restoration share retained retry evidence admission;
+only Pending/Paused must match the retained retry's deadline. Cancellation keeps
+its independent management timestamp, and Running retry checks remain separate.
+Notification management responses consume the record and payload together at one
+projection boundary, after commit and full-queue deadline projection where needed.
+The native notification destination owns recorded-result lookup, including
+payload matching and success-before-rejection evidence precedence. The sender
+still classifies those facts and explicitly resolves its retained job. Missing
+evidence remains blocked. The persistence example and shared roundtrip helper
+serialize Jobs directly, while reads still decode JobRecords and use `Job::restore`.
+Valid-state consumer fixtures share public transition setup with explicit target
+states and original timestamps; malformed-record fixtures remain independent.
+Each consumer reuses its existing identity lookup for extraction/duplicate checks.
+Owned extraction changes only the consumed snapshot; persisted ordering is
+unchanged. Page and single-job inspection project the complete owned entry,
+keeping payload and validated job together through the response boundary.
+These cleanups preserve the current 0.15 JSON and transition behavior.
+The delivered 0.14.1 adopted Memory 0.45's bounded fixture-cell API in the
+unpublished consumer and the standalone Candid decoder for delivery replies.
 Memory owns fixture allocation/bootstrap and fresh/retained Cell admission;
 Jobs keeps its 24 KiB limit, stable key/configuration, snapshot codec, collection
 checks and every `Job::restore` boundary. One payload header is checked before
 retained bytes are loaded. Refused cell bytes are preserved; allocation metadata
 may change before a later cell refusal. No reset, conversion or old reader is added.
 
-The stored and validated queue states now share `Snapshot<J>` rather than two
-metadata structs. Concrete record validation and typed persistence remain separate;
-all decoded records still enter `Job::restore` in the same order. The existing
-read-admission callback is retained so this cleanup changes no error precedence,
-payload ownership, storage schema or transition behavior.
+The stored and validated queue states share `Snapshot<J>` rather than two metadata
+structs. Consuming admission maps each record and payload into one validated entry;
+typed writes serialize Jobs directly and borrow the same header/entry/receipt
+checks without building an intermediate raw snapshot or identity-mapped output.
+Every decoded record still enters `Job::restore` before that entry's metadata
+checks, after header admission and before receipt checks. Encoded capacity still
+precedes collection errors on writes. The entry-admission cleanup preserves
+error precedence, payload ownership and transition behavior; the stored-record
+cut is separate.
+
+The maintainer explicitly selected the hard cut and retirement of earlier
+installations without preserving their jobs. Earlier JSON is refused, including
+the old separate timestamp field; there is no dual reader, converter or fallback.
+Consumers must create fresh state under their own installation authority.
+This implementation executes no storage reset or deployment. Refused cell bytes
+are not replaced; Memory bootstrap may still update allocation bookkeeping.
+Current-format Running/Uncertain records
+still restore as blocked and require the same explicit effect disposition.
+The former 0.7.5 positive record corpus is removed. A hand-authored current
+uncertain record qualifies exact JSON and blocked reconstruction; frozen old
+consumer JSON/physical images remain only as refusal evidence.
 
 Delivery decoding uses an 8 KiB wire ceiling, 4 KiB header, 64 type entries and
 finite decoding/skipping quotas, independently from the host management limits.
@@ -23,7 +69,8 @@ Unreadable replies stay distinct from an authoritative absent receipt and keep
 uncertain effects blocked. The application still compares the exact envelope.
 Jobs' actual CI fixture keeps one selected-lock drift case through its Make route;
 the pinned Shared producer owns generic checkpoint/output and refusal matrices.
-The published Jobs API, stored JSON and transition/error ordering are unchanged.
+The 0.15 record API and JSON change; transition and error ordering remain unchanged
+for current-format records. The decoder's work limits and uncertainty policy remain.
 Shared Tooling is **0.16.0** at
 `989752490b392f7f4c542c7652dcb84e75ecf363` (111 payloads), from canonical export
 of the delivered, three-host-qualified source. Jobs selects its retained-failure
@@ -35,17 +82,23 @@ Release preparation now uses Shared's metadata renderer directly. Jobs no longer
 requires cargo-edit, a separate release-tool catalog or local setup/check targets.
 Common tool admission and metadata refusal/rollback boundaries remain in place.
 
-The selected graph uses Memory 0.45.0, Testkit/Candid 0.50.0, Timers
-0.26.0, Metrics 0.11.8, Build 0.12.0 and direct Host FS/Process 0.24.0.
+The incoming graph selects Memory 0.46.0, Testkit/Candid 0.50.0, Timers
+0.26.1, Metrics 0.11.8/0.12.0, Build 0.12.1 and direct Host FS/Process 0.24.0.
 Rust floor is 1.91.0; development is 1.99.0.
-The cleanup preserves all selected registry versions and names the already-selected
-Candid decoder as a direct dependency of the unpublished consumer too. Memory
-fixture support is enabled only there. The incoming libc lock update is preserved.
+The cleanup preserves those incoming registry selections. Memory 0.46's narrowed
+exports supply backing IO types directly, without a full substrate re-export;
+its non-cloneable runtime memory lease stays with one cell owner. Only native
+fixture tests name the already-selected `ic-stable-structures` package directly,
+for raw Cell construction/corruption. That development dependency adds one lock
+edge without changing selected package versions or published Jobs dependencies.
+The standalone Candid decoder remains a direct dependency of the unpublished
+consumer. Memory fixture support is enabled only there. Incoming lock updates
+are preserved.
 Own versions,
 index, refs, release and publication remain maintainer-owned. Memory requests
 follow its key-only API. Its incompatible outer ledger requires explicit owner
 disposition before deployment of retained earlier installations; no reset or
-migration is authorized or executed by this source update. Recovery replies now
+migration is executed by this source update. Recovery replies now
 have finite wire, header, type-table and decoding/skipping work limits. The
 maximum-page and oversize-refusal proof runs natively without starting PocketIC.
 
@@ -58,6 +111,139 @@ runtime Timers dependency or lifecycle exports. The capture tool owns Jobs'
 optimizer recipe and uses IC Build's retained path; Jobs selects the live gate.
 
 ## Qualification
+
+Entry/image cleanup evidence is in `target/qualification/entry-image-cleanup/`,
+relative to the incoming pending 0.15 tree on `cc9587c`. The active registry caller
+passes all 25 consumer and 19 composition tests on actual Rust 1.91, the separate
+consumer Wasm floor check and strict native/Wasm consumer Clippy. Shared identity
+lookups retain duplicate-before-restore and complete-restore-before-lookup order;
+owned inspection retains state mapping, checked IDs, payloads and durable order.
+Core runtime source is unchanged; its previous separate floor/Wasm evidence
+retains its source scope.
+
+[Memory PR #121 — Share bounded sparse memory image fixture loading](https://github.com/dragginzgame/ic-memory/pull/121)
+proposes the fixture loader at `1b80f9c55129a5fb55ffc7839943f39368627089`, based on
+published Memory 0.46.0 `578a25a15575c1e2c54439c41fc1866a847e006a`. Five producer
+tests pass on Rust 1.91, with strict library/test Clippy, Rust 1.91 Wasm,
+warning-denied Rust 1.91 rustdoc, formatting and changed-document links. The helper
+imports only fresh zero-filled fixture backing under an explicit page ceiling;
+it checks runs before allocation and never recovers authority or converts formats.
+
+The isolated Jobs caller passes 25 consumer and 19 composition tests plus an
+independent exact comparison reproducing both complete frozen backings with the
+previous expansion. Its Rust 1.91 Wasm check and strict Clippy pass. Package
+names/versions are unchanged; only Memory's source/checksum lock row differs in
+that qualification copy. Producer/caller evidence includes the initial corrected
+link-command and qualification-file documentation refusals.
+
+The prepared `memory-adoption.patch` applies to the active tree. Jobs retains the
+frozen images, provenance, schema/payload refusal and zero-write/full-backing
+assertions; observation begins after fresh image import. Active registry adoption
+and removal of the local expansion await reviewed publication under
+[#66 — Adopt Memory sparse fixture-image loader after publication](https://github.com/dragginzgame/ic-jobs/issues/66).
+There is no active path/Git dependency or copied upstream fallback. Root versions,
+dependency selections, snapshot and primary index/refs are unchanged. No full CI,
+live PocketIC, native macOS, reset, deployment, release or publication ran.
+
+Evidence/fixture cleanup is qualified in
+`target/qualification/evidence-fixture-cleanup/`, against the incoming pending
+0.15 tree on `cc9587c`. All 47 core, 25 consumer and 19 composition tests pass on
+actual Rust 1.91. The persistence example runs on Rust 1.91 and strict native
+core/consumer Clippy passes. Existing cases retain success-over-rejection
+precedence, payload matching, stale-attempt rejection, absent-evidence blocking,
+failed commits, completion error order and idle zero-write admission. The shared
+fixture builder asserts its actual target state; both callers retain their
+original transition times. Formatting, documentation links and diff checks pass.
+Independent writer-equivalence and corrupt-record
+coverage are unchanged. This batch changes native fixtures and example/test
+serialization callers; runtime and Wasm source is unchanged, so the prior
+separate core/consumer Wasm qualification below retains its scope.
+Own versions, dependency selections, shared snapshot and primary index/refs are
+unchanged. No full CI, live PocketIC, native macOS run, reset, deployment, release
+or publication ran.
+
+Queue/retry cleanup evidence is in `target/qualification/queue-retry-cleanup/`,
+relative to the incoming pending 0.15 tree on `cc9587c` and its incoming Memory
+0.46.0/Timers 0.26.1/Build 0.12.1 lock selection. All 47 core, 25 consumer and 19
+composition tests pass on actual Rust 1.91. Exact typed/raw snapshot bytes retain
+metadata, payloads, receipts and blocked/terminal/paused records through reopening.
+Collection/capacity refusal order, record restoration priority, failed commits,
+deadline projection and notification record/payload pairing remain covered.
+Retained retry corruption refuses across Pending/Paused/Cancelled; later
+management timestamps and cancellation before the retry deadline remain valid.
+
+Separate core/consumer Rust 1.91 Wasm checks, strict native/Wasm Clippy, recovery
+harness compilation, warning-denied Rust 1.91 rustdoc and six doctests pass.
+Formatting, documentation links and diff checks pass.
+The first consumer attempts exposed the incoming Memory re-export and lease
+changes; their failures remain retained alongside the corrected passes. The final
+lock differs from the incoming selection only by the consumer's explicit raw Cell
+development edge. Own versions, shared snapshot and primary index/refs remain
+unchanged. No full CI, live PocketIC, native macOS qualification, storage reset,
+deployment, release or publication ran. Earlier evidence retains its source scope.
+
+Serialization/maintenance evidence is in
+`target/qualification/serialization-maintenance-cleanup/`, relative to the incoming
+pending 0.15 tree on `cc9587c`. All 46 core, 24 consumer and 19 composition tests
+pass on actual Rust 1.91. The bounded transition-history explorer compares direct
+Job serialization with its canonical record writer across every state; the exact
+hand-authored JSON fixture still matches. Terminal corruption cases retain result
+time, completion-kind and retry-budget refusal. Native fixtures retain exact
+notification bytes, corrupt-record refusal, failed writes and partial-batch
+reconstruction without repeating committed work.
+
+Separate core/consumer Rust 1.91 Wasm checks, strict native/Wasm Clippy,
+recovery-harness compilation, warning-denied Rust 1.91 rustdoc and six doctests
+pass. The new compile-fail example fails specifically because Job does not
+implement Deserialize, preserving record admission through `Job::restore`.
+Formatting, documentation links and diff checks pass. The selected dependency
+graph, own versions, shared snapshot and primary index/refs remain unchanged.
+No full CI, live PocketIC, native macOS qualification, reset, deployment, release
+or publication ran. Earlier qualifications below retain their source scope.
+
+Paired-outcome cut evidence is in `target/qualification/paired-outcome-cut/`,
+relative to delivered 0.14.1 `cc9587c` plus the incoming entry-admission cleanup.
+The maintainer's explicit hard-cut/no-preservation answer supplies the current
+retained-installation disposition. All 45 core tests, 24 consumer and 19
+composition tests pass on actual Rust 1.91, including bounded transition-history
+restoration, exact current-format JSON, incomplete/retired-shape refusal,
+timing/counter corruption, competing admission errors, cell preservation and
+unchanged zero-write refusal of incompatible outer ledgers. Running/Uncertain
+states remain blocked until the existing explicit result disposition.
+
+Separate core and consumer Rust 1.91 Wasm checks, strict native/Wasm Clippy,
+recovery-target compilation, warning-denied Rust 1.91 rustdoc and all five
+doctests pass. Formatting, documentation links and diff checks pass. The isolated
+Build caller is refreshed with the new core/consumer Rust sources; its three
+optimizer tests, recovery compilation and strict harness Clippy pass. Only
+Build's source/checksum lock row differs there; the actual registry graph remains
+unchanged and [#64 — Adopt Build post-processing custody after publication](https://github.com/dragginzgame/ic-jobs/issues/64)
+retains its producer-publication gate. Earlier source qualifications below retain
+their original format/source scope. Own versions, Cargo selections, the shared
+snapshot and primary index/refs are unchanged. No full CI, live PocketIC, native
+macOS qualification, storage reset, deployment, release or publication ran.
+
+Entry/post-processing evidence is in
+`target/qualification/outcome-entry-transform-cleanup/`, based on delivered
+0.14.1 `cc9587c87812ef123918a64ad61d4ee729258921`. All 24 consumer and 19 composition
+tests pass on Rust 1.91. The new competing-error cases preserve header-before-
+restore, restore-before-entry-metadata, earlier-entry-before-later-record and
+restore-before-receipt refusal order. Separate core/consumer Rust 1.91 Wasm checks,
+strict native/Wasm consumer Clippy, formatting, links and diff checks pass.
+
+[Build PR #53 — Share retained artifact custody for caller-owned post-processing](https://github.com/dragginzgame/ic-build/pull/53)
+delivers the proposed helper at `5cd31f7`, based on published Build 0.12.0
+`2598a417a96834d3139751adf549126add666c4b`. All 18 producer staging tests pass
+on Rust 1.91, with strict library/test Clippy and warning-denied Rust 1.91 rustdoc.
+The isolated Jobs caller passes three actual optimizer cases, recovery-target
+compilation, strict harness Clippy and the actual consumer-tooling fixture with
+optimizer/server effects substituted. All package names/versions are unchanged;
+only Build's source/checksum lock row differs for source qualification. The
+prepared caller patch applies to the active tree, but registry adoption remains
+gated by [#64 — Adopt Build post-processing custody after publication](https://github.com/dragginzgame/ic-jobs/issues/64).
+The active registry graph and local optimizer wrapper remain unchanged until
+reviewed publication. No full suite, live PocketIC, native macOS run, release,
+publication, reset, own-version change or primary index/ref mutation ran.
 
 Snapshot/report/status evidence is in
 `target/qualification/snapshot-report-status-cleanup/`, relative to this turn's

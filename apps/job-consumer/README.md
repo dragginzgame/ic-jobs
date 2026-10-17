@@ -5,6 +5,11 @@ in `tests/composition.rs`. Run `make test-consumers` for its 19 scenarios;
 `check-msrv` qualifies core and composition separately on Rust 1.91. Memory and
 Timers integration dependencies belong here, outside the core package tests.
 
+Native notification snapshots serialize validated jobs directly. Maintenance
+keeps its validated job, cache entries and effect counter in one snapshot,
+committing after each completed occurrence. Both readers decode records and
+enter through `Job::restore`; serialized metadata keeps its canonical shape.
+
 This unpublished canister is an application-owned consumer of Jobs, Memory and
 Timers. It is a qualification fixture with deliberate fault endpoints, and must
 not be deployed as a production service. The Jobs library acquires no storage,
@@ -32,37 +37,33 @@ separate unbounded due index is needed. Every decoded record crosses
 `Job::restore`, including future work. Successful decoding retains validated jobs
 for the complete synchronous operation. Each in-memory entry keeps its job and
 payload together; the scheduler borrows only the jobs through an iterator. Commit
-revalidates the encoded snapshot before replacing stable bytes. Separate
-job/payload alignment state is unnecessary. The stored JSON shape is unchanged.
+serializes validated jobs directly and checks collection metadata by borrowing
+entries before replacing stable bytes. Encoded capacity still takes precedence
+over collection errors. Reads restore each record before its entry metadata
+checks, after header admission and before receipt checks. Separate job/payload
+alignment state is unnecessary. Each latest result stores its outcome
+and timestamp together using the current `RecordedOutcome` shape.
 Invalid retained state refuses recovery; installation cannot overwrite existing
 allocations. Oversized-cell refusal preserves the exact cell header and payload;
 bootstrap may update allocation bookkeeping before that refusal. The frozen
-incompatible-ledger cases separately retain their zero-write proof. This is a new test installation
-format, not a replacement reader for any existing deployment. The maintainer
-approved retirement/reset of the disposable 0.5 installations for this hard cut;
-create fresh 0.6 fixtures. Upgrading old retained state is unsupported and must
-not reuse its discriminator or allocation as though its format were unchanged.
+incompatible-ledger cases separately retain their zero-write proof.
 
-IC Memory 0.39 also changes the physical ledger envelope to one current snapshot.
-The frozen 0.7.5 two-slot image is deliberately refused during both recovery and
-installation, with zero stable writes. The separate frozen Jobs JSON fixture
-still reopens on fresh current-format memory and retains blocked effects. This
-does not establish an upgrade path for old physical images: their owner must
-explicitly dispose of or preserve retained state before adopting the new ledger.
-There is no compatibility reader, automatic reset or rewrite of historical bytes.
+Memory supplies the backing interfaces and fixture cell. Native fixtures use a
+direct development dependency on `ic-stable-structures` for raw Cell setup and
+deliberate corruption; runtime code does not import collections through Memory.
+Memory leases are consumed by their cell owner rather than cloned.
 
-IC Memory 0.41 changes the logical ledger discriminator and checked slot encoding.
-The frozen 0.40 registry-produced image is also refused for recovery and installation,
-with zero writes, unchanged pages and identical backing bytes. Existing 0.40
-installations require explicit owner disposition before deployment; adopting the
-crate does not authorize clearing their ledger or preserving untracked cells.
-The unchanged Jobs JSON remains independently readable on fresh current memory.
+**0.15 hard cut:** Earlier Jobs JSON, including the frozen 0.7.5 snapshot,
+is refused even on current Memory backing. The maintainer approved retiring
+earlier installations without preserving jobs for this cut; create fresh test
+installations. Source adoption and failed recovery do not clear, convert or
+overwrite retained cells. There is no compatibility reader or automatic reset.
 
-Memory 0.45 removes allocator schema metadata and changes the outer ledger format.
-Requests now contain only their authority and key. Earlier physical installations
-require their owner's explicit retention/disposition decision before deployment;
-this source update does not clear, convert or reset their backing memory. Jobs'
-JSON entries and restore boundary remain unchanged on fresh current memory.
+The frozen 0.7.5 and Memory 0.40 physical images are also refused during both
+recovery and installation, before payload admission and with zero stable writes,
+unchanged pages and identical backing bytes. Jobs' JSON codec and Memory's outer
+ledger are independent admission boundaries. The stable key identifies the
+consumer allocation; it does not make incompatible payload formats readable.
 
 `Increment` performs a local counter effect and completes its job in one stable
 replacement. A counter overflow has no effect and permanently fails that job,

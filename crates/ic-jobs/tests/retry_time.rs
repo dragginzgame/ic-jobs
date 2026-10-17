@@ -1,5 +1,8 @@
 //! Retained timing must account for positive backoff, even after evidence changes.
-use ic_jobs::{Job, JobError, JobId, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule};
+use ic_jobs::{
+    Job, JobError, JobId, JobState, MissedRunPolicy, Outcome, RecordedOutcome, RetryPolicy,
+    Schedule,
+};
 use std::num::NonZeroU64;
 
 #[test]
@@ -35,7 +38,7 @@ fn uncertain_and_rescheduled_retry_histories_preserve_elapsed_time() {
         assert!(Job::restore(job.record()).is_ok());
         let mut impossible = job.record();
         impossible.updated_ns = delay - 1;
-        impossible.last_outcome_ns = Some(delay - 1);
+        impossible.last_outcome.as_mut().unwrap().at_ns = delay - 1;
         assert_eq!(
             Job::restore(impossible).unwrap_err(),
             JobError::InvalidRecord
@@ -58,8 +61,10 @@ fn retry_time_bound_uses_wide_arithmetic_for_untrusted_counts() {
             started_ns: u64::MAX,
         };
         record.updated_ns = u64::MAX;
-        record.last_outcome = Some(Outcome::Uncertain);
-        record.last_outcome_ns = Some(u64::MAX);
+        record.last_outcome = Some(RecordedOutcome {
+            outcome: Outcome::Uncertain,
+            at_ns: u64::MAX,
+        });
         assert_eq!(Job::restore(record).unwrap_err(), JobError::InvalidRecord);
     }
 }
@@ -112,7 +117,7 @@ fn late_dispatch_cannot_hide_impossible_prior_retry_completion() {
     job.start(10).unwrap();
     assert!(Job::restore(job.record()).is_ok());
     let mut impossible = job.record();
-    impossible.last_outcome_ns = Some(4);
+    impossible.last_outcome.as_mut().unwrap().at_ns = 4;
     assert_eq!(
         Job::restore(impossible).unwrap_err(),
         JobError::InvalidRecord

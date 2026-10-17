@@ -9,9 +9,9 @@ use std::io;
 use ic_jobs::{Job, JobError, JobId, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule};
 use ic_memory::{
     GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryManagerConfig,
-    MemoryRequest, MemoryRuntime, RuntimeOpenError, SealedDeclarationSnapshot,
-    ic_stable_structures::{Cell, VectorMemory},
+    MemoryRequest, MemoryRuntime, RuntimeOpenError, SealedDeclarationSnapshot, VectorMemory,
 };
+use ic_stable_structures::Cell;
 mod consumer_support;
 
 use consumer_support::*;
@@ -119,8 +119,8 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
             assert_eq!(restored.outstanding()?, vec![delivery.clone()]);
             assert_eq!(restored.prepare(150)?, None);
             assert!(!restored.reconcile(delivery.attempt, &Destination::default(), 150)?);
-            assert_eq!(restored_maintenance.load()?.0.next_due_ns(), Some(130));
-            assert_eq!(restored_maintenance.load()?.1.completed_runs, 1);
+            assert_eq!(restored_maintenance.load()?.job.next_due_ns(), Some(130));
+            assert_eq!(restored_maintenance.load()?.completed_runs, 1);
             assert_eq!(
                 restored.next_due_ns()?,
                 if reopen == 0 { Some(200) } else { None }
@@ -144,7 +144,7 @@ fn notification_commit_failure_never_exposes_delivery() -> Result<()> {
     sender.commit(&jobs)?;
     assert_eq!(
         sender.store.bytes, before,
-        "borrowed projection preserves stored bytes"
+        "direct serialization preserves stored bytes"
     );
 
     let before = sender.store.bytes.clone();
@@ -266,7 +266,7 @@ fn maintenance_reconstruction_bounds_catch_up_and_rebuilds_deadlines() -> Result
             next_due_ns: Some(120)
         }
     );
-    let (_, snapshot) = restored.load()?;
+    let snapshot = restored.load()?;
     assert_eq!(snapshot.completed_runs, 2);
     assert_eq!(snapshot.expires_ns, vec![200]);
     let second = restored.wake(135)?;
@@ -277,7 +277,7 @@ fn maintenance_reconstruction_bounds_catch_up_and_rebuilds_deadlines() -> Result
             next_due_ns: Some(140)
         }
     );
-    assert_eq!(restored.load()?.1.completed_runs, 4);
+    assert_eq!(restored.load()?.completed_runs, 4);
     {
         use ic_timers::WatchdogDecision;
         assert_eq!(
@@ -316,8 +316,8 @@ fn local_maintenance_effect_rolls_back_with_failed_commit_and_skip_avoids_backlo
     maintenance.store.writes_before_failure = Some(0);
     assert!(maintenance.wake(135).is_err());
     assert_eq!(maintenance.store.bytes, before);
-    assert_eq!(maintenance.load()?.1.completed_runs, 0);
-    assert_eq!(maintenance.load()?.1.expires_ns, vec![90, 100, 125, 200]);
+    assert_eq!(maintenance.load()?.completed_runs, 0);
+    assert_eq!(maintenance.load()?.expires_ns, vec![90, 100, 125, 200]);
     assert_eq!(
         maintenance.wake(135)?,
         Wake {
@@ -325,7 +325,7 @@ fn local_maintenance_effect_rolls_back_with_failed_commit_and_skip_avoids_backlo
             next_due_ns: Some(140)
         }
     );
-    assert_eq!(maintenance.load()?.1.expires_ns, vec![200]);
+    assert_eq!(maintenance.load()?.expires_ns, vec![200]);
     Ok(())
 }
 
@@ -588,12 +588,12 @@ fn maintenance_resumes_after_partial_batch_commit_without_repeating_work() -> Re
         error.downcast_ref::<io::Error>().unwrap().kind(),
         io::ErrorKind::Other
     );
-    let (job, snapshot) = maintenance.load()?;
+    let snapshot = maintenance.load()?;
     assert_eq!(snapshot.completed_runs, 1);
     assert_eq!(snapshot.expires_ns, vec![200]);
-    assert_eq!(job.record().occurrence, 1);
-    assert_eq!(job.record().sequence, 1);
-    assert_eq!(job.next_due_ns(), Some(110));
+    assert_eq!(snapshot.job.record().occurrence, 1);
+    assert_eq!(snapshot.job.record().sequence, 1);
+    assert_eq!(snapshot.job.next_due_ns(), Some(110));
 
     let mut restored = Maintenance {
         store: Store::from_bytes(maintenance.store.bytes),
@@ -605,10 +605,10 @@ fn maintenance_resumes_after_partial_batch_commit_without_repeating_work() -> Re
             next_due_ns: Some(130)
         }
     );
-    let (job, snapshot) = restored.load()?;
+    let snapshot = restored.load()?;
     assert_eq!(snapshot.completed_runs, 3);
-    assert_eq!(job.record().occurrence, 3);
-    assert_eq!(job.record().sequence, 3);
+    assert_eq!(snapshot.job.record().occurrence, 3);
+    assert_eq!(snapshot.job.record().sequence, 3);
     assert_eq!(
         restored.wake(135)?,
         Wake {
@@ -616,8 +616,8 @@ fn maintenance_resumes_after_partial_batch_commit_without_repeating_work() -> Re
             next_due_ns: Some(140)
         }
     );
-    assert_eq!(restored.load()?.1.completed_runs, 4);
-    assert_eq!(restored.load()?.1.expires_ns, vec![200]);
+    assert_eq!(restored.load()?.completed_runs, 4);
+    assert_eq!(restored.load()?.expires_ns, vec![200]);
     Ok(())
 }
 
@@ -640,7 +640,7 @@ fn management_creation_inspection_and_pages_survive_reconstruction() -> Result<(
         assert_eq!(snapshot.job.state, JobState::Pending { due_ns: at_ns });
         assert_eq!(snapshot.payload.body, body);
     }
-    let restored = Notifications {
+    let mut restored = Notifications {
         store: Store::from_bytes(sender.store.bytes),
     };
     let before = restored.store.bytes.clone();
@@ -650,17 +650,31 @@ fn management_creation_inspection_and_pages_survive_reconstruction() -> Result<(
 
     // Cursor order follows stable job identity, independently of insertion order.
     let mut after = None;
-    for expected in [1, 3, 8] {
+    for (expected, body) in [(1, "Your report is ready"), (3, "three"), (8, "eight")] {
         let reply = restored.page(NOTIFICATION_MANAGER, after, 1)?;
         assert_eq!(reply.next_due_ns, Some(80));
         let page = reply.value;
         assert_eq!(page.len(), 1);
         assert_eq!(page[0].job.id, JobId(expected));
+        assert_eq!(page[0].payload.body, body);
         after = Some(page[0].job.id);
     }
     let reply = restored.page(NOTIFICATION_MANAGER, after, 1)?;
     assert!(reply.value.is_empty());
     assert_eq!(restored.store.bytes, before);
+    let reply = restored.cancel(NOTIFICATION_MANAGER, JobId(8), 81)?;
+    assert_eq!(reply.value.job.id, JobId(8));
+    assert_eq!(reply.value.job.state, JobState::Cancelled);
+    assert_eq!(reply.value.payload.body, "eight");
+    assert_eq!(reply.next_due_ns, Some(100));
+    assert_eq!(
+        restored
+            .inspect(NOTIFICATION_MANAGER, JobId(3))?
+            .value
+            .payload
+            .body,
+        "three"
+    );
     Ok(())
 }
 

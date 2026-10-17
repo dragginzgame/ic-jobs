@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.15.0]
+
+- **Breaking:** Store the latest outcome and its timestamp together in
+  `JobRecord::last_outcome: Option<RecordedOutcome>`. Replace uses of the removed
+  `last_outcome_ns` field with the recorded outcome's `at_ns`. Earlier record
+  JSON is refused; there is no compatibility reader or conversion.
+- **Installation action:** Retire earlier installations under the maintainer's
+  approved disposition and create fresh state before using this format. Source
+  adoption does not clear storage or reset a deployed canister.
+
+- Restore stored consumer entries directly with their payloads, removing the
+  intermediate job vector while preserving admission/refusal ordering.
+  Reuse consumer identity lookups and keep inspection projections on the owned
+  job/payload entry.
+- Serialize validated jobs through their canonical record writer. Notification,
+  maintenance and canister queue snapshots persist validated state directly,
+  removing temporary record projections and manual synchronization. Notification
+  management replies keep each record paired with its payload during conversion.
+  The persistence example and roundtrip fixtures use the same direct writer.
+- Keep native notification evidence queries with the destination; the sender
+  retains result classification and explicit uncertain-effect resolution.
+- Share terminal and retained-retry admission checks while retaining completion,
+  permanent-failure, exhausted-retry and cancellation rules. These cleanups
+  preserve the current 0.15 record format and transition behavior.
+- Adapt the unpublished qualification consumer to Memory 0.46's narrowed exports
+  and non-cloneable memory leases. Raw Cell access is a direct development-only
+  fixture dependency; the published Jobs dependency boundary is unchanged.
+
 ## [0.14.1] - 2026-10-17
 
 - Keep stored records and validated consumer state in one snapshot shape,

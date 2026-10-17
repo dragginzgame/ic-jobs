@@ -1,7 +1,7 @@
 //! Durable management keeps effect identity and independent timing evidence.
 use ic_jobs::{
-    Job, JobError, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule,
-    next_due_ns, start_next,
+    Job, JobError, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RecordedOutcome,
+    RetryPolicy, Schedule, next_due_ns, start_next,
 };
 
 mod support;
@@ -43,7 +43,13 @@ fn pause_restore_resume_preserves_overdue_policy_and_scheduler_exclusion() {
         );
         jobs[0].pause(201).unwrap();
         jobs[0].resume(300).unwrap();
-        assert_eq!(roundtrip(&jobs[0]).record().last_outcome_ns, Some(200));
+        assert_eq!(
+            roundtrip(&jobs[0])
+                .record()
+                .last_outcome
+                .map(|result| result.at_ns),
+            Some(200)
+        );
         jobs[0].pause(300).unwrap();
         jobs[0].cancel(301).unwrap();
         assert_eq!(roundtrip(&jobs[0]).record().state, JobState::Cancelled);
@@ -74,9 +80,12 @@ fn retry_pause_retains_backoff_and_refuses_rescheduling_after_an_attempt() {
     job.pause(120).unwrap();
     job.resume(200).unwrap();
     assert_eq!(roundtrip(&job).next_due_ns(), Some(130));
-    assert_eq!(job.record().last_outcome_ns, Some(110));
+    assert_eq!(
+        job.record().last_outcome.map(|result| result.at_ns),
+        Some(110)
+    );
     let mut corrupt = job.record();
-    corrupt.last_outcome_ns = Some(111);
+    corrupt.last_outcome.as_mut().unwrap().at_ns = 111;
     assert_eq!(Job::restore(corrupt).unwrap_err(), JobError::InvalidRecord);
 }
 
@@ -105,7 +114,7 @@ fn rescheduling_preserves_history_and_rebases_only_the_current_cadence() {
                 ),
                 (JobId(7), 1, 1, 1, 0)
             );
-            assert_eq!(record.last_outcome_ns, Some(100));
+            assert_eq!(record.last_outcome.map(|result| result.at_ns), Some(100));
             assert_eq!(job.next_due_ns(), if paused { None } else { Some(250) });
             if paused {
                 job.resume(210).unwrap();
@@ -231,7 +240,10 @@ fn restore_rejects_missing_management_fields_and_inconsistent_anchors() {
     invalid.schedule_origin = 1;
     assert_eq!(Job::restore(invalid).unwrap_err(), JobError::InvalidRecord);
     invalid = job.record();
-    invalid.last_outcome_ns = Some(0);
+    invalid.last_outcome = Some(RecordedOutcome {
+        outcome: Outcome::Success,
+        at_ns: 0,
+    });
     assert_eq!(Job::restore(invalid).unwrap_err(), JobError::InvalidRecord);
     let mut once = Job::new(
         JobId(1),
@@ -258,7 +270,7 @@ fn restore_rejects_running_retry_before_retained_backoff() {
     assert_eq!(roundtrip(&job).record(), job.record());
     for (outcome_ns, started_ns) in [(100, 109), (99, 110), (u64::MAX, u64::MAX)] {
         let mut corrupt = job.record();
-        corrupt.last_outcome_ns = Some(outcome_ns);
+        corrupt.last_outcome.as_mut().unwrap().at_ns = outcome_ns;
         corrupt.state = JobState::Running { started_ns };
         corrupt.updated_ns = started_ns;
         assert_eq!(Job::restore(corrupt).unwrap_err(), JobError::InvalidRecord);
@@ -288,6 +300,58 @@ fn restore_rejects_running_retry_before_retained_backoff() {
 }
 
 #[test]
+fn retained_retry_evidence_is_consistent_across_management_states() {
+    let mut job = Job::new(
+        JobId(9),
+        Schedule::Once { at_ns: 100 },
+        RetryPolicy::new(3, 10, 20).unwrap(),
+    );
+    let attempt = job.start(100).unwrap();
+    job.finish(attempt, 101, Outcome::RetryableFailure).unwrap();
+    for state in [
+        JobState::Pending { due_ns: 111 },
+        JobState::Paused { due_ns: 111 },
+        JobState::Cancelled,
+    ] {
+        let mut valid = job.record();
+        valid.state = state;
+        // Management time may differ from the retained result and precede due.
+        valid.updated_ns = 110;
+        assert_eq!(roundtrip(&Job::restore(valid).unwrap()).record(), valid);
+        for case in 0..5 {
+            let mut corrupt = valid;
+            match case {
+                0 => corrupt.last_outcome = None,
+                1 => corrupt.last_outcome.as_mut().unwrap().outcome = Outcome::Success,
+                2 => corrupt.last_outcome.as_mut().unwrap().at_ns = 99,
+                3 => corrupt.retry = RetryPolicy::NONE,
+                4 => {
+                    corrupt.last_outcome.as_mut().unwrap().at_ns = u64::MAX;
+                    corrupt.updated_ns = u64::MAX;
+                }
+                _ => unreachable!(),
+            }
+            assert_eq!(
+                Job::restore(corrupt).unwrap_err(),
+                JobError::InvalidRecord,
+                "{state:?}, case {case}"
+            );
+        }
+        if let JobState::Pending { .. } | JobState::Paused { .. } = state {
+            let mut wrong_deadline = valid;
+            wrong_deadline.state = match state {
+                JobState::Pending { .. } => JobState::Pending { due_ns: 112 },
+                _ => JobState::Paused { due_ns: 112 },
+            };
+            assert_eq!(
+                Job::restore(wrong_deadline).unwrap_err(),
+                JobError::InvalidRecord
+            );
+        }
+    }
+}
+
+#[test]
 fn restore_rejects_cancelled_retry_with_impossible_completion() {
     for paused in [false, true] {
         let mut job = recurring(MissedRunPolicy::CatchUp);
@@ -301,7 +365,7 @@ fn restore_rejects_cancelled_retry_with_impossible_completion() {
         assert_eq!(roundtrip(&job).record(), job.record());
         for outcome_ns in [99, u64::MAX] {
             let mut corrupt = job.record();
-            corrupt.last_outcome_ns = Some(outcome_ns);
+            corrupt.last_outcome.as_mut().unwrap().at_ns = outcome_ns;
             corrupt.updated_ns = u64::MAX;
             assert_eq!(Job::restore(corrupt).unwrap_err(), JobError::InvalidRecord);
         }
@@ -365,7 +429,10 @@ fn repeated_rebasing_preserves_history_and_counter_exhaustion() {
                 (job.record().occurrence, job.record().schedule_origin),
                 (1, 1)
             );
-            assert_eq!(job.record().last_outcome_ns, Some(200));
+            assert_eq!(
+                job.record().last_outcome.map(|result| result.at_ns),
+                Some(200)
+            );
             assert_eq!(
                 job.next_due_ns(),
                 if paused { None } else { Some(first_at_ns) }

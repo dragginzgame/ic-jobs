@@ -1,5 +1,6 @@
 use super::*;
-use ic_memory::ic_stable_structures::{Cell, VectorMemory};
+use ic_memory::VectorMemory;
+use ic_stable_structures::Cell;
 
 fn manager() -> Principal {
     Principal::self_authenticating(b"manager")
@@ -15,6 +16,31 @@ fn increment(at: u64) -> Create {
         timing: Timing::Once(at),
         task: Task::Increment(1),
     }
+}
+
+// These fixtures start with a fresh Once job. Build only valid states through
+// the public transitions; malformed-record fixtures remain independent.
+fn set_job_state(job: &mut Job, state: JobState, at_ns: u64) {
+    match state {
+        JobState::Pending { .. } => {}
+        JobState::Paused { .. } => job.pause(at_ns).unwrap(),
+        JobState::Cancelled => job.cancel(at_ns).unwrap(),
+        _ => {
+            let attempt = job.start(at_ns).unwrap();
+            match state {
+                JobState::Running { .. } => {}
+                JobState::Uncertain { .. } => {
+                    job.finish(attempt, at_ns, Outcome::Uncertain).unwrap()
+                }
+                JobState::Completed => job.finish(attempt, at_ns, Outcome::Success).unwrap(),
+                JobState::Failed => job
+                    .finish(attempt, at_ns, Outcome::PermanentFailure)
+                    .unwrap(),
+                _ => unreachable!(),
+            }
+        }
+    }
+    assert_eq!(job.record().state, state);
 }
 
 #[test]
@@ -433,25 +459,7 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
                 .value;
             let mut snapshot = queue.load().unwrap();
             let job = &mut snapshot.jobs[0].job;
-            match state {
-                JobState::Pending { .. } => {}
-                JobState::Paused { .. } => job.pause(10).unwrap(),
-                JobState::Cancelled => job.cancel(10).unwrap(),
-                _ => {
-                    let attempt = job.start(10).unwrap();
-                    match state {
-                        JobState::Running { .. } => {}
-                        JobState::Uncertain { .. } => {
-                            job.finish(attempt, 10, Outcome::Uncertain).unwrap();
-                        }
-                        JobState::Completed => job.finish(attempt, 10, Outcome::Success).unwrap(),
-                        JobState::Failed => {
-                            job.finish(attempt, 10, Outcome::PermanentFailure).unwrap();
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-            }
+            set_job_state(job, state, 10);
             let record = job.record();
             queue.commit(snapshot, ()).unwrap();
             let delivery = Delivery {
@@ -639,7 +647,7 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
     let mut cancelled_retry = Job::restore(retry.record()).unwrap();
     cancelled_retry.cancel(105).unwrap();
     let mut cancelled_retry = cancelled_retry.record();
-    cancelled_retry.last_outcome_ns = Some(99);
+    cancelled_retry.last_outcome.as_mut().unwrap().at_ns = 99;
     retry.start(110).unwrap();
     let mut running_retry = retry.record();
     running_retry.state = JobState::Running { started_ns: 109 };
@@ -678,6 +686,97 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
         queue.cell.set(serde_json::to_vec(&snapshot).unwrap());
         assert_invalid_record_blocks_queue(queue, backing, 100, healthy);
     }
+}
+
+#[test]
+fn snapshot_admission_preserves_restore_and_collection_error_order() {
+    let mut queue = Queue::open(VectorMemory::default(), Some(config()))
+        .unwrap()
+        .0;
+    queue.create(increment(100)).unwrap();
+    queue.create(increment(200)).unwrap();
+    let bytes = queue.cell.bytes().to_vec();
+    for case in 0..4 {
+        let mut snapshot: Snapshot = serde_json::from_slice(&bytes).unwrap();
+        let bad_record = if case == 2 { 1 } else { 0 };
+        snapshot.jobs[bad_record].job.state = JobState::Completed;
+        let expected = match case {
+            0 => {
+                snapshot.next_id = 0;
+                Error::InvalidStorage
+            }
+            1 => {
+                snapshot.jobs[0].job.id = JobId(0);
+                job_error(ic_jobs::JobError::InvalidRecord)
+            }
+            2 => {
+                snapshot.jobs[0].task = Task::Deliver {
+                    destination: manager(),
+                    message: "x".repeat(MAX_MESSAGE + 1),
+                };
+                Error::InvalidStorage
+            }
+            3 => {
+                snapshot.receipts.push(Delivery {
+                    job: 0,
+                    occurrence: 0,
+                    sequence: 0,
+                    destination: manager(),
+                    message: String::new(),
+                });
+                job_error(ic_jobs::JobError::InvalidRecord)
+            }
+            _ => unreachable!(),
+        };
+        assert_eq!(
+            decode(&serde_json::to_vec(&snapshot).unwrap()).map(|_| ()),
+            Err(expected),
+            "case {case}"
+        );
+    }
+    assert_eq!(queue.cell.bytes(), bytes);
+}
+
+#[test]
+fn typed_commit_preserves_canonical_snapshot_bytes_and_metadata() {
+    let memory = VectorMemory::default();
+    let mut queue = Queue::open(
+        memory.clone(),
+        Some(Init {
+            manager: manager(),
+            delivery_sender: Some(manager()),
+        }),
+    )
+    .unwrap()
+    .0;
+    queue.create(increment(100)).unwrap();
+    queue
+        .create(Create {
+            timing: Timing::Once(100),
+            task: Task::Deliver {
+                destination: manager(),
+                message: "paired payload".into(),
+            },
+        })
+        .unwrap();
+    let delivery = queue.dispatch(100).unwrap().value.0.pop().unwrap();
+    queue.receive(manager(), delivery.clone()).unwrap();
+    queue.finish(&delivery, 101, Outcome::Uncertain).unwrap();
+    let later = queue.create(increment(200)).unwrap().value;
+    queue.pause(later, 102).unwrap();
+    // The raw canonical writer and typed writer must retain the same metadata,
+    // payloads, receipt and blocked/terminal/paused records byte for byte.
+    let stored: Snapshot = serde_json::from_slice(queue.cell.bytes()).unwrap();
+    let expected = serde_json::to_vec(&stored).unwrap();
+    let loaded = queue.load().unwrap();
+    assert_eq!(queue.commit(loaded, ()).unwrap().next_due_ns, None);
+    assert_eq!(queue.cell.bytes(), expected);
+    drop(queue);
+    let (queue, due) = Queue::open(memory, None).unwrap();
+    assert_eq!(due, None);
+    assert_eq!(queue.summary().unwrap(), (None, 1, 1));
+    assert_eq!(queue.outstanding(delivery.job).unwrap(), delivery);
+    assert_eq!(queue.inspect(later).unwrap().status, Status::Paused);
 }
 
 #[test]
@@ -752,47 +851,23 @@ fn typed_commit_refuses_invalid_collection_metadata_without_changing_bytes() {
 }
 
 #[test]
-fn released_075_snapshot_reopens_without_reset_and_retains_blocked_effects() {
-    // Produced with archived release 060fb9d226389bab702132ba23f42bd0b887a690
-    // before changing configuration types. Keep the established memory key/codec.
+fn retired_snapshot_is_refused_without_replacing_the_cell() {
+    // Exact old producer bytes remain only as a refusal/preservation fixture.
     let bytes = include_bytes!("fixtures/snapshot-075.json").to_vec();
-    let memory = VectorMemory::default();
-    let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
+    let backing = VectorMemory::default();
+    let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
     queue.cell.set(bytes.clone());
-    drop(queue);
-    let mut queue = Queue::open(memory.clone(), None).unwrap().0;
-    assert_eq!(queue.cell.bytes(), bytes);
-    let loaded = queue.load().unwrap();
-    queue.commit(loaded, ()).unwrap();
-    assert_eq!(queue.cell.bytes(), bytes);
-    assert_eq!(queue.summary().unwrap(), (Some(200), 0, 0));
-    let running = queue.inspect(1).unwrap();
-    let uncertain = queue.inspect(2).unwrap();
-    assert_eq!(running.status, Status::Running);
-    assert_eq!(uncertain.status, Status::Uncertain);
-    assert_eq!(queue.inspect(3).unwrap().status, Status::Paused);
-    assert_eq!(
-        queue.outstanding(1).unwrap().message,
-        "retained external intent"
-    );
-    assert_eq!(
-        queue.outstanding(2).unwrap().message,
-        "uncertain external effect"
-    );
-    assert_eq!(
-        queue.dispatch(200).unwrap(),
-        Committed {
-            value: (vec![], 1),
-            next_due_ns: Some(210)
-        }
-    );
-    assert_eq!(queue.summary().unwrap(), (Some(210), 5, 0));
-    assert_eq!(queue.inspect(1).unwrap(), running);
-    assert_eq!(queue.inspect(2).unwrap(), uncertain);
-    drop(queue);
-    let queue = Queue::open(memory, None).unwrap().0;
-    assert_eq!(queue.inspect(1).unwrap(), running);
-    assert_eq!(queue.inspect(2).unwrap(), uncertain);
+    let memory = queue.cell.into_memory();
+    for initial in [None, Some(config())] {
+        assert!(matches!(
+            Queue::open(backing.clone(), initial),
+            Err(Error::InvalidStorage)
+        ));
+        assert_eq!(
+            ic_memory::decode_stable_cell_payload(&memory).unwrap(),
+            bytes
+        );
+    }
 }
 
 #[test]
@@ -867,9 +942,12 @@ fn prior_memory_ledgers_are_refused_without_writes_or_reset() {
     ] {
         let frozen: FrozenMemory = serde_json::from_str(encoded).unwrap();
         assert_eq!(frozen.producer, producer);
-        // The frozen Jobs payload remains valid; the incompatible outer Memory
-        // ledger must be refused before publishing any allocation or overwriting it.
-        decode(frozen.snapshot.as_bytes()).unwrap();
+        // Both layers are retired. The outer Memory ledger must refuse before
+        // payload admission, publishing an allocation or overwriting old bytes.
+        assert!(matches!(
+            decode(frozen.snapshot.as_bytes()),
+            Err(Error::InvalidStorage)
+        ));
         let backing = VectorMemory::default();
         let memory = CountedMemory {
             backing,
@@ -922,40 +1000,23 @@ impl Memory for CountedMemory {
 
 #[test]
 fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
-    for state in 0..6 {
+    for state in [
+        None,
+        Some((JobState::Pending { due_ns: 100 }, 0)),
+        Some((JobState::Paused { due_ns: 100 }, 0)),
+        Some((JobState::Running { started_ns: 100 }, 100)),
+        Some((JobState::Uncertain { started_ns: 100 }, 100)),
+        Some((JobState::Completed, 100)),
+    ] {
         let memory = CountedMemory {
             backing: VectorMemory::default(),
             writes: std::rc::Rc::new(std::cell::Cell::new(0)),
         };
         let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
-        let id = if state == 0 {
-            None
-        } else {
-            Some(queue.create(increment(100)).unwrap().value)
-        };
+        let id = state.map(|_| queue.create(increment(100)).unwrap().value);
         let mut loaded = queue.load().unwrap();
-        if let Some(entry) = loaded.jobs.first_mut() {
-            let job = &mut entry.job;
-            match state {
-                2 => job.pause(0).unwrap(),
-                3 => {
-                    job.start(100).unwrap();
-                }
-                4 | 5 => {
-                    let attempt = job.start(100).unwrap();
-                    job.finish(
-                        attempt,
-                        100,
-                        if state == 4 {
-                            Outcome::Uncertain
-                        } else {
-                            Outcome::Success
-                        },
-                    )
-                    .unwrap();
-                }
-                _ => {}
-            }
+        if let Some((target, at_ns)) = state {
+            set_job_state(&mut loaded.jobs[0].job, target, at_ns);
         }
         queue.commit(loaded, ()).unwrap();
         let expected_due = queue.summary().unwrap().0;
@@ -967,15 +1028,15 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
                 value: (vec![], 0),
                 next_due_ns: expected_due
             },
-            "state {state}"
+            "state {state:?}"
         );
-        assert_eq!(memory.writes.get(), 0, "state {state}");
-        assert_eq!(queue.cell.bytes(), before, "state {state}");
+        assert_eq!(memory.writes.get(), 0, "state {state:?}");
+        assert_eq!(queue.cell.bytes(), before, "state {state:?}");
         if let Some(id) = id {
             queue.corrupt_record(id).unwrap();
             let before = queue.cell.bytes().to_vec();
             memory.writes.set(0);
-            assert!(queue.dispatch(99).is_err(), "state {state}");
+            assert!(queue.dispatch(99).is_err(), "state {state:?}");
             assert_eq!(memory.writes.get(), 0);
             assert_eq!(queue.cell.bytes(), before);
         }

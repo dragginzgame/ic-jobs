@@ -4,7 +4,7 @@ use std::{
 };
 
 use ic_jobs::Outcome;
-use ic_memory::ic_stable_structures::DefaultMemoryImpl;
+use ic_memory::DefaultMemoryImpl;
 use ic_timers::{
     TimerCadence, TimerCompletion, TimerIdentity, WatchdogDecision, WatchdogReconcileState,
     WatchdogRegistration, WatchdogRunResult, reconcile_watchdog,
