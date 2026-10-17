@@ -109,7 +109,6 @@ test-consumer-tooling: build-recovery-tools
 
 .PHONY: formatting-hook-check
 formatting-hook-check: format-tools-check
-	+bash scripts/ci/test-git-hooks.sh
 	+bash scripts/ci/check-jobs-formatting.sh
 
 package:

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.17.1]
+
+- Qualify the actual Jobs formatting caller without replaying Shared Tooling's
+  synthetic hook regression matrix. Keep source/index preservation, partial-stage
+  refusal, hook installation and formatting evidence checks in the consumer gate.
+
 ## [0.17.0] - 2026-10-17
 
 - **Breaking:** Consumer inspection replies carry the deadline inside
