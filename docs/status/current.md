@@ -1,5 +1,14 @@
 # Current handoff
 
+## Local publication admission
+
+The publication policy now lives in `scripts/release/check-publication.sh` and
+accepts only the selected remote; the package is fixed to `ic-jobs`. `publish.sh`
+uses it before Cargo. Shared observers and snapshot bytes remain unchanged.
+The local publication fixture covers ordering, failed observations, identity
+races and real-Git source/tag admission with substitute registry transport.
+The obsolete shared preflight snapshot entry awaits the next reviewed export.
+
 ## Source and pending work
 
 Delivered Jobs **0.14.1**: `cc9587c` (Release 0.14.1).

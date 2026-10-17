@@ -95,6 +95,7 @@ check-release-commands:
 
 test-release-tooling: format-tools-check
 	+bash scripts/release/test-tooling.sh
+	+bash scripts/release/test-publication.sh
 
 test-formatting-evidence:
 	+bash scripts/ci/test-formatting-evidence.sh

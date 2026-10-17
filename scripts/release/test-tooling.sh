@@ -449,7 +449,7 @@ CURL
 chmod +x "$fixture/bin/cargo" "$fixture/bin/curl"
 export PATH="$fixture/bin:$PATH"
 
-# Shared's real-Git publication fixture owns the generic source/tag/destination
+# The local real-Git publication fixture owns the source/tag/destination
 # matrix. Keep actual Jobs adapter refusals before upload and exact dispatch below.
 printf '\nFixture unstaged change.\n' >> README.md
 refuse unstaged-source bash scripts/release/publish.sh origin
