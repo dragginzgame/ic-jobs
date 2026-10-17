@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.15.0]
+## [0.15.0] - 2026-10-17
 
 - Fix recovery-harness compilation with Testkit 0.51's input records and
   explicit-caller Candid methods, preserving installation, diagnostics and
