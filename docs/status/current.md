@@ -2,6 +2,9 @@
 
 ## Local publication admission
 
+This compatible tooling change targets pending 0.15.1 over tagged 0.15.0
+(`71761e0c`). Product versions and published release notes remain unchanged.
+
 The publication policy now lives in `scripts/release/check-publication.sh` and
 accepts only the selected remote; the package is fixed to `ic-jobs`. `publish.sh`
 uses it before Cargo. Shared observers and snapshot bytes remain unchanged.

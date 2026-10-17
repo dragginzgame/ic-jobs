@@ -1,10 +1,12 @@
 # Changelog
 
-## [0.15.0] - 2026-10-17
+## [0.15.1]
 
 - Own the ic-jobs publication preflight locally, preserving clean-source, pushed
   annotated-tag and registry-absence admission before the separately authorized
   upload. Shared source, tag and registry observers remain snapshot-owned.
+
+## [0.15.0] - 2026-10-17
 
 - Fix recovery-harness compilation with Testkit 0.51's input records and
   explicit-caller Candid methods, preserving installation, diagnostics and
