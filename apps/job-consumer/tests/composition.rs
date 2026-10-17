@@ -125,8 +125,9 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
                 None
             );
             assert!(!restored.reconcile(delivery.attempt, &Destination::default(), 150)?);
-            assert_eq!(restored_maintenance.load()?.job.next_due_ns(), Some(130));
-            assert_eq!(restored_maintenance.load()?.completed_runs, 1);
+            let maintenance_snapshot = restored_maintenance.load()?;
+            assert_eq!(maintenance_snapshot.job.next_due_ns(), Some(130));
+            assert_eq!(maintenance_snapshot.completed_runs, 1);
             assert_eq!(
                 restored.next_due_ns()?,
                 if reopen == 0 { Some(200) } else { None }
@@ -347,8 +348,9 @@ fn local_maintenance_effect_rolls_back_with_failed_commit_and_skip_avoids_backlo
     maintenance.store.writes_before_failure = Some(0);
     assert!(maintenance.wake(135).is_err());
     assert_eq!(maintenance.store.bytes, before);
-    assert_eq!(maintenance.load()?.completed_runs, 0);
-    assert_eq!(maintenance.load()?.expires_ns, vec![90, 100, 125, 200]);
+    let snapshot = maintenance.load()?;
+    assert_eq!(snapshot.completed_runs, 0);
+    assert_eq!(snapshot.expires_ns, vec![90, 100, 125, 200]);
     assert_eq!(
         maintenance.wake(135)?,
         Wake {
@@ -689,8 +691,9 @@ fn maintenance_resumes_after_partial_batch_commit_without_repeating_work() -> Re
             next_due_ns: Some(140)
         }
     );
-    assert_eq!(restored.load()?.completed_runs, 4);
-    assert_eq!(restored.load()?.expires_ns, vec![200]);
+    let snapshot = restored.load()?;
+    assert_eq!(snapshot.completed_runs, 4);
+    assert_eq!(snapshot.expires_ns, vec![200]);
     Ok(())
 }
 

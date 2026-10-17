@@ -2,8 +2,20 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.16.0**: `5b73312` (Release 0.16.0).
-Pending **0.16.1** adopts the existing publication-owner contribution from
+Delivered Jobs **0.16.1**: `31f5961e70b0033dfcfc7bae068bcd43c08d36c8`.
+Pending **0.16.2** shares watchdog reconciliation before returning committed
+consumer replies. Management still authorizes first, delivery completion
+keeps its existing authority path, and reconciliation failure traps in the same
+message segment. The callback's result-driven watchdog path remains separate.
+Consumer view projection is infallible after stored identity admission; malformed
+IDs still refuse before inspection or paging. Native composition assertions reuse
+one decoded snapshot per unchanged observation phase, retaining fresh reads after
+mutations and independent physical Cell reopening. This compatible cleanup leaves
+core source, public/wire/storage contracts and own package versions unchanged.
+The incoming Timers 0.27.1/Metrics 0.13.3 lock selection is preserved; Testkit's
+independent Metrics 0.12 selection remains alongside it.
+
+The release incorporates the existing publication-owner contribution from
 [PR #67](https://github.com/dragginzgame/ic-jobs/pull/67). Jobs now owns the complete
 `ic-jobs` publication policy under `scripts/release/`; Shared retains canonical
 source, version, tag, registry and Make observations. The publisher uses the local
@@ -11,7 +23,8 @@ policy without changing clean-source, pushed-tag, registry-absence or uncertaint
 admission. Its local fixture is selected by `make test-release-tooling`, including
 exit/cleanup and explicit-assertion failure retention. Snapshot bytes stay intact;
 retirement of the unused Shared policy entry needs a reviewed export.
-This is compatible contributor tooling; own package versions remain unchanged.
+The older contribution branch is closed as incorporated, without a merge or
+branch deletion. The cleanup is compatible with the current Jobs contract.
 The same 0.16.1 batch shares Pending/Paused admission between cancellation and
 rescheduling, preserving clock-first errors and rescheduling's attempted-work
 refusal. Native fixture snapshot reads/writes share one byte ceiling, and
@@ -19,11 +32,9 @@ notification load/enqueue share one capacity. Page, receipt and rejection limits
 remain independent. The release adapter keeps representative admission refusals,
 exact Cargo dispatch, upload-status propagation and reconciliation after upload
 failure; the local publication fixture owns the broader policy matrix.
-The incoming Build 0.14 manifest/lock selection is preserved and its three actual
-capture/optimizer tests pass on Rust 1.91. Its registry adoption is incoming work,
-separate from publication-policy ownership.
-Incoming direct Host FS/Process 0.26 selections are also preserved; their harness
-callers are outside this cleanup's focused qualification.
+The release also selects Build 0.14 and direct Host FS/Process 0.26. Earlier
+focused capture/optimizer checks retain their recorded source scope; current
+delivered acceptance uses the native CI receipt below.
 
 Delivered **0.16.0** removes the duplicate Running timestamp: `JobState::Running`
 is a unit variant and its start time is `JobRecord::updated_ns`. Entering
@@ -40,7 +51,7 @@ conversion or deployment. Timestamp-bearing Running and flat receipt shapes
 refuse. Current-format unresolved attempts remain blocked until disposition.
 Core callers must update Running constructors/patterns; consumer callers use
 `Task::Deliver(payload)` and `delivery.payload`, rebuilding both peers and harness.
-The hard cut was delivered in 0.16.0; the current pending notes are 0.16.1.
+The hard cut was delivered in 0.16.0; 0.16.1 preserves that contract.
 
 The candidate carries the earlier published Build 0.13 capture-helper adoption,
 receipt lookup and notification paging/dispatch cleanup. Native management replies
@@ -135,7 +146,8 @@ requires cargo-edit, a separate release-tool catalog or local setup/check target
 Common tool admission and metadata refusal/rollback boundaries remain in place.
 
 The selected graph uses Memory 0.47.0, Testkit/Candid 0.51.0, Timers
-0.27.0, Metrics 0.12.0, incoming Build 0.14.0 and direct Host FS/Process 0.26.0.
+0.27.1 with Metrics 0.13.3, Testkit's separate Metrics 0.12.0, Build 0.14.0 and
+direct Host FS/Process 0.26.0.
 Rust floor is 1.91.0; development is 1.99.0.
 The cleanup preserves those incoming registry selections. Memory 0.46's narrowed
 exports supply backing IO types directly, without a full substrate re-export;
@@ -163,6 +175,34 @@ runtime Timers dependency or lifecycle exports. The capture tool owns Jobs'
 optimizer recipe and uses IC Build's retained path; Jobs selects the live gate.
 
 ## Qualification
+
+Consumer projection/reconciliation evidence is in
+`target/qualification/consumer-projection-0162/`, relative to delivered Jobs
+0.16.1 `31f5961e70b0033dfcfc7bae068bcd43c08d36c8` plus the incoming handoff and
+Timers 0.27.1/Metrics 0.13.3 lock selection. All 26 consumer tests and 19 native
+composition tests pass on Rust 1.91. The new boundary case preserves a valid ID
+near u64::MAX exactly and refuses unallocated/oversized stored IDs before both
+view entrypoints without replacing stored bytes. Existing coverage retains
+authorization, commit/error ordering, payload matching and blocked uncertainty.
+The separate Rust 1.91 consumer Wasm check and strict native all-target/Wasm
+Clippy pass; the Wasm checks compile the actual canister reconciliation callers.
+The first offline run stopped at uncached selected Metrics 0.13.3. A locked fetch
+prepared the selected sources, then the focused checks passed offline; the lock
+file is unchanged. Changed-source formatting, documentation links and diff checks
+pass. Core source is unchanged and its earlier floor evidence retains its scope.
+No full local CI, live PocketIC, native macOS, harness qualification, release,
+publication, installation reset or core test rerun was selected for this cleanup.
+
+Delivered 0.16.1 native acceptance is bound to
+`31f5961e70b0033dfcfc7bae068bcd43c08d36c8` and
+[CI run 39034706253](https://github.com/dragginzgame/ic-jobs/actions/runs/39034706253).
+Linux (`ubuntu-24.04`) and Apple Silicon (`macos-15`) pass; Intel macOS
+(`macos-15-intel`) is still executing validation at this inspection. The seven
+implementation/adoption issues retain this latest delivered-source gate. Their
+brief closure against the previous green release was corrected by reopening
+them against 0.16.1. No workflow was dispatched or rerun. Native CI does not
+establish live PocketIC recovery. Earlier focused receipts retain their source
+and graph identities.
 
 Management/fixture cleanup evidence is in
 `target/qualification/management-fixture-0161/`, relative to delivered Jobs
@@ -196,12 +236,13 @@ bytes are unchanged. The actual Build capture tests pass on Rust 1.91; formattin
 changed-document links, snapshot integrity and diff checks pass. No full local CI,
 live PocketIC, native macOS run, release, publication or reset is selected.
 
-The delivered 0.16.0
-[CI run](https://github.com/dragginzgame/ic-jobs/actions/runs/39031920784) is still
-in progress across Linux and both macOS architectures at this inspection.
-Applicable adoption issues retain that native acceptance gate. PRs #55 and #65
-are closed as source-incorporated/superseded by delivered registry Testkit 0.51
-callers, not merged or newly live-qualified. PR #67 remains open until delivery.
+The earlier delivered 0.16.0
+[CI run](https://github.com/dragginzgame/ic-jobs/actions/runs/39031920784) completed
+successfully on Linux, macOS Intel and Apple Silicon. That exact-source proof
+remains historical; routine acceptance now selects delivered 0.16.1 above.
+PRs #55 and #65 are closed as source-incorporated/superseded by delivered registry
+Testkit 0.51 callers, not merged or newly live-qualified. PR #67 is incorporated
+in delivered 0.16.1 and closed; its older branch is retained.
 
 Running/payload hard-cut evidence is in `target/qualification/running-payload-cut/`,
 relative to Jobs 0.15.0 `71761e0c8ce3c6b2a4ce0226b80691892aa57f63` plus the
@@ -953,27 +994,23 @@ no reset, migration or deployment ran.
 
 ## Upstream follow-up
 
-GitHub owns live tracker status. Shared's dependency-order adoption (#53) has
-completed delivered/native acceptance. The 0.16.0 adoption is delivered in Jobs
-0.13.3; #54/#58/#59/#60/#61 retain its running native acceptance gate.
+GitHub owns live tracker status. The remaining source adoption proposals are
+[Host child-status projection](https://github.com/dragginzgame/ic-jobs/issues/52),
+[Testkit memory observation](https://github.com/dragginzgame/ic-jobs/issues/56),
+[Timers completed-batch projection](https://github.com/dragginzgame/ic-jobs/issues/57),
+[Testkit panic-safe diagnostics](https://github.com/dragginzgame/ic-jobs/issues/63)
+and [Memory sparse fixture loading](https://github.com/dragginzgame/ic-jobs/issues/66).
+Their linked upstream proposals remain unintegrated; the selected registry
+packages do not export the proposed helpers. Keep actual callers until reviewed
+publication and registry qualification; no Git/path substitution is active.
+Prepared patches and their earlier source qualification remain evidence, not
+proof of publication or current native/live acceptance.
 
-The old [Memory PR #105](https://github.com/dragginzgame/ic-memory/pull/105)
-preparation is superseded by the active registry Memory 0.45 caller adoption
-above. Jobs #50 still requires delivered/native acceptance; earlier exact-source
-receipts retain their historical scope.
-[Host PR #172](https://github.com/dragginzgame/ic-host-tooling/pull/172) supersedes
-closed #133; Jobs #52 awaits reviewed publication and registry adoption.
-[Testkit PR #117](https://github.com/dragginzgame/ic-testkit/pull/117) supplies the
-reporter proposal, with Jobs #63 owning its publication/adoption gate.
-[Testkit PR #97](https://github.com/dragginzgame/ic-testkit/pull/97) retains the
-separate native memory-observer proposal; Jobs #56 still owns its adoption.
-[Timers #64](https://github.com/dragginzgame/ic-timers/issues/64) retains the
-completed-batch watchdog proposal; Jobs #57 awaits upstream delivery.
-The source-incorporated rejection/retention preparation PRs #51/#62 are closed.
-[PR #55](https://github.com/dragginzgame/ic-jobs/pull/55) remains the existing
-install-diagnostics contribution; its maintained change is prepared locally for
-the current pending minor on the published registry graph. It is distinct from the older PR branch's
-qualification-only source overrides.
+Source-incorporated preparation PRs #51/#55/#62/#65/#67 are closed. The local
+publication policy is delivered; unused Shared snapshot bytes retire only
+through a reviewed canonical export. See the current native receipt above for
+Jobs' delivered-source gate rather than treating older running observations as
+current acceptance.
 
 Earlier source-bound receipts and original tracker descriptions are preserved in
 [history through 0.13.0](history-through-0.13.0.md). See also the

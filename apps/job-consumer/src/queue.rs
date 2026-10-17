@@ -126,10 +126,11 @@ impl Snapshot<Job> {
 }
 
 impl Entry<Job> {
-    fn into_view(self) -> Result<View, Error> {
+    fn into_view(self) -> View {
         let record = self.job.record();
-        Ok(View {
-            id: u64::try_from(record.id.0).map_err(|_| Error::InvalidStorage)?,
+        View {
+            // Admission bounds IDs below the u64 allocator; creation uses it directly.
+            id: record.id.0 as u64,
             task: self.task,
             status: match record.state {
                 JobState::Pending { .. } => Status::Pending,
@@ -143,7 +144,7 @@ impl Entry<Job> {
             due_ns: self.job.next_due_ns(),
             sequence: record.sequence,
             occurrence: record.occurrence,
-        })
+        }
     }
 
     fn delivery(&self) -> Result<(Attempt, Delivery), Error> {
@@ -327,17 +328,17 @@ impl<M: Memory> Queue<M> {
             return Err(Error::InvalidInput);
         }
         let snapshot = self.load()?;
-        snapshot
+        Ok(snapshot
             .jobs
             .into_iter()
             .filter(|entry| entry.job.record().id.0 > u128::from(after.unwrap_or(0)))
             .take(usize::from(limit))
             .map(Entry::into_view)
-            .collect()
+            .collect())
     }
 
     pub(crate) fn inspect(&self, id: u64) -> Result<View, Error> {
-        self.load()?.take_entry(id)?.into_view()
+        Ok(self.load()?.take_entry(id)?.into_view())
     }
 
     pub(crate) fn cancel(&mut self, id: u64, now: u64) -> Result<Committed<()>, Error> {

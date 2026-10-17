@@ -805,14 +805,14 @@ dependencies = [
 
 [[package]]
 name = "ic-build"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "957e87919fc46aed675896ee99cd01d0e18baca91c459b52ee2211d38d670f09"
+checksum = "ce36c43488b210b5c6265c6f3a6962411d394e0ba98695c71d817235effe415d"
 dependencies = [
  "cargo_metadata",
- "ic-host-artifacts 0.25.1",
- "ic-host-fs 0.25.1",
- "ic-host-process 0.25.1",
+ "ic-host-artifacts 0.26.1",
+ "ic-host-fs 0.26.1",
+ "ic-host-process 0.26.1",
  "libc",
  "rustix",
  "serde",
@@ -902,7 +902,9 @@ version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4c6f68dc69e6755bcb43f88aa2778dc8598e12cc3261314bbf49e006e7b79ce"
 dependencies = [
+ "leb128",
  "sha2",
+ "wasmparser",
 ]
 
 [[package]]
@@ -974,9 +976,9 @@ dependencies = [
 
 [[package]]
 name = "ic-memory"
-version = "0.47.0"
+version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb7b7b796f475840ef38d8eaefab4e37fa6bd8c655c3ba3221d4391e9a5de187"
+checksum = "ec7b6e2c9b66ef226f0637d5f1577f1fc570ca5d391c67a53c41d9e5b6943093"
 dependencies = [
  "ciborium",
  "ic-stable-structures",
@@ -989,6 +991,12 @@ name = "ic-metrics"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c30a384477a9783da95cd991e576f6f6a76c5d3691299fffe294f95affae3fd7"
+
+[[package]]
+name = "ic-metrics"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57aba474ca1a1c31e591d7c22bb66a5ac1b0cce80bfb0141ca2f9ae6c9d14989"
 
 [[package]]
 name = "ic-stable-structures"
@@ -1010,7 +1018,7 @@ dependencies = [
  "ic-host-artifacts 0.25.1",
  "ic-host-fs 0.25.1",
  "ic-host-process 0.25.1",
- "ic-metrics",
+ "ic-metrics 0.12.0",
  "ic-testkit-candid",
  "libc",
  "pocket-ic",
@@ -1031,12 +1039,12 @@ dependencies = [
 
 [[package]]
 name = "ic-timers"
-version = "0.27.0"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30c4f24136b7853afbdddd5849b428f22cadb2ac36ca1436933db5e010d735f8"
+checksum = "5c3ae34e473a4d289592586db51da5d06f1d3d70089f43af5f7c6613378282e9"
 dependencies = [
  "ic-cdk-executor",
- "ic-metrics",
+ "ic-metrics 0.13.3",
  "ic0",
  "thiserror 2.0.18",
 ]

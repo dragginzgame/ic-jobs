@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.2]
+
+- Share post-commit watchdog reconciliation across management and delivery
+  completion, retaining caller authorization and trap ordering.
+- Simplify consumer view projection after stored identity admission and reuse
+  one decoded fixture snapshot per observation phase.
+
 ## [0.16.1] - 2026-10-17
 
 - Own Jobs' publication admission locally while retaining Shared source, version,

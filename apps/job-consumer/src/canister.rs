@@ -45,10 +45,13 @@ fn with_authorized_queue<T>(
 fn update_queue<T>(
     operation: impl FnOnce(&mut Queue<DefaultMemoryImpl>) -> Result<Committed<T>, Error>,
 ) -> Result<T, Error> {
-    let result = with_authorized_queue(operation)?;
+    Ok(reconcile_committed(with_authorized_queue(operation)?))
+}
+
+fn reconcile_committed<T>(committed: Committed<T>) -> T {
     // Reconciliation failure traps the same message segment as the stable write.
-    reconcile_at(result.next_due_ns);
-    Ok(result.value)
+    reconcile_at(committed.next_due_ns);
+    committed.value
 }
 
 fn reconcile_at(due: Option<u64>) {
@@ -142,7 +145,7 @@ fn summary() -> Result<Summary, Error> {
 
 fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error> {
     let committed = with_queue(|queue| queue.finish(delivery, ic_cdk::api::time(), outcome))?;
-    reconcile_at(committed.next_due_ns);
+    reconcile_committed(committed);
     Ok(())
 }
 

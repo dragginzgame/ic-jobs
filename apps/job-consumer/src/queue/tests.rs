@@ -748,6 +748,31 @@ fn snapshot_admission_preserves_restore_and_collection_error_order() {
 }
 
 #[test]
+fn view_projection_preserves_large_ids_and_refuses_unadmitted_identities() {
+    let mut queue = Queue::open(VectorMemory::default(), Some(config()))
+        .unwrap()
+        .0;
+    queue.create(increment(100)).unwrap();
+    let original = queue.cell.bytes().to_vec();
+    let id = u64::MAX - 1;
+    let mut snapshot: Snapshot = serde_json::from_slice(&original).unwrap();
+    snapshot.next_id = u64::MAX;
+    snapshot.jobs[0].job.id = JobId(u128::from(id));
+    queue.cell.set(serde_json::to_vec(&snapshot).unwrap());
+    assert_eq!(queue.inspect(id).unwrap().id, id);
+    assert_eq!(queue.page(None, 8).unwrap()[0].id, id);
+
+    for invalid_id in [u128::from(u64::MAX), u128::from(u64::MAX) + 1, u128::MAX] {
+        snapshot.jobs[0].job.id = JobId(invalid_id);
+        let bytes = serde_json::to_vec(&snapshot).unwrap();
+        queue.cell.set(bytes.clone());
+        assert_eq!(queue.inspect(id), Err(Error::InvalidStorage));
+        assert_eq!(queue.page(None, 8), Err(Error::InvalidStorage));
+        assert_eq!(queue.cell.bytes(), bytes);
+    }
+}
+
+#[test]
 fn typed_commit_preserves_canonical_snapshot_bytes_and_metadata() {
     let memory = VectorMemory::default();
     let mut queue = Queue::open(
