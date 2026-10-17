@@ -6,16 +6,22 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+# Wasm-only runtime adapter for this unpublished test canister: entry points,
+# caller identity, time, inter-canister calls, async execution and traps.
+# The published ic-jobs library does not depend on ic-cdk.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 ic-cdk.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# This unpublished qualification app owns IC integration. Candid supplies its
+# API types and wire format; ic-testkit-candid bounds reply decoding using Candid.
 [dependencies]
 candid.workspace = true
 ic-jobs.workspace = true
-ic-memory.workspace = true
+ic-memory = { workspace = true, features = ["test-support"] }
+ic-testkit-candid.workspace = true
 ic-timers.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

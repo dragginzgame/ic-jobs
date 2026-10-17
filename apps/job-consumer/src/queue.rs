@@ -6,9 +6,9 @@ use ic_jobs::{
     next_due_ns, start_next,
 };
 use ic_memory::{
-    GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryManagerConfig,
-    MemoryRequest, MemoryRuntime, RuntimeMemory, SealedDeclarationSnapshot,
-    ic_stable_structures::{Cell, Memory},
+    MemoryManagerConfig,
+    ic_stable_structures::Memory,
+    testing::{FixtureCell, FixtureCellError},
 };
 use serde::{Deserialize, Serialize};
 
@@ -29,10 +29,10 @@ struct Entry<J = JobRecord> {
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-struct Snapshot {
+struct Snapshot<J = JobRecord> {
     init: Init,
     next_id: u64,
-    jobs: Vec<Entry>,
+    jobs: Vec<Entry<J>>,
     counter: u64,
     receipts: Vec<Delivery>,
 }
@@ -71,15 +71,6 @@ impl Snapshot {
     }
 }
 
-// Each validated job stays paired with its immutable consumer-owned payload.
-struct LoadedSnapshot {
-    init: Init,
-    next_id: u64,
-    jobs: Vec<Entry<Job>>,
-    counter: u64,
-    receipts: Vec<Delivery>,
-}
-
 /// Consumer-local reply and deadline from successfully admitted durable state.
 /// Mutated state is committed before return; idle dispatch does not write.
 #[derive(Debug, Eq, PartialEq)]
@@ -88,7 +79,7 @@ pub(crate) struct Committed<T> {
     pub(crate) next_due_ns: Option<u64>,
 }
 
-impl LoadedSnapshot {
+impl Snapshot<Job> {
     fn index(&self, id: u64) -> Result<usize, Error> {
         self.jobs
             .iter()
@@ -161,10 +152,10 @@ fn receipt_key(delivery: &Delivery) -> (u64, u64) {
     (delivery.job, delivery.occurrence)
 }
 
-// The host owns one allocation pool/bootstrap. Cell persists the application
-// snapshot; neither Memory nor Jobs owns its codec or collection semantics.
+// Memory owns fixture allocation and bounded Cell admission; the consumer owns
+// its snapshot codec, collection semantics and explicit lifecycle calls.
 pub(crate) struct Queue<M: Memory> {
-    cell: Cell<Vec<u8>, RuntimeMemory<M>>,
+    cell: FixtureCell<M>,
     init: Init,
 }
 
@@ -205,7 +196,7 @@ fn schedule(timing: Timing) -> Result<Schedule, Error> {
     })
 }
 
-fn decode(bytes: &[u8]) -> Result<LoadedSnapshot, Error> {
+fn decode(bytes: &[u8]) -> Result<Snapshot<Job>, Error> {
     if bytes.len() > MAX_BYTES {
         return Err(Error::InvalidStorage);
     }
@@ -216,7 +207,7 @@ fn decode(bytes: &[u8]) -> Result<LoadedSnapshot, Error> {
         jobs.push(Job::restore(record).map_err(job_error)?);
         Ok(())
     })?;
-    Ok(LoadedSnapshot {
+    Ok(Snapshot {
         init: snapshot.init,
         next_id: snapshot.next_id,
         jobs: jobs
@@ -234,32 +225,20 @@ fn decode(bytes: &[u8]) -> Result<LoadedSnapshot, Error> {
 
 impl<M: Memory> Queue<M> {
     pub(crate) fn open(memory: M, initial: Option<Init>) -> Result<(Self, Option<u64>), Error> {
-        let request = MemoryRequest::new("test.jobs", KEY).map_err(memory_error)?;
-        let declarations = SealedDeclarationSnapshot::new(vec![request]).map_err(memory_error)?;
-        let pool = MemoryAllocationPool::new(
-            vec![MemoryAuthority::new("test.jobs", "test.jobs.").map_err(memory_error)?],
-            vec![],
-        )
-        .map_err(memory_error)?;
-        let mut runtime = MemoryRuntime::new_with_config(
-            memory,
-            MemoryManagerConfig::new(1).map_err(memory_error)?,
-        )
-        .map_err(memory_error)?;
-        runtime
-            .bootstrap(&declarations, &pool, &GenericAllocationPolicy)
-            .map_err(memory_error)?;
-        runtime
-            .verify_authority(&declarations, "test.jobs")
-            .map_err(memory_error)?;
-        let mut cell = Cell::init(runtime.open_memory(KEY).map_err(memory_error)?, Vec::new());
+        let config = MemoryManagerConfig::new(1).map_err(memory_error)?;
+        let mut cell = if initial.is_some() {
+            FixtureCell::create_bounded(memory, "test.jobs", "test.jobs.", KEY, config, MAX_BYTES)
+        } else {
+            FixtureCell::open_bounded(memory, "test.jobs", "test.jobs.", KEY, config, MAX_BYTES)
+        }
+        .map_err(|error| match error {
+            FixtureCellError::Occupied | FixtureCellError::Payload(_) => Error::InvalidStorage,
+            other => memory_error(other),
+        })?;
         if let Some(init) = initial {
-            // Installation is distinct from recovery; never overwrite retained data.
-            if !cell.get().is_empty() {
-                return Err(Error::InvalidStorage);
-            }
+            // Fresh admission cannot overwrite a retained allocation.
             cell.set(
-                serde_json::to_vec(&Snapshot {
+                serde_json::to_vec(&Snapshot::<JobRecord> {
                     init,
                     next_id: 1,
                     jobs: vec![],
@@ -269,7 +248,7 @@ impl<M: Memory> Queue<M> {
                 .map_err(|_| Error::InvalidStorage)?,
             );
         }
-        let snapshot = decode(cell.get())?;
+        let snapshot = decode(cell.bytes())?;
         let next_due_ns = next_due_ns(snapshot.jobs.iter().map(|entry| &entry.job));
         Ok((
             Self {
@@ -287,15 +266,15 @@ impl<M: Memory> Queue<M> {
         Ok(())
     }
 
-    fn load(&self) -> Result<LoadedSnapshot, Error> {
-        let snapshot = decode(self.cell.get())?;
+    fn load(&self) -> Result<Snapshot<Job>, Error> {
+        let snapshot = decode(self.cell.bytes())?;
         if snapshot.init != self.init {
             return Err(Error::InvalidStorage);
         }
         Ok(snapshot)
     }
 
-    fn commit<T>(&mut self, snapshot: LoadedSnapshot, value: T) -> Result<Committed<T>, Error> {
+    fn commit<T>(&mut self, snapshot: Snapshot<Job>, value: T) -> Result<Committed<T>, Error> {
         let next_due_ns = next_due_ns(snapshot.jobs.iter().map(|entry| &entry.job));
         let snapshot = snapshot.into_stored();
         let bytes = serde_json::to_vec(&snapshot).map_err(|_| Error::InvalidStorage)?;

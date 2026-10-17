@@ -11,6 +11,9 @@ license = "MIT"
 description = "Durable application job policies for Internet Computer canisters"
 repository = "https://github.com/dragginzgame/ic-jobs"
 
+# Shared declarations are opt-in for each member, not dependencies of every crate.
+# The published ic-jobs library uses only Serde at runtime; Candid and IC runtime
+# dependencies below support the unpublished qualification consumer and harness.
 [workspace.dependencies]
 candid = "0.10"
 ic-build = "0.12"
@@ -20,6 +23,7 @@ ic-host-process = "0.24"
 ic-jobs = { path = "crates/ic-jobs" }
 ic-memory = "0.45"
 ic-testkit = "0.50"
+# Bounded Candid decoding for qualification; this still depends on candid.
 ic-testkit-candid = "0.50"
 ic-timers = "0.26"
 jobs-test-consumer = { path = "apps/job-consumer" }

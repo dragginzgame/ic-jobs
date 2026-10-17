@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.14.1]
+
+- Keep stored records and validated consumer state in one snapshot shape,
+  preserving JSON bytes and restore/refusal ordering.
+
+- Use Memory's bounded fixture-cell admission for consumer installation and
+  recovery, retaining the Jobs codec and restore checks
+  ([#50 — Adopt fallible Memory fixture-cell setup](https://github.com/dragginzgame/ic-jobs/issues/50)).
+- Decode delivery replies through the shared native/Wasm Candid decoder with
+  consumer-owned limits; unreadable replies retain uncertain-effect handling.
+- Keep generic validation-runner regression coverage at Shared Tooling while
+  retaining the actual Jobs CI admission-stop qualification.
+
 ## [0.14.0] - 2026-10-16
 
 - **Breaking:** Batch scheduling accepts finite iterators of job references,

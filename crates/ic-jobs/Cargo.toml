@@ -9,6 +9,8 @@ repository.workspace = true
 publish = ["crates-io"]
 readme = "README.md"
 
+# Keep the published scheduling model platform-neutral: Serde only, with no
+# Candid, CDK, Memory or Timers dependency. Consumers own those integrations.
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
 

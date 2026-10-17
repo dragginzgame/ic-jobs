@@ -20,8 +20,10 @@ and policy. `reschedule` replaces timing from an unstarted occurrence forward,
 preserving identity/payload and keeping paused work paused. Already-attempted,
 blocked and terminal work refuses rescheduling. There is no force-run command.
 
-One Memory host bootstraps the `test.jobs.` namespace and opens the permanent
-`test.jobs.consumer.management.v1` key. One stable cell retains the bounded JSON snapshot:
+Memory's fixture-only `FixtureCell` bootstraps the `test.jobs.` namespace and
+opens the permanent `test.jobs.consumer.management.v1` key. Installation selects
+bounded fresh creation; recovery selects bounded retained opening, with Cell
+header and size admission before payload loading. One stable cell retains the JSON snapshot:
 manager/receiver configuration, ID authority, JobRecords, immutable payloads,
 counter and receipts. The queue holds at most 32 jobs and 32 receipts, each
 delivery payload is at most 256 UTF-8 bytes, and serialized state is at most
@@ -33,7 +35,9 @@ payload together; the scheduler borrows only the jobs through an iterator. Commi
 revalidates the encoded snapshot before replacing stable bytes. Separate
 job/payload alignment state is unnecessary. The stored JSON shape is unchanged.
 Invalid retained state refuses recovery; installation cannot overwrite existing
-state. This is a new test installation
+allocations. Oversized-cell refusal preserves the exact cell header and payload;
+bootstrap may update allocation bookkeeping before that refusal. The frozen
+incompatible-ledger cases separately retain their zero-write proof. This is a new test installation
 format, not a replacement reader for any existing deployment. The maintainer
 approved retirement/reset of the disposable 0.5 installations for this hard cut;
 create fresh 0.6 fixtures. Upgrading old retained state is unsupported and must
@@ -69,6 +73,13 @@ receiver. The synchronous watchdog only prepares a bounded batch; an application
 continuation performs each external call. An exact matching receipt records
 Success. Other responses remain Uncertain. No automatic retries are configured.
 Running and Uncertain records never redispatch after an upgrade.
+
+Delivery replies use `ic-testkit-candid`'s native/Wasm decoder with an 8 KiB wire
+ceiling, 4 KiB header, 64 type entries and finite decoding/skipping work limits.
+These consumer-owned limits are separate from the host harness's management-page
+allowance. Transport, decode and remote application errors remain unreadable
+evidence; they do not become an authoritative absent receipt or a safe retry.
+This decoder has no PocketIC, process or server dependency.
 
 The receiver uses the same fixture Wasm with `delivery_sender` configured to the
 sender canister's principal. It authenticates this caller and retains each

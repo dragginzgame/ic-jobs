@@ -9,6 +9,8 @@ publish = false
 [dependencies]
 ic-build.workspace = true
 
+# Candid and PocketIC support recovery tests against the qualification canister;
+# they are not dependencies of the published ic-jobs library or capture binary.
 [dev-dependencies]
 candid.workspace = true
 ic-host-fs = { workspace = true, features = ["test-support"] }

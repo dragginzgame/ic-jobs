@@ -319,11 +319,7 @@ set -euo pipefail
 case "${0##*/}" in
     install-host-tools.sh)
         printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
-        if [[ "$JOBS_CONSUMER_INPUT_DRIFT" == changed ]]; then
-            printf '\n# concurrent selected graph edit\n' >> "$PWD/Cargo.lock"
-        else
-            rm "$PWD/Cargo.lock"
-        fi ;;
+        printf '\n# concurrent selected graph edit\n' >> "$PWD/Cargo.lock" ;;
 
 esac
 ADMISSION
@@ -339,24 +335,16 @@ case "$*" in
     *) printf 'unexpected Cargo effect\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"; exit 49 ;;
 esac
 CARGO
-for drift in changed missing; do
-    cp "$root/Cargo.lock" "$fixture/Cargo.lock"
-    : > "$fixture/events"
-    status=0
-    JOBS_CONSUMER_INPUT_DRIFT="$drift" VALIDATION_LOG_DIR="$fixture/$drift-logs" \
-        make --no-print-directory -j2 -C "$fixture" ci \
-        > "$fixture/ci-$drift.log" 2>&1 || status=$?
-    [[ "$status" == 2 && "$(cat "$fixture/events")" == admission ]] || exit 1
-    logs=("$fixture/$drift-logs"/validation.*)
-    [[ ${#logs[@]} == 1 ]] || exit 1
-    [[ "$(wc -l < "${logs[0]}/timings.tsv" | tr -d ' ')" == 2 ]] || exit 1
-    grep -F $'validation-tools-check\tFAIL\t' "${logs[0]}/timings.tsv" > /dev/null
-    [[ -f "${logs[0]}/inputs.json" && -f "${logs[0]}/0-after-inputs.json" ]] || exit 1
-    if [[ "$drift" == changed ]]; then
-        grep -F 'validation input changed: Cargo.lock' "$fixture/ci-$drift.log" > /dev/null
-    else
-        grep -F 'cannot observe validation input Cargo.lock' "$fixture/ci-$drift.log" > /dev/null
-    fi
-done
-echo 'Changed/missing graph inputs stop Jobs CI after admission with retained checkpoints (substitute tool effects; no product validation)'
+# Shared's pinned test-validation-target-runner.sh owns input mutation/deletion,
+# observation failures, checkpoint files and timing format. Retain this actual
+# Jobs Make/CI wiring proof: its selected lock changes during the first admission,
+# which must stop later checks before any product Cargo effect.
+cp "$root/Cargo.lock" "$fixture/Cargo.lock"
+: > "$fixture/events"
+status=0
+VALIDATION_LOG_DIR="$fixture/drift-logs" make --no-print-directory -j2 -C "$fixture" ci \
+    > "$fixture/ci-drift.log" 2>&1 || status=$?
+[[ "$status" == 2 && "$(cat "$fixture/events")" == admission ]] || exit 1
+grep -F 'validation input changed: Cargo.lock' "$fixture/ci-drift.log" > /dev/null
+echo 'Changed selected lock stops Jobs CI after admission (actual Make route; substitute tool effects; no product validation)'
 fixture_complete=true

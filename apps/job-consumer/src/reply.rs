@@ -1,14 +1,26 @@
 use candid::CandidType;
+use ic_testkit_candid::{DecodeLimits, decode_one};
 use serde::de::DeserializeOwned;
 
 use crate::api::Error;
+
+// Delivery replies contain one bounded envelope (at most 256 message bytes),
+// optionally absent. These limits belong to this consumer, separately from the
+// host harness's larger management-page allowance.
+const REPLY_LIMITS: DecodeLimits = DecodeLimits {
+    reply_bytes: 8 * 1024,
+    decoding_quota: 100_000,
+    skipping_quota: 10_000,
+    type_entries: 64,
+    header_bytes: 4 * 1024,
+};
 
 // Decode only. Callers own exact evidence comparison and uncertain-effect policy.
 pub(crate) fn decode_reply<T, E>(response: Result<impl AsRef<[u8]>, E>) -> Option<T>
 where
     T: CandidType + DeserializeOwned,
 {
-    candid::decode_one::<Result<T, Error>>(response.ok()?.as_ref())
+    decode_one::<Result<T, Error>>(response.ok()?.as_ref(), REPLY_LIMITS)
         .ok()?
         .ok()
 }
@@ -26,13 +38,21 @@ mod tests {
             occurrence: 0,
             sequence: 2,
             destination: Principal::anonymous(),
-            message: "exact evidence".into(),
+            message: "x".repeat(256),
         };
         let bytes = candid::encode_one(Ok::<_, Error>(&receipt)).unwrap();
         assert_eq!(
             decode_reply::<Delivery, ()>(Ok(bytes)),
             Some(receipt.clone())
         );
+        let oversized = Delivery {
+            message: "x".repeat(REPLY_LIMITS.reply_bytes),
+            ..receipt.clone()
+        };
+        let bytes = candid::encode_one(Ok::<_, Error>(Some(oversized))).unwrap();
+        assert!(bytes.len() > REPLY_LIMITS.reply_bytes);
+        // An unreadable reply is not an authoritative absent-receipt response.
+        assert_eq!(decode_reply::<Option<Delivery>, ()>(Ok(bytes)), None);
         let bytes = candid::encode_one(Ok::<_, Error>(Some(&receipt))).unwrap();
         assert_eq!(
             decode_reply::<Option<Delivery>, ()>(Ok(bytes)),
