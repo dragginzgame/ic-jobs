@@ -59,7 +59,7 @@ attempts=("$gate_temp/"*)
 # in this disposable checkout. A sorter failure must stop the later rustfmt call.
 consumer="$fixture/jobs"
 mkdir -p "$consumer/.tools/rust/common/bin"
-bash "$root/scripts/ci/prepare-make-fixture.sh" "$root" "$consumer"
+bash "$root/scripts/ci/prepare-script-fixture.sh" "$root" "$consumer" make/consumer.mk
 cp "$root/Makefile" "$consumer/"
 cp -R "$root/ci" "$consumer/"
 cp "$root/scripts/ci/check-format-tools.sh" "$consumer/scripts/ci/"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared companions: .githooks/pre-commit scripts/dev/install-git-hooks.sh scripts/ci/check-make-execution.sh scripts/ci/check-format-tools.sh scripts/ci/run-formatting.sh scripts/ci/check-formatting-hooks.sh scripts/dev/format-frontend.sh make/consumer.mk make/tools.mk make/release.mk make/rust-format.mk make/execution.mk ci/tool-versions.env scripts/ci/fixture-lifecycle.sh
+# Shared companions: .githooks/pre-commit scripts/dev/install-git-hooks.sh scripts/ci/check-make-execution.sh scripts/ci/check-format-tools.sh scripts/ci/run-formatting.sh scripts/ci/check-formatting-hooks.sh scripts/dev/format-frontend.sh make/consumer.mk make/tools.mk make/release.mk make/rust-format.mk make/execution.mk ci/tool-versions.env scripts/ci/fixture-lifecycle.sh scripts/ci/tool-catalog-records.pl
 set -euo pipefail
 
 unset MAKEFLAGS MFLAGS MAKEOVERRIDES GNUMAKEFLAGS MAKEFILES
@@ -8,9 +8,9 @@ ROOT="${BASH_SOURCE[0]}"
 [[ "$ROOT" == /* ]] || ROOT="$PWD/$ROOT"
 ROOT="$(cd -P "${ROOT%/*}/../.." && printf '%s/.' "$PWD")"
 ROOT="${ROOT%/.}"
-# shellcheck source=/dev/null
-source "$ROOT/ci/tool-versions.env"
-bash "$ROOT/scripts/ci/check-format-tools.sh" "$SHARED_TOOLING_CARGO_SORT_VERSION"
+record="$(perl "$ROOT/scripts/ci/tool-catalog-records.pl" rust "$ROOT/ci/tool-versions.env" CARGO_SORT)"
+IFS=$'\t' read -r _ sort_version _ _ <<< "$record"
+bash "$ROOT/scripts/ci/check-format-tools.sh" "$sort_version"
 FIXTURE="$(mktemp -d "${TMPDIR:-/tmp}/git-hooks-test.XXXXXX")"
 FIXTURE="$(CDPATH="" cd -P -- "$FIXTURE" && printf '%s/.' "$PWD")"
 FIXTURE="${FIXTURE%/.}"
@@ -94,10 +94,14 @@ tree="$(git write-tree)"
 bash .githooks/pre-commit > output
 [[ "$(git write-tree)" == "$tree" && "$(cat Cargo.toml)" == unformatted ]] || exit 1
 
-# Prepared checkout-local tools stay discoverable without a caller PATH export.
+# Common checkout-local tools stay discoverable without a caller PATH export.
+# Product formatters explicitly select IC tools; common-only formatters must not
+# discover an unselected IC executable even when an old bundle is still present.
 # The tools are untracked; formatter inputs still come from the selected index.
+for selection in common ic; do
+export HOOK_FIXTURE_IC="$selection"
 for tools in prepared missing wrong; do
-    new_fixture "local tools $tools"
+    new_fixture "local tools $selection $tools"
     mkdir -p .tools/host/bin .tools/ic/bin .tools/rust/common/bin
     cat > .tools/rust/common/bin/hook-fixture-cargo <<'TOOL'
 #!/usr/bin/env bash
@@ -107,12 +111,16 @@ case "$*" in
     'fmt --version') echo 'rustfmt fixture' ;;
     'sort --workspace')
         hook-fixture-host
-        hook-fixture-ic
+        if [[ "$HOOK_FIXTURE_IC" == ic ]]; then
+            hook-fixture-ic
+        elif command -v hook-fixture-ic > /dev/null; then
+            echo 'unselected IC tool became visible' >&2; exit 1
+        fi
         bash scripts/fixture-fmt.sh ;;
     *) exit 1 ;;
 esac
 TOOL
-    printf '%s\n' "$SHARED_TOOLING_CARGO_SORT_VERSION" > .tools/rust/common/bin/version
+    printf '%s\n' "$sort_version" > .tools/rust/common/bin/version
     for kind in host ic; do
         printf '#!/usr/bin/env bash\nexit 0\n' > ".tools/$kind/bin/hook-fixture-$kind"
         chmod +x ".tools/$kind/bin/hook-fixture-$kind"
@@ -126,6 +134,11 @@ fmt:
 	env hook-fixture-cargo sort --workspace
 include ci/tool-versions.env
 MAKE
+    if [[ "$selection" == ic ]]; then
+        cat >> Makefile <<'MAKE'
+export PATH := $(or $(SHARED_TOOLING_FORMAT_TOOLS_FROM),$(CURDIR))/.tools/ic/bin:$(PATH)
+MAKE
+    fi
     git add Makefile
     printf 'unformatted unrelated working edit\n' > README.md
     # env resolves the exported recipe PATH even with Apple's posix_spawn Make.
@@ -147,6 +160,8 @@ MAKE
     fi
     [[ "$(cat README.md)" == 'unformatted unrelated working edit' ]] || exit 1
 done
+done
+unset HOOK_FIXTURE_IC
 
 new_fixture partial
 printf 'unformatted selected\n' > partial.rs
@@ -265,22 +280,50 @@ bash .githooks/pre-commit > output
 [[ ! -e README.md && -z "$(git ls-files -- README.md)" ]] || exit 1
 
 new_fixture installer
-bash scripts/dev/install-git-hooks.sh > output
+# No installer-relative target: malformed selections stop without reading Git or
+# changing either the intended consumer's index or its local configuration.
+cp .git/config config-before
+cp .git/index index-before
+for selection in missing flag-only empty unknown extra; do
+    case "$selection" in
+        missing) set -- ;;
+        flag-only) set -- --consumer ;;
+        empty) set -- --consumer '' ;;
+        unknown) set -- --root "$PWD" ;;
+        extra) set -- --consumer "$PWD" extra ;;
+    esac
+    if bash scripts/dev/install-git-hooks.sh "$@" > output 2>&1; then
+        echo "hook installer accepted $selection destination" >&2; exit 1
+    else
+        [[ $? == 2 ]] || exit 1
+    fi
+    cmp config-before .git/config
+    cmp index-before .git/index
+done
+bash scripts/dev/install-git-hooks.sh --consumer "$PWD" > output
 [[ "$(git config --local --get core.hooksPath)" == .githooks ]] || exit 1
-bash scripts/dev/install-git-hooks.sh > output
+bash scripts/dev/install-git-hooks.sh --consumer "$PWD" > output
+
+# Installer location and invocation cwd do not select the consumer.
+new_fixture installer-explicit-target
+consumer="$PWD"
+cp .git/index index-before
+(cd "$FIXTURE" && bash "$ROOT/scripts/dev/install-git-hooks.sh" --consumer "${consumer##*/}") > output
+[[ "$(git config --local --get core.hooksPath)" == .githooks ]] || exit 1
+cmp index-before .git/index
 
 # Logical aliases such as macOS /var versus /private/var name the same root.
 new_fixture installer-path-alias
 ln -s "$PWD" "$FIXTURE/installer-alias"
 (
     cd "$FIXTURE/installer-alias"
-    bash scripts/dev/install-git-hooks.sh > output
+    bash scripts/dev/install-git-hooks.sh --consumer "$PWD" > output
 )
 [[ "$(git config --local --get core.hooksPath)" == .githooks ]] || exit 1
 
 new_fixture installer-configured
 git config --local core.hooksPath custom-hooks
-expect_failure bash scripts/dev/install-git-hooks.sh
+expect_failure bash scripts/dev/install-git-hooks.sh --consumer "$PWD"
 [[ "$(git config --get core.hooksPath)" == custom-hooks ]] || exit 1
 
 # Git values are literal paths: trailing newlines must not become .githooks.
@@ -292,17 +335,17 @@ for scope in local inherited; do
     cp .git/config local-before
     cp "$config" config-before
     if [[ "$scope" == inherited ]]; then
-        GIT_CONFIG_GLOBAL="$config" expect_failure bash scripts/dev/install-git-hooks.sh
+        GIT_CONFIG_GLOBAL="$config" expect_failure bash scripts/dev/install-git-hooks.sh --consumer "$PWD"
     else
-        expect_failure bash scripts/dev/install-git-hooks.sh
+        expect_failure bash scripts/dev/install-git-hooks.sh --consumer "$PWD"
     fi
     cmp local-before .git/config
     cmp config-before "$config"
 done
 
 new_fixture $'installer-root\n'
-bash scripts/dev/install-git-hooks.sh > output
-bash scripts/dev/install-git-hooks.sh >> output
+bash scripts/dev/install-git-hooks.sh --consumer "$PWD" > output
+bash scripts/dev/install-git-hooks.sh --consumer "$PWD" >> output
 [[ "$(git config --local --get core.hooksPath)" == .githooks ]] || exit 1
 printf 'unformatted\n' > staged.rs
 git add staged.rs
@@ -328,7 +371,7 @@ GIT
     chmod +x mock-bin/git
     cp .git/config config-before
     if PATH="$PWD/mock-bin:$PATH" HOOK_TEST_GIT="$real_git" HOOK_TEST_OBSERVATION="$observation" \
-        bash scripts/dev/install-git-hooks.sh > output 2>&1; then
+        bash scripts/dev/install-git-hooks.sh --consumer "$PWD" > output 2>&1; then
         echo 'hook installer accepted a failed Git observation' >&2
         exit 1
     else
@@ -339,12 +382,12 @@ done
 
 new_fixture installer-disabled
 git config --local core.hooksPath ''
-expect_failure bash scripts/dev/install-git-hooks.sh
+expect_failure bash scripts/dev/install-git-hooks.sh --consumer "$PWD"
 [[ "$(git config --local --get core.hooksPath)" == '' ]] || exit 1
 
 new_fixture installer-inherited
 printf '[core]\n\thooksPath = inherited-hooks\n' > "$FIXTURE/global-config"
-GIT_CONFIG_GLOBAL="$FIXTURE/global-config" expect_failure bash scripts/dev/install-git-hooks.sh
+GIT_CONFIG_GLOBAL="$FIXTURE/global-config" expect_failure bash scripts/dev/install-git-hooks.sh --consumer "$PWD"
 [[ -z "$(git config --local --get core.hooksPath || true)" ]] || exit 1
 
 new_fixture installer-private-hook
@@ -352,13 +395,13 @@ mkdir .git/hooks
 printf '#!/bin/sh\nexit 0\n' > .git/hooks/pre-push
 chmod +x .git/hooks/pre-push
 cp .git/hooks/pre-push before
-expect_failure bash scripts/dev/install-git-hooks.sh
+expect_failure bash scripts/dev/install-git-hooks.sh --consumer "$PWD"
 cmp before .git/hooks/pre-push
 [[ -z "$(git config --get core.hooksPath || true)" ]] || exit 1
 
 new_fixture installer-non-executable
 chmod -x .githooks/pre-commit
-expect_failure bash scripts/dev/install-git-hooks.sh
+expect_failure bash scripts/dev/install-git-hooks.sh --consumer "$PWD"
 [[ ! -x .githooks/pre-commit && -z "$(git config --get core.hooksPath || true)" ]] || exit 1
 
 # Qualify the optional shared formatter against real Cargo and the actual hook,
@@ -612,8 +655,9 @@ if [[ "$1" == --version ]]; then echo 99.1.0; exit "${PRETTIER_VERSION_STATUS:-0
 [[ -z "${PRETTIER_CALL_MARKER:-}" ]] || touch "$PRETTIER_CALL_MARKER"
 [[ "${PRETTIER_FIXTURE_FAIL:-}" != yes ]] || exit 9
 mode="$1"
-[[ "$2" == -- ]] || exit 1
-shift 2
+[[ "$mode" == --write || "$mode" == --check ]] || exit 1
+[[ "$2" == --ignore-unknown && "$3" == -- ]] || exit 1
+shift 3
 for path in "$@"; do
     if [[ "$mode" == --check ]]; then
         if grep -q unformatted "$path"; then exit 1; fi

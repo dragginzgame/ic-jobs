@@ -346,10 +346,7 @@ impl Job {
                 }
             }
             JobState::Running | JobState::Uncertain { .. } => {
-                let started_ns = match record.state {
-                    JobState::Uncertain { started_ns } => started_ns,
-                    _ => record.updated_ns,
-                };
+                let started_ns = evidence_ns;
                 if record.attempts == 0
                     || started_ns < record.scheduled_ns
                     || started_ns > record.updated_ns

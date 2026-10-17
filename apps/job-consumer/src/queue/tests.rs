@@ -60,7 +60,13 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
         .value;
     assert_eq!(queue.dispatch(100).unwrap().value.1, 1);
     queue.pause(id, 101).unwrap();
-    assert_eq!(queue.summary().unwrap(), (None, 2, 0));
+    assert_eq!(
+        queue.summary().unwrap(),
+        Committed {
+            value: (2, 0),
+            next_due_ns: None
+        }
+    );
     drop(queue);
     let mut queue = Queue::open(memory.clone(), None).unwrap().0;
     assert_eq!(queue.inspect(id).unwrap().status, Status::Paused);
@@ -89,10 +95,16 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
     let mut queue = Queue::open(memory, None).unwrap().0;
     assert_eq!(queue.inspect(id).unwrap(), before);
     queue.resume(id, 450).unwrap();
-    assert_eq!(queue.summary().unwrap().0, Some(500));
+    assert_eq!(queue.summary().unwrap().next_due_ns, Some(500));
     assert_eq!(queue.dispatch(499).unwrap().value.1, 0);
     assert_eq!(queue.dispatch(500).unwrap().value.1, 1);
-    assert_eq!(queue.summary().unwrap(), (Some(510), 4, 0));
+    assert_eq!(
+        queue.summary().unwrap(),
+        Committed {
+            value: (4, 0),
+            next_due_ns: Some(510)
+        }
+    );
     assert_eq!(
         (
             queue.inspect(id).unwrap().sequence,
@@ -103,7 +115,7 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
     queue.pause(id, 500).unwrap();
     queue.cancel(id, 501).unwrap();
     assert_eq!(queue.inspect(id).unwrap().status, Status::Cancelled);
-    assert_eq!(queue.summary().unwrap().0, None);
+    assert_eq!(queue.summary().unwrap().next_due_ns, None);
 }
 
 #[test]
@@ -126,13 +138,13 @@ fn resume_preserves_overdue_policy_and_bounded_batch() {
         drop(queue);
         let mut queue = Queue::open(memory, None).unwrap().0;
         queue.resume(id, 200).unwrap();
-        assert_eq!(queue.summary().unwrap().0, Some(100));
+        assert_eq!(queue.summary().unwrap().next_due_ns, Some(100));
         assert_eq!(
             queue.dispatch(200).unwrap().value.1,
             if catch_up { 2 } else { 1 }
         );
         assert_eq!(
-            queue.summary().unwrap().0,
+            queue.summary().unwrap().next_due_ns,
             Some(if catch_up { 120 } else { 210 })
         );
     }
@@ -205,7 +217,13 @@ fn retained_queue_restores_payloads_deadlines_cancellation_and_id_authority() {
     drop(queue);
     let mut restored = Queue::open(memory.clone(), None).unwrap().0;
     assert_eq!(restored.page(None, 8).unwrap(), expected);
-    assert_eq!(restored.summary().unwrap(), (Some(200), 0, 0));
+    assert_eq!(
+        restored.summary().unwrap(),
+        Committed {
+            value: (0, 0),
+            next_due_ns: Some(200)
+        }
+    );
     assert_eq!(restored.page(Some(first), 1).unwrap()[0].id, second);
     assert_eq!(restored.page(None, 0), Err(Error::InvalidInput));
     assert_eq!(restored.create(increment(300)).unwrap().value, 3);
@@ -234,14 +252,26 @@ fn local_effects_and_bounded_overdue_work_commit_together() {
             next_due_ns: Some(120)
         }
     );
-    assert_eq!(queue.summary().unwrap(), (Some(120), 4, 0));
+    assert_eq!(
+        queue.summary().unwrap(),
+        Committed {
+            value: (4, 0),
+            next_due_ns: Some(120)
+        }
+    );
     drop(queue);
     let mut queue = Queue::open(memory, None).unwrap().0;
     assert_eq!(queue.inspect(id).unwrap().occurrence, 2);
     queue.dispatch(125).unwrap();
-    assert_eq!(queue.summary().unwrap(), (Some(130), 6, 0));
+    assert_eq!(
+        queue.summary().unwrap(),
+        Committed {
+            value: (6, 0),
+            next_due_ns: Some(130)
+        }
+    );
     queue.cancel(id, 125).unwrap();
-    assert_eq!(queue.summary().unwrap().0, None);
+    assert_eq!(queue.summary().unwrap().next_due_ns, None);
 }
 
 #[test]
@@ -261,7 +291,10 @@ fn skip_and_refused_mutations_preserve_committed_bytes() {
         .unwrap()
         .value;
     assert_eq!(queue.dispatch(125).unwrap().value.1, 1);
-    assert_eq!(queue.inspect(id).unwrap().due_ns, Some(130));
+    assert_eq!(
+        queue.inspect(id).unwrap().status,
+        Status::Pending { due_ns: 130 }
+    );
     let before = queue.cell.bytes().to_vec();
     assert!(
         queue
@@ -323,14 +356,22 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
                 next_due_ns: Some(100)
             }
         );
-        assert_eq!(queue.summary().unwrap(), (Some(100), 3, 0));
+        assert_eq!(
+            queue.summary().unwrap(),
+            Committed {
+                value: (3, 0),
+                next_due_ns: Some(100)
+            }
+        );
         assert_eq!(queue.inspect(failed).unwrap().status, Status::Failed);
         assert_eq!(queue.inspect(healthy).unwrap().status, Status::Completed);
-        assert_eq!(queue.inspect(remaining).unwrap().status, Status::Pending);
+        assert_eq!(
+            queue.inspect(remaining).unwrap().status,
+            Status::Pending { due_ns: 100 }
+        );
         let failed_record = queue.inspect(failed).unwrap();
         assert_eq!(failed_record.sequence, 1);
         assert_eq!(failed_record.occurrence, 0);
-        assert_eq!(failed_record.due_ns, None);
 
         drop(queue);
         let mut restored = Queue::open(memory, None).unwrap().0;
@@ -342,7 +383,13 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
                 next_due_ns: None
             }
         );
-        assert_eq!(restored.summary().unwrap(), (None, 4, 0));
+        assert_eq!(
+            restored.summary().unwrap(),
+            Committed {
+                value: (4, 0),
+                next_due_ns: None
+            }
+        );
         assert_eq!(restored.inspect(failed).unwrap(), failed_record);
         assert_eq!(
             restored.dispatch(200).unwrap(),
@@ -351,7 +398,13 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
                 next_due_ns: None
             }
         );
-        assert_eq!(restored.summary().unwrap(), (None, 4, 0));
+        assert_eq!(
+            restored.summary().unwrap(),
+            Committed {
+                value: (4, 0),
+                next_due_ns: None
+            }
+        );
     }
 }
 
@@ -409,7 +462,7 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
         receiver.receive(manager(), delivery.clone()).unwrap();
         drop(receiver);
         let receiver = Queue::open(receiver_memory, None).unwrap().0;
-        assert_eq!(receiver.summary().unwrap().2, 1);
+        assert_eq!(receiver.summary().unwrap().value.1, 1);
         assert_eq!(
             receiver.receipt(manager(), delivery).unwrap(),
             Some(delivery.clone())
@@ -758,7 +811,15 @@ fn view_projection_preserves_large_ids_and_refuses_unadmitted_identities() {
     let mut queue = Queue::open(VectorMemory::default(), Some(config()))
         .unwrap()
         .0;
-    queue.create(increment(100)).unwrap();
+    queue
+        .create(Create {
+            timing: Timing::Once(100),
+            task: Task::Deliver(DeliveryPayload {
+                destination: manager(),
+                message: "large identity".into(),
+            }),
+        })
+        .unwrap();
     let original = queue.cell.bytes().to_vec();
     let id = u64::MAX - 1;
     let mut snapshot: Snapshot = serde_json::from_slice(&original).unwrap();
@@ -770,6 +831,11 @@ fn view_projection_preserves_large_ids_and_refuses_unadmitted_identities() {
         .unwrap();
     assert_eq!(queue.inspect(id).unwrap().id, id);
     assert_eq!(queue.page(None, 8).unwrap()[0].id, id);
+    let delivery = queue.dispatch(100).unwrap().value.0.pop().unwrap();
+    assert_eq!(delivery.job, id);
+    assert_eq!(queue.outstanding(id).unwrap(), delivery);
+    // Refused identities must never produce a view or delivery from retained intent.
+    let mut snapshot: Snapshot = serde_json::from_slice(queue.cell.bytes()).unwrap();
 
     for invalid_id in [u128::from(u64::MAX), u128::from(u64::MAX) + 1, u128::MAX] {
         snapshot.jobs[0].job.id = JobId(invalid_id);
@@ -777,6 +843,7 @@ fn view_projection_preserves_large_ids_and_refuses_unadmitted_identities() {
         queue.cell.try_set(bytes.clone()).unwrap();
         assert_eq!(queue.inspect(id), Err(Error::InvalidStorage));
         assert_eq!(queue.page(None, 8), Err(Error::InvalidStorage));
+        assert_eq!(queue.outstanding(id), Err(Error::InvalidStorage));
         assert_eq!(queue.cell.bytes(), bytes);
     }
 }
@@ -818,7 +885,13 @@ fn typed_commit_preserves_canonical_snapshot_bytes_and_metadata() {
     drop(queue);
     let (queue, due) = Queue::open(memory, None).unwrap();
     assert_eq!(due, None);
-    assert_eq!(queue.summary().unwrap(), (None, 1, 1));
+    assert_eq!(
+        queue.summary().unwrap(),
+        Committed {
+            value: (1, 1),
+            next_due_ns: None
+        }
+    );
     assert_eq!(queue.outstanding(delivery.job).unwrap(), delivery);
     assert_eq!(queue.inspect(later).unwrap().status, Status::Paused);
 }
@@ -1074,7 +1147,7 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
             set_job_state(&mut loaded.jobs[0].job, target, at_ns);
         }
         queue.commit(loaded, ()).unwrap();
-        let expected_due = queue.summary().unwrap().0;
+        let expected_due = queue.summary().unwrap().next_due_ns;
         let before = queue.cell.bytes().to_vec();
         memory.writes.set(0);
         assert_eq!(
@@ -1112,7 +1185,7 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
         }
     );
     assert!(memory.writes.get() > 0);
-    assert_eq!(queue.summary().unwrap().1, 1);
+    assert_eq!(queue.summary().unwrap().value.0, 1);
 }
 
 #[test]
@@ -1195,7 +1268,7 @@ fn mutation_replies_return_the_fresh_committed_deadline() {
     drop(queue);
     let (queue, due) = Queue::open(memory, None).unwrap();
     assert_eq!(due, reply.next_due_ns);
-    assert_eq!(queue.summary().unwrap().0, reply.next_due_ns);
+    assert_eq!(queue.summary().unwrap().next_due_ns, reply.next_due_ns);
 }
 
 #[test]
@@ -1255,12 +1328,13 @@ fn receipt_extraction_and_duplicate_acknowledgement_leave_storage_unchanged() {
         queue.receipt(Principal::anonymous(), &absent),
         Err(Error::Unauthorized)
     );
+    assert_eq!(queue.summary().unwrap().value.1, 3);
     assert_eq!(memory.writes.get(), 0);
     assert_eq!(queue.cell.bytes(), before);
     drop(queue);
     let queue = Queue::open(memory, None).unwrap().0;
     assert_eq!(queue.cell.bytes(), before);
-    assert_eq!(queue.summary().unwrap().2, 3);
+    assert_eq!(queue.summary().unwrap().value.1, 3);
 }
 
 #[test]

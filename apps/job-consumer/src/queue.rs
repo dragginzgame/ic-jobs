@@ -133,7 +133,7 @@ impl Entry<Job> {
             id: record.id.0 as u64,
             task: self.task,
             status: match record.state {
-                JobState::Pending { .. } => Status::Pending,
+                JobState::Pending { due_ns } => Status::Pending { due_ns },
                 JobState::Paused { .. } => Status::Paused,
                 JobState::Running => Status::Running,
                 JobState::Uncertain { .. } => Status::Uncertain,
@@ -141,7 +141,6 @@ impl Entry<Job> {
                 JobState::Failed => Status::Failed,
                 JobState::Cancelled => Status::Cancelled,
             },
-            due_ns: self.job.next_due_ns(),
             sequence: record.sequence,
             occurrence: record.occurrence,
         }
@@ -155,7 +154,8 @@ impl Entry<Job> {
         Ok((
             attempt,
             Delivery {
-                job: u64::try_from(attempt.execution.job.0).map_err(|_| Error::InvalidStorage)?,
+                // The admitted entry and its active attempt retain the same bounded ID.
+                job: attempt.execution.job.0 as u64,
                 occurrence: attempt.execution.occurrence,
                 sequence: attempt.sequence,
                 payload: payload.clone(),
@@ -376,10 +376,12 @@ impl<M: Memory> Queue<M> {
         self.commit(snapshot, ())
     }
 
-    pub(crate) fn summary(&self) -> Result<(Option<u64>, u64, u64), Error> {
+    pub(crate) fn summary(&self) -> Result<Committed<(u64, u64)>, Error> {
         let snapshot = self.load()?;
-        let next_due = next_due_ns(snapshot.jobs.iter().map(|entry| &entry.job));
-        Ok((next_due, snapshot.counter, snapshot.receipts.len() as u64))
+        Ok(Committed {
+            value: (snapshot.counter, snapshot.receipts.len() as u64),
+            next_due_ns: next_due_ns(snapshot.jobs.iter().map(|entry| &entry.job)),
+        })
     }
 
     // No await: the complete bounded batch commits local effects and outstanding

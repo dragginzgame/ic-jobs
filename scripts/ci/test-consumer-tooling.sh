@@ -13,7 +13,7 @@ fixture="$(fixture_create "${TMPDIR:-/tmp}/jobs-consumer-tooling.XXXXXX")"
 fixture_complete=false
 trap 'fixture_finish "$?" "$fixture" "Consumer tooling fixture retained"' EXIT
 mkdir -p "$fixture/scripts/dev" "$fixture/.tools/rust/common/bin"
-bash "$root/scripts/ci/prepare-make-fixture.sh" "$root" "$fixture"
+bash "$root/scripts/ci/prepare-script-fixture.sh" "$root" "$fixture" make/consumer.mk
 cp "$root/Makefile" "$fixture/"
 cp -R "$root/ci" "$fixture/"
 cp "$root/scripts/dev/"{install-rust-tools,tool-store,cargo-tool-build}.sh "$fixture/scripts/dev/"
@@ -256,6 +256,7 @@ for mode in original optimized; do
  if [[ "$mode" == optimized ]]; then args=(--optimized); variants+=(O3 Os Oz); fi
  (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" RUNNER_TEMP="$fixture/$mode-evidence" \
   "$BASH" scripts/ci/test-canister.sh ${args[@]+"${args[@]}"}) > "$fixture/$mode-wrapper.log" 2>&1
+ [[ "$(grep -c '^Retained capture: ' "$fixture/$mode-wrapper.log")" == "${#variants[@]}" ]] || exit 1
  evidence=("$fixture/$mode-evidence/"*)
  [[ ${#evidence[@]} == 1 && "$(head -n 1 "$JOBS_CONSUMER_CAPTURED/paths")" == "${evidence[0]}/jobs_test_consumer.wasm" ]] || exit 1
  cmp "$fixture/input" "$JOBS_CONSUMER_CAPTURED/original.wasm"
@@ -289,6 +290,7 @@ status=0
 (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" RUNNER_TEMP="$fixture/failed-capture-evidence" \
  "$BASH" scripts/ci/test-canister.sh --optimized) > "$fixture/failed-capture.log" 2>&1 || status=$?
 [[ "$status" == 1 ]] || exit 1
+[[ "$(grep -c '^Retained capture: ' "$fixture/failed-capture.log")" == 1 ]] || exit 1
 evidence=("$fixture/failed-capture-evidence/"*)
 [[ ${#evidence[@]} == 1 && -f "${evidence[0]}/O3/producer.wasm" && ! -e "${evidence[0]}/O3/server.stdout" ]] || exit 1
 cmp "$fixture/input" "${evidence[0]}/jobs_test_consumer.wasm"

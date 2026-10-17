@@ -98,23 +98,16 @@ impl Schedule {
 /// let policy = RetryPolicy { max_attempts: 0, initial_delay_ns: 1, max_delay_ns: 1 };
 /// ```
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(try_from = "RetryPolicyFields")]
-pub struct RetryPolicy {
-    /// Total allowed attempts, including the initial dispatch. Must be positive.
-    max_attempts: u32,
-    /// Positive first retry delay.
-    initial_delay_ns: u64,
-    /// Maximum retry delay, at least the initial delay.
-    max_delay_ns: u64,
-}
+#[serde(try_from = "RetryPolicyFields", into = "RetryPolicyFields")]
+pub struct RetryPolicy(RetryPolicyFields);
 
 impl RetryPolicy {
     /// One attempt with no automatic retries.
-    pub const NONE: Self = Self {
+    pub const NONE: Self = Self(RetryPolicyFields {
         max_attempts: 1,
         initial_delay_ns: 1,
         max_delay_ns: 1,
-    };
+    });
 
     /// Check an immutable retry budget and delays, in nanoseconds.
     ///
@@ -128,35 +121,36 @@ impl RetryPolicy {
         if max_attempts == 0 || initial_delay_ns == 0 || max_delay_ns < initial_delay_ns {
             Err(JobError::InvalidRetryPolicy)
         } else {
-            Ok(Self {
+            Ok(Self(RetryPolicyFields {
                 max_attempts,
                 initial_delay_ns,
                 max_delay_ns,
-            })
+            }))
         }
     }
 
     /// Total allowed attempts, including the initial dispatch.
     pub const fn max_attempts(self) -> u32 {
-        self.max_attempts
+        self.0.max_attempts
     }
 
     /// First retry delay, in nanoseconds.
     pub const fn initial_delay_ns(self) -> u64 {
-        self.initial_delay_ns
+        self.0.initial_delay_ns
     }
 
     /// Maximum retry delay, in nanoseconds.
     pub const fn max_delay_ns(self) -> u64 {
-        self.max_delay_ns
+        self.0.max_delay_ns
     }
 
     pub(crate) fn delay(self, failed_attempts: u32) -> u64 {
         // Overflow means the mathematical delay exceeds every representable cap.
         let factor = 1_u64.checked_shl(failed_attempts - 1).unwrap_or(u64::MAX);
-        self.initial_delay_ns
+        self.0
+            .initial_delay_ns
             .saturating_mul(factor)
-            .min(self.max_delay_ns)
+            .min(self.0.max_delay_ns)
     }
 
     // Callers admit at least one failed attempt before calculating a retry.
@@ -170,7 +164,7 @@ impl RetryPolicy {
         // Doubling reaches the checked cap within 65 steps; aggregate its tail.
         while failure <= retries {
             let delay = self.delay(failure);
-            if delay == self.max_delay_ns {
+            if delay == self.0.max_delay_ns {
                 return elapsed + u128::from(delay) * u128::from(retries - failure + 1);
             }
             elapsed += u128::from(delay);
@@ -183,12 +177,21 @@ impl RetryPolicy {
 // Decode the existing numeric object shape, then admit it through the same
 // constructor used by ordinary callers. Keep the writer's public structure name
 // for formats that retain names; the projection itself stays private.
-#[derive(Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename = "RetryPolicy")]
 struct RetryPolicyFields {
+    /// Total allowed attempts, including the initial dispatch. Must be positive.
     max_attempts: u32,
+    /// Positive first retry delay.
     initial_delay_ns: u64,
+    /// Maximum retry delay, at least the initial delay.
     max_delay_ns: u64,
+}
+
+impl From<RetryPolicy> for RetryPolicyFields {
+    fn from(policy: RetryPolicy) -> Self {
+        policy.0
+    }
 }
 
 impl TryFrom<RetryPolicyFields> for RetryPolicy {

@@ -25,6 +25,12 @@ and policy. `reschedule` replaces timing from an unstarted occurrence forward,
 preserving identity/payload and keeping paused work paused. Already-attempted,
 blocked and terminal work refuses rescheduling. There is no force-run command.
 
+Inspection/list replies carry pending time as `Status::Pending { due_ns }`;
+other status variants carry no dispatch deadline. The separate `View::due_ns`
+field is removed. Rebuild the qualification canister and harness together for
+this management-response cut. Stored jobs and delivery receipts keep their
+formats; this response change needs no storage reset or conversion.
+
 Memory's fixture-only `FixtureCell` bootstraps the `test.jobs.` namespace and
 opens the permanent `test.jobs.consumer.management.v1` key. Installation selects
 bounded fresh creation; recovery selects bounded retained opening, with Cell

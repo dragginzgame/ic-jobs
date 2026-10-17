@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.17.0]
+
+- **Breaking:** Consumer inspection replies carry the deadline inside
+  `Status::Pending { due_ns }`; `View::due_ns` is removed. Rebuild the qualification
+  canister and harness together. Stored JobRecords and delivery receipts retain
+  their formats; no reset or conversion is needed for this response change.
+- Keep retry configuration fields in one checked representation while preserving
+  numeric validation and canonical serialization. Capture modes share one CLI
+  success receipt after successful retention.
+
+- Reuse canonical restoration timing evidence and consumer reply/deadline
+  projection, preserving stored records, read-only summaries and blocked effects.
+- Keep delivery ID projection within admitted queue bounds and qualify large
+  identities through dispatch and outstanding-delivery inspection.
+- Share native notification identity lookups and commit-before-reply projection,
+  preserving evidence precedence, payload checks and full-queue deadlines.
+  Select both harness test targets in one Cargo invocation.
+- Adopt Shared Tooling 0.23.0 and select Jobs' IC tool bundle explicitly for
+  optimized qualification. Refresh prepared tools for ICP CLI 1.7.0; fixture
+  preparation uses declared companion closures and retains failure evidence.
+
 ## [0.16.2] - 2026-10-17
 
 - Fix consumer compilation with Memory 0.48's bounded, fallible cell writes;

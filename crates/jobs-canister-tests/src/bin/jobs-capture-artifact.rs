@@ -12,11 +12,10 @@ fn capture(source: &Path, destination: &Path) -> io::Result<()> {
         .parent()
         .ok_or_else(|| io::Error::other("missing evidence parent"))?;
     let limit = usize::try_from(fs::metadata(source)?.len()).map_err(io::Error::other)?;
-    let retained = CapturedArtifact::capture(source, parent, limit)?
+    CapturedArtifact::capture(source, parent, limit)?
         .retain_to(destination)
-        .map_err(io::Error::other)?;
-    eprintln!("Retained capture: {}", retained.display());
-    Ok(())
+        .map(|_| ())
+        .map_err(io::Error::other)
 }
 
 fn optimizer_exit(status: ExitStatus) -> ExitCode {
@@ -69,26 +68,30 @@ fn optimize(
                 .status()
         },
     )?;
-    if status.success() {
-        eprintln!("Retained capture: {}", destination.display());
-    }
     Ok(optimizer_exit(status))
 }
 
 fn main() -> io::Result<ExitCode> {
     let args: Vec<_> = std::env::args_os().collect();
-    match args.as_slice() {
+    let (status, destination) = match args.as_slice() {
         [_, source, destination] => {
             capture(Path::new(source), Path::new(destination))?;
-            Ok(ExitCode::SUCCESS)
+            (ExitCode::SUCCESS, destination)
         }
-        [_, source, destination, flag, optimizer, level] if flag == "--optimize" => {
-            optimize(Path::new(source), Path::new(destination), optimizer, level)
+        [_, source, destination, flag, optimizer, level] if flag == "--optimize" => (
+            optimize(Path::new(source), Path::new(destination), optimizer, level)?,
+            destination,
+        ),
+        _ => {
+            return Err(io::Error::other(
+                "usage: jobs-capture-artifact INPUT DESTINATION [--optimize OPTIMIZER {-O3|-Os|-Oz}]",
+            ));
         }
-        _ => Err(io::Error::other(
-            "usage: jobs-capture-artifact INPUT DESTINATION [--optimize OPTIMIZER {-O3|-Os|-Oz}]",
-        )),
+    };
+    if status == ExitCode::SUCCESS {
+        eprintln!("Retained capture: {}", Path::new(destination).display());
     }
+    Ok(status)
 }
 
 #[cfg(test)]

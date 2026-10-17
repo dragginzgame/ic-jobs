@@ -1,6 +1,10 @@
 .DEFAULT_GOAL := help
 export RELEASE_DELIVERY ?= direct
 override SHARED_TOOLING_ROOT := $(CURDIR)
+# Jobs' optimized qualification needs Binaryen from the selected IC bundle.
+LOCAL_TOOL_INSTALL_TARGETS := install-ic-tools
+LOCAL_TOOL_CHECK_TARGETS := ic-tools-check
+export PATH := $(CURDIR)/.tools/ic/bin:$(PATH)
 include make/consumer.mk
 TESTKIT_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release
 VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
@@ -37,8 +41,7 @@ test-consumers:
 check-consumer:
 	+cargo +1.91.0 test -p jobs-test-consumer --lib --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
-	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
-	+cargo +1.91.0 test -p jobs-canister-tests --test recovery --locked --offline
+	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --test recovery --locked --offline
 	+cargo clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
 	+cargo clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
 

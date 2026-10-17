@@ -16,17 +16,17 @@ repository = "https://github.com/dragginzgame/ic-jobs"
 # dependencies below support the unpublished qualification consumer and harness.
 [workspace.dependencies]
 candid = "0.10"
-ic-build = "0.15"
+ic-build = "0.16"
 ic-cdk = "0.20"
-ic-host-fs = "0.26"
-ic-host-process = "0.26"
+ic-host-fs = "0.27"
+ic-host-process = "0.27"
 ic-jobs = { path = "crates/ic-jobs" }
 ic-memory = "0.48"
 # Direct only in unpublished consumer tests for raw Cell fixtures/corruption.
 ic-stable-structures = "0.7.2"
-ic-testkit = "0.51"
+ic-testkit = "0.52"
 # Bounded Candid decoding for qualification; this still depends on candid.
-ic-testkit-candid = "0.51"
+ic-testkit-candid = "0.52"
 ic-timers = "0.27"
 jobs-test-consumer = { path = "apps/job-consumer" }
 serde = "1.0"

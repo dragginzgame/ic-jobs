@@ -362,7 +362,7 @@ MAKE
         cmp .git/index "$fixture/cache-index"
         for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
         [[ ! -e .git/gate-events && ! -e ".git/release-state/$candidate.plan" ]] || exit 1
-        printf 'rust-preflight\ninstall-host-tools\ninstall-ic-tools\ninstall-rust-tools\nhost-tools-check\nic-tools-check\nrust-tools-check\n' > "$fixture/expected-tools"
+        printf 'rust-preflight\ninstall-host-tools\ninstall-rust-tools\ninstall-ic-tools\nhost-tools-check\nrust-tools-check\nic-tools-check\n' > "$fixture/expected-tools"
         cmp .git/tool-events "$fixture/expected-tools"
         # Shared owns every common leaf failure; Jobs retains late admission
         # refusal through its real parallel CI route before product dispatch.

@@ -67,7 +67,10 @@ pub struct Create {
 #[derive(Debug, Eq, PartialEq, CandidType, Deserialize)]
 pub enum Status {
     /// Pending work with a durable deadline.
-    Pending,
+    Pending {
+        /// Pending dispatch deadline, including retry backoff.
+        due_ns: u64,
+    },
     /// Suspended pending work, with no armed dispatch deadline.
     Paused,
     /// Outstanding committed attempt, never replayed during restore.
@@ -91,8 +94,6 @@ pub struct View {
     pub task: Task,
     /// Checked state projection.
     pub status: Status,
-    /// Pending dispatch time, absent for blocked or terminal work.
-    pub due_ns: Option<u64>,
     /// Exact allocated dispatch sequence.
     pub sequence: u64,
     /// Recurring occurrence sequence.

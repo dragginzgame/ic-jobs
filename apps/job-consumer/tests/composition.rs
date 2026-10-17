@@ -647,10 +647,18 @@ fn reconciliation_requires_matching_payload_and_prefers_success_evidence() -> Re
         .push((delivery.attempt.execution, delivery.payload.clone()));
     destination
         .rejections
-        .push((delivery.attempt, delivery.payload));
+        .push((delivery.attempt, delivery.payload.clone()));
     assert!(sender.reconcile(delivery.attempt, &destination, 102)?);
     assert_eq!(sender.load()?[0].job.record().state, JobState::Completed);
     assert_eq!(destination.calls, 0);
+    // Evidence queries may find a later exact match; delivery must still refuse
+    // an identity whose first retained payload contradicts the request.
+    assert!(
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            destination.deliver(&delivery)
+        }))
+        .is_err()
+    );
     Ok(())
 }
 

@@ -128,7 +128,10 @@ fn reschedule(id: u64, timing: crate::api::Timing) -> Result<(), Error> {
 
 #[ic_cdk::query]
 fn summary() -> Result<Summary, Error> {
-    let (next_due_ns, counter, receipts) = with_authorized_queue(|queue| queue.summary())?;
+    let Committed {
+        value: (counter, receipts),
+        next_due_ns,
+    } = with_authorized_queue(|queue| queue.summary())?;
     let armed = WATCHDOG.with(|watchdog| {
         watchdog
             .borrow()

@@ -60,6 +60,26 @@ Optional fields default only when omitted; boolean values and line breaks in
 selections are refused. Policy paths and resolved directories must contain no
 CR/LF, including directory aliases.
 
+Validation callers that need only the workspace floor can use the same read-only
+projection without calling the installer:
+
+```bash
+minimum="$(bash scripts/ci/read-cargo-workspace-rust-version.sh Cargo.toml)"
+```
+
+This reader needs only prepared `yq` and `jq`, so it works before Cargo/Rust
+bootstrap. `YQ` may select the prepared parser explicitly. It emits one numeric
+major/minor or major/minor/patch selection only after both observations succeed;
+failed parsers preserve their status without publishing a floor. It does not
+validate the complete Cargo manifest or dependencies. Consumers own subsequent
+compiler checks, target policy, Rustup auto-install policy and explicit overrides.
+Both policy forms require exactly one JSON object from the TOML parser. Empty,
+multiple or malformed observations refuse before a floor is published or Rustup
+is invoked, including observations with a valid first or last document
+([#270 — Reject ambiguous Rust bootstrap policy observations](https://github.com/dragginzgame/shared-tooling/issues/270)).
+The setup entrypoint delegates its workspace projection to this reader; snapshot
+selection automatically carries that companion.
+
 Adopt from a reviewed, published Shared Tooling revision using the
 [snapshot workflow](consuming-snapshots.md), then replace the local action and
 both ordinary/recovery callers together. The offline fixture executes the actual

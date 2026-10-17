@@ -2,8 +2,36 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.16.1**: `31f5961e70b0033dfcfc7bae068bcd43c08d36c8`.
-Pending **0.16.2** shares watchdog reconciliation before returning committed
+Delivered Jobs **0.16.2**: `41d9e31ff92de1703976d642b28d20ff08bae8aa`.
+Pending **0.17.0** hard-cuts management inspection replies to
+`Status::Pending { due_ns }` and removes the separate `View::due_ns` field.
+Rebuild the unpublished qualification canister and harness together. Stored
+JobRecords and delivery receipts keep their formats; no storage reset or
+conversion is required for this response-only cut. No compatibility reader or
+fallback is added. The public status/deadline pairing is structural; projection
+derives it directly from validated JobState.
+Retry configuration wraps one private field representation; construction and
+decoding keep the same numeric constraints and canonical named serialization.
+The capture CLI prints one success receipt after either retention path succeeds,
+preserving optimizer status and failed-producer/log custody.
+Native notification enqueue/cancel now share commit-before-reply projection,
+keeping stored ordering and the complete queue's deadline before extracting the
+response entry. Destination identity filtering is shared while evidence queries
+still scan for exact payloads and delivery still checks the first retained match.
+The consumer gate selects both harness targets in one Cargo invocation; live
+recovery scenarios retain their ignored default.
+
+The earlier compatible cleanup reuses the already-derived active-attempt timing evidence
+through restoration. Queue summaries use the existing reply/deadline envelope
+and remain read-only; the canister's public summary fields are unchanged.
+Delivery projection uses the admitted queue identity bound, retaining active
+attempt, payload and exact-envelope checks. That cleanup preserves the core API
+and stored/wire formats; the management response cut above is separate.
+Error precedence and uncertain-effect blocking remain unchanged.
+The incoming Testkit/Candid 0.52 manifest and lock selection is preserved;
+its adoption is separate from these three local cleanups.
+
+Delivered **0.16.2** shares watchdog reconciliation before returning committed
 consumer replies. Management still authorizes first, delivery completion
 keeps its existing authority path, and reconciliation failure traps in the same
 message segment. The callback's result-driven watchdog path remains separate.
@@ -15,7 +43,7 @@ core source, public/wire/storage contracts and own package versions unchanged.
 The incoming Timers 0.27.1/Metrics 0.13.3 lock selection is preserved; Testkit's
 independent Metrics 0.12 selection remains alongside it.
 The selected Memory 0.48 graph removes the infallible fixture-cell writer.
-Pending 0.16.2 now uses bounded `try_set` for initialization, normal commits and
+It uses bounded `try_set` for initialization, normal commits and
 the deliberate corruption endpoint, propagating write refusals before success.
 All native fixture writers explicitly require successful bounded writes.
 The existing 24 KiB capacity check still precedes collection admission; record
@@ -141,20 +169,26 @@ Jobs' actual CI fixture keeps one selected-lock drift case through its Make rout
 the pinned Shared producer owns generic checkpoint/output and refusal matrices.
 The 0.15 record API and JSON change; transition and error ordering remain unchanged
 for current-format records. The decoder's work limits and uncertainty policy remain.
-Shared Tooling is **0.16.0** at
-`989752490b392f7f4c542c7652dcb84e75ecf363` (111 payloads), from canonical export
-of the delivered, three-host-qualified source. Jobs selects its retained-failure
-assertions explicitly, uses the standard cleanup-inclusive probes and delegates
-Make skeleton copying and locked release preflight to their Shared owners.
-Optional maintenance runtime/service payloads are retired; guidance and catalogs
-remain. That contributor-only adoption was delivered in 0.13.3.
+Shared Tooling is **0.23.0** at
+`dabc59d944492bebcb43dd92ba58e462fb100597` (114 payloads), from canonical export
+of delivered 0.23.0 plus the focused hook-fixture fix in
+[Shared PR #281](https://github.com/dragginzgame/shared-tooling/pull/281).
+The fix admits the production formatter's `--ignore-unknown` argument in its
+prepared test substitute; production formatter behavior is unchanged.
+Jobs explicitly selects IC setup/checks after common host/Rust tools and retains
+the IC executable PATH for optimized qualification. ICP CLI is now 1.7.0.
+Both local Make fixtures use declared companion closure preparation. The unused
+shared publication policy and superseded fixture copier are removed by the
+canonical export; Jobs' local publication policy remains selected.
+Retained-failure assertions and locked release preflight keep their existing owners.
 Release preparation now uses Shared's metadata renderer directly. Jobs no longer
 requires cargo-edit, a separate release-tool catalog or local setup/check targets.
 Common tool admission and metadata refusal/rollback boundaries remain in place.
 
-The selected graph uses Memory 0.48.0, Testkit/Candid 0.51.0, Timers
+The selected graph uses Memory 0.48.0, incoming Testkit/Candid 0.52.0, Timers
 0.27.1 with Metrics 0.13.3, Testkit's separate Metrics 0.12.0, Build 0.15.0 and
-direct Host FS/Process 0.26.0.
+incoming direct Host FS/Process 0.27.1. That selection already matches the Host
+repository's latest delivered source; no dependency versions change in this batch.
 Rust floor is 1.91.0; development is 1.99.0.
 The cleanup preserves those incoming registry selections. Memory 0.46's narrowed
 exports supply backing IO types directly, without a full substrate re-export;
@@ -182,6 +216,82 @@ runtime Timers dependency or lifecycle exports. The capture tool owns Jobs'
 optimizer recipe and uses IC Build's retained path; Jobs selects the live gate.
 
 ## Qualification
+
+Shared 0.23 adoption is qualified locally on Linux against the incoming pending
+0.17.0 tree on delivered Jobs 0.16.2; retained source inputs and the receipt are in
+`target/qualification/shared-tooling-0230/`. Setup and offline tool admission,
+snapshot integrity, pins, release-command adapters, consumer and formatting
+evidence fixtures, real-Git release/publication fixtures and Jobs' hook-adoption
+check pass. The upstream hook fixture initially failed with 0.23.0's stale
+Prettier substitute; that failed fixture remains at `/tmp/git-hooks-test.DK06Ex`.
+The focused correction passes at its upstream owner before canonical export.
+Three capture tests and the native bounded-reply test pass on Rust 1.91 with the
+existing Host 0.27.1 selection; seven live recovery scenarios remain ignored.
+Runtime source, Cargo metadata and lock selection are unchanged by this adoption.
+The new stable-memory governance was reviewed against the unpublished fixture
+consumer boundary; this batch adds no production store or raw-memory path.
+Native macOS, full local CI and live recovery were not selected. The contributor
+PR is separate from Jobs' primary index/refs; no Jobs release or upload ran.
+
+Native notification flow evidence is in
+`target/qualification/notification-flow-0170/`, relative to the incoming pending
+0.17.0 tree on delivered Jobs 0.16.2
+`41d9e31ff92de1703976d642b28d20ff08bae8aa`, with its Testkit/Candid 0.52 metadata.
+All 19 composition tests pass on Rust 1.91, retaining commit refusal, persisted
+ordering, complete-queue deadlines, authorization and unresolved-effect blocking.
+The payload-evidence case now also proves delivery refuses a conflicting first
+payload even when reconciliation can find a later exact match; success evidence
+still precedes rejection evidence. Focused composition Clippy passes.
+The merged harness command passes three capture tests and one native bounded
+reply test on Rust 1.91; seven live scenarios stay ignored. The actual consumer
+tooling fixture passes with substituted compiler/optimizer/server effects and
+the updated Makefile. Formatting, changed-document links and diff checks pass.
+The application/core runtime source and incoming dependency edits are unchanged;
+their earlier Wasm/core qualifications retain their own source scope. Own package
+versions and primary index/refs are preserved. No full local CI, live PocketIC,
+native macOS, release, publication, deployment or reset ran for this cleanup.
+
+View/retry/capture cleanup evidence is in
+`target/qualification/view-policy-capture-0170/`, relative to the incoming pending
+0.16.3 tree on delivered Jobs 0.16.2
+`41d9e31ff92de1703976d642b28d20ff08bae8aa`, including Testkit/Candid 0.52 metadata.
+All 48 core tests and six doctests, 26 consumer tests, 19 composition tests, three
+capture tests and the harness's native reply test pass on Rust 1.91. Retry JSON,
+named Serde tokens and invalid-number admission remain qualified unchanged.
+The old pending-page reply was encoded and decoded with the original API before
+the cut; the current bounded decoder refuses the frozen 222-byte response. The
+current largest pending page round-trips within the same finite decoder limits.
+All seven live recovery scenarios compile but remain ignored.
+Separate Rust 1.91 core Wasm checking and consumer Wasm release build, strict
+native all-target/Wasm Clippy and warning-denied core Rust 1.91 rustdoc pass.
+The actual consumer-tooling wrapper passes with substituted optimizer/server
+effects, including one CLI success receipt per retained variant and none for
+failed optimized capture. Source-following ShellCheck, formatting, documentation
+links and diff checks pass. The initial harness compile caught a pattern binding
+inside an assertion macro; the binding is now outside that assertion and the
+corrected harness passes. The original failed log is retained.
+Pending notes move the entire unreleased candidate to 0.17.0; package versions,
+incoming manifest/lock bytes and primary index/refs stay unchanged. No full local
+CI, live PocketIC, native macOS, release, publication, deployment or reset ran.
+
+Restoration/summary/delivery cleanup evidence is in
+`target/qualification/restore-summary-delivery-0163/`, relative to delivered Jobs
+0.16.2 `41d9e31ff92de1703976d642b28d20ff08bae8aa` plus the incoming Testkit/Candid
+0.52 manifest/lock selection. All 48 core tests and six doctests, 26 consumer tests
+and 19 native composition tests pass on Rust 1.91. Separate core and consumer
+Rust 1.91 Wasm checks and strict native all-target/Wasm Clippy pass. The extended
+identity case preserves a near-u64::MAX ID through dispatch and outstanding
+delivery projection; malformed stored identities refuse before views or delivery
+escape. Receipt-query coverage also observes zero writes after reading a summary,
+while retaining independent physical Cell reopening checks.
+The first consumer compile caught a moved-backing error in the added write-count
+assertion; the assertion now runs before reopening transfers the backing. The
+corrected consumer checks pass, with the initial failure retained in the evidence.
+Changed-source formatting, documentation links and diff checks pass. Incoming
+manifest/lock bytes, own package versions and primary index/refs are unchanged.
+No full local CI, live PocketIC, native macOS, harness qualification, release,
+publication, deployment or reset was selected. Earlier receipts retain their
+original source and graph scope.
 
 Memory 0.48 write repair evidence is in
 `target/qualification/memory048-writes-0162/`, relative to candidate commit

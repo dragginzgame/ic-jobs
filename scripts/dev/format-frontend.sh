@@ -31,8 +31,6 @@ while IFS= read -r -d '' path; do
     [[ "$path" == "$scope/"* ]] || continue
     case "$path" in
         ../*|*/../*|*/..|*//*) echo 'invalid formatter path' >&2; exit 2 ;;
-        *.js|*.jsx|*.ts|*.tsx|*.json|*.css|*.scss|*.html|*.md|*.yaml|*.yml) ;;
-        *) continue ;;
     esac
     cursor="$path"
     while [[ "$cursor" != . ]]; do
@@ -53,4 +51,5 @@ if ! actual_version="$("$PRETTIER_BIN" --version)" || \
     echo 'prepared Prettier does not match the selected lockfile version' >&2
     exit 1
 fi
-"$PRETTIER_BIN" "$mode" -- "${files[@]}"
+# The pinned formatter owns language support; the consumer owns ignore policy.
+"$PRETTIER_BIN" "$mode" --ignore-unknown -- "${files[@]}"

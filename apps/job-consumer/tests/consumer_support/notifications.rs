@@ -129,6 +129,20 @@ impl Notifications {
         self.store.write(&jobs)
     }
 
+    fn commit_entry(
+        &mut self,
+        mut jobs: Vec<NotificationSnapshot<Job>>,
+        index: usize,
+    ) -> Result<ManagementReply<NotificationSnapshot>> {
+        self.commit(&jobs)?;
+        // Persist ordering and project the full queue before extracting the reply.
+        let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
+        Ok(ManagementReply {
+            value: jobs.swap_remove(index).into_stored(),
+            next_due_ns: due,
+        })
+    }
+
     fn authorize(caller: &str) -> Result<()> {
         // Authorization precedes decoding, reads of private payloads and writes.
         if caller != NOTIFICATION_MANAGER {
@@ -154,13 +168,9 @@ impl Notifications {
             .into());
         }
         let job = Job::new(id, Schedule::Once { at_ns }, RetryPolicy::NONE);
+        let index = jobs.len();
         jobs.push(NotificationSnapshot { job, payload });
-        self.commit(&jobs)?;
-        let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
-        Ok(ManagementReply {
-            value: jobs.pop().unwrap().into_stored(),
-            next_due_ns: due,
-        })
+        self.commit_entry(jobs, index)
     }
 
     pub(crate) fn inspect(
@@ -213,12 +223,7 @@ impl Notifications {
         let mut jobs = self.load()?;
         let index = Self::index(&jobs, id).ok_or(ManagementError::UnknownJob)?;
         jobs[index].job.cancel(now_ns)?;
-        self.commit(&jobs)?;
-        let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
-        Ok(ManagementReply {
-            value: jobs.swap_remove(index).into_stored(),
-            next_due_ns: due,
-        })
+        self.commit_entry(jobs, index)
     }
 
     pub(crate) fn dispatch_due(
@@ -304,19 +309,29 @@ pub(crate) struct Destination {
 }
 
 impl Destination {
+    fn receipt_payloads(&self, execution: ExecutionId) -> impl Iterator<Item = &Notification> {
+        self.receipts
+            .iter()
+            .filter_map(move |(recorded, payload)| (*recorded == execution).then_some(payload))
+    }
+
+    fn rejection_payloads(&self, attempt: Attempt) -> impl Iterator<Item = &Notification> {
+        self.rejections
+            .iter()
+            .filter_map(move |(recorded, payload)| (*recorded == attempt).then_some(payload))
+    }
+
     // Match the immutable payload, preferring a logical execution receipt over
     // an exact-attempt rejection. No recorded result grants no retry permission.
     fn recorded_result(&self, attempt: Attempt, payload: &Notification) -> Option<bool> {
         if self
-            .receipts
-            .iter()
-            .any(|(execution, recorded)| *execution == attempt.execution && recorded == payload)
+            .receipt_payloads(attempt.execution)
+            .any(|recorded| recorded == payload)
         {
             Some(true)
         } else if self
-            .rejections
-            .iter()
-            .any(|(rejected, recorded)| *rejected == attempt && recorded == payload)
+            .rejection_payloads(attempt)
+            .any(|recorded| recorded == payload)
         {
             Some(false)
         } else {
@@ -326,19 +341,11 @@ impl Destination {
 
     pub(crate) fn deliver(&mut self, delivery: &Delivery) -> bool {
         self.calls += 1;
-        if let Some((_, payload)) = self
-            .receipts
-            .iter()
-            .find(|(execution, _)| *execution == delivery.attempt.execution)
-        {
+        if let Some(payload) = self.receipt_payloads(delivery.attempt.execution).next() {
             assert_eq!(payload, &delivery.payload);
             return true;
         }
-        if let Some((_, payload)) = self
-            .rejections
-            .iter()
-            .find(|(attempt, _)| *attempt == delivery.attempt)
-        {
+        if let Some(payload) = self.rejection_payloads(delivery.attempt).next() {
             assert_eq!(payload, &delivery.payload);
             return false;
         }

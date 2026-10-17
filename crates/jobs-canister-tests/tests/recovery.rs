@@ -163,6 +163,13 @@ fn increment(at: u64, amount: u64) -> Create {
 
 #[test]
 fn reply_limits_admit_the_largest_consumer_page() {
+    assert!(
+        ic_testkit_candid::decode_one::<Result<Vec<View>, Error>>(
+            include_bytes!("fixtures/pending-page-0162.didbin"),
+            REPLY_LIMITS,
+        )
+        .is_err()
+    );
     let views = (0..8)
         .map(|id| View {
             id,
@@ -170,8 +177,7 @@ fn reply_limits_admit_the_largest_consumer_page() {
                 destination: Principal::self_authenticating(b"receiver"),
                 message: "x".repeat(256),
             }),
-            status: Status::Uncertain,
-            due_ns: Some(u64::MAX),
+            status: Status::Pending { due_ns: u64::MAX },
             sequence: u64::MAX,
             occurrence: u64::MAX,
         })
@@ -349,7 +355,10 @@ fn watchdog_batch_trap_rolls_back_then_recovers_without_repeating_local_effects(
     assert_eq!(recovered.counter, 1);
     assert_eq!(recovered.next_due_ns, Some(later_due));
     assert!(recovered.armed);
-    assert_eq!(fixture.view(later).status, Status::Pending);
+    assert_eq!(
+        fixture.view(later).status,
+        Status::Pending { due_ns: later_due }
+    );
 
     fixture.pic.instance.advance_time(Duration::from_secs(40));
     fixture.until(|| fixture.view(later).status == Status::Completed);
@@ -518,7 +527,7 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
             || fixture.upgrade(fixture.sender),
         )
         .unwrap();
-    assert_eq!(fixture.view(id).status, Status::Pending);
+    assert!(matches!(fixture.view(id).status, Status::Pending { .. }));
     assert_eq!(fixture.summary(fixture.sender).counter, 0);
 }
 
@@ -558,10 +567,10 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
         fixture.update::<(), _>("resume", (*id,)).unwrap();
     }
     fixture.until(|| fixture.view(ids[0]).occurrence == 1 && fixture.view(ids[1]).occurrence >= 1);
-    assert!(
-        fixture.view(ids[0]).due_ns.unwrap()
-            > fixture.pic.instance.get_time().as_nanos_since_unix_epoch()
-    );
+    let Status::Pending { due_ns } = fixture.view(ids[0]).status else {
+        panic!("overdue occurrence must remain pending");
+    };
+    assert!(due_ns > fixture.pic.instance.get_time().as_nanos_since_unix_epoch());
     for id in ids {
         fixture.update::<(), _>("cancel", (id,)).unwrap();
     }
