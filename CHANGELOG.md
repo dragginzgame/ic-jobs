@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.14.1]
+## [0.14.1] - 2026-10-17
 
 - Keep stored records and validated consumer state in one snapshot shape,
   preserving JSON bytes and restore/refusal ordering.
