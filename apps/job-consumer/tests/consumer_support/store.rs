@@ -2,6 +2,8 @@ use super::Result;
 use serde::{Serialize, de::DeserializeOwned};
 use std::io;
 
+const MAX_SNAPSHOT_BYTES: usize = 4096;
+
 // Both fixture applications have tiny, bounded snapshots. Storage is not a Jobs
 // trait, and a failed write keeps the previously committed bytes unchanged.
 pub(crate) struct Store {
@@ -26,7 +28,7 @@ impl Store {
     }
 
     pub(crate) fn read<T: DeserializeOwned>(&self) -> Result<T> {
-        if self.bytes.len() > 4096 {
+        if self.bytes.len() > MAX_SNAPSHOT_BYTES {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "snapshot too large").into());
         }
         Ok(serde_json::from_slice(&self.bytes)?)
@@ -34,7 +36,7 @@ impl Store {
 
     pub(crate) fn write(&mut self, value: &impl Serialize) -> Result<()> {
         let bytes = serde_json::to_vec(value)?;
-        if bytes.len() > 4096 {
+        if bytes.len() > MAX_SNAPSHOT_BYTES {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "snapshot too large").into());
         }
         if let Some(remaining) = self.writes_before_failure.take() {

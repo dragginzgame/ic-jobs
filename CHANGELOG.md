@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.16.1]
+
+- Own Jobs' publication admission locally while retaining Shared source, version,
+  tag, registry and Make observers. Keep clean-source, matching pushed-tag and
+  confirmed registry-absence checks before the separately authorized upload.
+- Qualify publication failure retention alongside the real release adapter;
+  keep the policy matrix at its owner and retain adapter dispatch, upload-status
+  and interrupted-upload reconciliation checks with substituted registry effects.
+- Share cancellation/rescheduling admission while preserving clock-first errors,
+  attempted-work refusal and blocked unresolved effects. Keep native fixture
+  snapshot and queue limits consistent at their read/write admission boundaries.
+
 ## [0.16.0] - 2026-10-17
 
 - **Breaking:** `JobState::Running` is a unit variant; its dispatch time is

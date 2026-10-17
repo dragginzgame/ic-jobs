@@ -452,6 +452,14 @@ impl Job {
         }
     }
 
+    fn pending_or_paused_state(&self) -> Result<JobState, JobError> {
+        match self.0.state {
+            state @ (JobState::Pending { .. } | JobState::Paused { .. }) => Ok(state),
+            JobState::Running | JobState::Uncertain { .. } => Err(JobError::InFlight),
+            _ => Err(JobError::NotPending),
+        }
+    }
+
     /// Allocate dispatch intent. Commit the resulting record before external work.
     ///
     /// The application must not reuse this occurrence's effect identity with a
@@ -601,14 +609,7 @@ impl Job {
     /// consumer-owned and must retain their effect identity.
     pub fn reschedule(&mut self, schedule: Schedule, now_ns: u64) -> Result<(), JobError> {
         self.check_time(now_ns)?;
-        let paused = match self.0.state {
-            JobState::Pending { .. } => false,
-            JobState::Paused { .. } => true,
-            JobState::Running | JobState::Uncertain { .. } => {
-                return Err(JobError::InFlight);
-            }
-            _ => return Err(JobError::NotPending),
-        };
+        let paused = matches!(self.pending_or_paused_state()?, JobState::Paused { .. });
         if self.0.attempts != 0 {
             return Err(JobError::AlreadyAttempted);
         }
@@ -628,13 +629,7 @@ impl Job {
     /// Cancel pending or paused work. An unresolved effect must be reconciled first.
     pub fn cancel(&mut self, now_ns: u64) -> Result<(), JobError> {
         self.check_time(now_ns)?;
-        match self.0.state {
-            JobState::Running | JobState::Uncertain { .. } => {
-                return Err(JobError::InFlight);
-            }
-            JobState::Pending { .. } | JobState::Paused { .. } => {}
-            _ => return Err(JobError::NotPending),
-        }
+        self.pending_or_paused_state()?;
         self.0.state = JobState::Cancelled;
         self.0.updated_ns = now_ns;
         Ok(())

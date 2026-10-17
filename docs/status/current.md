@@ -2,8 +2,30 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.15.0**: `71761e0` (Release 0.15.0).
-Pending **0.16.0** removes the duplicate Running timestamp: `JobState::Running`
+Delivered Jobs **0.16.0**: `5b73312` (Release 0.16.0).
+Pending **0.16.1** adopts the existing publication-owner contribution from
+[PR #67](https://github.com/dragginzgame/ic-jobs/pull/67). Jobs now owns the complete
+`ic-jobs` publication policy under `scripts/release/`; Shared retains canonical
+source, version, tag, registry and Make observations. The publisher uses the local
+policy without changing clean-source, pushed-tag, registry-absence or uncertainty
+admission. Its local fixture is selected by `make test-release-tooling`, including
+exit/cleanup and explicit-assertion failure retention. Snapshot bytes stay intact;
+retirement of the unused Shared policy entry needs a reviewed export.
+This is compatible contributor tooling; own package versions remain unchanged.
+The same 0.16.1 batch shares Pending/Paused admission between cancellation and
+rescheduling, preserving clock-first errors and rescheduling's attempted-work
+refusal. Native fixture snapshot reads/writes share one byte ceiling, and
+notification load/enqueue share one capacity. Page, receipt and rejection limits
+remain independent. The release adapter keeps representative admission refusals,
+exact Cargo dispatch, upload-status propagation and reconciliation after upload
+failure; the local publication fixture owns the broader policy matrix.
+The incoming Build 0.14 manifest/lock selection is preserved and its three actual
+capture/optimizer tests pass on Rust 1.91. Its registry adoption is incoming work,
+separate from publication-policy ownership.
+Incoming direct Host FS/Process 0.26 selections are also preserved; their harness
+callers are outside this cleanup's focused qualification.
+
+Delivered **0.16.0** removes the duplicate Running timestamp: `JobState::Running`
 is a unit variant and its start time is `JobRecord::updated_ns`. Entering
 Uncertain copies the original dispatch time before replacing the transition
 time; subsequent unresolved reconciliation preserves that start. Restoration,
@@ -18,7 +40,7 @@ conversion or deployment. Timestamp-bearing Running and flat receipt shapes
 refuse. Current-format unresolved attempts remain blocked until disposition.
 Core callers must update Running constructors/patterns; consumer callers use
 `Task::Deliver(payload)` and `delivery.payload`, rebuilding both peers and harness.
-Own package versions remain unchanged; 0.16.0 is the pending changelog selection.
+The hard cut was delivered in 0.16.0; the current pending notes are 0.16.1.
 
 The candidate carries the earlier published Build 0.13 capture-helper adoption,
 receipt lookup and notification paging/dispatch cleanup. Native management replies
@@ -113,7 +135,7 @@ requires cargo-edit, a separate release-tool catalog or local setup/check target
 Common tool admission and metadata refusal/rollback boundaries remain in place.
 
 The selected graph uses Memory 0.47.0, Testkit/Candid 0.51.0, Timers
-0.27.0, Metrics 0.12.0, Build 0.13.0 and direct Host FS/Process 0.25.1.
+0.27.0, Metrics 0.12.0, incoming Build 0.14.0 and direct Host FS/Process 0.26.0.
 Rust floor is 1.91.0; development is 1.99.0.
 The cleanup preserves those incoming registry selections. Memory 0.46's narrowed
 exports supply backing IO types directly, without a full substrate re-export;
@@ -141,6 +163,45 @@ runtime Timers dependency or lifecycle exports. The capture tool owns Jobs'
 optimizer recipe and uses IC Build's retained path; Jobs selects the live gate.
 
 ## Qualification
+
+Management/fixture cleanup evidence is in
+`target/qualification/management-fixture-0161/`, relative to delivered Jobs
+0.16.0 `5b73312a5d34f01f8f09d4381e53723f21c3a5d6` plus the incoming publication-owner
+work and Build 0.14/Host 0.26 manifest/lock selections. All 48 core tests and six
+doctests, 25 consumer tests and 19 native composition tests pass on Rust 1.91.
+Separate core and consumer Rust 1.91 Wasm checks and strict native all-target and
+consumer Wasm Clippy pass. Existing coverage retains management error precedence,
+attempted/unresolved refusal, queue bounds, failed writes and committed bytes.
+The release adapter and publication policy fixtures pass, including exact upload
+status and post-failure registry reconciliation; release gates and registry/upload
+effects are substituted in disposable repositories. Source-following ShellCheck,
+snapshot integrity, formatting, changed-document links and diff checks pass.
+Rust 1.91 rustfmt was unavailable; the configured development Rust 1.99 formatter
+was used. No full local CI, live PocketIC, native macOS, harness qualification,
+release, publication or reset was selected for this cleanup.
+
+Publication-owner evidence is in `target/qualification/publication-owner-0161/`,
+against delivered Jobs 0.16.0 `5b73312a5d34f01f8f09d4381e53723f21c3a5d6` plus
+incoming Build 0.14 metadata. The implementation comes from existing PR #67,
+head `f6b75c9c4286e10f06fb95956994301331960d1e`; its retention probes additionally
+select the new local fixture. The Linux publication ordering/race/failed-observer
+and real-Git eligibility fixture passes, along with the actual complete release/
+publication adapter fixture and source-following ShellCheck. Registry/upload and
+release validation effects are substituted inside disposable repositories.
+
+The first retention-selection run refused the fixture's compact root/case-arm
+layout. The local fixture now uses the standard anchored root line and a
+standalone status assertion; the repeated focused fixture passes. Shared runtime
+bytes are unchanged. The actual Build capture tests pass on Rust 1.91; formatting,
+changed-document links, snapshot integrity and diff checks pass. No full local CI,
+live PocketIC, native macOS run, release, publication or reset is selected.
+
+The delivered 0.16.0
+[CI run](https://github.com/dragginzgame/ic-jobs/actions/runs/39031920784) is still
+in progress across Linux and both macOS architectures at this inspection.
+Applicable adoption issues retain that native acceptance gate. PRs #55 and #65
+are closed as source-incorporated/superseded by delivered registry Testkit 0.51
+callers, not merged or newly live-qualified. PR #67 remains open until delivery.
 
 Running/payload hard-cut evidence is in `target/qualification/running-payload-cut/`,
 relative to Jobs 0.15.0 `71761e0c8ce3c6b2a4ce0226b80691892aa57f63` plus the

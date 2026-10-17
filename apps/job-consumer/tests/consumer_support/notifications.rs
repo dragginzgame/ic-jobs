@@ -44,6 +44,8 @@ pub(crate) struct Notifications {
 // canister obtains that identity from the IC caller API, never request payloads.
 pub(crate) const NOTIFICATION_MANAGER: &str = "notification-manager";
 
+const MAX_NOTIFICATIONS: usize = 4;
+
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct ManagementReply<T> {
     pub(crate) value: T,
@@ -103,7 +105,7 @@ impl Notifications {
 
     pub(crate) fn load(&self) -> Result<Vec<NotificationSnapshot<Job>>> {
         let snapshots: Vec<NotificationSnapshot> = self.store.read()?;
-        if snapshots.len() > 4 {
+        if snapshots.len() > MAX_NOTIFICATIONS {
             return Err(
                 io::Error::new(io::ErrorKind::InvalidData, "too many notifications").into(),
             );
@@ -144,7 +146,7 @@ impl Notifications {
     ) -> Result<ManagementReply<NotificationSnapshot>> {
         Self::authorize(caller)?;
         let mut jobs = self.load()?;
-        if jobs.len() == 4 || Self::index(&jobs, id).is_some() {
+        if jobs.len() == MAX_NOTIFICATIONS || Self::index(&jobs, id).is_some() {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "queue full or identity reused",

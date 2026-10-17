@@ -16,10 +16,10 @@ repository = "https://github.com/dragginzgame/ic-jobs"
 # dependencies below support the unpublished qualification consumer and harness.
 [workspace.dependencies]
 candid = "0.10"
-ic-build = "0.13"
+ic-build = "0.14"
 ic-cdk = "0.20"
-ic-host-fs = "0.25"
-ic-host-process = "0.25"
+ic-host-fs = "0.26"
+ic-host-process = "0.26"
 ic-jobs = { path = "crates/ic-jobs" }
 ic-memory = "0.47"
 # Direct only in unpublished consumer tests for raw Cell fixtures/corruption.

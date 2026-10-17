@@ -160,3 +160,22 @@ architectures; see the [current handoff](status/current.md) for exact source and
 run identity. Later changes need their own qualification. Linux fixture passes
 and Bash 3.2 execution on Linux do not establish native macOS evidence;
 live IC recovery remains pending.
+
+
+## Publication admission ownership
+
+`scripts/release/check-publication.sh REMOTE` owns Jobs' read-only publication
+policy for `ic-jobs`. It requires clean source, a stable workspace version, one
+push destination, the matching pushed annotated tag and confirmed crates.io
+absence. It rechecks source and release identity after network observations;
+failed or uncertain observations refuse upload. `publish.sh` invokes this policy
+before Cargo. Upload authorization and interrupted-upload reconciliation remain
+with the maintainer.
+
+Shared source, version, tag, registry and Make observers remain canonical.
+The reviewed snapshot's complete publication checker is unused; retire that entry
+through a future reviewed export, preserving current snapshot bytes and receipt.
+`make test-release-tooling` selects the local publication fixture. It covers
+policy ordering, failed observations, source/tag races and real-Git admission,
+with registry transport substituted and no upload. Its exit and selected-assertion
+failure retention use the standard Shared probes.

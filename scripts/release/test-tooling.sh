@@ -29,7 +29,7 @@ export RUSTUP_AUTO_INSTALL=0
 source "$root/scripts/ci/fixture-retention-probes.sh"
 mkdir -p "$fixture/exit-source/scripts/release" "$fixture/exit-source/scripts/ci"
 cp "$root/scripts/ci/fixture-retention-probes.sh" "$fixture/exit-source/scripts/ci/"
-for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh scripts/ci/check-jobs-formatting.sh; do
+for relative in scripts/release/test-tooling.sh scripts/release/test-publication.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh scripts/ci/check-jobs-formatting.sh; do
     status=0
     FIXTURE_PROBE_ROOT_VARIABLE=root fixture_probe_exits "$root/$relative" "$fixture" "$root" "${relative##*/}" || status=$?
     [[ "$status" == 0 ]] || exit 1
@@ -38,10 +38,11 @@ done
 # Contradict one explicit command-status assertion in each actual fixture. Bash 3.2
 # can ignore a bare [[ ... ]] failure, continue, and delete the evidence after
 # reaching completion; these mandatory checks must explicitly stop the fixture.
-for relative in scripts/release/test-tooling.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh; do
+for relative in scripts/release/test-tooling.sh scripts/release/test-publication.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh; do
     # shellcheck disable=SC2016 # Select literal assertions from maintained sources.
     case "$relative" in
         scripts/release/test-tooling.sh) assertion='[[ "$status" == 0 ]]' ;;
+        scripts/release/test-publication.sh) assertion='[[ "$status" == 43 ]]' ;;
         scripts/ci/test-formatting-evidence.sh) assertion='[[ "$status" == 37 ]]' ;;
         scripts/ci/test-consumer-tooling.sh) assertion='[[ "$status" == 2 ]]' ;;
     esac
@@ -449,23 +450,21 @@ CURL
 chmod +x "$fixture/bin/cargo" "$fixture/bin/curl"
 export PATH="$fixture/bin:$PATH"
 
-# Shared's real-Git publication fixture owns the generic source/tag/destination
-# matrix. Keep actual Jobs adapter refusals before upload and exact dispatch below.
+# The local real-Git publication fixture owns the source/tag/destination
+# matrix. Keep representative Jobs adapter refusals, exact upload dispatch and
+# reconciliation after an interrupted upload below.
 printf '\nFixture unstaged change.\n' >> README.md
 refuse unstaged-source bash scripts/release/publish.sh origin
 git restore --source=HEAD --worktree -- README.md
 
-for flags in -n -i -t; do
-    refuse "make-mode-${flags#-}" env "MAKEFLAGS=$flags" bash scripts/release/publish.sh origin
-done
-refuse existing-version env TOOLING_REGISTRY_HTTP=200 bash scripts/release/publish.sh origin
-refuse unavailable-registry env TOOLING_REGISTRY_HTTP=503 bash scripts/release/publish.sh origin
+refuse make-mode-n env MAKEFLAGS=-n bash scripts/release/publish.sh origin
 [[ ! -s "$TOOLING_UPLOAD_EVENTS" ]] || exit 1
 
 bash scripts/release/publish.sh origin > "$fixture/publication.log" 2>&1
 [[ "$(cat "$TOOLING_UPLOAD_EVENTS")" == 'publish -p ic-jobs --all-features --locked --registry crates-io' ]] || exit 1
 : > "$TOOLING_UPLOAD_EVENTS"
 refuse failed-upload env TOOLING_UPLOAD_RESULT=42 bash scripts/release/publish.sh origin
+[[ "$refusal_status" == 42 ]] || exit 1
 [[ "$(wc -l < "$TOOLING_UPLOAD_EVENTS" | tr -d ' ')" == 1 ]] || exit 1
 refuse uncertain-upload-now-present env TOOLING_REGISTRY_HTTP=200 bash scripts/release/publish.sh origin
 [[ "$(wc -l < "$TOOLING_UPLOAD_EVENTS" | tr -d ' ')" == 1 ]] || exit 1
