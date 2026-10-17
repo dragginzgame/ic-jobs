@@ -82,8 +82,8 @@ Release preparation now uses Shared's metadata renderer directly. Jobs no longer
 requires cargo-edit, a separate release-tool catalog or local setup/check targets.
 Common tool admission and metadata refusal/rollback boundaries remain in place.
 
-The incoming graph selects Memory 0.46.0, Testkit/Candid 0.50.0, Timers
-0.26.1, Metrics 0.11.8/0.12.0, Build 0.12.1 and direct Host FS/Process 0.24.0.
+The selected graph uses Memory 0.47.0, Testkit/Candid 0.51.0, Timers
+0.26.1, Metrics 0.12.0, Build 0.13.0 and direct Host FS/Process 0.25.1.
 Rust floor is 1.91.0; development is 1.99.0.
 The cleanup preserves those incoming registry selections. Memory 0.46's narrowed
 exports supply backing IO types directly, without a full substrate re-export;
@@ -111,6 +111,22 @@ runtime Timers dependency or lifecycle exports. The capture tool owns Jobs'
 optimizer recipe and uses IC Build's retained path; Jobs selects the live gate.
 
 ## Qualification
+
+The Testkit 0.51 recovery-harness repair is qualified in
+`target/qualification/testkit-051-recovery-fix/`, against clean incoming source
+`56d7a6f9769fd5cac5fd14d490281d8b79aff513` and its selected registry graph. The
+harness now uses public-field install/diagnostic/retry records and the current
+explicit-caller Candid methods. Install sender/label/cycles, independent diagnostic
+senders/default log bounds, reply decoding limits and four-attempt/ten-minute
+retry settings remain unchanged. No compatibility adapters are added.
+
+The complete recovery target compiles on actual Rust 1.91 and its bounded-reply
+test passes; all seven live scenarios remain explicitly ignored. Strict Clippy
+for that target passes without the unused-trait warning. Earlier consumer/capture
+passes remain recorded in the supplied failure log; this repair does not relabel
+them as new executions. Versions, dependency selections, shared snapshot and
+primary index/refs are unchanged. No full CI, live PocketIC, native macOS,
+release or publication ran. Earlier qualifications retain their source scope.
 
 Entry/image cleanup evidence is in `target/qualification/entry-image-cleanup/`,
 relative to the incoming pending 0.15 tree on `cc9587c`. The active registry caller

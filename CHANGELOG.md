@@ -2,6 +2,10 @@
 
 ## [0.15.0]
 
+- Fix recovery-harness compilation with Testkit 0.51's input records and
+  explicit-caller Candid methods, preserving installation, diagnostics and
+  rate-limit retry settings.
+
 - **Breaking:** Store the latest outcome and its timestamp together in
   `JobRecord::last_outcome: Option<RecordedOutcome>`. Replace uses of the removed
   `last_outcome_ns` field with the recorded outcome's `at_ns`. Earlier record

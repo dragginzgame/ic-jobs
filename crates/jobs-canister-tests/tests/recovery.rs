@@ -3,9 +3,9 @@
 use candid::{CandidType, Principal, utils::ArgumentEncoder};
 use ic_testkit::pic::{
     CandidCallError, CandidCallExt, CanisterDiagnosticsRequest, CanisterInstallError,
-    CanisterInstallExt, ErrorCode, InstallSpec, PocketIc, PocketIcBuilder, PocketIcDiagnosticsExt,
-    PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy, advance_and_tick,
-    tick_until,
+    CanisterInstallExt, CanisterLogRenderLimits, ErrorCode, InstallSpec, PocketIc, PocketIcBuilder,
+    PocketIcDiagnosticsExt, PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy,
+    advance_and_tick, tick_until,
 };
 use ic_testkit_candid::DecodeLimits;
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
@@ -45,29 +45,29 @@ impl Fixture {
         let manager = Principal::self_authenticating(b"jobs-manager");
         let install = |delivery_sender| {
             pic.instance
-                .try_create_and_install(
-                    InstallSpec::new(
-                        wasm.clone(),
-                        candid::encode_one(Init {
-                            manager,
-                            delivery_sender,
-                        })
-                        .unwrap(),
-                        10_000_000_000_000,
-                    )
-                    .label("jobs-test-consumer"),
-                )
+                .try_create_and_install(InstallSpec {
+                    wasm: wasm.clone(),
+                    init_bytes: candid::encode_one(Init {
+                        manager,
+                        delivery_sender,
+                    })
+                    .unwrap(),
+                    cycles: 10_000_000_000_000,
+                    install_sender: None,
+                    label: Some("jobs-test-consumer".into()),
+                })
                 .unwrap_or_else(|error| {
                     if let CanisterInstallError::InstallCode { canister_id, .. } = &error {
                         // Diagnostics are subordinate to the original install failure,
                         // including a failed stderr write or collection panic.
                         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                             let report = pic.instance.collect_canister_diagnostics(
-                                CanisterDiagnosticsRequest::new(
-                                    *canister_id,
-                                    Principal::anonymous(),
-                                    Principal::anonymous(),
-                                ),
+                                CanisterDiagnosticsRequest {
+                                    canister_id: *canister_id,
+                                    status_sender: Principal::anonymous(),
+                                    log_sender: Principal::anonymous(),
+                                    log_limits: CanisterLogRenderLimits::default(),
+                                },
                             );
                             eprintln!("install Jobs consumer: {report}");
                         }));
@@ -102,7 +102,7 @@ impl Fixture {
     ) -> Result<T, CandidCallError> {
         self.pic
             .instance
-            .update_candid_as(self.sender, caller, method, args, REPLY_LIMITS)
+            .update_candid(self.sender, caller, method, args, REPLY_LIMITS)
     }
     fn query<T: CandidType + DeserializeOwned, A: ArgumentEncoder>(
         &self,
@@ -112,7 +112,7 @@ impl Fixture {
     ) -> Result<T, Error> {
         self.pic
             .instance
-            .query_candid_as(id, self.manager, method, args, REPLY_LIMITS)
+            .query_candid(id, self.manager, method, args, REPLY_LIMITS)
             .expect("PocketIC Candid call")
     }
     fn view(&self, id: u64) -> View {
@@ -509,10 +509,10 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
         .pic
         .instance
         .retry_install_code(
-            RetryPolicy::new(
-                std::num::NonZeroUsize::new(4).unwrap(),
-                Duration::from_secs(600),
-            ),
+            RetryPolicy {
+                max_attempts: std::num::NonZeroUsize::new(4).unwrap(),
+                cooldown: Duration::from_secs(600),
+            },
             || fixture.upgrade(fixture.sender),
         )
         .unwrap();
