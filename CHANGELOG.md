@@ -2,6 +2,9 @@
 
 ## [0.16.2]
 
+- Fix consumer compilation with Memory 0.48's bounded, fallible cell writes;
+  preserve capacity/error ordering and propagate write refusals before success.
+
 - Share post-commit watchdog reconciliation across management and delivery
   completion, retaining caller authorization and trap ordering.
 - Simplify consumer view projection after stored identity admission and reuse

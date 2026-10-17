@@ -14,6 +14,13 @@ mutations and independent physical Cell reopening. This compatible cleanup leave
 core source, public/wire/storage contracts and own package versions unchanged.
 The incoming Timers 0.27.1/Metrics 0.13.3 lock selection is preserved; Testkit's
 independent Metrics 0.12 selection remains alongside it.
+The selected Memory 0.48 graph removes the infallible fixture-cell writer.
+Pending 0.16.2 now uses bounded `try_set` for initialization, normal commits and
+the deliberate corruption endpoint, propagating write refusals before success.
+All native fixture writers explicitly require successful bounded writes.
+The existing 24 KiB capacity check still precedes collection admission; record
+restoration, refused-byte preservation and unknown-effect blocking remain.
+Memory 0.48 and Build 0.15 manifest/lock selections are preserved unchanged.
 
 The release incorporates the existing publication-owner contribution from
 [PR #67](https://github.com/dragginzgame/ic-jobs/pull/67). Jobs now owns the complete
@@ -145,8 +152,8 @@ Release preparation now uses Shared's metadata renderer directly. Jobs no longer
 requires cargo-edit, a separate release-tool catalog or local setup/check targets.
 Common tool admission and metadata refusal/rollback boundaries remain in place.
 
-The selected graph uses Memory 0.47.0, Testkit/Candid 0.51.0, Timers
-0.27.1 with Metrics 0.13.3, Testkit's separate Metrics 0.12.0, Build 0.14.0 and
+The selected graph uses Memory 0.48.0, Testkit/Candid 0.51.0, Timers
+0.27.1 with Metrics 0.13.3, Testkit's separate Metrics 0.12.0, Build 0.15.0 and
 direct Host FS/Process 0.26.0.
 Rust floor is 1.91.0; development is 1.99.0.
 The cleanup preserves those incoming registry selections. Memory 0.46's narrowed
@@ -175,6 +182,22 @@ runtime Timers dependency or lifecycle exports. The capture tool owns Jobs'
 optimizer recipe and uses IC Build's retained path; Jobs selects the live gate.
 
 ## Qualification
+
+Memory 0.48 write repair evidence is in
+`target/qualification/memory048-writes-0162/`, relative to candidate commit
+`8ec2a1cbd12cec4ebd7fd25d05a378f152bc3d8d` with its selected registry Memory
+0.48.0/Build 0.15.0 graph. The supplied release log records eight missing `set`
+calls; the previous projection receipt below used Memory 0.47 and does not
+qualify this newer selection. All eight callers now use fallible bounded writes.
+All 26 consumer tests and 19 composition tests pass on Rust 1.91, retaining
+capacity/error precedence, malformed/current/retired record admission and byte
+preservation. The separate consumer Rust 1.91 Wasm check and strict native
+all-target/Wasm Clippy pass. Three capture tests and the harness's native bounded
+reply test pass on Rust 1.91; all seven live recovery scenarios remain ignored.
+Changed-source formatting, documentation links and diff checks pass. Manifest,
+lock, own package versions and primary index/refs are unchanged. No full local
+CI, live PocketIC, native macOS, release, publication, deployment or reset ran.
+Core source is unchanged; its earlier floor evidence retains its source scope.
 
 Consumer projection/reconciliation evidence is in
 `target/qualification/consumer-projection-0162/`, relative to delivered Jobs

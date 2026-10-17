@@ -245,7 +245,7 @@ impl<M: Memory> Queue<M> {
         })?;
         if let Some(init) = initial {
             // Fresh admission cannot overwrite a retained allocation.
-            cell.set(
+            cell.try_set(
                 serde_json::to_vec(&Snapshot::<JobRecord> {
                     init,
                     next_id: 1,
@@ -254,7 +254,8 @@ impl<M: Memory> Queue<M> {
                     receipts: vec![],
                 })
                 .map_err(|_| Error::InvalidStorage)?,
-            );
+            )
+            .map_err(memory_error)?;
         }
         let snapshot = decode(cell.bytes())?;
         let next_due_ns = next_due_ns(snapshot.jobs.iter().map(|entry| &entry.job));
@@ -301,7 +302,7 @@ impl<M: Memory> Queue<M> {
             )?;
         }
         check_receipts(&snapshot.receipts)?;
-        self.cell.set(bytes);
+        self.cell.try_set(bytes).map_err(memory_error)?;
         Ok(Committed { value, next_due_ns })
     }
 
@@ -501,7 +502,8 @@ impl<M: Memory> Queue<M> {
         let mut encoded = serde_json::to_value(snapshot).map_err(|_| Error::InvalidStorage)?;
         encoded["jobs"][index]["job"]["retry"]["max_attempts"] = 0.into();
         self.cell
-            .set(serde_json::to_vec(&encoded).map_err(|_| Error::InvalidStorage)?);
+            .try_set(serde_json::to_vec(&encoded).map_err(|_| Error::InvalidStorage)?)
+            .map_err(memory_error)?;
         Ok(())
     }
 }

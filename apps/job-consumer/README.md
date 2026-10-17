@@ -39,7 +39,9 @@ for the complete synchronous operation. Each in-memory entry keeps its job and
 payload together; the scheduler borrows only the jobs through an iterator. Commit
 serializes validated jobs directly and checks collection metadata by borrowing
 entries before replacing stable bytes. Encoded capacity still takes precedence
-over collection errors. Reads restore each record before its entry metadata
+over collection errors. Memory 0.48's bounded `try_set` persists admitted bytes;
+write refusals propagate before a committed reply or deadline is returned.
+Reads restore each record before its entry metadata
 checks, after header admission and before receipt checks. Separate job/payload
 alignment state is unnecessary. Each latest result stores its outcome
 and timestamp together using the current `RecordedOutcome` shape.

@@ -638,7 +638,10 @@ fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
             .find(|entry| entry.job.id == JobId(u128::from(corrupt)))
             .unwrap();
         entry.job.sequence += 1;
-        queue.cell.set(serde_json::to_vec(&snapshot).unwrap());
+        queue
+            .cell
+            .try_set(serde_json::to_vec(&snapshot).unwrap())
+            .unwrap();
         assert_invalid_record_blocks_queue(queue, backing, 200, healthy);
     }
 }
@@ -691,7 +694,10 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
         queue.create(increment(200)).unwrap();
         let mut snapshot: Snapshot = serde_json::from_slice(queue.cell.bytes()).unwrap();
         snapshot.jobs[1].job = corrupt;
-        queue.cell.set(serde_json::to_vec(&snapshot).unwrap());
+        queue
+            .cell
+            .try_set(serde_json::to_vec(&snapshot).unwrap())
+            .unwrap();
         assert_invalid_record_blocks_queue(queue, backing, 100, healthy);
     }
 }
@@ -758,14 +764,17 @@ fn view_projection_preserves_large_ids_and_refuses_unadmitted_identities() {
     let mut snapshot: Snapshot = serde_json::from_slice(&original).unwrap();
     snapshot.next_id = u64::MAX;
     snapshot.jobs[0].job.id = JobId(u128::from(id));
-    queue.cell.set(serde_json::to_vec(&snapshot).unwrap());
+    queue
+        .cell
+        .try_set(serde_json::to_vec(&snapshot).unwrap())
+        .unwrap();
     assert_eq!(queue.inspect(id).unwrap().id, id);
     assert_eq!(queue.page(None, 8).unwrap()[0].id, id);
 
     for invalid_id in [u128::from(u64::MAX), u128::from(u64::MAX) + 1, u128::MAX] {
         snapshot.jobs[0].job.id = JobId(invalid_id);
         let bytes = serde_json::to_vec(&snapshot).unwrap();
-        queue.cell.set(bytes.clone());
+        queue.cell.try_set(bytes.clone()).unwrap();
         assert_eq!(queue.inspect(id), Err(Error::InvalidStorage));
         assert_eq!(queue.page(None, 8), Err(Error::InvalidStorage));
         assert_eq!(queue.cell.bytes(), bytes);
@@ -901,7 +910,7 @@ fn retired_snapshot_is_refused_without_replacing_the_cell() {
         let bytes = frozen.to_vec();
         let backing = VectorMemory::default();
         let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
-        queue.cell.set(bytes.clone());
+        queue.cell.try_set(bytes.clone()).unwrap();
         let memory = queue.cell.into_memory();
         for initial in [None, Some(config())] {
             assert!(matches!(
