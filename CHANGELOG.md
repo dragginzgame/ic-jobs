@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.16.2]
+## [0.16.2] - 2026-10-17
 
 - Fix consumer compilation with Memory 0.48's bounded, fallible cell writes;
   preserve capacity/error ordering and propagate write refusals before success.
