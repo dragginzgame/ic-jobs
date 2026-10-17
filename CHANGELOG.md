@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.16.1]
+## [0.16.1] - 2026-10-17
 
 - Own Jobs' publication admission locally while retaining Shared source, version,
   tag, registry and Make observers. Keep clean-source, matching pushed-tag and
