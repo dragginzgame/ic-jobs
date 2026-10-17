@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.0]
+## [0.17.0] - 2026-10-17
 
 - **Breaking:** Consumer inspection replies carry the deadline inside
   `Status::Pending { due_ns }`; `View::due_ns` is removed. Rebuild the qualification
