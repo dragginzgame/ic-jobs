@@ -3,9 +3,9 @@
 use candid::{CandidType, Principal, utils::ArgumentEncoder};
 use ic_testkit::pic::{
     CandidCallError, CandidCallExt, CanisterDiagnosticsRequest, CanisterInstallError,
-    CanisterInstallExt, ErrorCode, InstallSpec, PocketIc, PocketIcBuilder, PocketIcDiagnosticsExt,
-    PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy, advance_and_tick,
-    tick_until,
+    CanisterInstallExt, CanisterLogRenderLimits, ErrorCode, InstallSpec, PocketIc, PocketIcBuilder,
+    PocketIcDiagnosticsExt, PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy,
+    advance_and_tick, tick_until,
 };
 use ic_testkit_candid::DecodeLimits;
 use jobs_test_consumer::api::{Create, Error, Init, Status, Summary, Task, Timing, View};
@@ -63,11 +63,12 @@ impl Fixture {
                         // including a failed stderr write or collection panic.
                         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                             let report = pic.instance.collect_canister_diagnostics(
-                                CanisterDiagnosticsRequest::new(
-                                    *canister_id,
-                                    Principal::anonymous(),
-                                    Principal::anonymous(),
-                                ),
+                                CanisterDiagnosticsRequest {
+                                    canister_id: *canister_id,
+                                    status_sender: Principal::anonymous(),
+                                    log_sender: Principal::anonymous(),
+                                    log_limits: CanisterLogRenderLimits::default(),
+                                },
                             );
                             eprintln!("install Jobs consumer: {report}");
                         }));

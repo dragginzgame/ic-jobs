@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.2]
+
+- Prepare field-based Testkit diagnostic inputs for the recovery fixture,
+  preserving exact anonymous senders, default rendering limits and the original
+  install failure. This draft needs Testkit 0.51 publication and normal dependency
+  adoption before integration; the published Jobs API and stored data are unchanged.
+
 ## [0.14.1] - 2026-10-17
 
 - Keep stored records and validated consumer state in one snapshot shape,
