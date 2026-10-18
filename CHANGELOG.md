@@ -6,6 +6,11 @@
   including recovery evidence. Keep the core and consumer Rust 1.91 floors.
   [#69 — Qualify Rust 1.99.1 as the development compiler](https://github.com/dragginzgame/ic-jobs/issues/69).
 
+- Use Timers' published completed-batch projection for watchdog results in the
+  qualification canister and native maintenance consumer. Keep work-count meaning,
+  deadlines and trap-before-delivery ordering consumer-owned.
+  [#57 — Adopt Timers completed-batch projection](https://github.com/dragginzgame/ic-jobs/issues/57).
+
 ## [0.17.2] - 2026-10-18
 
 - Keep native qualification DTO consumers independent of Jobs, Memory, Timers

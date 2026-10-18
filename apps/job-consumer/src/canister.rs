@@ -7,8 +7,8 @@ use ic_jobs::Outcome;
 use ic_memory::DefaultMemoryImpl;
 use ic_platform::cdk;
 use ic_timers::{
-    TimerCadence, TimerCompletion, TimerIdentity, WatchdogDecision, WatchdogReconcileState,
-    WatchdogRegistration, WatchdogRunResult, reconcile_watchdog,
+    TimerCadence, TimerIdentity, WatchdogReconcileState, WatchdogRegistration, WatchdogRunResult,
+    reconcile_watchdog,
 };
 
 use crate::{
@@ -189,18 +189,8 @@ fn wake() -> WatchdogRunResult {
         cdk::api::trap("fixture: watchdog trap after stable batch write");
     }
     launch_deliveries(deliveries);
-    let completion = if work == 0 {
-        TimerCompletion::no_work()
-    } else {
-        // Work units count handled attempts, not successful external effects.
-        TimerCompletion::success(work)
-    };
-    WatchdogRunResult::new(
-        completion,
-        result
-            .next_due_ns
-            .map_or(WatchdogDecision::Stop, WatchdogDecision::ScheduleAt),
-    )
+    // Work counts handled attempts, not confirmed external effects.
+    WatchdogRunResult::completed_batch(work, result.next_due_ns)
 }
 
 #[cdk::update]

@@ -3,18 +3,26 @@
 ## Source and pending work
 
 Delivered Jobs **0.17.2**: `177a4dd4aa9a22492830839fec0ea6e42c5d234c`.
-Pending **0.17.3** selects development Rust **1.99.1** in the local toolchain,
-ordinary CI and recovery workflow/evidence for
-[#69](https://github.com/dragginzgame/ic-jobs/issues/69). Core and consumer MSRV
-selectors remain **1.91**, with separate native/Wasm qualification. Package
-versions, locks and wire/storage formats are unchanged. No release, upload,
-reset, conversion or deployment is selected.
+Pending **0.17.3** adopts published Timers **0.28.1**'s completed-batch projection
+in the qualification canister and native maintenance consumer
+([#57](https://github.com/dragginzgame/ic-jobs/issues/57)), and selects development
+Rust **1.99.1** in the local toolchain and both workflows/evidence
+([#69](https://github.com/dragginzgame/ic-jobs/issues/69)). Work/deadline policies
+and trap-before-delivery ordering remain consumer-owned. Core and consumer MSRV
+selectors remain **1.91**, with separate native/Wasm qualification. Public APIs,
+package versions, locks and wire/storage formats are unchanged. No release,
+upload, reset, conversion or deployment is selected.
 
 Linux Rust 1.99.1 qualification passes 48 core, 46 consumer/composition/wire,
 four capture/recovery-decoder tests and six doctests. Rust 1.91 native/Wasm
 checks, the release Wasm build, strict native/Wasm Clippy, formatting/hook/evidence
 fixtures, all four graph contexts, dependency boundaries/pins and links pass.
 The seven live recovery tests remain ignored; hosted native acceptance is separate.
+
+The #57 caller adoption passes 45 consumer/composition tests on Rust 1.91,
+the Rust 1.91 consumer Wasm check, strict native/Wasm Clippy, all four graph
+contexts, direct dependency boundaries, formatting and documentation links.
+Required hosted native acceptance remains separate from these Linux checks.
 
 The [root ownership map](../../README.md#scope-and-validation) is the maintained
 boundary reference; the [workspace manifest](../../Cargo.toml) and
