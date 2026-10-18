@@ -38,13 +38,13 @@ jobs:
       - name: Prepare development and minimum toolchains
         uses: ./.github/actions/prepare-rust-toolchains
         with:
-          development: '1.99.0'
+          development: '1.99.1'
           minimum: '1.91.0'
           minimum-target: wasm32-unknown-unknown
       - name: Record prepared toolchain identities
         run: |
           {
-            rustc +1.99.0 --version --verbose
+            rustc +1.99.1 --version --verbose
             rustc +1.91.0 --version --verbose
           } > "$RUNNER_TEMP/jobs-recovery/toolchains.txt"
       - name: Prepare and admit the complete common toolset
