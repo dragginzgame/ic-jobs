@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.3]
+## [0.17.3] - 2026-10-18
 
 - Refresh locked qualification/tooling dependencies to Platform 0.1.13,
   Build 0.17.6, Host 0.27.6, Storage 0.5.4, Testkit 0.54.1 and Metrics 0.14.4.
