@@ -19,6 +19,11 @@ checks, the release Wasm build, strict native/Wasm Clippy, formatting/hook/evide
 fixtures, all four graph contexts, dependency boundaries/pins and links pass.
 The seven live recovery tests remain ignored; hosted native acceptance is separate.
 
+Delivered 0.17.2's complete Linux/Apple Silicon/Intel macOS native matrix now passes
+on its exact source in [CI run 39139517213](https://github.com/dragginzgame/ic-jobs/actions/runs/39139517213).
+That delivered evidence does not qualify the pending Timers/compiler changes or
+installed-IC recovery; their PR/native gates remain separate.
+
 The #57 caller adoption passes 45 consumer/composition tests on Rust 1.91,
 the Rust 1.91 consumer Wasm check, strict native/Wasm Clippy, all four graph
 contexts, direct dependency boundaries, formatting and documentation links.
