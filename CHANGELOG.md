@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.1]
+## [0.17.1] - 2026-10-18
 
 - Replace the native fixtures' direct stable-structures dependency with published
   IC Storage 0.5.3's governed cells. Construct oversized corruption through Memory's
