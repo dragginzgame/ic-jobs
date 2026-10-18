@@ -113,6 +113,12 @@ pair and overlays current member manifests/Rust inputs together, so pending
 dependency migrations do not mix current root declarations with released callers.
 Its formatting, preservation and installation scenarios pass on Linux.
 
+The release-tooling manifest-order fixture also referenced the removed direct
+Candid row. It now perturbs the adjacent `ic-build`/`ic-host-fs` declarations.
+`make test-release-tooling` passes on Linux, including selected-commit sorting,
+release/resume and publication eligibility/ordering with disposable Git repositories
+and substituted validation/registry effects. No actual release or upload ran.
+
 The small optimizer-status projection and panic containment around install-failure
 diagnostics remain necessary with selected Host/Testkit APIs. Keep those policies
 local until an available upstream interface preserves their contracts; existing

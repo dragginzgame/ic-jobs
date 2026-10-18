@@ -429,7 +429,7 @@ commit_source
 sorted_commit="$(git rev-parse HEAD)"
 cp Cargo.toml .git/sorted-manifest
 perl scripts/ci/prepare-cargo-formatting-fixture.pl \
-    Cargo.toml workspace.dependencies candid ic-build > .git/unsorted-manifest
+    Cargo.toml workspace.dependencies ic-build ic-host-fs > .git/unsorted-manifest
 cp .git/unsorted-manifest Cargo.toml
 refuse unsorted-format-check make --no-print-directory fmt-check
 cmp .git/unsorted-manifest Cargo.toml

@@ -7,9 +7,10 @@
   native tests, and enforce the split in graph checks. Use Platform's Serde
   contract export in the recovery harness. Keep the full IC tool bundle required.
 
-- Repair formatting-hook qualification's stale dependency pair after the direct
-  Candid declaration was removed. Qualify current member manifests and Rust
-  sources together with the root manifest during pending dependency migrations.
+- Repair formatting-hook and release-tooling qualification's stale dependency
+  pairs after the direct Candid declaration was removed. Qualify current member
+  manifests and Rust sources together with the root manifest during pending
+  dependency migrations.
 
 - Align consumer guidance with the completed Platform/Testkit/Storage boundaries.
   Keep version selection in manifests and source-bound qualification in the
