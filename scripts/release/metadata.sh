@@ -4,14 +4,12 @@ set -euo pipefail
 # Consumer adapter. Dependencies: Cargo, jq, yq, Git, tar, awk and Unix utilities.
 operation="${1:-}"
 [[ $# -eq 1 ]] || exit 2
-if [[ "${RELEASE_DELIVERY-direct}" != direct ]]; then
-    echo 'ic-jobs supports RELEASE_DELIVERY=direct only' >&2
-    exit 2
-fi
 root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
+bash "$root/scripts/ci/check-release-delivery.sh" \
+    "$root/ci/release-delivery.txt" "${RELEASE_DELIVERY-direct}"
 reader="$root/scripts/ci/read-cargo-workspace-version.sh"
 admit_files() {
     bash "$root/scripts/ci/check-release-source.sh" \
@@ -47,7 +45,7 @@ case "$operation" in
         ;;
     check|commit-check)
         # Shared owns selected-tree metadata checks and retained failure custody.
-        bash "$root/scripts/ci/cargo-release-metadata.sh" check ic-jobs
+        bash "$root/scripts/ci/cargo-release-metadata.sh" check ic-jobs --manifest-order-grouped
         admit_files
         if [[ "$operation" == commit-check ]]; then
             [[ -z "${RELEASE_COMMIT:-}" ]] || exit 1

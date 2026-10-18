@@ -1,6 +1,6 @@
 use super::*;
-use ic_memory::VectorMemory;
-use ic_stable_structures::Cell;
+use ic_memory::{VectorMemory, testing::memory_from_sparse_hex};
+use ic_storage::adapter::StableCell;
 
 fn manager() -> Principal {
     Principal::self_authenticating(b"manager")
@@ -656,7 +656,7 @@ fn assert_invalid_record_blocks_queue(
     assert_eq!(queue.cell.bytes(), bytes);
     let memory = queue.cell.into_memory();
     assert!(matches!(Queue::open(backing, None), Err(error) if error == expected));
-    assert_eq!(Cell::init(memory, Vec::<u8>::new()).get(), &bytes);
+    assert_eq!(StableCell::init(memory, Vec::<u8>::new()).get(), &bytes);
 }
 
 #[test]
@@ -1076,21 +1076,13 @@ fn prior_memory_ledgers_are_refused_without_writes_or_reset() {
             decode(frozen.snapshot.as_bytes()),
             Err(Error::InvalidStorage)
         ));
-        let backing = VectorMemory::default();
+        // Memory owns sparse-image expansion; Jobs owns provenance and the
+        // three-page ceiling of these frozen installation fixtures.
+        let backing = memory_from_sparse_hex(frozen.pages, &frozen.runs, 3).unwrap();
         let memory = CountedMemory {
             backing,
             writes: std::rc::Rc::new(std::cell::Cell::new(0)),
         };
-        assert_eq!(memory.grow(frozen.pages), 0);
-        for (offset, encoded) in frozen.runs {
-            assert_eq!(encoded.len() % 2, 0);
-            let bytes = (0..encoded.len())
-                .step_by(2)
-                .map(|index| u8::from_str_radix(&encoded[index..index + 2], 16).unwrap())
-                .collect::<Vec<_>>();
-            memory.write(offset, &bytes);
-        }
-        memory.writes.set(0);
         let before = memory.backing.borrow().clone();
         for initial in [None, Some(config())] {
             assert!(matches!(
@@ -1341,11 +1333,20 @@ fn receipt_extraction_and_duplicate_acknowledgement_leave_storage_unchanged() {
 fn oversized_retained_cell_is_refused_without_replacing_its_payload() {
     let backing = VectorMemory::default();
     let queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
-    // Only this corruption fixture bypasses the consumer's bounded writer.
-    let memory = queue.cell.into_memory();
-    let mut raw = Cell::init(memory, Vec::<u8>::new());
-    raw.set(vec![b'x'; MAX_BYTES + 1]);
-    let memory = raw.into_memory();
+    drop(queue);
+    // Deliberately raise only the corruption fixture's write ceiling. The
+    // consumer's normal limit must still refuse the retained oversized payload.
+    let mut oversized = FixtureCell::open_bounded(
+        backing.clone(),
+        "test.jobs",
+        "test.jobs.",
+        KEY,
+        MemoryManagerConfig::new(1).unwrap(),
+        MAX_BYTES + 1,
+    )
+    .unwrap();
+    oversized.try_set(vec![b'x'; MAX_BYTES + 1]).unwrap();
+    let memory = oversized.into_memory();
     let mut before = vec![0; ic_memory::STABLE_CELL_HEADER_SIZE + MAX_BYTES + 1];
     memory.read(0, &mut before);
     for initial in [None, Some(config())] {

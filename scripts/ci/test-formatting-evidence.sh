@@ -75,7 +75,7 @@ case "$*" in
 esac
 printf '%s\n' "$*" >> "$FORMAT_EVIDENCE_EVENTS"
 case "$*" in
-    'sort --workspace --check')
+    'sort --workspace --grouped --check')
         echo retained-sorter-diff
         if [[ "${FORMAT_EVIDENCE_FAIL:-}" == sort ]]; then
             echo sorter-error >&2; exit 23
@@ -98,7 +98,7 @@ RUNNER_TEMP="$fixture/temp" FORMAT_EVIDENCE_FAIL=sort \
     make --no-print-directory "${parallel[@]}" -C "$consumer" fmt-check FORMAT_CARGO=formatting-fixture-cargo \
     > "$fixture/make-failure" 2>&1 || status=$?
 [[ "$status" == 2 ]] || exit 1
-printf 'sort --workspace --check\n' > "$fixture/expected-events"
+printf 'sort --workspace --grouped --check\n' > "$fixture/expected-events"
 cmp "$fixture/expected-events" "$FORMAT_EVIDENCE_EVENTS"
 grep -Fx 'Checking formatting... FAILED (exit 23)' "$fixture/make-failure" > /dev/null
 logs=("$fixture/temp"/formatting.*)
@@ -110,7 +110,7 @@ grep -Fx retained-sorter-diff "$sorter_log" > /dev/null
 : > "$FORMAT_EVIDENCE_EVENTS"
 RUNNER_TEMP="$fixture/temp" make --no-print-directory "${parallel[@]}" -C "$consumer" \
     fmt-check FORMAT_CARGO=formatting-fixture-cargo > "$fixture/make-success"
-printf 'sort --workspace --check\nfmt --all -- --check\n' > "$fixture/expected-events"
+printf 'sort --workspace --grouped --check\nfmt --all -- --check\n' > "$fixture/expected-events"
 cmp "$fixture/expected-events" "$FORMAT_EVIDENCE_EVENTS"
 printf 'Checking formatting... ok\n' > "$fixture/expected"
 cmp "$fixture/expected" "$fixture/make-success"

@@ -11,7 +11,7 @@ use ic_memory::{
     GenericAllocationPolicy, MemoryAllocationPool, MemoryAuthority, MemoryManagerConfig,
     MemoryRequest, MemoryRuntime, RuntimeOpenError, SealedDeclarationSnapshot, VectorMemory,
 };
-use ic_stable_structures::Cell;
+use ic_storage::adapter::StableCell;
 mod consumer_support;
 
 use consumer_support::*;
@@ -71,7 +71,7 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
                     &SealedDeclarationSnapshot::new(vec![request.clone()])?,
                     request.authority(),
                 )?;
-                Cell::init(
+                StableCell::init(
                     host.open_memory(request.stable_key().as_str())?,
                     bytes.clone(),
                 );
@@ -105,11 +105,11 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
             host.bootstrap(&declarations, &pool, &GenericAllocationPolicy)?;
             assert_eq!(host.memory_id(requests[0].stable_key().as_str())?, ids[0]);
             assert_eq!(host.memory_id(requests[1].stable_key().as_str())?, ids[1]);
-            let mut queue = Cell::init(
+            let mut queue = StableCell::init(
                 host.open_memory(requests[0].stable_key().as_str())?,
                 Vec::<u8>::new(),
             );
-            let state = Cell::init(
+            let state = StableCell::init(
                 host.open_memory(requests[1].stable_key().as_str())?,
                 Vec::<u8>::new(),
             );

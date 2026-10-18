@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.17.1]
+
+- Replace the native fixtures' direct stable-structures dependency with published
+  IC Storage 0.5.3's governed cells. Construct oversized corruption through Memory's
+  explicit fixture ceiling; preserve retained bytes and refusal behavior. Reject
+  direct substrate dependencies across workspace members and exclude Storage from
+  core and deployed qualification graphs. Storage remains a native dev dependency.
+
+- Add resolved normal/build graph admission for native/Wasm core exclusions
+  and Wasm qualification exclusions/Timers-executor identity. Jobs owns the
+  target/feature policy; Shared owns the checker through reviewed topic source
+  `6eb8c41785c5156aef62f082702bd54e8ce04606` (Shared PR #285; not a release).
+  Preserve consumer depth, package-family, dependency-feature and optional
+  identity-cap policies in the shared observer.
+- Adopt published Testkit 0.54.0 and remove `ic-testkit-candid` from the harness
+  and resolved graph. Use Platform's decoder limits/errors directly and forbid
+  new direct declarations. Preserve all five budgets, argument-tuple reply handling
+  and typed call errors; Testkit's required Metrics 0.14 stays native-only.
+- Adopt published ic-platform 0.1.9 for qualification DTOs, Principal, encoding
+  and bounded delivery replies. Update only Platform from locked 0.1.5; keep
+  defaults disabled and select only Candid. Freeze pre-adoption API bytes; preserve wire,
+  storage, decoder limits, error handling and the existing CDK runtime.
+  Narrow direct Candid/CDK to Wasm macro/runtime exceptions. Add the shared direct
+  dependency-boundary check to CI/release validation with explicit exceptions.
+- Adopt Shared Tooling 0.24.0 at `cab12cd3dfa4fdb34846b25397f0d72881bb9ae0`.
+  Label production versus tests/tooling dependencies and packages, preserve groups
+  in formatting/hooks and selected-source release checks, and document the
+  remaining automated deployment-exclusion gap. The common Rust tool set no
+  longer includes Candid extraction; Jobs has no extractor caller.
+- Document Candid/CDK exposure per artifact and annotate direct manifest users,
+  including the separate Timers executor path and actual phase-out boundaries.
+- Reuse Memory's bounded sparse-image fixture loader while retaining Jobs'
+  retired-format refusal and unchanged-memory checks.
+- Declare direct release delivery once and reuse Shared Tooling's admission
+  from Make and standalone adapters. Keep Jobs' actual hook adoption check;
+  leave generic hook/frontend regression coverage at its Shared owner.
+- Align consumer and delivery guides with current storage, timer and publication
+  ownership; retain superseded qualification receipts as historical evidence.
+  The packaged timer guide delegates dependency selection to applications and
+  uses Timers' measurement re-export instead of obsolete version requirements.
+- Include package and fixture provenance guides in the shared documentation-link
+  check alongside the application guide.
+
 ## [0.17.0] - 2026-10-17
 
 - **Breaking:** Consumer inspection replies carry the deadline inside

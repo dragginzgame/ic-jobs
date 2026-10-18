@@ -1,13 +1,19 @@
 //! Explicit live PocketIC tests. Ordinary CI compiles these without launching a server.
 
-use candid::{CandidType, Principal, utils::ArgumentEncoder};
-use ic_testkit::pic::{
-    CandidCallError, CandidCallExt, CanisterDiagnosticsRequest, CanisterInstallError,
-    CanisterInstallExt, CanisterLogRenderLimits, ErrorCode, InstallSpec, PocketIc, PocketIcBuilder,
-    PocketIcDiagnosticsExt, PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy,
-    advance_and_tick, tick_until,
+use ic_platform::{
+    Principal,
+    candid::{
+        DecodeError, DecodeLimits,
+        contract::{ArgumentEncoder, CandidType, encode_args, encode_one},
+        decode_args,
+    },
 };
-use ic_testkit_candid::DecodeLimits;
+use ic_testkit::pic::{
+    CandidCallError, CanisterDiagnosticsRequest, CanisterInstallError, CanisterInstallExt,
+    CanisterLogRenderLimits, ErrorCode, InstallSpec, PocketIc, PocketIcBuilder,
+    PocketIcDiagnosticsExt, PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy,
+    advance_and_tick, query_candid_args, tick_until, update_candid_args,
+};
 use jobs_test_consumer::api::{
     Create, DeliveryPayload, Error, Init, Status, Summary, Task, Timing, View,
 };
@@ -49,7 +55,7 @@ impl Fixture {
             pic.instance
                 .try_create_and_install(InstallSpec {
                     wasm: wasm.clone(),
-                    init_bytes: candid::encode_one(Init {
+                    init_bytes: encode_one(Init {
                         manager,
                         delivery_sender,
                     })
@@ -102,9 +108,15 @@ impl Fixture {
         method: &str,
         args: A,
     ) -> Result<T, CandidCallError> {
-        self.pic
-            .instance
-            .update_candid(self.sender, caller, method, args, REPLY_LIMITS)
+        update_candid_args::<(T,), _>(
+            &self.pic.instance,
+            self.sender,
+            caller,
+            method,
+            args,
+            REPLY_LIMITS,
+        )
+        .map(|(value,)| value)
     }
     fn query<T: CandidType + DeserializeOwned, A: ArgumentEncoder>(
         &self,
@@ -112,10 +124,16 @@ impl Fixture {
         method: &str,
         args: A,
     ) -> Result<T, Error> {
-        self.pic
-            .instance
-            .query_candid(id, self.manager, method, args, REPLY_LIMITS)
-            .expect("PocketIC Candid call")
+        query_candid_args::<(Result<T, Error>,), _>(
+            &self.pic.instance,
+            id,
+            self.manager,
+            method,
+            args,
+            REPLY_LIMITS,
+        )
+        .expect("PocketIC Candid call")
+        .0
     }
     fn view(&self, id: u64) -> View {
         self.query(self.sender, "inspect", (id,)).unwrap()
@@ -124,12 +142,9 @@ impl Fixture {
         self.query(id, "summary", ()).unwrap()
     }
     fn upgrade(&self, id: Principal) -> Result<(), RejectResponse> {
-        self.pic.instance.upgrade_canister(
-            id,
-            self.wasm.clone(),
-            candid::encode_args(()).unwrap(),
-            None,
-        )
+        self.pic
+            .instance
+            .upgrade_canister(id, self.wasm.clone(), encode_args(()).unwrap(), None)
     }
     fn until(&self, predicate: impl Fn() -> bool) {
         tick_until(&self.pic.instance, 30, Duration::ZERO, |_| {
@@ -164,7 +179,7 @@ fn increment(at: u64, amount: u64) -> Create {
 #[test]
 fn reply_limits_admit_the_largest_consumer_page() {
     assert!(
-        ic_testkit_candid::decode_one::<Result<Vec<View>, Error>>(
+        decode_args::<(Result<Vec<View>, Error>,)>(
             include_bytes!("fixtures/pending-page-0162.didbin"),
             REPLY_LIMITS,
         )
@@ -182,14 +197,20 @@ fn reply_limits_admit_the_largest_consumer_page() {
             occurrence: u64::MAX,
         })
         .collect::<Vec<_>>();
-    let bytes = candid::encode_one(Ok::<_, Error>(&views)).unwrap();
-    let decoded: Result<Vec<View>, Error> =
-        ic_testkit_candid::decode_one(&bytes, REPLY_LIMITS).unwrap();
+    let bytes = encode_one(Ok::<_, Error>(&views)).unwrap();
+    let (decoded,): (Result<Vec<View>, Error>,) = decode_args(&bytes, REPLY_LIMITS).unwrap();
+    assert_eq!(decoded.unwrap(), views);
+    // The tuple is the wire reply arity; the application Result stays inside it.
+    let bytes = encode_one(Err::<Vec<View>, _>(Error::Unauthorized)).unwrap();
+    let (decoded,): (Result<Vec<View>, Error>,) = decode_args(&bytes, REPLY_LIMITS).unwrap();
+    assert_eq!(decoded, Err(Error::Unauthorized));
+    let bytes = encode_args((Ok::<_, Error>(&views), 7_u64)).unwrap();
+    let (decoded,): (Result<Vec<View>, Error>,) = decode_args(&bytes, REPLY_LIMITS).unwrap();
     assert_eq!(decoded.unwrap(), views);
     let oversized = vec![0; REPLY_LIMITS.reply_bytes + 1];
     assert!(matches!(
-        ic_testkit_candid::decode_one::<()>(&oversized, REPLY_LIMITS),
-        Err(ic_testkit_candid::DecodeError::ReplyTooLarge { .. })
+        decode_args::<((),)>(&oversized, REPLY_LIMITS),
+        Err(DecodeError::ReplyTooLarge { .. })
     ));
 }
 

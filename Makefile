@@ -1,15 +1,19 @@
 .DEFAULT_GOAL := help
 export RELEASE_DELIVERY ?= direct
 override SHARED_TOOLING_ROOT := $(CURDIR)
+override RELEASE_DELIVERY_POLICY := $(CURDIR)/ci/release-delivery.txt
 # Jobs' optimized qualification needs Binaryen from the selected IC bundle.
 LOCAL_TOOL_INSTALL_TARGETS := install-ic-tools
 LOCAL_TOOL_CHECK_TARGETS := ic-tools-check
 export PATH := $(CURDIR)/.tools/ic/bin:$(PATH)
+# Preserve dependency-role groups in hooks, CI and release qualification alike.
+FORMAT_WRITE_COMMAND = bash -ec '"$$1" sort --workspace --grouped; "$$1" fmt --all' -- "$(FORMAT_CARGO)"
+FORMAT_CHECK_COMMAND = bash -ec '"$$1" sort --workspace --grouped --check; "$$1" fmt --all -- --check' -- "$(FORMAT_CARGO)"
 include make/consumer.mk
 TESTKIT_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release
 VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
 	--input .shared-tooling.snapshot --input Makefile --input ci/tool-versions.env \
-	--input ci/ic-tools.tsv \
+	--input ci/ic-tools.tsv --input ci/release-delivery.txt --input ci/cargo-dependency-boundaries.json \
 	--input crates/ic-jobs/Cargo.toml --input apps/job-consumer/Cargo.toml \
 	--input crates/jobs-canister-tests/Cargo.toml
 
@@ -18,7 +22,7 @@ help:
 	@echo "Focused: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
 	@echo "Consumer: check-consumer (native, Wasm, harness compilation); build-consumer (Wasm artifact)"
 	@echo "Explicit IC qualification: install-testkit-tools; install-consumer-server; test-canister[-optimized]"
-	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-release-commands"
+	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-dependency-boundaries, check-dependency-graphs, check-release-commands"
 	@echo "Tooling fixtures: version, test-release-tooling, test-formatting-evidence, test-consumer-tooling"
 	@echo "Hook qualification: formatting-hook-check (disposable Git copies; prepared formatters required)"
 	@echo "Registry preparation: package (offline), publish-check (registry dry run; no upload)"
@@ -39,7 +43,7 @@ test-consumers:
 
 .PHONY: check-consumer build-consumer install-testkit-tools testkit-tools-check install-consumer-server consumer-server-check test-canister test-canister-optimized
 check-consumer:
-	+cargo +1.91.0 test -p jobs-test-consumer --lib --locked --offline
+	+cargo +1.91.0 test -p jobs-test-consumer --lib --test api_wire --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
 	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --test recovery --locked --offline
 	+cargo clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
@@ -88,13 +92,37 @@ docs-check:
 	+cargo test -p ic-jobs --doc --all-features --locked --offline
 
 check-doc-links:
-	perl scripts/ci/check-documentation-links.pl --root . *.md docs/*.md docs/principles/*.md docs/status/*.md rules/*.md audits/*.md tasks/*.md apps/job-consumer/README.md
+	perl scripts/ci/check-documentation-links.pl --root . *.md docs/*.md docs/principles/*.md docs/status/*.md rules/*.md audits/*.md tasks/*.md $(wildcard apps/*/README.md apps/*/tests/fixtures/README.md crates/*/README.md crates/*/tests/fixtures/README.md)
 
 check-pins:
 	+bash scripts/ci/check-dependency-pins.sh --cargo-inheritance
 
+.PHONY: check-dependency-boundaries
+check-dependency-boundaries:
+	+bash scripts/ci/check-cargo-dependency-boundaries.sh --consumer "$(CURDIR)"
+
+# Jobs owns these concrete exclusions; Shared owns observation and matching.
+CORE_GRAPH_FORBIDDEN := candid candid_derive candid_parser ic-cdk ic-cdk-macros \
+	ic-cdk-executor ic-cdk-timers ic-platform ic0 ic-memory ic-stable-structures ic-storage \
+	ic-timers ic-metrics ic-build ic-host-fs ic-host-process ic-testkit \
+	ic-testkit-candid jobs-test-consumer pocket-ic serde_json serde_test
+QUALIFICATION_GRAPH_FORBIDDEN := ic-storage candid_parser ic-agent ic-build ic-host-fs \
+	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid pocket-ic tokio
+.PHONY: check-dependency-graphs
+check-dependency-graphs:
+	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package ic-jobs \
+		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \
+		$(foreach dependency,$(CORE_GRAPH_FORBIDDEN),--forbid $(dependency))
+	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package ic-jobs \
+		--target wasm32-unknown-unknown --all-features \
+		$(foreach dependency,$(CORE_GRAPH_FORBIDDEN),--forbid $(dependency))
+	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
+		--target wasm32-unknown-unknown --all-features \
+		--require ic-timers=1 --require ic-cdk-executor=1 \
+		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
+
 check-release-commands:
-	bash scripts/ci/check-release-commands.sh . make/consumer.mk make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh
+	bash scripts/ci/check-release-commands.sh . make/consumer.mk make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh scripts/ci/check-release-delivery.sh ci/release-delivery.txt
 
 test-release-tooling: format-tools-check
 	+bash scripts/release/test-tooling.sh
@@ -109,7 +137,6 @@ test-consumer-tooling: build-recovery-tools
 
 .PHONY: formatting-hook-check
 formatting-hook-check: format-tools-check
-	+bash scripts/ci/test-git-hooks.sh
 	+bash scripts/ci/check-jobs-formatting.sh
 
 package:
@@ -127,19 +154,12 @@ validation-tools-check: tools-check format-tools-check
 # Ordered recursive calls preserve admission before dependent work under -j.
 ci: shared-tooling-check
 	+bash scripts/ci/run-validation-targets.sh --fail-fast $(VALIDATION_INPUTS) \
-		validation-tools-check check-doc-links check-pins check-release-commands \
+		validation-tools-check check-doc-links check-pins check-dependency-boundaries check-dependency-graphs check-release-commands \
 		test-release-tooling test-formatting-evidence test-consumer-tooling \
 		formatting-hook-check fmt-check check test-jobs test-consumers \
 		check-consumer check-msrv check-wasm clippy docs-check package
 
 .PHONY: release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
-_release_targets := release-patch release-minor release-major release-resume release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
-ifneq ($(filter $(_release_targets),$(MAKECMDGOALS)),)
-ifneq ($(RELEASE_DELIVERY),direct)
-$(error ic-jobs supports direct release delivery only)
-endif
-endif
-
 version release-version:
 	@bash scripts/release/metadata.sh version
 

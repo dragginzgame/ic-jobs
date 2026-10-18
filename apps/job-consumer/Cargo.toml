@@ -1,3 +1,4 @@
+# Tests and tooling packages: qualification application, including its Wasm.
 [package]
 name = "jobs-test-consumer"
 version.workspace = true
@@ -8,26 +9,31 @@ publish = false
 
 # Wasm-only runtime adapter for this unpublished test canister: entry points,
 # caller identity, time, inter-canister calls, async execution and traps.
+# All direct calls/macros live in src/canister.rs. This enters deployed test Wasm.
 # The published ic-jobs library does not depend on ic-cdk.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# Tests and tooling only
+# CDK-generated entrypoints/service export require ::candid until Platform #1.
+candid.workspace = true
 ic-cdk.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-# This unpublished qualification app owns IC integration. Candid supplies its
-# API types and wire format; ic-testkit-candid bounds reply decoding using Candid.
+# This unpublished qualification app owns IC integration. Platform supplies the
+# Candid contract and bounded reply decoder without changing protocol or storage.
 [dependencies]
-candid.workspace = true
+# Tests and tooling only
 ic-jobs.workspace = true
 ic-memory = { workspace = true, features = ["test-support"] }
-ic-testkit-candid.workspace = true
+ic-platform = { workspace = true, features = ["candid"] }
 ic-timers.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 
 [dev-dependencies]
-ic-stable-structures.workspace = true
+# Tests and tooling only
+ic-storage.workspace = true
 
 [lints]
 workspace = true

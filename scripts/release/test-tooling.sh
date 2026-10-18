@@ -258,9 +258,15 @@ MAKE
     # Jobs selects direct release delivery only. Unsupported PR delivery must
     # stop before fetching, validating or mutating this committed fixture.
     refuse "refused-pr-$kind" env RELEASE_DELIVERY=pr make --no-print-directory "release-$kind"
-    grep -F 'ic-jobs supports direct release delivery only' "$fixture/refused-pr-$kind.log" > /dev/null
+    grep -F 'consumer does not support PR delivery' "$fixture/refused-pr-$kind.log" > /dev/null
     refuse "refused-pr-adapter-$kind" env RELEASE_DELIVERY=pr bash scripts/release/metadata.sh preflight
-    grep -F 'ic-jobs supports RELEASE_DELIVERY=direct only' "$fixture/refused-pr-adapter-$kind.log" > /dev/null
+    grep -F 'consumer does not support PR delivery' "$fixture/refused-pr-adapter-$kind.log" > /dev/null
+    if [[ "$kind" == patch ]]; then
+        # Shared mechanics cannot turn a caller-supplied override into Jobs policy.
+        refuse refused-policy-override make --no-print-directory release-patch \
+            RELEASE_DELIVERY=pr RELEASE_DELIVERY_POLICY=
+        grep -F 'consumer does not support PR delivery' "$fixture/refused-policy-override.log" > /dev/null
+    fi
     [[ "$(git rev-parse HEAD)" == "$base" && ! -e .git/gate-events && ! -s "$TOOLING_FETCH_EVENTS" ]] || exit 1
     git diff --exit-code HEAD -- > /dev/null
     if [[ "$kind" == patch ]]; then
@@ -414,6 +420,32 @@ MAKE
     cp .git/lock-before Cargo.lock
     [[ -z "$(git status --porcelain)" ]] || exit 1
 done
+
+# The adapter checks the same grouped manifests as fmt-check, including when
+# release reconciliation selects a commit instead of the working tree.
+new_repository manifest-order
+printf '# Changelog\n\n## [%s] - 2026-10-09\n\n- Fixture release.\n' "$base_version" > CHANGELOG.md
+commit_source
+sorted_commit="$(git rev-parse HEAD)"
+cp Cargo.toml .git/sorted-manifest
+perl scripts/ci/prepare-cargo-formatting-fixture.pl \
+    Cargo.toml workspace.dependencies candid ic-build > .git/unsorted-manifest
+cp .git/unsorted-manifest Cargo.toml
+refuse unsorted-format-check make --no-print-directory fmt-check
+cmp .git/unsorted-manifest Cargo.toml
+refuse unsorted-release-check env RELEASE_VERSION="$base_version" RELEASE_DATE=2026-10-09 \
+    bash scripts/release/metadata.sh check
+cmp .git/unsorted-manifest Cargo.toml
+# A sorted selected commit must pass even when the working manifest is unsorted.
+RELEASE_VERSION="$base_version" RELEASE_DATE=2026-10-09 RELEASE_COMMIT="$sorted_commit" \
+    bash scripts/release/metadata.sh check > "$fixture/sorted-selected-commit.log" 2>&1
+git add -- Cargo.toml
+git commit --quiet -m 'Fixture unsorted dependency group'
+unsorted_commit="$(git rev-parse HEAD)"
+cp .git/sorted-manifest Cargo.toml
+refuse unsorted-selected-commit env RELEASE_VERSION="$base_version" RELEASE_DATE=2026-10-09 \
+    RELEASE_COMMIT="$unsorted_commit" bash scripts/release/metadata.sh check
+cmp .git/sorted-manifest Cargo.toml
 
 # The actual publication adapter and shared helpers use real local Git. Only
 # Cargo's upload and curl's registry observation are substituted.

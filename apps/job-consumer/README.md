@@ -56,10 +56,13 @@ allocations. Oversized-cell refusal preserves the exact cell header and payload;
 bootstrap may update allocation bookkeeping before that refusal. The frozen
 incompatible-ledger cases separately retain their zero-write proof.
 
-Memory supplies the backing interfaces and fixture cell. Native fixtures use a
-direct development dependency on `ic-stable-structures` for raw Cell setup and
-deliberate corruption; runtime code does not import collections through Memory.
-Memory leases are consumed by their cell owner rather than cloned.
+Memory supplies the backing interfaces and bounded fixture cell. Native fixtures
+use published IC Storage 0.5.3's governed `adapter::StableCell` for collection
+setup and reopening, with Memory allocation leases consumed rather than cloned.
+The oversized-payload fixture raises only its Memory writer ceiling, retaining
+exact header/payload refusal checks against the consumer's normal limit. No
+storage format or deployed dependency changes. Direct `ic-stable-structures`
+dependencies are forbidden; the substrate remains transitive through its owners.
 
 **0.16 hard cut:** Construct `Task::Deliver(DeliveryPayload { destination,
 message })`; delivery and receipt envelopes contain `payload` beside their
@@ -94,12 +97,21 @@ continuation performs each external call. An exact matching receipt records
 Success. Other responses remain Uncertain. No automatic retries are configured.
 Running and Uncertain records never redispatch after an upgrade.
 
-Delivery replies use `ic-testkit-candid`'s native/Wasm decoder with an 8 KiB wire
+Delivery replies use `ic-platform` 0.1.4's native/Wasm decoder with an 8 KiB wire
 ceiling, 4 KiB header, 64 type entries and finite decoding/skipping work limits.
 These consumer-owned limits are separate from the host harness's management-page
 allowance. Transport, decode and remote application errors remain unreadable
 evidence; they do not become an authoritative absent receipt or a safe retry.
 This decoder has no PocketIC, process or server dependency.
+API derives select Platform's explicit Candid contract path, and identities use
+its unchanged Principal type. Frozen pre-adoption API bytes qualify encoding
+parity. The canister still declares Candid/CDK only on Wasm because the published
+boundary has no entrypoint/call/system facade and CDK macros generate `::candid`
+paths. Existing spawn, callback, trap and lifecycle code stays intact; see the
+[runtime blocker](https://github.com/dragginzgame/ic-platform/issues/1#issuecomment-6247576553).
+The host recovery harness separately retains Testkit's required decoder identities
+as a dev dependency until its
+[published interface migrates](https://github.com/dragginzgame/ic-platform/issues/2#issuecomment-6247576715).
 
 The receiver uses the same fixture Wasm with `delivery_sender` configured to the
 sender canister's principal. It authenticates this caller and retains each
@@ -173,8 +185,8 @@ including a caller-selected target directory. Linux x86-64 and both macOS
 architectures use Testkit's supported server selections. Host Testkit/Host crates
 remain outside the canister and public Jobs normal Wasm dependency graphs.
 
-After [the updated recovery workflow](../../.github/workflows/recovery.yml) is delivered
-to `main`, select **Actions → Canister recovery → Run workflow** and choose the
+Select [the recovery workflow](../../.github/workflows/recovery.yml) through
+**Actions → Canister recovery → Run workflow** and choose the
 tag or branch to qualify. This manual trigger runs all seven tests on the original and
 three optimized variants on Linux, Apple Silicon and Intel macOS.
 Ordinary push/PR CI still compiles the harness without starting

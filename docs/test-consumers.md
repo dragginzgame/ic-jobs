@@ -6,7 +6,9 @@ the public slice API and direct Timers composition on Rust 1.91, using the selec
 Configured CI also runs this target on the three supported hosts. The harness
 and its support modules belong to the unpublished consumer package; the core
 package has no Memory or Timers development dependency. `check-consumer` selects
-the consumer library tests separately, avoiding a second composition run.
+the consumer library and frozen API-wire tests separately, avoiding a second
+composition run. Protocol derives/encoding and the delivery decoder use published
+Platform; the host Testkit call API retains its required decoder identities.
 
 These consumers exercise the public API without adding storage, payloads,
 handlers or lifecycle ownership to the Jobs library. Each application decodes a
@@ -61,7 +63,7 @@ message-wide rollback.
 Reconstruction keeps only committed bytes and discards volatile consumer state.
 The tests cover refused intent/result commits, lost replies, receipt reconciliation,
 and corrupt metadata rejection before work. This is native composition evidence.
-Live IC message rollback, stable-memory persistence, actual lifecycle upgrades,
+Live IC message rollback, actual lifecycle upgrades,
 watchdog registration/provider delivery and external canister calls remain
 unqualified. A live harness must use IC Testkit's selected server setup/check
 contract rather than adding another PocketIC installer here.
@@ -85,17 +87,16 @@ and oversized snapshots are refused without changing committed records.
 
 Successful responses include the earliest deadline derived from committed
 records. Failed create/cancel/dispatch writes expose no successful management
-response or delivery envelope and retain the previous deadline. The timers
-feature tests projection of those deadlines into ScheduleAt/Stop decisions;
+response or delivery envelope and retain the previous deadline. Direct IC Timers
+composition tests projection of those deadlines into ScheduleAt/Stop decisions;
 it does not register provider wakeups. Cancellation retains terminal history,
 refuses Running/Uncertain work and cannot undo an effect. An early dispatch is
 idle; restored intent stays blocked until exact destination evidence resolves it.
 
 These flows use the existing byte-replacement store and immutable payloads.
-They establish consumer composition evidence only. Stable allocation and the
-real canister lifecycle must adopt the replacement contract coordinated by
-[IC Memory #44](https://github.com/dragginzgame/ic-memory/issues/44); no provisional
-range-based bootstrap is added here.
+They establish consumer composition evidence only. The native host fixture below
+uses committed IC Memory allocations; the separate canister fixture owns its
+lifecycle integration. Neither path assigns component memory-ID ranges.
 
 ## Consumer memory requests
 
@@ -124,11 +125,11 @@ remains blocked, and cancellation persists across a subsequent cold reopen.
 Foreign-owner bootstrap fails without changing backing bytes or granting opens.
 This is actual stable-structure persistence on native VectorMemory, not an IC
 upgrade, message rollback, final Canic/IcyDB composition or live timer evidence.
-[IC Memory #44](https://github.com/dragginzgame/ic-memory/issues/44) retains those
-coordination requirements. No old allocation API or fallback remains in Jobs'
-consumers. That memory-adoption batch did not change the Job format or reset
-retained installations; the management hard cut below has its own disposition. Jobs' library
-acquires no storage dependency or lifecycle hook.
+Canic/IcyDB composition needs those applications' own qualification. No old
+allocation API or fallback remains in Jobs' consumers. The current format and
+installation disposition are documented with the
+[canister consumer](../apps/job-consumer/README.md); Jobs' library acquires no
+storage dependency or lifecycle hook.
 
 ## Durable canister consumer
 
@@ -145,9 +146,8 @@ includes these checks without launching a server. Explicit Testkit CLI/server
 preparation and `make test-canister` select the live upgrade, rollback, watchdog
 and lost-result scenarios. Durable management now covers pause/resume,
 unstarted-occurrence rescheduling, wakeup reconstruction and real management trap
-rollback. The approved 0.6 hard cut retires/resets disposable 0.5 canister fixtures;
-its distinct current memory key does not interpret old snapshots. Qualification
-of the new seven-case harness remains with
+rollback. The current seven-case harness needs source-bound live qualification;
+historical receipts do not establish that its current graph passes. See
 [#23](https://github.com/dragginzgame/ic-jobs/issues/23). Completed
 [#11](https://github.com/dragginzgame/ic-jobs/issues/11) acceptance covers the older
 five-scenario v0.5.6 harness. Current inputs require their own source-bound
@@ -164,14 +164,14 @@ must remain terminal after upgrade, with no duplicate committed local effect.
 This case requires matching live execution evidence; prior five-scenario evidence
 does not qualify it. See [#20](https://github.com/dragginzgame/ic-jobs/issues/20).
 
-The 0.8 configuration cut is qualified against records emitted by archived Jobs
-0.7.5 source `060fb9d226389bab702132ba23f42bd0b887a690`. The core fixture
-[configuration tests](../crates/ic-jobs/tests/configuration.rs) restore and
-re-encode the frozen records exactly. The stable consumer reopens its frozen
-JSON snapshot and the release-produced complete stable-memory image (including
-allocation/cell headers) under the existing memory key, retaining Running/Uncertain
-external intent and paused work while healthy pending work proceeds. Raw zero
-intervals return `InvalidInput` without committing; storage corruption remains
-a queue-wide refusal. The fault artifact mutates encoded bytes so checked
-configuration cannot provide an unchecked construction path. These native
-checks do not establish live IC upgrade qualification.
+The current [configuration tests](../crates/ic-jobs/tests/configuration.rs)
+round-trip current records and retain unresolved dispatch as blocked. Frozen
+pre-cut JSON, physical images and Candid replies are negative inputs: their
+presence is refusal evidence, not a compatibility promise. IC Memory's selected
+`testing::memory_from_sparse_hex` expands the old physical images; Jobs owns their
+producer/schema assertions and three-page fixture ceiling. Both retained opening
+and fresh creation refuse those ledgers with zero writes and identical backing
+bytes. Current-format corruption remains a queue-wide refusal. Raw zero intervals
+return `InvalidInput` without committing, and the fault endpoint deliberately
+mutates encoded bytes without adding an unchecked configuration constructor.
+These native checks do not establish live IC upgrade qualification.

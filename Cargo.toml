@@ -1,4 +1,6 @@
 [workspace]
+# Production packages: crates/ic-jobs.
+# Tests and tooling packages: apps/job-consumer, crates/jobs-canister-tests.
 members = ["apps/job-consumer", "crates/ic-jobs", "crates/jobs-canister-tests"]
 default-members = ["crates/ic-jobs"]
 resolver = "3"
@@ -15,21 +17,26 @@ repository = "https://github.com/dragginzgame/ic-jobs"
 # The published ic-jobs library uses only Serde at runtime; Candid and IC runtime
 # dependencies below support the unpublished qualification consumer and harness.
 [workspace.dependencies]
+# Production dependencies
+serde = "1.0"
+
+# Tests and tooling only
+# Wasm-only exception: CDK macros emit ::candid paths. Handwritten protocol
+# types/encoding use Platform. Blocked by ic-platform issue #1.
 candid = "0.10"
-ic-build = "0.16"
+ic-build = "0.17"
+# Wasm runtime only in apps/job-consumer/src/canister.rs: endpoints, lifecycle,
+# caller/time, calls, spawn and traps. Not used by core or host capture tooling.
 ic-cdk = "0.20"
 ic-host-fs = "0.27"
 ic-host-process = "0.27"
 ic-jobs = { path = "crates/ic-jobs" }
 ic-memory = "0.48"
-# Direct only in unpublished consumer tests for raw Cell fixtures/corruption.
-ic-stable-structures = "0.7.2"
-ic-testkit = "0.52"
-# Bounded Candid decoding for qualification; this still depends on candid.
-ic-testkit-candid = "0.52"
-ic-timers = "0.27"
+ic-platform = { version = "0.1.9", default-features = false }
+ic-storage = "0.5.3"
+ic-testkit = "0.54"
+ic-timers = "0.28"
 jobs-test-consumer = { path = "apps/job-consumer" }
-serde = "1.0"
 serde_json = "1.0"
 serde_test = "1.0"
 

@@ -1,6 +1,5 @@
 use std::num::NonZeroU64;
 
-use candid::Principal;
 use ic_jobs::{
     Attempt, Job, JobId, JobRecord, JobState, MissedRunPolicy, Outcome, RetryPolicy, Schedule,
     next_due_ns, start_next,
@@ -9,6 +8,7 @@ use ic_memory::{
     Memory, MemoryManagerConfig,
     testing::{FixtureCell, FixtureCellError},
 };
+use ic_platform::Principal;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Create, Delivery, DeliveryPayload, Error, Init, Status, Task, Timing, View};

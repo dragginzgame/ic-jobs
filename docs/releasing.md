@@ -13,6 +13,13 @@ crates.io.
 Install the complete host, IC and Rust toolsets with `make install-tools`.
 Shared metadata preparation renders workspace versions directly; cargo-edit is
 not required.
+Jobs preserves dependency-role groups with `cargo sort --workspace --grouped`
+in both formatter commands. The metadata adapter selects
+`--manifest-order-grouped` for prepared, commit-preparation and committed-source
+checks. The release fixture verifies unsorted-group refusal and selection of the
+recorded commit even when the working manifest has different ordering. These
+ordering checks do not enforce transitive production dependency exclusions; see
+the [dependency exposure map](../README.md#dependency-exposure).
 Prepare Rust 1.91.0 and its Wasm target as described in the README, alongside
 the development toolchain and its Wasm target for consumer Clippy.
 
@@ -127,9 +134,11 @@ commit, tag, push, publish another package or delete artifacts.
 
 ## Qualification
 
-Jobs' publication wrapper delegates read-only admission to the snapshot-owned
-`scripts/ci/check-publication.sh`; Jobs retains the package, features and Cargo
-upload command. This delegation does not authorize publication.
+Jobs' publication wrapper invokes its local
+`scripts/release/check-publication.sh`, which owns package and destination policy
+while using Shared's source, version, tag, registry and Make observers. It
+rechecks source and release identity after network observations. Failed or
+uncertain observations refuse upload; validation never authorizes publication.
 
 `make test-release-tooling` uses real Git repositories and local bare remotes
 to exercise patch/minor/major preparation, exact release commits and annotated
@@ -151,31 +160,14 @@ The fetch substitute also exercises cold-cache preparation, explicit offline
 refusal, fetch failure and prepared-cache reuse, verifying unchanged metadata
 and no gate/version effects on preparation failure. Dirty source is refused
 before any fetch. Actual registry cache preparation is separate evidence.
-Unsupported PR delivery is refused at both the Make and metadata-adapter
-boundaries before fetch, gate or source mutation; the PR transport is omitted
-from Jobs' snapshot selection.
+`ci/release-delivery.txt` is Jobs' single direct-only delivery declaration.
+The shared checker admits it at both the Make and standalone metadata boundaries
+before fetch, gate or source mutation. The validation checkpoint includes that
+declaration, and Make cannot replace it through a caller's policy-path override.
+The PR transport is omitted from Jobs' snapshot selection.
 
 Release 0.13.0 passed its configured gate on Linux and both native macOS
 architectures; see the [current handoff](status/current.md) for exact source and
 run identity. Later changes need their own qualification. Linux fixture passes
 and Bash 3.2 execution on Linux do not establish native macOS evidence;
 live IC recovery remains pending.
-
-
-## Publication admission ownership
-
-`scripts/release/check-publication.sh REMOTE` owns Jobs' read-only publication
-policy for `ic-jobs`. It requires clean source, a stable workspace version, one
-push destination, the matching pushed annotated tag and confirmed crates.io
-absence. It rechecks source and release identity after network observations;
-failed or uncertain observations refuse upload. `publish.sh` invokes this policy
-before Cargo. Upload authorization and interrupted-upload reconciliation remain
-with the maintainer.
-
-Shared source, version, tag, registry and Make observers remain canonical.
-The reviewed snapshot's complete publication checker is unused; retire that entry
-through a future reviewed export, preserving current snapshot bytes and receipt.
-`make test-release-tooling` selects the local publication fixture. It covers
-policy ordering, failed observations, source/tag races and real-Git admission,
-with registry transport substituted and no upload. Its exit and selected-assertion
-failure retention use the standard Shared probes.

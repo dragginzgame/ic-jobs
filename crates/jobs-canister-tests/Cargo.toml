@@ -1,3 +1,4 @@
+# Tests and tooling packages: native capture binary and recovery harness.
 [package]
 name = "jobs-canister-tests"
 version.workspace = true
@@ -7,16 +8,17 @@ license.workspace = true
 publish = false
 
 [dependencies]
+# Tests and tooling only
 ic-build.workspace = true
 
 # Candid and PocketIC support recovery tests against the qualification canister;
 # they are not dependencies of the published ic-jobs library or capture binary.
 [dev-dependencies]
-candid.workspace = true
+# Tests and tooling only
 ic-host-fs = { workspace = true, features = ["test-support"] }
 ic-host-process = { workspace = true, features = ["test-support"] }
+ic-platform = { workspace = true, features = ["candid"] }
 ic-testkit.workspace = true
-ic-testkit-candid.workspace = true
 jobs-test-consumer.workspace = true
 serde.workspace = true
 

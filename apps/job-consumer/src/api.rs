@@ -1,10 +1,11 @@
 //! Consumer-owned Candid boundary. JobRecord remains an internal stored value.
 
-use candid::{CandidType, Principal};
+use ic_platform::{Principal, candid::contract::CandidType};
 use serde::{Deserialize, Serialize};
 
 /// Installation configuration, retained across upgrades.
 #[derive(Debug, Eq, PartialEq, CandidType, Deserialize, Serialize)]
+#[candid_path("ic_platform::candid::contract")]
 pub struct Init {
     /// Identity permitted to manage tasks and fixture controls.
     pub manager: Principal,
@@ -14,6 +15,7 @@ pub struct Init {
 
 /// Immutable delivery payload shared by retained tasks and receipt envelopes.
 #[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize, Serialize)]
+#[candid_path("ic_platform::candid::contract")]
 #[serde(deny_unknown_fields)]
 pub struct DeliveryPayload {
     /// Independent receipt canister.
@@ -24,6 +26,7 @@ pub struct DeliveryPayload {
 
 /// Immutable effect payload.
 #[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize, Serialize)]
+#[candid_path("ic_platform::candid::contract")]
 pub enum Task {
     /// A local effect committed atomically with its job completion.
     Increment(u64),
@@ -33,6 +36,7 @@ pub enum Task {
 
 /// Consumer's supported scheduling policies.
 #[derive(Clone, Debug, CandidType, Deserialize)]
+#[candid_path("ic_platform::candid::contract")]
 pub enum Timing {
     /// One occurrence.
     Once(u64),
@@ -56,6 +60,7 @@ pub enum Timing {
 
 /// Task creation request. Identities are allocated by the retained queue.
 #[derive(Debug, CandidType, Deserialize)]
+#[candid_path("ic_platform::candid::contract")]
 pub struct Create {
     /// Scheduling policy.
     pub timing: Timing,
@@ -65,6 +70,7 @@ pub struct Create {
 
 /// Projection of the checked job state.
 #[derive(Debug, Eq, PartialEq, CandidType, Deserialize)]
+#[candid_path("ic_platform::candid::contract")]
 pub enum Status {
     /// Pending work with a durable deadline.
     Pending {
@@ -87,6 +93,7 @@ pub enum Status {
 
 /// Authorized inspection response.
 #[derive(Debug, Eq, PartialEq, CandidType, Deserialize)]
+#[candid_path("ic_platform::candid::contract")]
 pub struct View {
     /// Consumer-allocated job identity.
     pub id: u64,
@@ -102,6 +109,7 @@ pub struct View {
 
 /// Exact delivery identity and payload. Correlation is not authentication.
 #[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize, Serialize)]
+#[candid_path("ic_platform::candid::contract")]
 #[serde(deny_unknown_fields)]
 pub struct Delivery {
     /// Job identity within the authenticated sending canister.
@@ -116,6 +124,7 @@ pub struct Delivery {
 
 /// Bounded state summary used by the host harness.
 #[derive(Debug, Eq, PartialEq, CandidType, Deserialize)]
+#[candid_path("ic_platform::candid::contract")]
 pub struct Summary {
     /// Earliest pending deadline over the entire bounded queue.
     pub next_due_ns: Option<u64>,
@@ -129,6 +138,7 @@ pub struct Summary {
 
 /// Refused management, storage or execution boundary.
 #[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize)]
+#[candid_path("ic_platform::candid::contract")]
 pub enum Error {
     /// Caller lacks management or receiver authority.
     Unauthorized,

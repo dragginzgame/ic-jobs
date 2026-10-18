@@ -1,5 +1,4 @@
-use candid::CandidType;
-use ic_testkit_candid::{DecodeLimits, decode_one};
+use ic_platform::candid::{DecodeLimits, contract::CandidType, decode_one};
 use serde::de::DeserializeOwned;
 
 use crate::api::Error;
@@ -29,7 +28,7 @@ where
 mod tests {
     use super::*;
     use crate::api::{Delivery, DeliveryPayload};
-    use candid::Principal;
+    use ic_platform::{Principal, candid::contract::encode_one};
 
     #[test]
     fn reply_decoding_preserves_evidence_and_distinguishes_absent_receipts() {
@@ -49,7 +48,7 @@ mod tests {
                 message: "x".repeat(256),
             },
         };
-        let bytes = candid::encode_one(Ok::<_, Error>(&receipt)).unwrap();
+        let bytes = encode_one(Ok::<_, Error>(&receipt)).unwrap();
         assert_eq!(
             decode_reply::<Delivery, ()>(Ok(bytes)),
             Some(receipt.clone())
@@ -61,18 +60,18 @@ mod tests {
             },
             ..receipt.clone()
         };
-        let bytes = candid::encode_one(Ok::<_, Error>(Some(oversized))).unwrap();
+        let bytes = encode_one(Ok::<_, Error>(Some(oversized))).unwrap();
         assert!(bytes.len() > REPLY_LIMITS.reply_bytes);
         // An unreadable reply is not an authoritative absent-receipt response.
         assert_eq!(decode_reply::<Option<Delivery>, ()>(Ok(bytes)), None);
-        let bytes = candid::encode_one(Ok::<_, Error>(Some(&receipt))).unwrap();
+        let bytes = encode_one(Ok::<_, Error>(Some(&receipt))).unwrap();
         assert_eq!(
             decode_reply::<Option<Delivery>, ()>(Ok(bytes)),
             Some(Some(receipt))
         );
-        let bytes = candid::encode_one(Ok::<Option<Delivery>, Error>(None)).unwrap();
+        let bytes = encode_one(Ok::<Option<Delivery>, Error>(None)).unwrap();
         assert_eq!(decode_reply::<Option<Delivery>, ()>(Ok(bytes)), Some(None));
-        let bytes = candid::encode_one(Err::<Delivery, _>(Error::Unauthorized)).unwrap();
+        let bytes = encode_one(Err::<Delivery, _>(Error::Unauthorized)).unwrap();
         assert_eq!(decode_reply::<Delivery, ()>(Ok(bytes)), None);
         assert_eq!(decode_reply::<Delivery, ()>(Err::<Vec<u8>, _>(())), None);
         assert_eq!(decode_reply::<Delivery, ()>(Ok(b"malformed")), None);
