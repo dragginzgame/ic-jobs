@@ -24,18 +24,7 @@ pub(crate) struct Wake {
 
 impl Wake {
     pub(crate) fn timer_result(&self) -> ic_timers::WatchdogRunResult {
-        let completion = if self.completed == 0 {
-            ic_timers::TimerCompletion::no_work()
-        } else {
-            ic_timers::TimerCompletion::success(self.completed)
-        };
-        ic_timers::WatchdogRunResult::new(
-            completion,
-            self.next_due_ns.map_or(
-                ic_timers::WatchdogDecision::Stop,
-                ic_timers::WatchdogDecision::ScheduleAt,
-            ),
-        )
+        ic_timers::WatchdogRunResult::completed_batch(self.completed, self.next_due_ns)
     }
 }
 

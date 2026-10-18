@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.3]
+
+- Use Timers' published completed-batch projection for watchdog results in the
+  qualification canister and native maintenance consumer. Keep work-count meaning,
+  deadlines and trap-before-delivery ordering consumer-owned.
+  [#57 — Adopt Timers completed-batch projection](https://github.com/dragginzgame/ic-jobs/issues/57).
+
 ## [0.17.2] - 2026-10-18
 
 - Keep native qualification DTO consumers independent of Jobs, Memory, Timers

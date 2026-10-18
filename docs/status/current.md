@@ -2,11 +2,18 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.17.1**: `f57855a777579ca39176164eee8d94280a00d078`.
-Pending **0.17.2** adopts published Platform **0.1.11** and its CDK frontend in
-this repository's unpublished qualification canister. The public Jobs API,
-wire/storage formats and package versions remain unchanged. No release, upload,
-reset, conversion or deployment is selected. Preserve the pending implementation.
+Delivered Jobs **0.17.2**: `177a4dd4aa9a22492830839fec0ea6e42c5d234c`.
+Pending **0.17.3** uses published Timers **0.28.1**'s completed-batch projection
+in the qualification canister and native maintenance consumer, resolving the
+caller duplication in [#57](https://github.com/dragginzgame/ic-jobs/issues/57).
+The existing work/deadline policies and trap-before-delivery ordering remain
+consumer-owned. The public Jobs API, wire/storage formats and package versions
+remain unchanged. No release, upload, reset, conversion or deployment is selected.
+
+The #57 caller adoption passes 45 consumer/composition tests on Rust 1.91,
+the Rust 1.91 consumer Wasm check, strict native/Wasm Clippy, all four graph
+contexts, direct dependency boundaries, formatting and documentation links.
+Required hosted native acceptance remains separate from these Linux checks.
 
 The [root ownership map](../../README.md#scope-and-validation) is the maintained
 boundary reference; the [workspace manifest](../../Cargo.toml) and
