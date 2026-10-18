@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.2]
+## [0.17.2] - 2026-10-18
 
 - Keep native qualification DTO consumers independent of Jobs, Memory, Timers
   and JSON implementation dependencies; retain those dependencies for Wasm and
