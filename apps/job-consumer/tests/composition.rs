@@ -311,7 +311,16 @@ fn maintenance_reconstruction_bounds_catch_up_and_rebuilds_deadlines() -> Result
     );
     assert_eq!(restored.load()?.completed_runs, 4);
     {
-        use ic_timers::WatchdogDecision;
+        use ic_timers::{TimerCompletionOutcome, WatchdogDecision};
+        assert_eq!(
+            early.timer_result().completion().outcome(),
+            TimerCompletionOutcome::NoWork
+        );
+        assert_eq!(first.timer_result().completion().work_count(), 2);
+        assert_eq!(
+            first.timer_result().completion().outcome(),
+            TimerCompletionOutcome::Success
+        );
         assert_eq!(
             early.timer_result().decision(),
             WatchdogDecision::ScheduleAt(100)
