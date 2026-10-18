@@ -9,25 +9,37 @@ in the qualification canister and native maintenance consumer
 Rust **1.99.1** in the local toolchain and both workflows/evidence
 ([#69](https://github.com/dragginzgame/ic-jobs/issues/69)). Work/deadline policies
 and trap-before-delivery ordering remain consumer-owned. Core and consumer MSRV
-selectors remain **1.91**, with separate native/Wasm qualification. Public APIs,
-package versions, locks and wire/storage formats are unchanged. No release,
-upload, reset, conversion or deployment is selected.
+selectors remain **1.91**, with separate native/Wasm qualification. These caller
+and compiler changes preserve public APIs, package versions, the locked graph
+and wire/storage formats. No release, upload, reset, conversion or deployment
+is selected.
+
+Both changes are integrated on `main`: [PR #71](https://github.com/dragginzgame/ic-jobs/pull/71)
+and [PR #72](https://github.com/dragginzgame/ic-jobs/pull/72). Their complete
+Linux/Apple Silicon/Intel macOS matrices pass in [run 39140917132](https://github.com/dragginzgame/ic-jobs/actions/runs/39140917132)
+and [run 39141391926](https://github.com/dragginzgame/ic-jobs/actions/runs/39141391926).
+Retargeting #72 after #71 preserved its tested tree exactly.
+
+The separate incoming lockfile refresh selects Platform 0.1.13, Build 0.17.6,
+Host 0.27.6, Storage 0.5.4, Testkit 0.54.1 and Metrics 0.14.4. It is preserved
+and included in the pending changelog, but is outside those qualified PR graphs;
+their passing checks do not qualify these newer dependency selections.
 
 Linux Rust 1.99.1 qualification passes 48 core, 46 consumer/composition/wire,
 four capture/recovery-decoder tests and six doctests. Rust 1.91 native/Wasm
 checks, the release Wasm build, strict native/Wasm Clippy, formatting/hook/evidence
 fixtures, all four graph contexts, dependency boundaries/pins and links pass.
-The seven live recovery tests remain ignored; hosted native acceptance is separate.
+The seven live recovery tests remain ignored; native CI does not qualify them.
 
 Delivered 0.17.2's complete Linux/Apple Silicon/Intel macOS native matrix now passes
 on its exact source in [CI run 39139517213](https://github.com/dragginzgame/ic-jobs/actions/runs/39139517213).
-That delivered evidence does not qualify the pending Timers/compiler changes or
-installed-IC recovery; their PR/native gates remain separate.
+That delivered evidence remains separate from the later caller/compiler PR
+matrices and does not qualify installed-IC recovery.
 
 The #57 caller adoption passes 45 consumer/composition tests on Rust 1.91,
 the Rust 1.91 consumer Wasm check, strict native/Wasm Clippy, all four graph
 contexts, direct dependency boundaries, formatting and documentation links.
-Required hosted native acceptance remains separate from these Linux checks.
+The hosted caller acceptance is recorded above, separately from these Linux checks.
 
 The [root ownership map](../../README.md#scope-and-validation) is the maintained
 boundary reference; the [workspace manifest](../../Cargo.toml) and

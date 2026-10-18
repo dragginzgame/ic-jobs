@@ -2,6 +2,10 @@
 
 ## [0.17.3]
 
+- Refresh locked qualification/tooling dependencies to Platform 0.1.13,
+  Build 0.17.6, Host 0.27.6, Storage 0.5.4, Testkit 0.54.1 and Metrics 0.14.4.
+  Keep the published Jobs library's Serde-only runtime boundary.
+
 - Select Rust 1.99.1 consistently for development and both hosted workflows,
   including recovery evidence. Keep the core and consumer Rust 1.91 floors.
   [#69 — Qualify Rust 1.99.1 as the development compiler](https://github.com/dragginzgame/ic-jobs/issues/69).
