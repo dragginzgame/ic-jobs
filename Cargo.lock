@@ -805,9 +805,9 @@ dependencies = [
 
 [[package]]
 name = "ic-build"
-version = "0.17.3"
+version = "0.17.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2764868c7e1dcdf6821c837bd006e8a1c6a5fd631cb32350878461005644520"
+checksum = "88432d2b8fdeabb0ae8327acea02bfc4eb70b9ea7223f69abc468ed9eb4efc3d"
 dependencies = [
  "cargo_metadata",
  "ic-host-artifacts",
@@ -955,21 +955,35 @@ dependencies = [
 
 [[package]]
 name = "ic-metrics"
-version = "0.14.1"
+version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e8586a09ef26a61beaccd1187f5d7ecc442c04b592959332662c29f8f5a76cd"
+checksum = "91b2d3b70db8b344aa0bef07085682ede258216466c089db4b6d1441417ea4a8"
 
 [[package]]
 name = "ic-platform"
-version = "0.1.9"
+version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdfb66170e95bae421449fbd50e3e2a26196fbd6277ae13556026bf3001974c3"
+checksum = "e0ab384614a5d8fe251bc2c27c508263d4001d776edf31382b5b985a1a4ced2d"
 dependencies = [
  "candid",
+ "ic-cdk",
  "ic-cdk-executor",
+ "ic-platform-macros",
  "ic0",
  "ic_principal",
  "serde",
+]
+
+[[package]]
+name = "ic-platform-macros"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b5de9771169e34ca8da9bbb04c9c6196b1d2de8d2d0d21bc79d5921984ce6be"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1011,9 +1025,9 @@ dependencies = [
 
 [[package]]
 name = "ic-timers"
-version = "0.28.0"
+version = "0.28.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a4535a6c4caaa9060c7d3f7a4e4d074a36ac69d42190a18f707e194665bad1f"
+checksum = "a78c613912383fcc37cdbabdee70e46d9a23423bae6c6f548d1792d80ae36f1c"
 dependencies = [
  "ic-metrics",
  "ic-platform",
@@ -1248,15 +1262,12 @@ dependencies = [
  "ic-platform",
  "ic-testkit",
  "jobs-test-consumer",
- "serde",
 ]
 
 [[package]]
 name = "jobs-test-consumer"
 version = "0.17.1"
 dependencies = [
- "candid",
- "ic-cdk",
  "ic-jobs",
  "ic-memory",
  "ic-platform",

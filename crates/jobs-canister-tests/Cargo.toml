@@ -20,7 +20,6 @@ ic-host-process = { workspace = true, features = ["test-support"] }
 ic-platform = { workspace = true, features = ["candid"] }
 ic-testkit.workspace = true
 jobs-test-consumer.workspace = true
-serde.workspace = true
 
 [lints]
 workspace = true

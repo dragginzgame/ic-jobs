@@ -2,13 +2,15 @@
 
 Run `make test-consumers` for two small application-owned consumers in
 [the integration fixture](../apps/job-consumer/tests/composition.rs). The target tests
-the public slice API and direct Timers composition on Rust 1.91, using the selected locked graph.
+the public scheduling API and direct Timers composition on Rust 1.91, using the
+selected locked graph.
 Configured CI also runs this target on the three supported hosts. The harness
 and its support modules belong to the unpublished consumer package; the core
 package has no Memory or Timers development dependency. `check-consumer` selects
 the consumer library and frozen API-wire tests separately, avoiding a second
 composition run. Protocol derives/encoding and the delivery decoder use published
-Platform; the host Testkit call API retains its required decoder identities.
+Platform. Testkit uses those same decoder limits/error types; the harness has no
+separate decoder dependency.
 
 These consumers exercise the public API without adding storage, payloads,
 handlers or lifecycle ownership to the Jobs library. Each application decodes a
@@ -116,7 +118,7 @@ sealed requests alone do not grant committed allocation authority. Authority
 labels express ownership policy, not caller authentication.
 
 The fault-injection consumers retain their bounded byte store. A separate native
-host fixture uses that selected Memory dependency directly: one shared pool grants the
+host fixture uses IC Memory allocation leases and IC Storage cells: one pool grants the
 two namespaces without component ranges or numeric IDs; the host bootstraps once
 before component adoption/open. Stable cells persist the same bounded snapshot
 bytes. Cold reopens retain allocation IDs, payloads and pending deadlines; reads

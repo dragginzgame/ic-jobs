@@ -2,7 +2,7 @@
 export RELEASE_DELIVERY ?= direct
 override SHARED_TOOLING_ROOT := $(CURDIR)
 override RELEASE_DELIVERY_POLICY := $(CURDIR)/ci/release-delivery.txt
-# Jobs' optimized qualification needs Binaryen from the selected IC bundle.
+# Keep the full IC tool bundle installed; optimized qualification uses Binaryen.
 LOCAL_TOOL_INSTALL_TARGETS := install-ic-tools
 LOCAL_TOOL_CHECK_TARGETS := ic-tools-check
 export PATH := $(CURDIR)/.tools/ic/bin:$(PATH)
@@ -103,7 +103,7 @@ check-dependency-boundaries:
 
 # Jobs owns these concrete exclusions; Shared owns observation and matching.
 CORE_GRAPH_FORBIDDEN := candid candid_derive candid_parser ic-cdk ic-cdk-macros \
-	ic-cdk-executor ic-cdk-timers ic-platform ic0 ic-memory ic-stable-structures ic-storage \
+	ic-cdk-executor ic-cdk-timers ic-platform ic-platform-macros ic0 ic-memory ic-stable-structures ic-storage \
 	ic-timers ic-metrics ic-build ic-host-fs ic-host-process ic-testkit \
 	ic-testkit-candid jobs-test-consumer pocket-ic serde_json serde_test
 QUALIFICATION_GRAPH_FORBIDDEN := ic-storage candid_parser ic-agent ic-build ic-host-fs \
@@ -118,7 +118,14 @@ check-dependency-graphs:
 		$(foreach dependency,$(CORE_GRAPH_FORBIDDEN),--forbid $(dependency))
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target wasm32-unknown-unknown --all-features \
-		--require ic-timers=1 --require ic-cdk-executor=1 \
+		--require ic-timers=1 --require ic-cdk-executor=1 --require ic0=1 \
+		--require ic-platform=1 --require ic-platform-macros=1 --require ic-cdk=1 \
+		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
+	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
+		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \
+		--forbid ic-cdk --forbid ic-platform-macros --forbid-feature ic-platform/cdk \
+		--forbid ic-jobs --forbid ic-memory --forbid ic-timers --forbid serde_json \
+		--forbid ic-stable-structures --forbid ic-cdk-executor --forbid ic0 --forbid ic-metrics \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
 
 check-release-commands:

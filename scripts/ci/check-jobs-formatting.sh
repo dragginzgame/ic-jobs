@@ -15,9 +15,11 @@ trap 'fixture_finish "$?" "$fixture" "Jobs formatting input retained"' EXIT
 
 # Only reorder two adjacent dependencies; keep names, versions and features.
 perl "$root/scripts/ci/prepare-cargo-formatting-fixture.pl" \
-    "$root/Cargo.toml" workspace.dependencies candid ic-build > "$fixture/unsorted.toml"
+    "$root/Cargo.toml" workspace.dependencies ic-build ic-host-fs > "$fixture/unsorted.toml"
 bash "$root/scripts/ci/check-formatting-hooks.sh" "$root" \
     crates/ic-jobs/src/job.rs Cargo.toml "$fixture/unsorted.toml" \
+    --rust-sources \
+    crates/ic-jobs/Cargo.toml apps/job-consumer/Cargo.toml crates/jobs-canister-tests/Cargo.toml \
     Cargo.lock make/consumer.mk make/tools.mk make/rust-format.mk make/release.mk make/execution.mk \
     ci/tool-versions.env scripts/ci/check-format-tools.sh scripts/ci/run-formatting.sh
 fixture_complete=true

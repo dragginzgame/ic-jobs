@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.17.2]
+
+- Keep native qualification DTO consumers independent of Jobs, Memory, Timers
+  and JSON implementation dependencies; retain those dependencies for Wasm and
+  native tests, and enforce the split in graph checks. Use Platform's Serde
+  contract export in the recovery harness. Keep the full IC tool bundle required.
+
+- Repair formatting-hook qualification's stale dependency pair after the direct
+  Candid declaration was removed. Qualify current member manifests and Rust
+  sources together with the root manifest during pending dependency migrations.
+
+- Align consumer guidance with the completed Platform/Testkit/Storage boundaries.
+  Keep version selection in manifests and source-bound qualification in the
+  handoff; archive superseded migration receipts without removing their evidence.
+
+- Adopt published IC Platform 0.1.11 and its CDK frontend for the qualification
+  canister. Route entrypoints, calls, lifecycle, protected spawning and traps
+  through Platform; remove direct Candid/CDK declarations and forbid their
+  reintroduction. Retain upstream CDK/executor identities, wire and storage
+  contracts, and the separate live-recovery qualification gate.
+
 ## [0.17.1] - 2026-10-18
 
 - Replace the native fixtures' direct stable-structures dependency with published

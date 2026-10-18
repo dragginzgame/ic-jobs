@@ -5,6 +5,12 @@ in `tests/composition.rs`. Run `make test-consumers` for its 19 scenarios;
 `check-msrv` qualifies core and composition separately on Rust 1.91. Memory and
 Timers integration dependencies belong here, outside the core package tests.
 
+Ordinary native library builds expose only `api` DTOs and depend on Platform's
+Candid contract and Serde. Jobs, Memory, Timers and JSON are selected only for
+Wasm builds and native tests, so the recovery harness can share the DTOs without
+pulling in the consumer's storage or timer implementation. The existing native
+normal/build graph check enforces this boundary.
+
 Native notification snapshots serialize validated jobs directly. Maintenance
 keeps its validated job, cache entries and effect counter in one snapshot,
 committing after each completed occurrence. Both readers decode records and
@@ -57,7 +63,7 @@ bootstrap may update allocation bookkeeping before that refusal. The frozen
 incompatible-ledger cases separately retain their zero-write proof.
 
 Memory supplies the backing interfaces and bounded fixture cell. Native fixtures
-use published IC Storage 0.5.3's governed `adapter::StableCell` for collection
+use IC Storage's governed `adapter::StableCell` for collection
 setup and reopening, with Memory allocation leases consumed rather than cloned.
 The oversized-payload fixture raises only its Memory writer ceiling, retaining
 exact header/payload refusal checks against the consumer's normal limit. No
@@ -97,7 +103,7 @@ continuation performs each external call. An exact matching receipt records
 Success. Other responses remain Uncertain. No automatic retries are configured.
 Running and Uncertain records never redispatch after an upgrade.
 
-Delivery replies use `ic-platform` 0.1.4's native/Wasm decoder with an 8 KiB wire
+Delivery replies use Platform's native/Wasm decoder with an 8 KiB wire
 ceiling, 4 KiB header, 64 type entries and finite decoding/skipping work limits.
 These consumer-owned limits are separate from the host harness's management-page
 allowance. Transport, decode and remote application errors remain unreadable
@@ -105,13 +111,21 @@ evidence; they do not become an authoritative absent receipt or a safe retry.
 This decoder has no PocketIC, process or server dependency.
 API derives select Platform's explicit Candid contract path, and identities use
 its unchanged Principal type. Frozen pre-adoption API bytes qualify encoding
-parity. The canister still declares Candid/CDK only on Wasm because the published
-boundary has no entrypoint/call/system facade and CDK macros generate `::candid`
-paths. Existing spawn, callback, trap and lifecycle code stays intact; see the
-[runtime blocker](https://github.com/dragginzgame/ic-platform/issues/1#issuecomment-6247576553).
-The host recovery harness separately retains Testkit's required decoder identities
-as a dev dependency until its
-[published interface migrates](https://github.com/dragginzgame/ic-platform/issues/2#issuecomment-6247576715).
+parity. On Wasm, Platform's `cdk` feature supplies entrypoint generation, service
+export, calls, system helpers and spawning. The published facade preserves the
+upstream CDK 0.20.3 runtime, executor 2.0.0 and unfinished-task panic semantics;
+it does not substitute raw executor spawning. The native app selects Candid
+without the CDK frontend. There are no direct Candid/CDK declarations or local
+runtime adapters. Testkit uses Platform's same decoder identities in the
+native recovery harness. The [workspace catalog](../../Cargo.toml) and
+[lockfile](../../Cargo.lock) own dependency selection; the
+[handoff](../../docs/status/current.md) records the qualified source. Upstream
+Candid/CDK remain transitive dependencies.
+
+The selected Platform adoption preserves the extracted service definition and Wasm export
+names against the preceding build. Native tests and cross-compilation do not
+establish callback/trap/upgrade behavior on an installed IC; the seven recovery
+scenarios retain their explicit live qualification gate.
 
 The receiver uses the same fixture Wasm with `delivery_sender` configured to the
 sender canister's principal. It authenticates this caller and retains each

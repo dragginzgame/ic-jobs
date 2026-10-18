@@ -4,7 +4,9 @@ use ic_platform::{
     Principal,
     candid::{
         DecodeError, DecodeLimits,
-        contract::{ArgumentEncoder, CandidType, encode_args, encode_one},
+        contract::{
+            ArgumentEncoder, CandidType, encode_args, encode_one, serde::de::DeserializeOwned,
+        },
         decode_args,
     },
 };
@@ -17,7 +19,6 @@ use ic_testkit::pic::{
 use jobs_test_consumer::api::{
     Create, DeliveryPayload, Error, Init, Status, Summary, Task, Timing, View,
 };
-use serde::de::DeserializeOwned;
 use std::{convert::Infallible, path::PathBuf, task::Poll, time::Duration};
 
 // Replies contain at most eight views with 256-byte messages. Keep wire/header

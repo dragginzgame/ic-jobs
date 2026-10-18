@@ -21,18 +21,12 @@ repository = "https://github.com/dragginzgame/ic-jobs"
 serde = "1.0"
 
 # Tests and tooling only
-# Wasm-only exception: CDK macros emit ::candid paths. Handwritten protocol
-# types/encoding use Platform. Blocked by ic-platform issue #1.
-candid = "0.10"
 ic-build = "0.17"
-# Wasm runtime only in apps/job-consumer/src/canister.rs: endpoints, lifecycle,
-# caller/time, calls, spawn and traps. Not used by core or host capture tooling.
-ic-cdk = "0.20"
 ic-host-fs = "0.27"
 ic-host-process = "0.27"
 ic-jobs = { path = "crates/ic-jobs" }
 ic-memory = "0.48"
-ic-platform = { version = "0.1.9", default-features = false }
+ic-platform = { version = "0.1.11", default-features = false }
 ic-storage = "0.5.3"
 ic-testkit = "0.54"
 ic-timers = "0.28"
