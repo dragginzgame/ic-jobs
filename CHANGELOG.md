@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.7]
+## [0.17.7] - 2026-10-19
 
 - Adopt Wire 0.5.0, Testkit 0.56.0 and Platform 0.2.2 for qualification tooling.
   Testkit now shares Host 0.30 and Platform 0.2 with the workspace, removing the
