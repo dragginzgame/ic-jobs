@@ -2,6 +2,9 @@
 
 ## [0.17.6]
 
+- Require one Platform identity in the qualification Wasm graph now that Timers
+  0.29.3 shares Platform 0.2.1, fixing CI's stale two-version requirement.
+
 - Adopt Platform 0.2.1's owned runtime and switch the unpublished fixture's
   installation, management and fault-control messages to bounded Wire frames.
   Rebuild the fixture and harness together and dispose of old Candid requests;

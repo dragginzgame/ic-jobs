@@ -109,9 +109,8 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
 host-only packages, Candid and full CDK. It requires one Timers, executor,
-raw-system and Platform-macro identity. Two Platform versions are intentional:
-0.2 supplies the owned runtime, while released Timers 0.29 retains 0.1 for its
-shared upstream executor/raw-system exports. A fourth context excludes Jobs, Memory, Timers,
+raw-system, Platform and Platform-macro identity. Timers 0.29.3 and the fixture
+share Platform 0.2.1 in the qualification Wasm. A fourth context excludes Jobs, Memory, Timers,
 JSON and the IC runtime from ordinary native consumer builds, including the
 Platform `cdk` feature.
 The policy lives in Make; Shared owns the [observation/checker](docs/cargo-graph-checks.md).

@@ -2,6 +2,16 @@
 
 ## Source and pending work
 
+The dependency-graph repair is based on clean local commit `201d34b`. Its lock
+selects Timers **0.29.3** and Wire **0.4.10**. Timers now uses Platform **0.2.1**,
+so the qualification Wasm has one Platform identity. The graph gate now requires
+one, preserving all existing runtime identity and forbidden-dependency checks.
+The earlier qualification receipt below used Timers 0.29.2 and remains bound to
+that source; it does not qualify this later lock selection.
+All four graph contexts, dependency boundaries, pins, documentation links and
+diff checks pass for this repair. No dependencies or runtime code changed;
+full CI and live recovery were not rerun.
+
 Delivered Jobs **0.17.5**: `5d1ba09`. Pending **0.17.6** adopts published
 Platform **0.2.1** and its matching macros. All owned fixture messages now use
 bounded Wire frames: installation, management, unit RPCs and fault controls join
@@ -177,9 +187,9 @@ PocketIC transport with Wire frames; no decoder-type conversion crosses the two
 released Platform versions. Principal retains its upstream identity.
 
 The generator/runtime preserve protected spawning and trap behavior while
-removing full `ic-cdk` from the qualification Wasm. The graph requires two
-Platform versions (the owned 0.2 runtime and released Timers' 0.1 exports), but
-only one Platform macro, Timers, registry executor and raw-system identity.
+removing full `ic-cdk` from the qualification Wasm. The graph requires one
+Platform, Platform macro, Timers, registry executor and raw-system identity;
+Timers 0.29.3 and the owned runtime share Platform 0.2.1.
 Candid, full CDK, parser, Agent and host tooling are refused in that Wasm graph.
 There are no direct Candid/CDK, generator or retired decoder declarations.
 Host 0.30 direct dependencies disable defaults; only development test support is
