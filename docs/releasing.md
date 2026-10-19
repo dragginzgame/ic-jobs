@@ -11,21 +11,31 @@ crates.io.
 ## Preparation
 
 Install the complete host, IC and Rust toolsets with `make install-tools`.
-Explicitly prepare the lock-selected IC Build editor before release qualification
-or `make test-release-tooling`:
+Standard `make release-patch`, `make release-minor` and `make release-major`
+prepare the lock-selected IC Build editor during fresh preflight, after source
+and candidate admission. The adapter captures its offline-admitted absolute path
+for each preparation process; no shell exports are required.
+
+For standalone offline qualification with `make test-release-tooling`, prepare
+the editor explicitly:
 
 ```sh
 make install-release-tools
-export CARGO_RELEASE_METADATA_EDITOR="$(make --silent --no-print-directory release-tools-check)"
-export CARGO_RELEASE_METADATA_MAX_BYTES=1048576
 ```
 
 The editor renders candidates without release effects; Shared owns admission,
 independent checks and restoration. The 1 MiB per-document allowance covers
-Jobs' manifests, workspace context and lockfile. Preflight refuses a missing
-selection before cache/tool preparation or validation. Common tool setup does
-not implicitly install this optional release editor. CI prepares it explicitly;
-the release fixture selects its admitted absolute path and the same allowance.
+Jobs' manifests, workspace context and lockfile. A failed installation or offline
+admission stops before validation or metadata writes, even if it printed a path.
+Common tool setup does not implicitly install this optional release editor. CI
+prepares it explicitly; the release fixture selects the same admitted executable
+and allowance. `make release-tools-check` prints the admitted path without setup.
+
+Once preparation intent is saved, recovery selects the editor from the admitted
+preparation source's committed lock, never partially written live metadata.
+Recovery performs no installation or dependency fetch. If that saved selection
+is missing, restore its prepared installation before resuming. Prepared and
+committed metadata checks do not render candidates and need no editor.
 
 Shared's default formatter preserves dependency-role groups with
 `cargo sort --workspace --grouped`. The metadata adapter selects
@@ -58,9 +68,11 @@ the registry but does not upgrade dependencies or rewrite the lockfile. Cargo's
 explicit offline environment/configuration remains authoritative; missing inputs
 then stop the release with its original fetch failure. Version reads, metadata
 checks stay offline. After successful admission/fetch, preflight runs
-`make install-tools` followed by `make tools-check`; setup reuses
+`make install-tools`, `make tools-check` and `make install-release-tools`, then
+admits the editor offline; setup reuses
 the selected installation and does not replace older roots. Saved-release
-reconciliation precedes this preparation. Ordinary `make ci` never installs:
+reconciliation precedes this preparation; saved intent bypasses fresh setup.
+Ordinary `make ci` never installs:
 it runs `validation-tools-check` before dispatching its checks/builds, including
 under parallel Make. `make test-release-tooling` admits its formatter
 prerequisites before starting the fixture. The validation gate remains

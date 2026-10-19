@@ -8,7 +8,8 @@ LOCAL_TOOL_CHECK_TARGETS := ic-tools-check
 export PATH := $(CURDIR)/.tools/ic/bin:$(PATH)
 include make/consumer.mk
 TESTKIT_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release
-RELEASE_METADATA_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-build --lockfile Cargo.lock --bin ic-build-release-metadata --profile debug
+RELEASE_METADATA_LOCKFILE ?= $(CURDIR)/Cargo.lock
+RELEASE_METADATA_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-build --lockfile "$(RELEASE_METADATA_LOCKFILE)" --bin ic-build-release-metadata --profile debug
 VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
 	--input .shared-tooling.snapshot --input Makefile --input ci/tool-versions.env \
 	--input ci/ic-tools.tsv --input ci/release-delivery.txt --input ci/cargo-dependency-boundaries.json \
@@ -25,7 +26,7 @@ help:
 	@echo "Hook qualification: formatting-hook-check (disposable Git copies; prepared formatters required)"
 	@echo "Registry preparation: package (offline), publish-check (registry dry run; no upload)"
 	@echo "Explicit setup: install-tools, tools-check, install-hooks"
-	@echo "Release editor: install-release-tools; release-tools-check (admitted path for explicit selection)"
+	@echo "Release editor: install-release-tools; release-tools-check (offline-admitted path)"
 	@echo "Complete gate: ci (explicit request or configured CI)"
 	@echo "Authorized release: release-patch, release-minor, release-major (requires a configured remote)"
 	@echo "Authorized publication: publish (clean HEAD, matching pushed annotated tag; crates.io)"

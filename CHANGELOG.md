@@ -2,11 +2,12 @@
 
 ## [0.17.5]
 
-- Adopt reviewed Shared Tooling 0.25.0 source. Select the released IC Build
-  metadata editor explicitly for release preparation and fixtures, retire the
-  Perl renderers, and use Shared's grouped-formatting defaults. Run
-  `make install-release-tools` before release qualification; see
-  [preparation](docs/releasing.md#preparation) for the required editor selection.
+- Adopt reviewed Shared Tooling 0.25.0 source. Prepare and select the released
+  IC Build metadata editor automatically for standard release commands, without
+  shell exports. Keep recovery bound to its saved source's selection without
+  installation or dependency fetching. Retire the Perl renderers and use Shared's
+  grouped-formatting defaults. Standalone offline fixtures retain explicit
+  [tool preparation](docs/releasing.md#preparation).
 - Use Clap for the unpublished capture CLI's parsing, help and argument errors,
   preserving capture and optimizer invocations. Keep dependency-role headers in
   the root catalog and preserve the incoming Host 0.28.1 lockfile update.

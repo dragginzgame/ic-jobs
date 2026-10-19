@@ -7,12 +7,16 @@ Delivered Jobs **0.17.4**: `1808a0d`. The incoming source is `e314142`
 Host 0.28.1 lockfile update preserved.
 
 Pending **0.17.5** adopts reviewed Shared Tooling **0.25.0** committed source
-`2a79f5f93383f3d2a8a38d65406c7d52c2f77913`; this is not a claim of a tagged
+`b66071bcd14da7086cc234a7ddf6c1223b41c3b9`; this is not a claim of a tagged
 Shared release. The canonical exporter refreshed 114 files, retired both Perl
 Cargo editors and added Shared's preparation transaction. Jobs selects the
 released IC Build editor through `install-release-tools`/`release-tools-check`,
-with explicit absolute-path selection and a 1 MiB per-document allowance.
-CI prepares it separately from common tools. The adapter and actual local
+with automatic offline-admitted absolute-path selection and a 1 MiB per-document
+allowance. Fresh release preflight prepares the editor after source admission;
+maintainers need no shell exports. Saved preparation selects from its admitted
+source's committed lock without installing or fetching against live metadata.
+CI and standalone offline fixtures prepare it separately from common tools.
+The adapter and actual local
 release fixtures use that editor; no release or upload runs in this checkout.
 
 The capture CLI now uses Clap; original/optimizer invocations and evidence
@@ -27,13 +31,17 @@ of this tooling adoption. Delivery already uses Wire; the new baseline's
 preference does not establish that the remaining controlled RPC migration is
 complete. No new Candid use or fallback is introduced here.
 
-Rust 1.91 passes all four capture/CLI tests. The installed lock-selected editor
-passes admission and Jobs' release/publication fixtures, including actual local
+Earlier adoption qualification passed all four capture/CLI tests on Rust 1.91.
+The release-entrypoint follow-up admits the lock-selected Build 0.20.0 editor
+and passes Jobs' release/publication fixtures, including actual local
 Git delivery/resume with substituted gate/registry/upload effects. Hook,
-formatting-evidence and consumer-tooling fixtures pass. Snapshot integrity,
-tool admission, all four graph contexts, dependency boundaries/pins, release
-command substitution, formatting, ShellCheck and 326 local documentation links
-pass. The package inventory and regular LICENSE copy were inspected. Native
+formatting-evidence, consumer-tooling, graph, boundary/pin and formatting checks
+retain the earlier adoption evidence. The follow-up proves fresh editor setup
+without exports, failed-check refusal despite a printed path, saved-lock selection
+with an unreadable live lock, and missing-editor recovery without installation,
+fetching or repeated validation. Snapshot integrity, release command substitution,
+ShellCheck and 327 local documentation references pass. The package inventory
+and regular LICENSE copy were inspected during the earlier adoption. Native
 macOS, full CI and installed-IC recovery are not qualified by this batch.
 
 ### Delivered delivery cut and earlier evidence

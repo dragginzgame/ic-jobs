@@ -2,7 +2,7 @@
 # version	0.25.0
 format	1
 source	https://github.com/dragginzgame/shared-tooling
-revision	2a79f5f93383f3d2a8a38d65406c7d52c2f77913
+revision	b66071bcd14da7086cc234a7ddf6c1223b41c3b9
 # entrypoint	DRAGGINZGAME.md
 # entrypoint	rules/contributions.md
 # entrypoint	rules/changelogs.md
@@ -97,7 +97,7 @@ revision	2a79f5f93383f3d2a8a38d65406c7d52c2f77913
 # entrypoint	scripts/ci/cargo-release-preflight.sh
 # entrypoint	scripts/ci/check-cargo-dependency-boundaries.sh
 # entrypoint	scripts/ci/check-cargo-graph.pl
-file	baf55204f144a66d5356f0d17fd48605d4c1f06f3dd8fab0152cafee3147aa87	-	DRAGGINZGAME.md
+file	6d1405d05b730b556ee7af6f9fb3104c83965ce669b7505f923c5a72398c4d5c	-	DRAGGINZGAME.md
 file	9893ae624c25321f5aa22328bf78fb80480444d2bbf2a01a5dedbd244df162e7	-	rules/contributions.md
 file	372e8a256767514d119ecd3e584cd20f15732b3eb169b212716069be7c3f9c80	-	rules/changelogs.md
 file	b7231826833f18ae7b623b6d57e14f0cef4e696f458d5615beab672b1345cd17	-	rules/cargo-dependencies.md
@@ -123,7 +123,7 @@ file	35fd87d36a09ed0971841abf28535d43470c713a82581c2251b924da1ab8f484	-	audits/f
 file	ffdca09602c44c8aff8fc2a17588b20eb6a56e2e71fb6d42ad75087fdd65819b	-	audits/complexity-and-technical-debt.md
 file	1b64cf2ba0393ab329ec29eb05a696d47ef5933f5ab9bff6e1fe4a7e7b294075	-	audits/module-surface-hardening.md
 file	8aa442dcbe08e4092e3f5209ff5d6feac188f4959c63171dd9e6dfbff8d57366	-	audits/module-cleanup.md
-file	43b18e6870e9dfd6a36214bafc50fec3aded2cf8d1e7ce9b0f47bc69fe8ef997	-	docs/releases.md
+file	4542f4066d846049233e915dd21e16007be49569e2178a6b0dba44684491f286	-	docs/releases.md
 file	924e66af90c91cf6b5efa0d330d53742dcdf8eb28d34ca8465c15fe8687ab4ea	x	scripts/ci/run-release.sh
 file	9e32385247296ce95d2b15b1290c64e6b6dff15716c1c139f21ab5e5128f4be3	x	scripts/ci/check-make-execution.sh
 file	918815a81861abd80684fea14f71cb5a298644317afc0f5860a3d1b6506a0a16	x	scripts/ci/next-release-version.sh
@@ -137,9 +137,9 @@ file	378fa05af602ee00ac81fbfdba024ed9e3009b23746344e7cb0cc2635d023305	-	docs/pri
 file	457fd38e0073c91ba470b918d4facd9faac3c5200ebd38c97e9d6b76acdaea55	-	docs/principles/simplicity-and-maintainability.md
 file	1530333838b291ed5a6abb3ba5ac7bf85bba959b245204aad6295808ce4636de	-	docs/consuming-snapshots.md
 file	24ae0ec5c25a4d1d1b073e626b2706c69c3af9e46f1339d14e8e927a1649d44e	-	docs/provenance.md
-file	92757a0aa6736d792bfd607c3083d2459ab234119fa096384083ce9e55e1bf99	-	docs/verification-helpers.md
+file	886d61fe61bf57c5db6fa9d78912bf8c68fb47ed4c8610d26cf752746d9baac7	-	docs/verification-helpers.md
 file	4b03838c564c7f0f5898f98816f6121ab3add6608b84976bb063c4698cde1f0e	-	docs/ic-tools.md
-file	8d489cb51226c20bd75406cc9648d3cb721ef5f8cbfbecbb10703886fd0b3638	-	docs/local-setup.md
+file	8c541055b9b2eef6bacf854550319883d5c7af7408292ded83ae7fd9db4e0e75	-	docs/local-setup.md
 file	235d355481adf5b15dd118bbd2e83174484af4e463d75714bf70fd7f7352a8fc	-	ci/ic-tools.tsv
 file	7d68c9443a11e53ff2b46bde5db2720889768606590a9d2882599c37cd8cd052	-	ci/tool-versions.env
 file	bed4a3ec58de41956039b2b04baf357024ae7901c1f7d301b294cb35a8c44bcd	-	docs/supported-hosts.md

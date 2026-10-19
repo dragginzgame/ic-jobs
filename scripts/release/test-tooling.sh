@@ -21,6 +21,8 @@ unset TOOLING_GATE_FAILURE TOOLING_REGISTRY_HTTP TOOLING_UPLOAD_RESULT
 unset TOOLING_FETCH_FAILURE
 unset TOOLING_INSTALL_FAILURE TOOLING_CHECK_FAILURE TOOLING_BUILD_EVENTS
 unset TOOLING_COMMON_CHECK_FAILURE
+export TOOLING_EDITOR="${CARGO_RELEASE_METADATA_EDITOR:?select the admitted fixture editor}"
+unset CARGO_RELEASE_METADATA_EDITOR CARGO_RELEASE_METADATA_MAX_BYTES TOOLING_EDITOR_FAILURE
 export RUSTUP_AUTO_INSTALL=0
 
 # Shared owns exit injection and retained-evidence assertions. Jobs selects its
@@ -89,6 +91,26 @@ new_repository() {
 set -euo pipefail
 consumer="$(cd -P . && printf '%s/.' "$PWD")"
 consumer="${consumer%/.}"
+if [[ "${1:-}" == --package ]]; then
+    [[ "${0##*/}" == install-rust-tools.sh && ( $# == 8 || $# == 9 ) ]] || exit 49
+    [[ "$2" == ic-build && "$3" == --lockfile && "$4" == /* && -f "$4" &&
+       "$5" == --bin && "$6" == ic-build-release-metadata && "$7" == --profile && "$8" == debug ]] || exit 49
+    # Verify selection is read from the supplied lock, including saved-source
+    # recovery when live metadata cannot be parsed at all.
+    yq -p toml -o json '.' "$4" | jq -e '.package[] | select(.name == "ic-build")' > /dev/null
+    phase=install
+    if [[ "${9:-}" == --check ]]; then phase=check; else [[ $# == 8 ]] || exit 49; fi
+    printf '%s\n' "$phase" >> .git/editor-events
+    # A plausible path followed by failure must never dispatch the editor.
+    printf '%s\n' "$TOOLING_EDITOR"
+    [[ "${TOOLING_EDITOR_FAILURE:-}" != "$phase" ]] || exit 37
+    if [[ "${TOOLING_EDITOR_FAILURE:-}" == saved-check && "$phase" == check && -d .git/release-state ]]; then
+        for plan in .git/release-state/*.plan; do [[ ! -e "$plan" ]] || exit 37; done
+    fi
+    if [[ "$phase" == install ]]; then touch .git/editor-ready; fi
+    [[ -f .git/editor-ready ]] || exit 38
+    exit 0
+fi
 [[ $# == 4 || $# == 5 ]] || exit 49
 [[ "$1" == --consumer && "$2" == "$consumer" ]] || exit 49
 case "${0##*/}" in
@@ -187,18 +209,13 @@ MAKE
     # direct flags and inherited controls before any cache or runner effects.
     if [[ "$kind" == patch ]]; then
         mkdir "$fixture/metadata-errors-temp"
-        # Missing/invalid editor selection must refuse before cache/setup/gate.
-        for selection in missing zero; do
-            controls=(env RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09)
-            if [[ "$selection" == missing ]]; then
-                controls=(env -u CARGO_RELEASE_METADATA_EDITOR RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09)
-            else
-                controls+=(CARGO_RELEASE_METADATA_MAX_BYTES=0)
-            fi
-            refuse "editor-$selection" "${controls[@]}" bash scripts/release/metadata.sh preflight
-            [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e .git/gate-events && ! -e .git/tool-events ]] || exit 1
-            [[ -z "$(git status --porcelain)" && -z "$(git tag)" ]] || exit 1
-        done
+        # Rendering admits prepared tools offline and never installs them. No
+        # caller-provided editor environment is needed by the actual adapter.
+        refuse editor-not-prepared env RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" \
+            RELEASE_DATE=2026-10-09 bash scripts/release/metadata.sh prepare
+        [[ "$(cat .git/editor-events)" == check && ! -e .git/editor-ready ]] || exit 1
+        [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e .git/gate-events && ! -e .git/tool-events ]] || exit 1
+        [[ -z "$(git status --porcelain)" && -z "$(git tag)" ]] || exit 1
         # A version mismatch must stop before cache/setup or metadata writes. The real
         # reader still validates the manifest; substitute Cargo rejects later effects.
         for operation in preflight prepare; do
@@ -374,7 +391,9 @@ MAKE
         "${preflight[@]}" CARGO_NET_OFFLINE=false RELEASE_MAKE="$fixture/selected make" bash scripts/release/metadata.sh preflight
         [[ -f "$TOOLING_CACHE_READY" ]] || exit 1
         printf '%s\n' "--no-print-directory -C $repository install-tools" \
-            "--no-print-directory -C $repository tools-check" > "$fixture/expected-make"
+            "--no-print-directory -C $repository tools-check" \
+            "--no-print-directory -C $repository install-release-tools" \
+            "--silent --no-print-directory -C $repository release-tools-check RELEASE_METADATA_LOCKFILE=$repository/Cargo.lock" > "$fixture/expected-make"
         cmp .git/selected-make-events "$fixture/expected-make"
         [[ "$(wc -l < "$TOOLING_FETCH_EVENTS" | tr -d ' ')" == 2 ]] || exit 1
         cmp .git/index "$fixture/cache-index"
@@ -394,6 +413,13 @@ MAKE
             refuse "failed-tool-$failure" env "${controls[@]}" make --no-print-directory release-patch
             [[ ! -e .git/gate-events && -z "$(git tag)" ]] || exit 1
             for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
+        done
+
+        for failure in install check; do
+            refuse "failed-editor-$failure" env TOOLING_EDITOR_FAILURE="$failure" make --no-print-directory release-patch
+            [[ ! -e .git/gate-events && -z "$(git tag)" ]] || exit 1
+            for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
+            [[ ! -e ".git/release-state/$candidate.plan" ]] || exit 1
         done
 
         refuse failed-gate env TOOLING_GATE_FAILURE=1 make --no-print-directory release-patch
@@ -425,8 +451,7 @@ MAKE
     # before later dirty-source admission, without changing the selected graph.
     release_date="$(awk -v version="$candidate" '$1 == "##" && $2 == "[" version "]" { print $4; exit }' CHANGELOG.md)"
     cp Cargo.lock .git/lock-before
-    "${CARGO_RELEASE_METADATA_EDITOR:?select the admitted IC Build editor}" \
-        --max-input-bytes "${CARGO_RELEASE_METADATA_MAX_BYTES:?select the input allowance}" \
+    "$TOOLING_EDITOR" --max-input-bytes 1048576 \
         lock Cargo.lock "$candidate" 0.0.0 ic-jobs > .git/invalid.lock
     cp .git/invalid.lock Cargo.lock
     refuse "wrong-local-version-$kind" env RELEASE_VERSION="$candidate" RELEASE_DATE="$release_date" bash scripts/release/metadata.sh check
@@ -434,6 +459,40 @@ MAKE
     cp .git/lock-before Cargo.lock
     [[ -z "$(git status --porcelain)" ]] || exit 1
 done
+
+# Interrupt at saved preparation before rendering. Recovery must use the saved
+# lock, need no environment exports and never install or fetch against live bytes.
+new_repository editor-recovery
+candidate="$(bash scripts/ci/next-release-version.sh "$base_version" patch)"
+printf '# Changelog\n\n## [%s]\n\n- Fixture release.\n' "$candidate" > CHANGELOG.md
+commit_source
+base="$(git rev-parse HEAD)"
+if [[ "${CARGO_NET_OFFLINE:-false}" == true ]]; then touch "$TOOLING_CACHE_READY"; fi
+refuse interrupted-editor env TOOLING_EDITOR_FAILURE=saved-check make --no-print-directory release-patch
+[[ "$(tail -n 1 ".git/release-state/$candidate.plan")" == prepare ]] || exit 1
+[[ "$(wc -l < .git/gate-events)" -eq 1 ]] || exit 1
+cp Cargo.lock .git/original-lock
+cp .git/tool-events "$fixture/recovery-tools"
+cp "$TOOLING_FETCH_EVENTS" "$fixture/recovery-fetch"
+printf 'incomplete live lock [\n' > Cargo.lock
+RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09 \
+    RELEASE_PREPARATION_SOURCE="$base" bash scripts/release/metadata.sh preflight > "$fixture/saved-editor-selection.log" 2>&1
+[[ "$(cat Cargo.lock)" == 'incomplete live lock [' ]] || exit 1
+cmp .git/tool-events "$fixture/recovery-tools"
+cmp "$TOOLING_FETCH_EVENTS" "$fixture/recovery-fetch"
+cp .git/original-lock Cargo.lock
+rm .git/editor-ready
+cp .git/editor-events "$fixture/recovery-editor"
+refuse missing-recovery-editor make --no-print-directory release-resume "VERSION=$candidate"
+[[ "$(grep -c '^install$' .git/editor-events)" == "$(grep -c '^install$' "$fixture/recovery-editor")" ]] || exit 1
+[[ "$(git rev-parse HEAD)" == "$base" && -z "$(git status --porcelain)" && -z "$(git tag)" ]] || exit 1
+touch .git/editor-ready
+make --no-print-directory release-resume "VERSION=$candidate" > "$fixture/recovered-editor.log" 2>&1
+[[ "$(bash scripts/release/metadata.sh version)" == "$candidate" && -z "$(git status --porcelain)" ]] || exit 1
+[[ "$(wc -l < .git/gate-events)" -eq 1 ]] || exit 1
+cmp .git/tool-events "$fixture/recovery-tools"
+cmp "$TOOLING_FETCH_EVENTS" "$fixture/recovery-fetch"
+[[ "$(grep -c '^install$' .git/editor-events)" == "$(grep -c '^install$' "$fixture/recovery-editor")" ]] || exit 1
 
 # The adapter checks the same grouped manifests as fmt-check, including when
 # release reconciliation selects a commit instead of the working tree.

@@ -340,6 +340,12 @@ Consumer choices described in those guides remain subject to this baseline.
   default; PR delivery prepares a review branch and validates the admitted merged
   commit afresh before tagging. Never select another policy to bypass a rejected
   push or branch protection.
+- Standard release entrypoints must select their required prepared executables
+  through the consumer's offline admission interface; do not require maintainers
+  to export tool paths in each shell. Fresh preflight prepares missing selections
+  only after source/recovery admission. Recovery admits the saved source's
+  selection without installing or resolving partially prepared live metadata.
+  Low-level helpers may require explicit paths supplied by their calling adapter.
 - These one-shot commands are user-operated by default. An agent needs explicit
   delegation to run the selected release for the selected repository and
   destination. That request authorizes the

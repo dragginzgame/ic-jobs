@@ -15,6 +15,29 @@ admit_files() {
     bash "$root/scripts/ci/check-release-source.sh" \
         --allow Cargo.toml --allow Cargo.lock --allow CHANGELOG.md
 }
+# The runner reconciles saved intent before dispatch. Its presence only removes
+# setup authority here; the runner remains the owner of journal interpretation.
+select_release_tools() {
+    local plan source
+    export RELEASE_METADATA_LOCKFILE="$root/Cargo.lock"
+    prepare_tools=1
+    plan="$(git rev-parse --git-path "release-state/${RELEASE_VERSION:?}.plan")"
+    if [[ -e "$plan" || -L "$plan" ]]; then
+        prepare_tools=0
+        source="${RELEASE_PREPARATION_SOURCE:?select the admitted preparation source}"
+        [[ "$source" =~ ^([0-9a-f]{40}|[0-9a-f]{64})$ && "$(git cat-file -t "$source")" == commit ]] || exit 1
+        selection="$(mktemp -d "${TMPDIR:-/tmp}/jobs-release-selection.XXXXXX")"
+        trap 'rm -rf -- "$selection"' EXIT
+        git show "$source:Cargo.lock" > "$selection/Cargo.lock"
+        export RELEASE_METADATA_LOCKFILE="$selection/Cargo.lock"
+    fi
+}
+admit_editor() {
+    # A failed check must stop even if it printed a plausible executable path.
+    CARGO_RELEASE_METADATA_EDITOR="$("${RELEASE_MAKE:-make}" --silent --no-print-directory \
+        -C "$root" release-tools-check "RELEASE_METADATA_LOCKFILE=$RELEASE_METADATA_LOCKFILE")" || return $?
+    export CARGO_RELEASE_METADATA_EDITOR CARGO_RELEASE_METADATA_MAX_BYTES=1048576
+}
 case "$operation" in
     version) bash "$reader" Cargo.toml ;;
     preflight)
@@ -27,24 +50,31 @@ case "$operation" in
         # Refuse conflicting pending notes before a gate or preparation intent.
         awk -v version="${RELEASE_VERSION:?}" -v previous="$RELEASE_PREVIOUS" -v date="${RELEASE_DATE:?}" \
             -f scripts/ci/finalize-release-changelog.awk CHANGELOG.md > /dev/null
-        # Select the prepared editor before cache, tool or validation effects.
-        editor="${CARGO_RELEASE_METADATA_EDITOR:?select the admitted IC Build editor}"
-        limit="${CARGO_RELEASE_METADATA_MAX_BYTES:?select a positive input allowance}"
-        [[ "$editor" == /* && -f "$editor" && -x "$editor" && "$limit" =~ ^[1-9][0-9]*$ ]] || exit 2
+        select_release_tools
+        if [[ "$prepare_tools" == 0 ]]; then
+            # Recovery uses the saved lock without resolving live partial metadata
+            # or installing tools. Prepared/committed checks need no editor.
+            admit_editor
+            exit 0
+        fi
         # Jobs admits source/candidate first; Shared owns locked preparation,
         # selected Make execution and unchanged tool-catalog admission.
         bash "$root/scripts/ci/cargo-release-preflight.sh" "$root" 1 \
             --pin "$root/ci/tool-versions.env" --pin "$root/ci/ic-tools.tsv" \
-            --check tools-check --prepare install-tools --prepare tools-check || {
+            --check tools-check --prepare install-tools --prepare tools-check \
+            --prepare install-release-tools || {
             status=$?
             echo 'release dependency/tool preparation failed; selected metadata is unchanged' >&2
-            echo 'prepare the graph with cargo fetch --locked and tools with make install-tools; explicit offline settings still apply' >&2
+            echo 'prepare the graph with cargo fetch --locked and tools with make install-tools and make install-release-tools; explicit offline settings still apply' >&2
             exit "$status"
         }
+        admit_editor
         ;;
     prepare)
         current_version="$(bash "$reader" Cargo.toml)"
         [[ "$current_version" == "${RELEASE_PREVIOUS:?}" ]] || exit 1
+        select_release_tools
+        admit_editor
         bash "$root/scripts/ci/cargo-release-metadata.sh" prepare ic-jobs
         ;;
     check|commit-check)

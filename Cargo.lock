@@ -1045,9 +1045,9 @@ checksum = "b7e25938776b03b0b716b3cf6cc5dc0e7088c118f483cefb1583f3fbc4fc5cdb"
 
 [[package]]
 name = "ic-platform"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c11b873bf01a0a82774b073a3c0489ec6aa096eb1aacda7b438251a98e81d888"
+checksum = "98b4d131913792a85fc9f134f40a436c7a3a36c39ebc3546200facbc4f6993d8"
 dependencies = [
  "candid",
  "ic-cdk",
@@ -1060,9 +1060,9 @@ dependencies = [
 
 [[package]]
 name = "ic-platform-macros"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e96d66f667e6c9afe9305fde001151b5d1b2d004760124980f86fe832739aa6"
+checksum = "8121604f7d7156dc5216f30b77f5d38ac6f6abcf0f28e782cf5075e25e8c9e86"
 dependencies = [
  "darling",
  "proc-macro2",
