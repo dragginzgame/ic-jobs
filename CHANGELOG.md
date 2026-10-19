@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.6]
+## [0.17.6] - 2026-10-19
 
 - Require one Platform identity in the qualification Wasm graph now that Timers
   0.29.3 shares Platform 0.2.1, fixing CI's stale two-version requirement.
