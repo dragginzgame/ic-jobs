@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.4]
+## [0.17.4] - 2026-10-19
 
 - Switch the unpublished qualification consumer's two delivery RPCs from Candid
   to bounded IC Wire frames, with no fallback. Quiesce deliveries, dispose of
