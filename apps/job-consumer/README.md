@@ -5,8 +5,8 @@ in `tests/composition.rs`. Run `make test-consumers` for its 19 scenarios;
 `check-msrv` qualifies core and composition separately on Rust 1.91. Memory and
 Timers integration dependencies belong here, outside the core package tests.
 
-Ordinary native library builds expose `api` DTOs and `delivery_wire` identities/limits,
-and depend on Platform's Candid contract, Wire and Serde. Jobs, Memory, Timers and JSON are selected only for
+Ordinary native library builds expose `api` DTOs and management/delivery identities/limits,
+and depend on Platform's Principal, Wire and Serde. Jobs, Memory, Timers and JSON are selected only for
 Wasm builds and native tests, so the recovery harness can share the DTOs without
 pulling in the consumer's storage or timer implementation. The existing native
 normal/build graph check enforces this boundary.
@@ -113,33 +113,38 @@ The shared DTO declaration order defines the Postcard layout. Identity, directio
 canonicality and complete consumption are checked before result admission.
 Transport, decode and remote application errors remain unreadable evidence;
 they do not become an authoritative absent receipt or a safe retry.
-The endpoints use Platform's custom decoder/encoder hooks and are hidden from
-the Candid service. Response encoding failure traps with the receipt write.
+The endpoints use Platform's explicit decoder/encoder hooks. Response encoding
+failure traps with the receipt write; no Candid service is generated.
 
-This is a hard protocol cut: quiesce delivery dispatch, finish or explicitly
+There is one current protocol: quiesce delivery dispatch, finish or explicitly
 dispose of in-flight calls, and rebuild/upgrade sender and receiver together
 before resuming. There is no Candid fallback. Retained jobs/receipts keep their
 JSON format and need no reset; unresolved effects still require exact evidence.
-Installation and management remain Candid. The native codec has no PocketIC,
-process or server dependency.
-API derives select Platform's explicit Candid contract path, and identities use
-its unchanged Principal type. Frozen pre-adoption API bytes qualify encoding
-parity. On Wasm, Platform's `cdk` feature supplies entrypoint generation, service
-export, calls, system helpers and spawning. The published facade preserves the
-upstream CDK 0.20.3 runtime, executor 2.0.0 and unfinished-task panic semantics;
-it does not substitute raw executor spawning. The native app selects Candid
-without the CDK frontend. There are no direct Candid/CDK declarations or local
-runtime adapters. Testkit uses Platform's same decoder identities in the
-native recovery harness. The [workspace catalog](../../Cargo.toml) and
-[lockfile](../../Cargo.lock) own dependency selection; the
-[handoff](../../docs/status/current.md) records the qualified source. Upstream
-Candid/CDK remain transitive dependencies.
+Installation, management and fixture controls also use Wire. Their method
+identities are in `management_wire`; requests admit 4 KiB frames, 32 KiB allocation
+accounting, 256 nodes and depth 16. Replies admit 64 KiB frames, 256 KiB allocation
+accounting, 4096 nodes and depth 32, including eight bounded views. Unit RPCs
+require a valid request frame. Init admits raw argument length before copying
+because lifecycle macros have no guard hook. Post-upgrade has no arguments.
 
-The earlier Platform adoption preserved the extracted service definition and Wasm
-export names; the current delivery cut intentionally removes two methods from
-that Candid definition while retaining their callable exports. Native tests and cross-compilation do not
-establish callback/trap/upgrade behavior on an installed IC; the eight recovery
-scenarios retain their explicit live qualification gate.
+Rebuild the harness with this canister and dispose of old Candid management/init
+requests before resuming activity. Earlier delivery frame identities and stored
+JSON remain unchanged. Earlier Candid files are frozen negative inputs, with no
+compatibility decoder. The native consumer DTO/codec graph has no PocketIC,
+Candid, process or server dependency.
+
+On Wasm, Platform 0.2's `cdk` feature supplies explicit-codec entrypoints, raw calls,
+system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
+reviewed runtime adapters are owned by Platform. The selected registry executor
+2.0.0 and ic0 1.2.0 remain shared with released Timers 0.29 through its Platform
+0.1 dependency. No timer, task or storage owner is replaced by this adoption.
+Native Testkit keeps its own published Platform/Candid dependencies for external
+simulator interfaces. The [workspace catalog](../../Cargo.toml),
+[lockfile](../../Cargo.lock) and [handoff](../../docs/status/current.md) own
+selection and source-bound qualification.
+
+The nine live recovery scenarios retain their explicit gate. Native tests and
+cross-compilation do not establish installed callback/trap/upgrade behavior.
 
 The receiver uses the same fixture Wasm with `delivery_sender` configured to the
 sender canister's principal. It authenticates this caller and retains each
@@ -182,7 +187,7 @@ make install-consumer-server
 make test-canister
 ```
 
-To qualify the selected Binaryen optimizer against the same eight live recovery
+To qualify the selected Binaryen optimizer against the same nine live recovery
 scenarios, explicitly prepare it with `make install-ic-tools`, then run
 `make test-canister-optimized`. This tests the original Wasm and its `-O3`, `-Os`
 and `-Oz` outputs using the input's declared Wasm features. The Rust capture tool
@@ -215,7 +220,7 @@ remain outside the canister and public Jobs normal Wasm dependency graphs.
 
 Select [the recovery workflow](../../.github/workflows/recovery.yml) through
 **Actions → Canister recovery → Run workflow** and choose the
-tag or branch to qualify. This manual trigger runs all eight tests on the original and
+tag or branch to qualify. This manual trigger runs all nine tests on the original and
 three optimized variants on Linux, Apple Silicon and Intel macOS.
 Ordinary push/PR CI still compiles the harness without starting
 PocketIC. See [GitHub's manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).

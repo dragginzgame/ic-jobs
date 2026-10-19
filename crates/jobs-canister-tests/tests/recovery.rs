@@ -1,37 +1,19 @@
 //! Explicit live PocketIC tests. Ordinary CI compiles these without launching a server.
 
-use ic_platform::{
-    Principal,
-    candid::{
-        DecodeError, DecodeLimits,
-        contract::{
-            ArgumentEncoder, CandidType, encode_args, encode_one, serde::de::DeserializeOwned,
-        },
-        decode_args,
-    },
-};
+use ic_platform::Principal;
 use ic_testkit::pic::{
-    CandidCallError, CanisterDiagnosticsRequest, CanisterInstallError, CanisterInstallExt,
-    CanisterLogRenderLimits, ErrorCode, InstallSpec, PocketIc, PocketIcBuilder,
-    PocketIcDiagnosticsExt, PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy,
-    advance_and_tick, query_candid_args, tick_until, update_candid_args,
+    CanisterDiagnosticsRequest, CanisterInstallError, CanisterInstallExt, CanisterLogRenderLimits,
+    ErrorCode, InstallSpec, PocketIc, PocketIcBuilder, PocketIcDiagnosticsExt, PocketIcInstance,
+    PocketIcStartupConfig, RejectResponse, RetryPolicy, advance_and_tick, tick_until,
 };
 use ic_wire::native;
 use jobs_test_consumer::{
     api::{Create, Delivery, DeliveryPayload, Error, Init, Status, Summary, Task, Timing, View},
     delivery_wire::{RECEIPT_ID, RECEIVE_ID, REQUEST_LIMITS, RESPONSE_LIMITS},
+    management_wire::{self as control, Method},
 };
+use serde::{Serialize, de::DeserializeOwned};
 use std::{convert::Infallible, path::PathBuf, task::Poll, time::Duration};
-
-// Replies contain at most eight views with 256-byte messages. Keep wire/header
-// and decoder work finite without changing PocketIC transport or execution.
-const REPLY_LIMITS: DecodeLimits = DecodeLimits {
-    reply_bytes: 64 * 1024,
-    decoding_quota: 1_000_000,
-    skipping_quota: 10_000,
-    type_entries: 128,
-    header_bytes: 8 * 1024,
-};
 
 struct Fixture {
     pic: PocketIcInstance<PocketIc>,
@@ -58,10 +40,14 @@ impl Fixture {
             pic.instance
                 .try_create_and_install(InstallSpec {
                     wasm: wasm.clone(),
-                    init_bytes: encode_one(Init {
-                        manager,
-                        delivery_sender,
-                    })
+                    init_bytes: native::encode_request(
+                        Method::Init as u64,
+                        &Init {
+                            manager,
+                            delivery_sender,
+                        },
+                        control::REQUEST_LIMITS,
+                    )
                     .unwrap(),
                     cycles: 10_000_000_000_000,
                     install_sender: None,
@@ -71,17 +57,16 @@ impl Fixture {
                     if let CanisterInstallError::InstallCode { canister_id, .. } = &error {
                         // Diagnostics are subordinate to the original install failure,
                         // including a failed stderr write or collection panic.
-                        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                            let report = pic.instance.collect_canister_diagnostics(
-                                CanisterDiagnosticsRequest {
-                                    canister_id: *canister_id,
-                                    status_sender: Principal::anonymous(),
-                                    log_sender: Principal::anonymous(),
-                                    log_limits: CanisterLogRenderLimits::default(),
-                                },
-                            );
-                            eprintln!("install Jobs consumer: {report}");
-                        }));
+                        let _ = pic.instance.write_canister_diagnostics(
+                            CanisterDiagnosticsRequest {
+                                canister_id: *canister_id,
+                                status_sender: Principal::anonymous(),
+                                log_sender: Principal::anonymous(),
+                                log_limits: CanisterLogRenderLimits::default(),
+                            },
+                            "install Jobs consumer",
+                            &mut std::io::stderr().lock(),
+                        );
                     }
                     panic!("install Jobs consumer: {error:?}");
                 })
@@ -97,57 +82,56 @@ impl Fixture {
         }
     }
 
-    fn update<T: CandidType + DeserializeOwned, A: ArgumentEncoder>(
+    fn update<T: Serialize + DeserializeOwned, A: Serialize + DeserializeOwned>(
         &self,
-        method: &str,
+        method: Method,
         args: A,
     ) -> Result<T, Error> {
         self.update_as(self.manager, method, args)
-            .expect("PocketIC Candid call")
+            .expect("PocketIC Wire call")
     }
-    fn update_as<T: CandidType + DeserializeOwned, A: ArgumentEncoder>(
+    fn update_as<T: Serialize + DeserializeOwned, A: Serialize + DeserializeOwned>(
         &self,
         caller: Principal,
-        method: &str,
+        method: Method,
         args: A,
-    ) -> Result<T, CandidCallError> {
-        update_candid_args::<(T,), _>(
-            &self.pic.instance,
-            self.sender,
-            caller,
-            method,
-            args,
-            REPLY_LIMITS,
-        )
-        .map(|(value,)| value)
+    ) -> Result<T, RejectResponse> {
+        let bytes = native::encode_request(method as u64, &args, control::REQUEST_LIMITS)
+            .expect("bounded Wire request");
+        self.pic
+            .instance
+            .update_call(self.sender, caller, method.name(), bytes)
+            .map(|bytes| {
+                native::decode_response(method as u64, &bytes, control::RESPONSE_LIMITS)
+                    .expect("bounded Wire reply")
+            })
     }
-    fn query<T: CandidType + DeserializeOwned, A: ArgumentEncoder>(
+    fn query<T: Serialize + DeserializeOwned, A: Serialize + DeserializeOwned>(
         &self,
         id: Principal,
-        method: &str,
+        method: Method,
         args: A,
     ) -> Result<T, Error> {
-        query_candid_args::<(Result<T, Error>,), _>(
-            &self.pic.instance,
-            id,
-            self.manager,
-            method,
-            args,
-            REPLY_LIMITS,
-        )
-        .expect("PocketIC Candid call")
-        .0
+        let bytes = native::encode_request(method as u64, &args, control::REQUEST_LIMITS)
+            .expect("bounded Wire request");
+        let bytes = self
+            .pic
+            .instance
+            .query_call(id, self.manager, method.name(), bytes)
+            .expect("PocketIC Wire call");
+        native::decode_response(method as u64, &bytes, control::RESPONSE_LIMITS)
+            .expect("bounded Wire reply")
     }
     fn view(&self, id: u64) -> View {
-        self.query(self.sender, "inspect", (id,)).unwrap()
+        self.query(self.sender, Method::Inspect, (id,)).unwrap()
     }
     fn summary(&self, id: Principal) -> Summary {
-        self.query(id, "summary", ()).unwrap()
+        self.query(id, Method::Summary, ()).unwrap()
     }
     fn upgrade(&self, id: Principal) -> Result<(), RejectResponse> {
         self.pic
             .instance
-            .upgrade_canister(id, self.wasm.clone(), encode_args(()).unwrap(), None)
+            .upgrade_canister(id, self.wasm.clone(), Vec::new(), None)
     }
     fn until(&self, predicate: impl Fn() -> bool) {
         tick_until(&self.pic.instance, 30, Duration::ZERO, |_| {
@@ -161,13 +145,10 @@ impl Fixture {
     }
 }
 
-fn assert_canister_trap(error: CandidCallError) {
-    assert!(
-        matches!(
-            &error,
-            CandidCallError::CanisterReject { response, .. }
-                if response.error_code == ErrorCode::CanisterCalledTrap
-        ),
+fn assert_canister_trap(error: RejectResponse) {
+    assert_eq!(
+        error.error_code,
+        ErrorCode::CanisterCalledTrap,
         "expected canister trap: {error:?}"
     );
 }
@@ -181,13 +162,6 @@ fn increment(at: u64, amount: u64) -> Create {
 
 #[test]
 fn reply_limits_admit_the_largest_consumer_page() {
-    assert!(
-        decode_args::<(Result<Vec<View>, Error>,)>(
-            include_bytes!("fixtures/pending-page-0162.didbin"),
-            REPLY_LIMITS,
-        )
-        .is_err()
-    );
     let views = (0..8)
         .map(|id| View {
             id,
@@ -200,21 +174,85 @@ fn reply_limits_admit_the_largest_consumer_page() {
             occurrence: u64::MAX,
         })
         .collect::<Vec<_>>();
-    let bytes = encode_one(Ok::<_, Error>(&views)).unwrap();
-    let (decoded,): (Result<Vec<View>, Error>,) = decode_args(&bytes, REPLY_LIMITS).unwrap();
+    let id = Method::List as u64;
+    let bytes =
+        native::encode_response(id, &Ok::<_, Error>(&views), control::RESPONSE_LIMITS).unwrap();
+    let decoded: Result<Vec<View>, Error> =
+        native::decode_response(id, &bytes, control::RESPONSE_LIMITS).unwrap();
     assert_eq!(decoded.unwrap(), views);
-    // The tuple is the wire reply arity; the application Result stays inside it.
-    let bytes = encode_one(Err::<Vec<View>, _>(Error::Unauthorized)).unwrap();
-    let (decoded,): (Result<Vec<View>, Error>,) = decode_args(&bytes, REPLY_LIMITS).unwrap();
-    assert_eq!(decoded, Err(Error::Unauthorized));
-    let bytes = encode_args((Ok::<_, Error>(&views), 7_u64)).unwrap();
-    let (decoded,): (Result<Vec<View>, Error>,) = decode_args(&bytes, REPLY_LIMITS).unwrap();
-    assert_eq!(decoded.unwrap(), views);
-    let oversized = vec![0; REPLY_LIMITS.reply_bytes + 1];
-    assert!(matches!(
-        decode_args::<((),)>(&oversized, REPLY_LIMITS),
-        Err(DecodeError::ReplyTooLarge { .. })
-    ));
+    let old = include_bytes!("fixtures/pending-page-0162.didbin");
+    assert!(
+        native::decode_response::<Result<Vec<View>, Error>>(id, old, control::RESPONSE_LIMITS)
+            .is_err()
+    );
+    let oversized = vec![0; control::RESPONSE_LIMITS.bytes + 1];
+    assert_eq!(
+        native::decode_response::<()>(id, &oversized, control::RESPONSE_LIMITS),
+        Err(ic_wire::Error::Limit)
+    );
+}
+
+#[test]
+#[ignore = "explicit PocketIC qualification; run make test-canister"]
+fn management_wire_refuses_retired_and_invalid_unit_requests() {
+    let fixture = Fixture::new();
+    let before = fixture.summary(fixture.sender);
+    for init_bytes in [
+        include_bytes!("../../../apps/job-consumer/tests/fixtures/api-pre-platform.didbin")
+            .to_vec(),
+        vec![0; control::REQUEST_LIMITS.bytes + 1],
+    ] {
+        let error = fixture
+            .pic
+            .instance
+            .try_create_and_install(InstallSpec {
+                wasm: fixture.wasm.clone(),
+                init_bytes,
+                cycles: 10_000_000_000_000,
+                install_sender: None,
+                label: Some("invalid Jobs init".into()),
+            })
+            .unwrap_err();
+        assert!(matches!(error, CanisterInstallError::InstallCode { .. }));
+    }
+    let id = Method::DispatchDue as u64;
+    let valid = native::encode_request(id, &(), control::REQUEST_LIMITS).unwrap();
+    let mut trailing = valid;
+    trailing.push(0);
+    for bytes in [
+        include_bytes!("../../../apps/job-consumer/tests/fixtures/api-pre-platform.didbin")
+            .to_vec(),
+        Vec::new(),
+        native::encode_request(Method::Summary as u64, &(), control::REQUEST_LIMITS).unwrap(),
+        native::encode_response(id, &(), control::RESPONSE_LIMITS).unwrap(),
+        trailing,
+    ] {
+        assert_canister_trap(
+            fixture
+                .pic
+                .instance
+                .update_call(
+                    fixture.sender,
+                    fixture.manager,
+                    Method::DispatchDue.name(),
+                    bytes,
+                )
+                .unwrap_err(),
+        );
+        assert_eq!(fixture.summary(fixture.sender), before);
+    }
+    let error = fixture
+        .pic
+        .instance
+        .update_call(
+            fixture.sender,
+            fixture.manager,
+            Method::DispatchDue.name(),
+            vec![0; control::REQUEST_LIMITS.bytes + 1],
+        )
+        .unwrap_err();
+    assert_eq!(error.error_code, ErrorCode::CanisterRejectedMessage);
+    assert_eq!(fixture.summary(fixture.sender), before);
 }
 
 #[test]
@@ -235,7 +273,8 @@ fn delivery_wire_endpoints_refuse_candid_and_preserve_authorized_receipts() {
         ("delivery_receipt", RECEIPT_ID, RECEIVE_ID),
     ] {
         for bytes in [
-            encode_one(&delivery).unwrap(),
+            include_bytes!("../../../apps/job-consumer/tests/fixtures/api-pre-platform.didbin")
+                .to_vec(),
             native::encode_request(other, &delivery, REQUEST_LIMITS).unwrap(),
             native::encode_response(id, &delivery, REQUEST_LIMITS).unwrap(),
         ] {
@@ -327,16 +366,16 @@ fn management_upgrade_and_real_watchdog_delivery() {
     let unauthorized: Result<u64, Error> = fixture
         .update_as(
             Principal::anonymous(),
-            "create",
+            Method::Create,
             (increment(now + 20_000_000_000, 5),),
         )
-        .expect("PocketIC Candid call");
+        .expect("PocketIC Wire call");
     assert_eq!(unauthorized, Err(Error::Unauthorized));
     let first: u64 = fixture
-        .update("create", (increment(now + 20_000_000_000, 5),))
+        .update(Method::Create, (increment(now + 20_000_000_000, 5),))
         .unwrap();
     let second: u64 = fixture
-        .update("create", (increment(now + 30_000_000_000, 7),))
+        .update(Method::Create, (increment(now + 30_000_000_000, 7),))
         .unwrap();
     let before = fixture.view(second);
     assert!(fixture.summary(fixture.sender).armed);
@@ -346,13 +385,13 @@ fn management_upgrade_and_real_watchdog_delivery() {
         fixture.summary(fixture.sender).next_due_ns,
         Some(now + 20_000_000_000)
     );
-    fixture.update::<(), _>("cancel", (first,)).unwrap();
+    fixture.update::<(), _>(Method::Cancel, (first,)).unwrap();
     assert_eq!(
         fixture.summary(fixture.sender).next_due_ns,
         Some(now + 30_000_000_000)
     );
     let page: Vec<View> = fixture
-        .query(fixture.sender, "list", (Some(first), 1_u8))
+        .query(fixture.sender, Method::List, (Some(first), 1_u8))
         .unwrap();
     assert_eq!(page, vec![before]);
     fixture.pic.instance.advance_time(Duration::from_secs(40));
@@ -362,7 +401,7 @@ fn management_upgrade_and_real_watchdog_delivery() {
     assert!(!fixture.summary(fixture.sender).armed);
     let third: u64 = fixture
         .update(
-            "create",
+            Method::Create,
             (Create {
                 timing: Timing::Once(
                     fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 10_000_000_000,
@@ -390,7 +429,7 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
     let fixture = Fixture::new();
     let id: u64 = fixture
         .update(
-            "create",
+            Method::Create,
             (increment(
                 fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 60_000_000_000,
                 3,
@@ -400,7 +439,7 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
     let before = fixture.summary(fixture.sender);
     let failed = fixture.update_as::<(), _>(
         fixture.manager,
-        "fixture_trap_after_create",
+        Method::TrapAfterCreate,
         (increment(
             fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 30_000_000_000,
             9,
@@ -409,14 +448,14 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
     assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.summary(fixture.sender), before);
     let page: Vec<View> = fixture
-        .query(fixture.sender, "list", (None::<u64>, 8_u8))
+        .query(fixture.sender, Method::List, (None::<u64>, 8_u8))
         .unwrap();
     assert_eq!(page.len(), 1);
     fixture.upgrade(fixture.sender).unwrap();
     assert_eq!(fixture.summary(fixture.sender), before);
     let next: u64 = fixture
         .update(
-            "create",
+            Method::Create,
             (increment(
                 fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 120_000_000_000,
                 4,
@@ -431,18 +470,20 @@ fn synchronous_trap_rolls_back_storage_identity_and_timer_changes() {
 fn watchdog_batch_trap_rolls_back_then_recovers_without_repeating_local_effects() {
     let fixture = Fixture::new();
     let due = fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 10_000_000_000;
-    let healthy: u64 = fixture.update("create", (increment(due, 1),)).unwrap();
+    let healthy: u64 = fixture
+        .update(Method::Create, (increment(due, 1),))
+        .unwrap();
     let failed: u64 = fixture
-        .update("create", (increment(due, u64::MAX),))
+        .update(Method::Create, (increment(due, u64::MAX),))
         .unwrap();
     let later_due = due + 30_000_000_000;
     let later: u64 = fixture
-        .update("create", (increment(later_due, 4),))
+        .update(Method::Create, (increment(later_due, 4),))
         .unwrap();
     let healthy_before = fixture.view(healthy);
     let failed_before = fixture.view(failed);
     fixture
-        .update::<(), _>("fixture_trap_watchdog_batch", (true,))
+        .update::<(), _>(Method::TrapWatchdogBatch, (true,))
         .unwrap();
     fixture.pic.instance.advance_time(Duration::from_secs(10));
     // Observe a real trap, not merely a dispatched callback awaiting execution.
@@ -470,7 +511,7 @@ fn watchdog_batch_trap_rolls_back_then_recovers_without_repeating_local_effects(
 
     // This control does not rearm the timer: recovery must use its survivor.
     fixture
-        .update::<(), _>("fixture_trap_watchdog_batch", (false,))
+        .update::<(), _>(Method::TrapWatchdogBatch, (false,))
         .unwrap();
     fixture.pic.instance.advance_time(Duration::from_secs(2));
     fixture.until(|| fixture.view(healthy).status == Status::Completed);
@@ -510,36 +551,36 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
     };
     let failed = fixture.update_as::<Result<(), Error>, _>(
         fixture.manager,
-        "fixture_dispatch_trap_result",
+        Method::DispatchTrapResult,
         (input,),
     );
     assert_canister_trap(failed.unwrap_err());
     let page: Vec<View> = fixture
-        .query(fixture.sender, "list", (None::<u64>, 8_u8))
+        .query(fixture.sender, Method::List, (None::<u64>, 8_u8))
         .unwrap();
     let id = page[0].id;
     assert_eq!(page[0].status, Status::Running);
     assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
     fixture.upgrade(fixture.sender).unwrap();
     fixture.upgrade(fixture.receiver).unwrap();
-    fixture.update::<(), _>("dispatch_due", ()).unwrap();
+    fixture.update::<(), _>(Method::DispatchDue, ()).unwrap();
     assert_eq!(fixture.view(id).status, Status::Running);
     fixture
-        .update::<(), _>("fixture_mark_uncertain", (id,))
+        .update::<(), _>(Method::MarkUncertain, (id,))
         .unwrap();
     fixture.upgrade(fixture.sender).unwrap();
     assert_eq!(fixture.view(id).status, Status::Uncertain);
     assert!(
         fixture
-            .update::<bool, _>("reconcile_delivery", (id,))
+            .update::<bool, _>(Method::ReconcileDelivery, (id,))
             .unwrap()
     );
     assert_eq!(fixture.view(id).status, Status::Completed);
-    fixture.update::<(), _>("dispatch_due", ()).unwrap();
+    fixture.update::<(), _>(Method::DispatchDue, ()).unwrap();
     assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
     let absent: u64 = fixture
         .update(
-            "fixture_create_blocked",
+            Method::CreateBlocked,
             (Create {
                 timing: Timing::Once(0),
                 task: Task::Deliver(DeliveryPayload {
@@ -552,26 +593,26 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
     fixture.upgrade(fixture.sender).unwrap();
     assert!(
         !fixture
-            .update::<bool, _>("reconcile_delivery", (absent,))
+            .update::<bool, _>(Method::ReconcileDelivery, (absent,))
             .unwrap()
     );
     assert_eq!(fixture.view(absent).status, Status::Running);
-    assert!(fixture.update::<(), _>("cancel", (absent,)).is_err());
+    assert!(fixture.update::<(), _>(Method::Cancel, (absent,)).is_err());
     for state in [Status::Running, Status::Uncertain] {
         if state == Status::Uncertain {
             fixture
-                .update::<(), _>("fixture_mark_uncertain", (absent,))
+                .update::<(), _>(Method::MarkUncertain, (absent,))
                 .unwrap();
         }
         let before = fixture.view(absent);
         assert_eq!(before.status, state);
-        for method in ["pause", "resume"] {
+        for method in [Method::Pause, Method::Resume] {
             assert!(fixture.update::<(), _>(method, (absent,)).is_err());
         }
         assert!(
             fixture
                 .update::<(), _>(
-                    "reschedule",
+                    Method::Reschedule,
                     (
                         absent,
                         Timing::Once(fixture.pic.instance.get_time().as_nanos_since_unix_epoch())
@@ -590,7 +631,7 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
     let fixture = Fixture::new();
     let id: u64 = fixture
         .update(
-            "create",
+            Method::Create,
             (increment(
                 fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 3_600_000_000_000,
                 1,
@@ -614,11 +655,11 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
         .start_canister(fixture.sender, None)
         .unwrap();
     fixture
-        .update::<(), _>("fixture_corrupt_record", (id,))
+        .update::<(), _>(Method::CorruptRecord, (id,))
         .unwrap();
     assert!(matches!(
         fixture
-            .query::<View, _>(fixture.sender, "inspect", (id,))
+            .query::<View, _>(fixture.sender, Method::Inspect, (id,))
             .unwrap_err(),
         Error::InvalidStorage
     ));
@@ -666,7 +707,7 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
     for catch_up in [false, true] {
         let id: u64 = fixture
             .update(
-                "create",
+                Method::Create,
                 (Create {
                     timing: Timing::FixedRate {
                         first_ns,
@@ -678,7 +719,7 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
             )
             .unwrap();
         ids.push(id);
-        fixture.update::<(), _>("pause", (id,)).unwrap();
+        fixture.update::<(), _>(Method::Pause, (id,)).unwrap();
     }
     fixture.upgrade(fixture.sender).unwrap();
     fixture.pic.instance.advance_time(Duration::from_secs(13));
@@ -690,7 +731,7 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
     assert!(!fixture.summary(fixture.sender).armed);
     fixture.upgrade(fixture.sender).unwrap();
     for id in &ids {
-        fixture.update::<(), _>("resume", (*id,)).unwrap();
+        fixture.update::<(), _>(Method::Resume, (*id,)).unwrap();
     }
     fixture.until(|| fixture.view(ids[0]).occurrence == 1 && fixture.view(ids[1]).occurrence >= 1);
     let Status::Pending { due_ns } = fixture.view(ids[0]).status else {
@@ -698,7 +739,7 @@ fn overdue_fixed_rate_work_reconstructs_catch_up_and_skip_policies() {
     };
     assert!(due_ns > fixture.pic.instance.get_time().as_nanos_since_unix_epoch());
     for id in ids {
-        fixture.update::<(), _>("cancel", (id,)).unwrap();
+        fixture.update::<(), _>(Method::Cancel, (id,)).unwrap();
     }
     assert!(!fixture.summary(fixture.sender).armed);
     let before = fixture.summary(fixture.sender).counter;
@@ -712,24 +753,28 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
     let fixture = Fixture::new();
     let id: u64 = fixture
         .update(
-            "create",
+            Method::Create,
             (increment(
                 fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 30_000_000_000,
                 5,
             ),),
         )
         .unwrap();
-    for method in ["pause", "resume"] {
+    for method in [Method::Pause, Method::Resume] {
         let denied: Result<(), Error> = fixture
             .update_as(Principal::anonymous(), method, (id,))
-            .expect("PocketIC Candid call");
+            .expect("PocketIC Wire call");
         assert_eq!(denied, Err(Error::Unauthorized));
     }
     let denied: Result<(), Error> = fixture
-        .update_as(Principal::anonymous(), "reschedule", (id, Timing::Once(0)))
-        .expect("PocketIC Candid call");
+        .update_as(
+            Principal::anonymous(),
+            Method::Reschedule,
+            (id, Timing::Once(0)),
+        )
+        .expect("PocketIC Wire call");
     assert_eq!(denied, Err(Error::Unauthorized));
-    fixture.update::<(), _>("pause", (id,)).unwrap();
+    fixture.update::<(), _>(Method::Pause, (id,)).unwrap();
     assert_eq!(fixture.view(id).status, Status::Paused);
     assert_eq!(fixture.summary(fixture.sender).next_due_ns, None);
     assert!(!fixture.summary(fixture.sender).armed);
@@ -738,25 +783,25 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
     assert_eq!(fixture.summary(fixture.sender).counter, 0);
     let later = fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 100_000_000_000;
     fixture
-        .update::<(), _>("reschedule", (id, Timing::Once(later)))
+        .update::<(), _>(Method::Reschedule, (id, Timing::Once(later)))
         .unwrap();
     let paused = fixture.view(id);
     assert_eq!(paused.status, Status::Paused);
     assert_eq!((paused.sequence, paused.occurrence), (0, 0));
     fixture.upgrade(fixture.sender).unwrap();
     assert_eq!(fixture.view(id), paused);
-    fixture.update::<(), _>("resume", (id,)).unwrap();
+    fixture.update::<(), _>(Method::Resume, (id,)).unwrap();
     assert_eq!(fixture.summary(fixture.sender).next_due_ns, Some(later));
     assert!(fixture.summary(fixture.sender).armed);
     let due = fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 15_000_000_000;
     fixture
-        .update::<(), _>("reschedule", (id, Timing::Once(due)))
+        .update::<(), _>(Method::Reschedule, (id, Timing::Once(due)))
         .unwrap();
     let before = fixture.view(id);
     let summary = fixture.summary(fixture.sender);
     let failed = fixture.update_as::<(), _>(
         fixture.manager,
-        "fixture_trap_after_reschedule",
+        Method::TrapAfterReschedule,
         (
             id,
             Timing::Once(
@@ -767,7 +812,7 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
     assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.view(id), before);
     assert_eq!(fixture.summary(fixture.sender), summary);
-    let failed = fixture.update_as::<(), _>(fixture.manager, "fixture_trap_after_pause", (id,));
+    let failed = fixture.update_as::<(), _>(fixture.manager, Method::TrapAfterPause, (id,));
     assert_canister_trap(failed.unwrap_err());
     assert_eq!(fixture.view(id), before);
     assert_eq!(fixture.summary(fixture.sender), summary);

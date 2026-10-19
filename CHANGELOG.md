@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.17.6]
+
+- Adopt Platform 0.2.1's owned runtime and switch the unpublished fixture's
+  installation, management and fault-control messages to bounded Wire frames.
+  Rebuild the fixture and harness together and dispose of old Candid requests;
+  no fallback or generated Candid service remains. Published Jobs APIs, stored
+  JSON, delivery identities and uncertain-effect disposition stay unchanged.
+
+- Use Host's exit-status projection and Testkit's panic-contained diagnostic
+  writer in qualification tooling, preserving optimizer failure codes and the
+  original canister installation error. Keep the published Jobs API and storage
+  contracts unchanged.
+- Adopt Host 0.30 for direct native tooling dependencies, keeping optional
+  filesystem capability and temporary-file backends disabled. Testkit retains
+  its released Host 0.29 selection; Build 0.22 uses Host 0.30.
+
 ## [0.17.5] - 2026-10-19
 
 - Adopt reviewed Shared Tooling 0.25.0 source. Prepare and select the released

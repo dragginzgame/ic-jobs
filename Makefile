@@ -106,7 +106,7 @@ CORE_GRAPH_FORBIDDEN := clap candid candid_derive candid_parser ic-cdk ic-cdk-ma
 	ic-cdk-executor ic-cdk-timers ic-platform ic-platform-macros ic0 ic-memory ic-stable-structures ic-storage \
 	ic-timers ic-metrics ic-wire ic-wire-derive postcard ic-build ic-host-fs ic-host-process ic-testkit \
 	ic-testkit-candid jobs-test-consumer pocket-ic serde_json serde_test
-QUALIFICATION_GRAPH_FORBIDDEN := clap ic-storage candid_parser ic-agent ic-build ic-host-fs \
+QUALIFICATION_GRAPH_FORBIDDEN := clap ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid pocket-ic tokio
 .PHONY: check-dependency-graphs
 check-dependency-graphs:
@@ -119,7 +119,7 @@ check-dependency-graphs:
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target wasm32-unknown-unknown --all-features \
 		--require ic-timers=1 --require ic-cdk-executor=1 --require ic0=1 \
-		--require ic-platform=1 --require ic-platform-macros=1 --require ic-cdk=1 \
+		--require ic-platform=2 --require ic-platform-macros=1 \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \

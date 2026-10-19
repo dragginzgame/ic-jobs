@@ -11,10 +11,12 @@ use ic_timers::{
     reconcile_watchdog,
 };
 use ic_wire::native;
+use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     api::{Create, Delivery, Error, Init, Summary, View},
     delivery_wire::{RECEIPT_ID, RECEIVE_ID, REQUEST_LIMITS, RESPONSE_LIMITS, decode_reply},
+    management_wire::{self as control, Method},
     queue::{Committed, Queue},
 };
 
@@ -75,6 +77,29 @@ fn reconcile_at(due: Option<u64>) {
     });
 }
 
+fn admit_control_input() -> Result<(), String> {
+    if ic_platform::ic0::msg_arg_data_size() > control::REQUEST_LIMITS.bytes {
+        return Err("management request exceeds Wire frame limit".into());
+    }
+    Ok(())
+}
+
+fn decode_control<T: Serialize + DeserializeOwned, const ID: u64>(bytes: Vec<u8>) -> T {
+    required(native::decode_request(ID, &bytes, control::REQUEST_LIMITS))
+}
+
+fn encode_control<T: Serialize + DeserializeOwned, const ID: u64>(result: T) -> Vec<u8> {
+    required(native::encode_response(
+        ID,
+        &result,
+        control::RESPONSE_LIMITS,
+    ))
+}
+
+fn encode_unit<const ID: u64>() -> Vec<u8> {
+    encode_control::<_, ID>(())
+}
+
 fn recover(initial: Option<Init>) {
     let (queue, due) = required(Queue::open(DefaultMemoryImpl::default(), initial));
     // Open/restore the entire bounded snapshot before registering any callback.
@@ -84,7 +109,11 @@ fn recover(initial: Option<Init>) {
 }
 
 #[cdk::init]
-fn init(config: Init) {
+fn init() {
+    // Lifecycle macros have no guards. Admit length before copying init bytes,
+    // then use the same bounded codec as the argument-bearing RPC hooks.
+    required(admit_control_input());
+    let config = decode_control::<Init, { Method::Init as u64 }>(cdk::api::msg_arg_data());
     recover(Some(config));
 }
 
@@ -93,42 +122,74 @@ fn post_upgrade() {
     recover(None);
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::Create as u64 }>",
+    encode_with = "encode_control::<_, { Method::Create as u64 }>"
+)]
 fn create(input: Create) -> Result<u64, Error> {
     update_queue(|queue| queue.create(input))
 }
 
-#[cdk::query]
+#[cdk::query(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::Inspect as u64 }>",
+    encode_with = "encode_control::<_, { Method::Inspect as u64 }>"
+)]
 fn inspect(id: u64) -> Result<View, Error> {
     with_authorized_queue(|queue| queue.inspect(id))
 }
 
-#[cdk::query]
+#[cdk::query(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::List as u64 }>",
+    encode_with = "encode_control::<_, { Method::List as u64 }>"
+)]
 fn list(after: Option<u64>, limit: u8) -> Result<Vec<View>, Error> {
     with_authorized_queue(|queue| queue.page(after, limit))
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::Cancel as u64 }>",
+    encode_with = "encode_control::<_, { Method::Cancel as u64 }>"
+)]
 fn cancel(id: u64) -> Result<(), Error> {
     update_queue(|queue| queue.cancel(id, cdk::api::time()))
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::Pause as u64 }>",
+    encode_with = "encode_control::<_, { Method::Pause as u64 }>"
+)]
 fn pause(id: u64) -> Result<(), Error> {
     update_queue(|queue| queue.pause(id, cdk::api::time()))
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::Resume as u64 }>",
+    encode_with = "encode_control::<_, { Method::Resume as u64 }>"
+)]
 fn resume(id: u64) -> Result<(), Error> {
     update_queue(|queue| queue.resume(id, cdk::api::time()))
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::Reschedule as u64 }>",
+    encode_with = "encode_control::<_, { Method::Reschedule as u64 }>"
+)]
 fn reschedule(id: u64, timing: crate::api::Timing) -> Result<(), Error> {
     update_queue(|queue| queue.reschedule(id, timing, cdk::api::time()))
 }
 
-#[cdk::query]
+#[cdk::query(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::Summary as u64 }>",
+    encode_with = "encode_control::<_, { Method::Summary as u64 }>"
+)]
 fn summary() -> Result<Summary, Error> {
     let Committed {
         value: (counter, receipts),
@@ -195,7 +256,11 @@ fn wake() -> WatchdogRunResult {
     WatchdogRunResult::completed_batch(work, result.next_due_ns)
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::DispatchDue as u64 }>",
+    encode_with = "encode_control::<_, { Method::DispatchDue as u64 }>"
+)]
 fn dispatch_due() -> Result<(), Error> {
     launch_deliveries(dispatch_reconciled()?);
     Ok(())
@@ -262,7 +327,11 @@ fn delivery_receipt(delivery: Delivery) -> Result<Option<Delivery>, Error> {
     with_queue(|queue| queue.receipt(cdk::api::msg_caller(), &delivery))
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::ReconcileDelivery as u64 }>",
+    encode_with = "encode_control::<_, { Method::ReconcileDelivery as u64 }>"
+)]
 async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
     let delivery = with_authorized_queue(|queue| queue.outstanding(id))?;
     let bytes = required(native::encode_request(
@@ -287,44 +356,72 @@ async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
 
 // These explicitly named fault controls exist only in this unpublished test
 // canister. They use real IC traps; there is no production cfg(test) substitute.
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::TrapWatchdogBatch as u64 }>",
+    encode_with = "encode_control::<_, { Method::TrapWatchdogBatch as u64 }>"
+)]
 fn fixture_trap_watchdog_batch(enabled: bool) -> Result<(), Error> {
     with_authorized_queue(|_| Ok(()))?;
     TRAP_WATCHDOG_BATCH.with(|fault| fault.set(enabled));
     Ok(())
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::TrapAfterCreate as u64 }>",
+    encode_with = "encode_unit::<{ Method::TrapAfterCreate as u64 }>"
+)]
 fn fixture_trap_after_create(input: Create) {
     required(create(input));
     cdk::api::trap("fixture: trap after stable write and watchdog reconciliation");
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::TrapAfterPause as u64 }>",
+    encode_with = "encode_unit::<{ Method::TrapAfterPause as u64 }>"
+)]
 fn fixture_trap_after_pause(id: u64) {
     required(pause(id));
     cdk::api::trap("fixture: trap after paused write and watchdog reconciliation");
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::TrapAfterReschedule as u64 }>",
+    encode_with = "encode_unit::<{ Method::TrapAfterReschedule as u64 }>"
+)]
 fn fixture_trap_after_reschedule(id: u64, timing: crate::api::Timing) {
     required(reschedule(id, timing));
     cdk::api::trap("fixture: trap after rescheduled write and watchdog reconciliation");
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::CorruptRecord as u64 }>",
+    encode_with = "encode_control::<_, { Method::CorruptRecord as u64 }>"
+)]
 fn fixture_corrupt_record(id: u64) -> Result<(), Error> {
     with_authorized_queue(|queue| queue.corrupt_record(id))
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::MarkUncertain as u64 }>",
+    encode_with = "encode_control::<_, { Method::MarkUncertain as u64 }>"
+)]
 fn fixture_mark_uncertain(id: u64) -> Result<(), Error> {
     let delivery = with_authorized_queue(|queue| queue.outstanding(id))?;
     complete_delivery(&delivery, Outcome::Uncertain)?;
     Ok(())
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::DispatchTrapResult as u64 }>",
+    encode_with = "encode_control::<_, { Method::DispatchTrapResult as u64 }>"
+)]
 async fn fixture_dispatch_trap_result(input: Create) -> Result<(), Error> {
     create(input)?;
     let deliveries = dispatch_reconciled()?;
@@ -339,7 +436,11 @@ async fn fixture_dispatch_trap_result(input: Create) -> Result<(), Error> {
     Ok(())
 }
 
-#[cdk::update]
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::CreateBlocked as u64 }>",
+    encode_with = "encode_control::<_, { Method::CreateBlocked as u64 }>"
+)]
 fn fixture_create_blocked(input: Create) -> Result<u64, Error> {
     let id = create(input)?;
     // Simulate interruption after committed intent but before dispatch. This
@@ -347,5 +448,3 @@ fn fixture_create_blocked(input: Create) -> Result<u64, Error> {
     dispatch_reconciled()?;
     Ok(id)
 }
-
-cdk::export_candid!();

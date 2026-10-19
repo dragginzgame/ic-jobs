@@ -9,7 +9,7 @@ publish = false
 
 # Only the Wasm qualification canister enables Platform's CDK frontend.
 # It owns entrypoint generation and upstream calls, spawning and trap behavior;
-# native DTO/decoder tests need only the Candid capability declared below.
+# native DTO/codec tests need only Principal and Serde.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 ic-jobs.workspace = true
 ic-memory = { workspace = true, features = ["test-support"] }
@@ -21,10 +21,10 @@ serde_json.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 # This unpublished qualification app owns IC integration. Platform supplies the
-# Candid contract for native DTO consumers. Queue/runtime integration is Wasm or
+# Principal for native DTO consumers. Queue/runtime integration is Wasm or
 # test-only, matching the source module gates.
 [dependencies]
-ic-platform = { workspace = true, features = ["candid"] }
+ic-platform.workspace = true
 ic-wire.workspace = true
 serde = { workspace = true, features = ["derive"] }
 

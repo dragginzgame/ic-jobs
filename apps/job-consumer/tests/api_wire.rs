@@ -1,86 +1,65 @@
-//! Frozen pre-Platform bytes protect management/DTO Candid encoding.
-//! Delivery Candid encoding supplies negative Wire inputs only; its RPCs no
-//! longer accept Candid or appear in the generated service.
-use ic_platform::{Principal, candid::contract::encode_args};
-use jobs_test_consumer::api::{
-    Create, Delivery, DeliveryPayload, Error, Init, Status, Summary, Task, Timing, View,
+//! Current management Wire contract and refusal of frozen pre-cut Candid bytes.
+use ic_platform::Principal;
+use ic_wire::native;
+use jobs_test_consumer::{
+    api::{Create, Init, Task, Timing},
+    management_wire::{Method, REQUEST_LIMITS, RESPONSE_LIMITS},
 };
 
 #[test]
-fn external_contract_matches_pre_platform_wire() {
-    let manager = Principal::self_authenticating(b"jobs-manager");
-    let receiver = Principal::self_authenticating(b"receiver");
-    let payload = DeliveryPayload {
-        destination: receiver,
-        message: "delivery".into(),
+fn management_contract_admits_current_requests_and_refuses_retired_candid() {
+    let init = Init {
+        manager: Principal::anonymous(),
+        delivery_sender: None,
     };
-    let bytes = encode_args((
-        Init {
-            manager,
-            delivery_sender: Some(receiver),
-        },
-        vec![
-            Create {
-                timing: Timing::Once(0),
-                task: Task::Increment(1),
-            },
-            Create {
-                timing: Timing::FixedRate {
-                    first_ns: 100,
-                    every_ns: 7,
-                    catch_up: true,
-                },
-                task: Task::Deliver(payload.clone()),
-            },
-            Create {
-                timing: Timing::AfterCompletion {
-                    first_ns: u64::MAX,
-                    every_ns: 1,
-                },
-                task: Task::Increment(0),
-            },
-        ],
-        [
-            Status::Pending { due_ns: u64::MAX },
-            Status::Paused,
-            Status::Running,
-            Status::Uncertain,
-            Status::Completed,
-            Status::Failed,
-            Status::Cancelled,
-        ]
-        .into_iter()
-        .map(|status| View {
-            id: u64::MAX,
-            task: Task::Increment(2),
-            status,
-            sequence: 3,
-            occurrence: 4,
-        })
-        .collect::<Vec<_>>(),
-        Delivery {
-            job: 1,
-            occurrence: 2,
-            sequence: 3,
-            payload,
-        },
-        Summary {
-            next_due_ns: Some(100),
-            counter: 3,
-            receipts: 1,
-            armed: true,
-        },
-        vec![
-            Error::Unauthorized,
-            Error::UnknownJob,
-            Error::Capacity,
-            Error::InvalidInput,
-            Error::InvalidStorage,
-            Error::Job("job".into()),
-            Error::Memory("memory".into()),
-            Error::ReceiptMismatch,
-        ],
-    ))
-    .unwrap();
-    assert_eq!(bytes, include_bytes!("fixtures/api-pre-platform.didbin"));
+    let bytes = native::encode_request(Method::Init as u64, &init, REQUEST_LIMITS).unwrap();
+    assert_eq!(
+        native::decode_request::<Init>(Method::Init as u64, &bytes, REQUEST_LIMITS).unwrap(),
+        init
+    );
+    assert!(native::decode_request::<Init>(Method::Create as u64, &bytes, REQUEST_LIMITS).is_err());
+    assert!(
+        native::decode_request::<Init>(
+            Method::Init as u64,
+            include_bytes!("fixtures/api-pre-platform.didbin"),
+            REQUEST_LIMITS
+        )
+        .is_err()
+    );
+
+    let create = Create {
+        timing: Timing::Once(100),
+        task: Task::Increment(7),
+    };
+    // Platform decodes one argument directly; the native harness supplies its
+    // singleton argument tuple. Both encode the same owned request shape.
+    let bytes = native::encode_request(Method::Create as u64, &(create,), REQUEST_LIMITS).unwrap();
+    let decoded: Create =
+        native::decode_request(Method::Create as u64, &bytes, REQUEST_LIMITS).unwrap();
+    assert!(matches!(decoded.timing, Timing::Once(100)));
+    assert_eq!(decoded.task, Task::Increment(7));
+
+    let bytes =
+        native::encode_request(Method::List as u64, &(Some(4_u64), 8_u8), REQUEST_LIMITS).unwrap();
+    assert_eq!(
+        native::decode_request::<(Option<u64>, u8)>(Method::List as u64, &bytes, REQUEST_LIMITS)
+            .unwrap(),
+        (Some(4), 8)
+    );
+    let bytes = native::encode_request(Method::DispatchDue as u64, &(), REQUEST_LIMITS).unwrap();
+    assert!(
+        native::decode_request::<()>(Method::DispatchDue as u64, &bytes, REQUEST_LIMITS).is_ok()
+    );
+    let mut trailing = bytes;
+    trailing.push(0);
+    assert!(
+        native::decode_request::<()>(Method::DispatchDue as u64, &trailing, REQUEST_LIMITS)
+            .is_err()
+    );
+    let response =
+        native::encode_response(Method::DispatchDue as u64, &(), RESPONSE_LIMITS).unwrap();
+    assert!(
+        native::decode_request::<()>(Method::DispatchDue as u64, &response, REQUEST_LIMITS)
+            .is_err()
+    );
 }

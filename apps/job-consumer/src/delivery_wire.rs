@@ -2,7 +2,7 @@
 //!
 //! These native Serde contracts use the declaration order of `Delivery`, its
 //! payload and `Error`. Incompatible layouts require new identities and a joint
-//! sender/receiver cut. Stored JSON and management Candid remain independent.
+//! sender/receiver cut. Stored JSON and management method identities remain independent.
 
 use ic_wire::Limits;
 #[cfg(any(test, target_arch = "wasm32"))]

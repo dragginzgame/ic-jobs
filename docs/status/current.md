@@ -2,11 +2,51 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.17.4**: `1808a0d`. The incoming source is `e314142`
-(Wire 0.4.5, Platform 0.1.16, Build 0.19 and Timers 0.29), with its separate
-Host 0.28.1 lockfile update preserved.
+Delivered Jobs **0.17.5**: `5d1ba09`. Pending **0.17.6** adopts published
+Platform **0.2.1** and its matching macros. All owned fixture messages now use
+bounded Wire frames: installation, management, unit RPCs and fault controls join
+the existing delivery endpoints. Candid derives, management decoder plumbing
+and service generation are removed. Method names, authorization, stored JSON,
+delivery frame identities and blocked Running/Uncertain semantics are preserved.
 
-Pending **0.17.5** adopts reviewed Shared Tooling **0.25.0** committed source
+This is a protocol cut for the unpublished fixture and native harness only.
+Quiesce activity, dispose of outstanding Candid management/init requests and
+rebuild both together. There is no compatibility reader or dual endpoint.
+Post-upgrade takes no arguments. Init checks raw length before copying because
+Platform lifecycle macros do not support guard attributes. The remaining codecs
+use Platform's explicit hooks and pre-copy length guards, with identities and
+budgets owned by `management_wire` and `delivery_wire`.
+
+The pending manifest/lock updates are preserved, including Build 0.22, Host 0.30,
+Memory 0.49, Testkit 0.55.2 and Wire 0.4.9. Storage **0.5.7** now supports Memory
+0.49, resolving the earlier native test conflict without reverting Memory or
+adding a version bridge. Native DTOs use Principal, Wire and Serde; no Candid
+capability is selected by this application. The qualification Wasm excludes
+Candid and full `ic-cdk`; Platform 0.2's owned runtime and Timers' released
+Platform 0.1 dependency share registry executor 2.0.0 and ic0 1.2.0.
+
+Rust 1.91 passes 28 queue/codec tests, one management protocol test, 19 native
+composition cases, four capture/CLI tests and one bounded management-reply test.
+Separate core/consumer MSRV and Wasm checks, release Wasm compilation, strict
+native/Wasm Clippy and all four graph/boundary/pin checks pass. The live recovery
+suite now has nine scenarios, adding installed rejection of retired Candid init
+and management frames, invalid unit frames and oversized arguments. All nine pass
+on original, `-O3`, `-Os`, `-Oz` Wasm: **36 successful Linux scenario runs**.
+The source is the working tree based on `5d1ba09`, including the new management
+codec module; saved non-document fingerprints still match after qualification.
+`target/qualification/platform-021-0176/` retains the patch, source hashes, focused
+and tooling logs. Its `live/jobs-recovery.tGksOx/` directory retains all four tested
+artifacts/hashes, Testkit selection, lock/snapshot and server/test logs. Release,
+publication and consumer-tooling fixtures, formatting and dependency checks pass.
+
+Earlier Host 0.29 qualification passed eight live scenarios on original, `-O3`,
+`-Os`, `-Oz` Wasm (32 runs), retained in `target/qualification/host-029-0176/`.
+The subsequent Host 0.30 focused evidence is in
+`target/qualification/host-030-0176/`. Those receipts retain their tested sources;
+they do not qualify this later runtime/protocol cut. Native macOS, hosted matrices
+and full CI remain separate from local focused and explicit live checks.
+
+The reviewed Shared Tooling **0.25.0** snapshot remains bound to committed source
 `b66071bcd14da7086cc234a7ddf6c1223b41c3b9`; this is not a claim of a tagged
 Shared release. The canonical exporter refreshed 114 files, retired both Perl
 Cargo editors and added Shared's preparation transaction. Jobs selects the
@@ -16,8 +56,8 @@ allowance. Fresh release preflight prepares the editor after source admission;
 maintainers need no shell exports. Saved preparation selects from its admitted
 source's committed lock without installing or fetching against live metadata.
 CI and standalone offline fixtures prepare it separately from common tools.
-The adapter and actual local
-release fixtures use that editor; no release or upload runs in this checkout.
+The adapter and actual local release fixtures use that editor. This batch ran no
+release or upload in the real checkout.
 
 The capture CLI now uses Clap; original/optimizer invocations and evidence
 ordering remain intact. Shared owns grouped-formatting defaults, so the duplicate
@@ -25,24 +65,12 @@ Make commands are removed. Dependency-role headers live only in the root catalog
 Tracked files and package assets have no symlinks; admitted tool-store pointers
 and isolated rejection fixtures retain their existing purpose.
 
-The remaining management/fault-control Candid RPCs were inspected. Migrating
-those existing message contracts is a separate consumer cut, not silently part
-of this tooling adoption. Delivery already uses Wire; the new baseline's
-preference does not establish that the remaining controlled RPC migration is
-complete. No new Candid use or fallback is introduced here.
-
-Earlier adoption qualification passed all four capture/CLI tests on Rust 1.91.
-The release-entrypoint follow-up admits the lock-selected Build 0.20.0 editor
-and passes Jobs' release/publication fixtures, including actual local
-Git delivery/resume with substituted gate/registry/upload effects. Hook,
-formatting-evidence, consumer-tooling, graph, boundary/pin and formatting checks
-retain the earlier adoption evidence. The follow-up proves fresh editor setup
-without exports, failed-check refusal despite a printed path, saved-lock selection
-with an unreadable live lock, and missing-editor recovery without installation,
-fetching or repeated validation. Snapshot integrity, release command substitution,
-ShellCheck and 327 local documentation references pass. The package inventory
-and regular LICENSE copy were inspected during the earlier adoption. Native
-macOS, full CI and installed-IC recovery are not qualified by this batch.
+Earlier adoption evidence separately covers hooks, formatting-evidence collection,
+ShellCheck, package inventory and the regular LICENSE copy. The current release
+fixture rerun still proves setup without exports, failed-check refusal despite a
+printed path, saved-lock selection with unreadable live metadata and recovery
+without installation, fetching or repeated validation. Historical receipts below
+remain bound to their own source and dependency selections.
 
 ### Delivered delivery cut and earlier evidence
 
@@ -141,24 +169,26 @@ The separate fixture paths are intentional:
 
 ## Dependency and tooling boundaries
 
-Platform `candid` serves management DTOs and finite decoders; `cdk` is enabled only
-on Wasm. Ordinary native consumer builds expose DTOs and delivery identities/limits
-with Platform, Wire and Serde.
-Jobs, Memory, Timers and JSON are declared for Wasm and development only, matching
-the existing queue module gate. The native normal/build graph excludes
-these integrations and their runtime/storage branches. Recovery uses Platform's
-Serde contract export instead of a separate direct Serde declaration. The full
-IC executable bundle remains explicitly selected for installation and admission.
-The published generator routes generated paths through Platform and preserves
-CDK's protected-spawn unfinished-task panic. Testkit shares Platform's decoder
-identities. There are no direct Candid/CDK, Platform generator, raw stable-substrate
-or retired Testkit decoder declarations. Upstream packages remain transitive;
-the qualification Wasm still uses CDK 0.20.3, executor 2.0.0 and ic0 1.2.0.
-Host parsing, Agent and unused crypto/certification capabilities are not selected.
-Core and consumer Rust floors remain **1.91**; development is **1.99.1**.
+Platform `cdk` is enabled only on Wasm; the application selects no Candid
+capability. Jobs, Memory, Timers and JSON remain Wasm/development dependencies.
+The native consumer normal/build graph excludes those integrations and runtime
+branches. The recovery harness uses direct Serde bounds and Testkit-owned raw
+PocketIC transport with Wire frames; no decoder-type conversion crosses the two
+released Platform versions. Principal retains its upstream identity.
+
+The generator/runtime preserve protected spawning and trap behavior while
+removing full `ic-cdk` from the qualification Wasm. The graph requires two
+Platform versions (the owned 0.2 runtime and released Timers' 0.1 exports), but
+only one Platform macro, Timers, registry executor and raw-system identity.
+Candid, full CDK, parser, Agent and host tooling are refused in that Wasm graph.
+There are no direct Candid/CDK, generator or retired decoder declarations.
+Host 0.30 direct dependencies disable defaults; only development test support is
+selected. Testkit retains Host 0.29, while Build 0.22 uses Host 0.30. The full IC
+bundle remains explicit. Core and consumer floors stay **1.91**; development is
+**1.99.1**. Published Jobs' Serde-only API/runtime boundary is unchanged.
 
 The snapshot records reviewed 0.25.0 source
-`2a79f5f93383f3d2a8a38d65406c7d52c2f77913`. Canonical payloads remain managed
+`b66071bcd14da7086cc234a7ddf6c1223b41c3b9`. Canonical payloads remain managed
 through Shared Tooling, with product IC tools explicitly selected in Jobs.
 `ci/release-delivery.txt` is the sole direct-delivery declaration. Publication
 remains a separately authorized operation.
@@ -216,13 +246,13 @@ Candid row. It now perturbs the adjacent `ic-build`/`ic-host-fs` declarations.
 release/resume and publication eligibility/ordering with disposable Git repositories
 and substituted validation/registry effects. No actual release or upload ran.
 
-The small optimizer-status projection and panic containment around install-failure
-diagnostics remain necessary with selected Host/Testkit APIs. Keep those policies
-local until an available upstream interface preserves their contracts; existing
-proposals are [#52](https://github.com/dragginzgame/ic-jobs/issues/52) and
-[#63](https://github.com/dragginzgame/ic-jobs/issues/63). Available sibling sources
-verify capability ownership, not deployed usage or final Canic/IcyDB composition.
+The selected Host/Testkit releases now supply the status projection and contained
+diagnostic writer previously tracked in
+[#52](https://github.com/dragginzgame/ic-jobs/issues/52) and
+[#63](https://github.com/dragginzgame/ic-jobs/issues/63). Jobs keeps its CLI fallback,
+error precedence and optimizer recipe. This local adoption changes neither
+sibling ownership nor deployed consumer composition.
 
-Eight live recovery scenarios remain explicitly gated. Full CI, native macOS and
-installed-IC recovery are not run by this batch. Earlier receipts qualify only
-their tested sources and do not establish those outstanding observations.
+Live recovery retains its explicit gate; the current results and source identities
+are recorded above. Earlier receipts qualify only their tested
+sources and do not establish current native macOS or hosted acceptance.

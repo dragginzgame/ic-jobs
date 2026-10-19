@@ -1,6 +1,6 @@
 use super::*;
 use crate::api::{Delivery, DeliveryPayload};
-use ic_platform::{Principal, candid::contract::encode_one};
+use ic_platform::Principal;
 use ic_wire::native;
 
 fn delivery() -> Delivery {
@@ -44,9 +44,9 @@ fn requests_preserve_the_envelope_and_reject_other_protocols() {
             native::decode_request::<Delivery>(method, &trailing, REQUEST_LIMITS),
             Err(ic_wire::Error::Trailing)
         );
-        let candid = encode_one(&delivery).unwrap();
+        let candid = include_bytes!("../../tests/fixtures/api-pre-platform.didbin");
         assert_eq!(
-            native::decode_request::<Delivery>(method, &candid, REQUEST_LIMITS),
+            native::decode_request::<Delivery>(method, candid, REQUEST_LIMITS),
             Err(ic_wire::Error::Identity)
         );
         // A redundant zero group decodes to job 1 but is not canonical Postcard.
@@ -106,7 +106,7 @@ fn replies_preserve_exact_evidence_and_distinguish_absence_from_failure() {
         );
     }
     // Both the previous nested contract and the older flat envelope are refused.
-    let candid = encode_one(Ok::<_, Error>(&delivery)).unwrap();
+    let candid = include_bytes!("../../tests/fixtures/api-pre-platform.didbin");
     assert_eq!(decode_reply::<Delivery, ()>(RECEIVE_ID, Ok(candid)), None);
     assert_eq!(
         decode_reply::<Delivery, ()>(

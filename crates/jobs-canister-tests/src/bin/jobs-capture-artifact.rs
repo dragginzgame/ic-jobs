@@ -1,11 +1,12 @@
 //! Jobs-owned optimizer recipe and evidence names around IC Build's exact capture.
 use clap::{Arg, Command as CliCommand, value_parser};
 use ic_build::artifacts::{CapturedArtifact, produce_and_retain_artifact};
+use ic_host_process::status::shell_status_code;
 use std::{
     ffi::OsStr,
     fs, io,
     path::{Path, PathBuf},
-    process::{Command, ExitCode, ExitStatus},
+    process::{Command, ExitCode},
 };
 
 fn capture(source: &Path, destination: &Path) -> io::Result<()> {
@@ -17,22 +18,6 @@ fn capture(source: &Path, destination: &Path) -> io::Result<()> {
         .retain_to(destination)
         .map(|_| ())
         .map_err(io::Error::other)
-}
-
-fn optimizer_exit(status: ExitStatus) -> ExitCode {
-    #[cfg(unix)]
-    use std::os::unix::process::ExitStatusExt;
-    let code = status.code().unwrap_or_else(|| {
-        #[cfg(unix)]
-        {
-            status.signal().map_or(1, |signal| 128 + signal)
-        }
-        #[cfg(not(unix))]
-        {
-            1
-        }
-    });
-    ExitCode::from(u8::try_from(code).unwrap_or(1))
 }
 
 fn optimize(
@@ -63,7 +48,8 @@ fn optimize(
                 .status()
         },
     )?;
-    Ok(optimizer_exit(status))
+    let code = shell_status_code(status).unwrap_or(1);
+    Ok(ExitCode::from(u8::try_from(code).unwrap_or(1)))
 }
 
 fn command() -> CliCommand {
@@ -254,6 +240,33 @@ mod tests {
         );
         assert_eq!(fs::read(failed.join("optimizer.log")).unwrap(), b"failed\n");
         assert!(!failed.join("consumer.wasm").exists());
+
+        let signaled = root.join("signaled");
+        fs::create_dir(&signaled).unwrap();
+        write_executable_script(
+            &optimizer,
+            b"#!/bin/sh\necho partial > \"$4\"\necho terminated >&2\nkill -TERM $$\n",
+        )
+        .unwrap();
+        assert_eq!(
+            optimize(
+                &source,
+                &signaled.join("consumer.wasm"),
+                optimizer.as_os_str(),
+                OsStr::new("-O3")
+            )
+            .unwrap(),
+            ExitCode::from(143)
+        );
+        assert_eq!(
+            fs::read(signaled.join("producer.wasm")).unwrap(),
+            b"partial\n"
+        );
+        assert_eq!(
+            fs::read(signaled.join("optimizer.log")).unwrap(),
+            b"terminated\n"
+        );
+        assert!(!signaled.join("consumer.wasm").exists());
 
         write_executable_script(&optimizer, b"#!/bin/sh\ncat \"$1\" > \"$4\"\n").unwrap();
         let refused = root.join("refused");

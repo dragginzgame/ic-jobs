@@ -6,6 +6,6 @@ incoming Testkit/Candid 0.52 graph. Before changing the API, the old encoder and
 decoder round-tripped `Ok([View { id: 1, task: Increment(1), status: Pending,
 due_ns: Some(100), sequence: 0, occurrence: 0 }])`.
 
-The current decoder refuses that old unit-Pending response. These bytes grant no
+The current Wire decoder refuses that old Candid response. These bytes grant no
 storage, effect-replay or conversion authority; no old response reader is kept.
 SHA-256: `11957480f84d5f722031cba17fc3b7c888c8e6bc5f78e61e173b05d097927bbc`.
