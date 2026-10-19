@@ -2,6 +2,37 @@
 
 ## Source and pending work
 
+Delivered Jobs **0.17.6**: `9d2caab`. Pending **0.17.7** adopts the maintainer's
+manifest/lock updates to Wire **0.5.0**, Testkit **0.56.0**, Platform/macros
+**0.2.2** and Metrics **0.14.8**. Testkit now shares Host **0.30.0** and Platform
+**0.2** with the workspace. The older Host packages and their capability-filesystem
+dependencies leave the lockfile; no local dependency overrides or bridges remain.
+The published Jobs API and supported Rust floor are unchanged, so this is patch
+maintenance to qualification tooling rather than a library contract break.
+
+No Rust caller changes are required. Wire's released native codec sources are
+byte-identical between 0.4.10 and 0.5.0; the finite Wire trait's new decode bounds
+do not affect our native Serde helpers. Platform's macro sources and Testkit's
+PocketIC helpers are also unchanged. Existing method IDs, limits, fixture bytes,
+stored JSON and Running/Uncertain disposition retain their contracts. Native
+Testkit still needs Candid for external simulator interfaces; qualification Wasm
+and ordinary native DTO builds continue to exclude it.
+
+Rust 1.91 passes 53 focused native tests: 28 queue/codec, one management protocol,
+19 composition, four capture/CLI and one bounded management reply. Release Wasm
+compilation, separate core/consumer MSRV and Wasm checks, strict native/Wasm
+Clippy, all four dependency graph contexts, dependency boundaries and pins pass.
+Consumer-tooling fixtures, formatting, documentation links and snapshot integrity
+also pass. The lock-selected Testkit 0.56 CLI is prepared and passes offline
+admission with the existing PocketIC 16.1.0 server bundle; no server was launched.
+Evidence in `target/qualification/deps-0177/` retains the incoming patch, input
+hashes, registry-source comparison and validation/setup logs for this working
+tree based on `9d2caab`. Full CI, native
+macOS and live recovery have not been rerun on this selection; earlier receipts
+below remain bound to their actual source and dependency graphs.
+
+### Earlier 0.17.6 preparation and qualification
+
 The dependency-graph repair is based on clean local commit `201d34b`. Its lock
 selects Timers **0.29.3** and Wire **0.4.10**. Timers now uses Platform **0.2.1**,
 so the qualification Wasm has one Platform identity. The graph gate now requires
@@ -183,17 +214,17 @@ Platform `cdk` is enabled only on Wasm; the application selects no Candid
 capability. Jobs, Memory, Timers and JSON remain Wasm/development dependencies.
 The native consumer normal/build graph excludes those integrations and runtime
 branches. The recovery harness uses direct Serde bounds and Testkit-owned raw
-PocketIC transport with Wire frames; no decoder-type conversion crosses the two
-released Platform versions. Principal retains its upstream identity.
+PocketIC transport with Wire frames. Testkit and the fixture share Platform 0.2;
+Principal retains its upstream identity and no decoder-type conversion is needed.
 
 The generator/runtime preserve protected spawning and trap behavior while
 removing full `ic-cdk` from the qualification Wasm. The graph requires one
 Platform, Platform macro, Timers, registry executor and raw-system identity;
-Timers 0.29.3 and the owned runtime share Platform 0.2.1.
+Timers 0.29.3 and the owned runtime share Platform 0.2.2.
 Candid, full CDK, parser, Agent and host tooling are refused in that Wasm graph.
 There are no direct Candid/CDK, generator or retired decoder declarations.
 Host 0.30 direct dependencies disable defaults; only development test support is
-selected. Testkit retains Host 0.29, while Build 0.22 uses Host 0.30. The full IC
+selected. Testkit 0.56 and Build 0.22 share Host 0.30. The full IC
 bundle remains explicit. Core and consumer floors stay **1.91**; development is
 **1.99.1**. Published Jobs' Serde-only API/runtime boundary is unchanged.
 

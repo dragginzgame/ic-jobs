@@ -137,7 +137,7 @@ On Wasm, Platform 0.2's `cdk` feature supplies explicit-codec entrypoints, raw c
 system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
 2.0.0 and ic0 1.2.0 remain shared with Timers 0.29.3 through their single Platform
-0.2.1 dependency. No timer, task or storage owner is replaced by this adoption.
+0.2 dependency. No timer, task or storage owner is replaced by this adoption.
 Native Testkit keeps its own published Platform/Candid dependencies for external
 simulator interfaces. The [workspace catalog](../../Cargo.toml),
 [lockfile](../../Cargo.lock) and [handoff](../../docs/status/current.md) own

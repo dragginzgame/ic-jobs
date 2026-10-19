@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.7]
+
+- Adopt Wire 0.5.0, Testkit 0.56.0 and Platform 0.2.2 for qualification tooling.
+  Testkit now shares Host 0.30 and Platform 0.2 with the workspace, removing the
+  older Host capability-filesystem dependency chain. Existing fixture Wire bytes,
+  method identities, stored JSON and the published Jobs API remain unchanged.
+
 ## [0.17.6] - 2026-10-19
 
 - Require one Platform identity in the qualification Wasm graph now that Timers

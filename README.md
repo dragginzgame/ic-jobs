@@ -59,7 +59,7 @@ application's selected target graph and source rather than counting manifests.
 For example, inspect the qualification Wasm's paths with:
 
 ```sh
-cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.2.1 --locked --offline
+cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform --locked --offline
 cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-cdk-executor --locked --offline
 ```
 
@@ -88,7 +88,7 @@ harness together. Existing delivery identities and stored JSON do not change;
 Running/Uncertain effects still require explicit disposition and exact evidence.
 The [consumer guide](apps/job-consumer/README.md) describes the boundaries, and the
 [handoff](docs/status/current.md) records qualification by source. Native Testkit
-still uses its released Platform 0.1 dependency for external simulator interfaces;
+uses the shared Platform 0.2 dependency for external simulator interfaces;
 there is no local decoder-type conversion or replacement transport.
 
 For the production library, locked normal/build graphs on native Linux and Wasm,
@@ -110,7 +110,7 @@ in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
 host-only packages, Candid and full CDK. It requires one Timers, executor,
 raw-system, Platform and Platform-macro identity. Timers 0.29.3 and the fixture
-share Platform 0.2.1 in the qualification Wasm. A fourth context excludes Jobs, Memory, Timers,
+share Platform 0.2 in the qualification Wasm. A fourth context excludes Jobs, Memory, Timers,
 JSON and the IC runtime from ordinary native consumer builds, including the
 Platform `cdk` feature.
 The policy lives in Make; Shared owns the [observation/checker](docs/cargo-graph-checks.md).
