@@ -1,4 +1,6 @@
-//! Frozen pre-Platform API bytes protect the consumer wire boundary.
+//! Frozen pre-Platform bytes protect management/DTO Candid encoding.
+//! Delivery Candid encoding supplies negative Wire inputs only; its RPCs no
+//! longer accept Candid or appear in the generated service.
 use ic_platform::{Principal, candid::contract::encode_args};
 use jobs_test_consumer::api::{
     Create, Delivery, DeliveryPayload, Error, Init, Status, Summary, Task, Timing, View,

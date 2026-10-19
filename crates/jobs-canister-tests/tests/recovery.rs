@@ -16,8 +16,10 @@ use ic_testkit::pic::{
     PocketIcDiagnosticsExt, PocketIcInstance, PocketIcStartupConfig, RejectResponse, RetryPolicy,
     advance_and_tick, query_candid_args, tick_until, update_candid_args,
 };
-use jobs_test_consumer::api::{
-    Create, DeliveryPayload, Error, Init, Status, Summary, Task, Timing, View,
+use ic_wire::native;
+use jobs_test_consumer::{
+    api::{Create, Delivery, DeliveryPayload, Error, Init, Status, Summary, Task, Timing, View},
+    delivery_wire::{RECEIPT_ID, RECEIVE_ID, REQUEST_LIMITS, RESPONSE_LIMITS},
 };
 use std::{convert::Infallible, path::PathBuf, task::Poll, time::Duration};
 
@@ -213,6 +215,108 @@ fn reply_limits_admit_the_largest_consumer_page() {
         decode_args::<((),)>(&oversized, REPLY_LIMITS),
         Err(DecodeError::ReplyTooLarge { .. })
     ));
+}
+
+#[test]
+#[ignore = "explicit PocketIC qualification; run make test-canister"]
+fn delivery_wire_endpoints_refuse_candid_and_preserve_authorized_receipts() {
+    let fixture = Fixture::new();
+    let delivery = Delivery {
+        job: 99,
+        occurrence: 0,
+        sequence: 1,
+        payload: DeliveryPayload {
+            destination: fixture.receiver,
+            message: "x".repeat(256),
+        },
+    };
+    for (method, id, other) in [
+        ("receive_delivery", RECEIVE_ID, RECEIPT_ID),
+        ("delivery_receipt", RECEIPT_ID, RECEIVE_ID),
+    ] {
+        for bytes in [
+            encode_one(&delivery).unwrap(),
+            native::encode_request(other, &delivery, REQUEST_LIMITS).unwrap(),
+            native::encode_response(id, &delivery, REQUEST_LIMITS).unwrap(),
+        ] {
+            let error = fixture
+                .pic
+                .instance
+                .update_call(fixture.receiver, fixture.sender, method, bytes)
+                .unwrap_err();
+            assert_eq!(error.error_code, ErrorCode::CanisterCalledTrap);
+            assert_eq!(fixture.summary(fixture.receiver).receipts, 0);
+        }
+        let error = fixture
+            .pic
+            .instance
+            .update_call(
+                fixture.receiver,
+                fixture.sender,
+                method,
+                vec![0; REQUEST_LIMITS.bytes + 1],
+            )
+            .unwrap_err();
+        assert_eq!(error.error_code, ErrorCode::CanisterRejectedMessage);
+        assert_eq!(fixture.summary(fixture.receiver).receipts, 0);
+    }
+    let request = native::encode_request(RECEIVE_ID, &delivery, REQUEST_LIMITS).unwrap();
+    let bytes = fixture
+        .pic
+        .instance
+        .update_call(
+            fixture.receiver,
+            Principal::anonymous(),
+            "receive_delivery",
+            request.clone(),
+        )
+        .unwrap();
+    assert_eq!(
+        native::decode_response::<Result<Delivery, Error>>(RECEIVE_ID, &bytes, RESPONSE_LIMITS)
+            .unwrap(),
+        Err(Error::Unauthorized)
+    );
+    assert_eq!(fixture.summary(fixture.receiver).receipts, 0);
+    for _ in 0..2 {
+        let bytes = fixture
+            .pic
+            .instance
+            .update_call(
+                fixture.receiver,
+                fixture.sender,
+                "receive_delivery",
+                request.clone(),
+            )
+            .unwrap();
+        assert_eq!(
+            native::decode_response::<Result<Delivery, Error>>(RECEIVE_ID, &bytes, RESPONSE_LIMITS)
+                .unwrap(),
+            Ok(delivery.clone())
+        );
+        assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
+    }
+    fixture.upgrade(fixture.receiver).unwrap();
+    let request = native::encode_request(RECEIPT_ID, &delivery, REQUEST_LIMITS).unwrap();
+    let bytes = fixture
+        .pic
+        .instance
+        .update_call(
+            fixture.receiver,
+            fixture.sender,
+            "delivery_receipt",
+            request,
+        )
+        .unwrap();
+    assert_eq!(
+        native::decode_response::<Result<Option<Delivery>, Error>>(
+            RECEIPT_ID,
+            &bytes,
+            RESPONSE_LIMITS
+        )
+        .unwrap(),
+        Ok(Some(delivery))
+    );
+    assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
 }
 
 #[test]

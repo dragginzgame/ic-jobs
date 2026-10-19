@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.17.4]
+
+- Switch the unpublished qualification consumer's two delivery RPCs from Candid
+  to bounded IC Wire frames, with no fallback. Quiesce deliveries, dispose of
+  in-flight calls and rebuild/upgrade both fixture canisters together. Stored
+  JSON, management Candid and the published Jobs API remain unchanged.
+- Refresh qualification/tooling dependencies to Build 0.18.0 and Platform 0.1.15,
+  preserving the incoming dependency updates and the core's Serde-only boundary.
+
 ## [0.17.3] - 2026-10-18
 
 - Refresh locked qualification/tooling dependencies to Platform 0.1.13,

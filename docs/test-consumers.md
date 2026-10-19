@@ -8,8 +8,9 @@ Configured CI also runs this target on the three supported hosts. The harness
 and its support modules belong to the unpublished consumer package; the core
 package has no Memory or Timers development dependency. `check-consumer` selects
 the consumer library and frozen API-wire tests separately, avoiding a second
-composition run. Protocol derives/encoding and the delivery decoder use published
-Platform. Testkit uses those same decoder limits/error types; the harness has no
+composition run. Management Candid derives/encoding use published Platform;
+delivery requests/replies use published Wire with consumer-owned identities and
+limits. Testkit uses Platform's Candid decoder limits/error types; the harness has no
 separate decoder dependency.
 
 These consumers exercise the public API without adding storage, payloads,
@@ -148,7 +149,8 @@ includes these checks without launching a server. Explicit Testkit CLI/server
 preparation and `make test-canister` select the live upgrade, rollback, watchdog
 and lost-result scenarios. Durable management now covers pause/resume,
 unstarted-occurrence rescheduling, wakeup reconstruction and real management trap
-rollback. The current seven-case harness needs source-bound live qualification;
+rollback. The current eight-case harness also checks Wire endpoint refusal,
+authorization and receipt persistence. It needs source-bound live qualification;
 historical receipts do not establish that its current graph passes. See
 [#23](https://github.com/dragginzgame/ic-jobs/issues/23). Completed
 [#11](https://github.com/dragginzgame/ic-jobs/issues/11) acceptance covers the older

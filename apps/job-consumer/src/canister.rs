@@ -10,11 +10,12 @@ use ic_timers::{
     TimerCadence, TimerIdentity, WatchdogReconcileState, WatchdogRegistration, WatchdogRunResult,
     reconcile_watchdog,
 };
+use ic_wire::native;
 
 use crate::{
     api::{Create, Delivery, Error, Init, Summary, View},
+    delivery_wire::{RECEIPT_ID, RECEIVE_ID, REQUEST_LIMITS, RESPONSE_LIMITS, decode_reply},
     queue::{Committed, Queue},
-    reply::decode_reply,
 };
 
 thread_local! {
@@ -154,11 +155,12 @@ fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error>
 }
 
 async fn delivery_confirmed(delivery: &Delivery) -> bool {
+    let bytes = required(native::encode_request(RECEIVE_ID, delivery, REQUEST_LIMITS));
     let response =
         cdk::call::Call::unbounded_wait(delivery.payload.destination, "receive_delivery")
-            .with_arg(delivery)
+            .with_raw_args(&bytes)
             .await;
-    decode_reply::<Delivery, _>(response).is_some_and(|receipt| receipt == *delivery)
+    decode_reply::<Delivery, _>(RECEIVE_ID, response).is_some_and(|receipt| receipt == *delivery)
 }
 
 async fn deliver(delivery: Delivery) {
@@ -204,7 +206,33 @@ fn dispatch_reconciled() -> Result<Vec<Delivery>, Error> {
     Ok(deliveries)
 }
 
-#[cdk::update]
+fn admit_delivery_input() -> Result<(), String> {
+    // Platform runs guards before msg_arg_data copies the complete argument.
+    if ic_platform::ic0::msg_arg_data_size() > REQUEST_LIMITS.bytes {
+        return Err("delivery request exceeds Wire frame limit".into());
+    }
+    Ok(())
+}
+
+fn decode_receive(bytes: Vec<u8>) -> Delivery {
+    required(native::decode_request(RECEIVE_ID, &bytes, REQUEST_LIMITS))
+}
+
+fn encode_receive(result: Result<Delivery, Error>) -> Vec<u8> {
+    // Encoding failure traps in the same segment as the receipt write.
+    required(native::encode_response(
+        RECEIVE_ID,
+        &result,
+        RESPONSE_LIMITS,
+    ))
+}
+
+#[cdk::update(
+    guard = "admit_delivery_input",
+    decode_with = "decode_receive",
+    encode_with = "encode_receive",
+    hidden = true
+)]
 fn receive_delivery(delivery: Delivery) -> Result<Delivery, Error> {
     if delivery.payload.destination != cdk::api::canister_self() {
         return Err(Error::ReceiptMismatch);
@@ -212,7 +240,24 @@ fn receive_delivery(delivery: Delivery) -> Result<Delivery, Error> {
     with_queue(|queue| queue.receive(cdk::api::msg_caller(), delivery))
 }
 
-#[cdk::update]
+fn decode_receipt(bytes: Vec<u8>) -> Delivery {
+    required(native::decode_request(RECEIPT_ID, &bytes, REQUEST_LIMITS))
+}
+
+fn encode_receipt(result: Result<Option<Delivery>, Error>) -> Vec<u8> {
+    required(native::encode_response(
+        RECEIPT_ID,
+        &result,
+        RESPONSE_LIMITS,
+    ))
+}
+
+#[cdk::update(
+    guard = "admit_delivery_input",
+    decode_with = "decode_receipt",
+    encode_with = "encode_receipt",
+    hidden = true
+)]
 fn delivery_receipt(delivery: Delivery) -> Result<Option<Delivery>, Error> {
     with_queue(|queue| queue.receipt(cdk::api::msg_caller(), &delivery))
 }
@@ -220,11 +265,16 @@ fn delivery_receipt(delivery: Delivery) -> Result<Option<Delivery>, Error> {
 #[cdk::update]
 async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
     let delivery = with_authorized_queue(|queue| queue.outstanding(id))?;
+    let bytes = required(native::encode_request(
+        RECEIPT_ID,
+        &delivery,
+        REQUEST_LIMITS,
+    ));
     let response =
         cdk::call::Call::unbounded_wait(delivery.payload.destination, "delivery_receipt")
-            .with_arg(&delivery)
+            .with_raw_args(&bytes)
             .await;
-    let receipt = decode_reply::<Option<Delivery>, _>(response).flatten();
+    let receipt = decode_reply::<Option<Delivery>, _>(RECEIPT_ID, response).flatten();
     let Some(receipt) = receipt else {
         return Ok(false);
     };

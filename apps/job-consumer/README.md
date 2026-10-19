@@ -5,8 +5,8 @@ in `tests/composition.rs`. Run `make test-consumers` for its 19 scenarios;
 `check-msrv` qualifies core and composition separately on Rust 1.91. Memory and
 Timers integration dependencies belong here, outside the core package tests.
 
-Ordinary native library builds expose only `api` DTOs and depend on Platform's
-Candid contract and Serde. Jobs, Memory, Timers and JSON are selected only for
+Ordinary native library builds expose `api` DTOs and `delivery_wire` identities/limits,
+and depend on Platform's Candid contract, Wire and Serde. Jobs, Memory, Timers and JSON are selected only for
 Wasm builds and native tests, so the recovery harness can share the DTOs without
 pulling in the consumer's storage or timer implementation. The existing native
 normal/build graph check enforces this boundary.
@@ -103,12 +103,25 @@ continuation performs each external call. An exact matching receipt records
 Success. Other responses remain Uncertain. No automatic retries are configured.
 Running and Uncertain records never redispatch after an upgrade.
 
-Delivery replies use Platform's native/Wasm decoder with an 8 KiB wire
-ceiling, 4 KiB header, 64 type entries and finite decoding/skipping work limits.
-These consumer-owned limits are separate from the host harness's management-page
-allowance. Transport, decode and remote application errors remain unreadable
-evidence; they do not become an authoritative absent receipt or a safe retry.
-This decoder has no PocketIC, process or server dependency.
+`receive_delivery` and `delivery_receipt` accept only IC Wire native Serde frames,
+with the method identities and limits in `delivery_wire`. Requests admit 1 KiB
+frames, 16 KiB allocation accounting, 128 nodes and depth 16. Responses admit
+8 KiB frames, 64 KiB allocation accounting, 1024 nodes and depth 16. These are
+Wire traversal allowances, not Candid decoding quotas or measured peak memory.
+An endpoint guard checks the raw request length before Platform copies it.
+The shared DTO declaration order defines the Postcard layout. Identity, direction,
+canonicality and complete consumption are checked before result admission.
+Transport, decode and remote application errors remain unreadable evidence;
+they do not become an authoritative absent receipt or a safe retry.
+The endpoints use Platform's custom decoder/encoder hooks and are hidden from
+the Candid service. Response encoding failure traps with the receipt write.
+
+This is a hard protocol cut: quiesce delivery dispatch, finish or explicitly
+dispose of in-flight calls, and rebuild/upgrade sender and receiver together
+before resuming. There is no Candid fallback. Retained jobs/receipts keep their
+JSON format and need no reset; unresolved effects still require exact evidence.
+Installation and management remain Candid. The native codec has no PocketIC,
+process or server dependency.
 API derives select Platform's explicit Candid contract path, and identities use
 its unchanged Principal type. Frozen pre-adoption API bytes qualify encoding
 parity. On Wasm, Platform's `cdk` feature supplies entrypoint generation, service
@@ -122,9 +135,10 @@ native recovery harness. The [workspace catalog](../../Cargo.toml) and
 [handoff](../../docs/status/current.md) records the qualified source. Upstream
 Candid/CDK remain transitive dependencies.
 
-The selected Platform adoption preserves the extracted service definition and Wasm export
-names against the preceding build. Native tests and cross-compilation do not
-establish callback/trap/upgrade behavior on an installed IC; the seven recovery
+The earlier Platform adoption preserved the extracted service definition and Wasm
+export names; the current delivery cut intentionally removes two methods from
+that Candid definition while retaining their callable exports. Native tests and cross-compilation do not
+establish callback/trap/upgrade behavior on an installed IC; the eight recovery
 scenarios retain their explicit live qualification gate.
 
 The receiver uses the same fixture Wasm with `delivery_sender` configured to the
@@ -168,7 +182,7 @@ make install-consumer-server
 make test-canister
 ```
 
-To qualify the selected Binaryen optimizer against the same seven live recovery
+To qualify the selected Binaryen optimizer against the same eight live recovery
 scenarios, explicitly prepare it with `make install-ic-tools`, then run
 `make test-canister-optimized`. This tests the original Wasm and its `-O3`, `-Os`
 and `-Oz` outputs using the input's declared Wasm features. The Rust capture tool
@@ -201,7 +215,7 @@ remain outside the canister and public Jobs normal Wasm dependency graphs.
 
 Select [the recovery workflow](../../.github/workflows/recovery.yml) through
 **Actions → Canister recovery → Run workflow** and choose the
-tag or branch to qualify. This manual trigger runs all seven tests on the original and
+tag or branch to qualify. This manual trigger runs all eight tests on the original and
 three optimized variants on Linux, Apple Silicon and Intel macOS.
 Ordinary push/PR CI still compiles the harness without starting
 PocketIC. See [GitHub's manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).

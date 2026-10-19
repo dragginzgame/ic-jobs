@@ -18,6 +18,14 @@ Reconcile receipts, or establish destination-side idempotency, before explicitly
 classifying it as safe to retry. A watchdog's recovery successor does not
 establish the result of an external operation.
 
+The qualification consumer's delivery RPCs use method-bound IC Wire native
+Serde frames. Candid input, wrong method/direction, malformed/noncanonical frames
+and resource-limit failures grant no result disposition. An unreadable reply
+never establishes absence or retry safety. Sender and receiver must adopt this
+protocol together after quiescing and disposing of in-flight calls. Retained JSON
+jobs and receipts are unchanged; their restoration and reconciliation obligations
+remain in force. Installation and management endpoints retain Candid.
+
 Attempt correlation rejects old replies within one retained history. It does not
 authenticate clients, prevent a consumer from overwriting a record, or distinguish
 forked/restored histories. Restoring an older backup can rewind counters: the

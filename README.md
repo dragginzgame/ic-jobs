@@ -28,7 +28,8 @@ It supplies no global queue, database, lifecycle exports or exactly-once effects
 | Payloads, authorization, stable queue and lifecycle endpoints | Consumer applications; the unpublished `apps/job-consumer` demonstrates this integration |
 | Stable allocation and fixture Cell admission | IC Memory; IC Storage supplies governed native test cells |
 | Volatile wakeups and watchdog recovery | IC Timers, called directly by the consumer |
-| Candid contracts, Principal and bounded delivery decoding | Published IC Platform; Jobs retains schemas, limits and error policy |
+| Candid management contracts and Principal | Published IC Platform; Jobs retains schemas, limits and error policy |
+| Delivery request/reply encoding and bounded decoding | Published IC Wire; Jobs retains method identities, limits and receipt policy |
 | PocketIC transport and startup | IC Testkit; call helpers share Platform decoder limits and error types |
 | Artifact retention and native filesystem/process mechanics | IC Build and IC Host; Jobs retains optimizer flags and evidence naming |
 | Common setup, formatting and release mechanics | Reviewed Shared Tooling snapshot; Jobs owns its gates, direct-delivery policy and package upload admission |
@@ -48,7 +49,7 @@ metadata checks use the same grouped policy for working and selected commits.
 | Built artifact | Candid exposure | CDK exposure |
 | --- | --- | --- |
 | Published `ic-jobs` library | None | None; normal dependencies contain only Serde |
-| Qualification `jobs_test_consumer.wasm` | Platform supplies API derives, identities and bounded replies | Platform's Wasm-only `cdk` feature supplies entrypoints/runtime; Timers and CDK share one executor |
+| Qualification `jobs_test_consumer.wasm` | Platform supplies management derives, identities and bounded replies; delivery uses Wire | Platform's Wasm-only `cdk` feature supplies entrypoints/runtime; Timers and CDK share one executor |
 | Native recovery test executable | Platform supplies DTO bounds/Principal/encoding and the decoder limits/errors consumed by Testkit | Platform's CDK frontend is enabled only for the qualification Wasm |
 | `jobs-capture-artifact` host binary | No Candid dependency in its normal/build graph | No CDK dependency in its normal/build graph |
 
@@ -67,22 +68,25 @@ The selected published boundary is IC Platform, with defaults disabled.
 The [workspace catalog](Cargo.toml) owns requirements; [Cargo.lock](Cargo.lock)
 owns the resolved versions. The [handoff](docs/status/current.md) records the
 selected adoption and its source-bound evidence.
-The qualification app selects `candid` for DTOs and bounded replies, plus `cdk`
+The qualification app selects `candid` for management DTOs and replies, plus `cdk`
 only on Wasm. The latter includes Platform's exact-pinned executor and raw-system
 capabilities. Timers consumes the same runtime identities. Ordinary native consumer
-builds expose API DTOs with Platform and Serde only; Jobs, Memory, Timers and JSON
-are Wasm/test dependencies. Native builds exclude the CDK frontend; parser,
-Agent, certification and crypto features are not selected. IC Wire-owned
-protocols remain with IC Wire.
+builds expose API DTOs and Wire delivery contracts with Platform, Wire and Serde;
+Jobs, Memory, Timers and JSON are Wasm/test dependencies. Native builds exclude the CDK frontend; parser,
+Agent, certification and crypto features are not selected. Delivery RPCs use
+Wire's native Serde frames; installation and management retain Candid.
 
 Entrypoints, service generation, calls, caller/time helpers, spawning and traps
 now use `ic_platform::cdk`. Its published generator routes generated paths through
-Platform and retains upstream decoder policy; explicit delivery/harness limits
-remain unchanged. Direct Candid/CDK declarations are removed. Upstream CDK
+Platform and retains upstream decoder policy for Candid calls. Delivery uses
+consumer-selected Wire limits. Direct Candid/CDK declarations are removed. Upstream CDK
 0.20.3, its macros and executor 2.0.0 remain transitive dependencies; this is a
 dependency ownership boundary, not upstream removal or a smaller-Wasm claim.
-Frozen pre-adoption API bytes and exact before/after extracted service definitions
-qualify wire parity. Installed callback/trap/upgrade recovery remains a separate
+Frozen pre-adoption DTO bytes still qualify their Candid encoding parity. The
+Wire-only `receive_delivery` and `delivery_receipt` endpoints are excluded from
+the Candid service. Rebuild/upgrade both fixture canisters together after
+quiescing deliveries and disposing of in-flight calls; stored JSON is unchanged.
+Installed callback/trap/upgrade recovery remains a separate
 explicit gate under [Platform #1](https://github.com/dragginzgame/ic-platform/issues/1).
 
 Testkit consumes Platform's `DecodeLimits` and `DecodeError`.

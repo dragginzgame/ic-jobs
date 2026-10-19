@@ -1,4 +1,5 @@
-//! Consumer-owned Candid boundary. JobRecord remains an internal stored value.
+//! Consumer-owned DTOs for Candid management and Wire delivery.
+//! JobRecord remains an internal stored value.
 
 use ic_platform::{Principal, candid::contract::CandidType};
 use serde::{Deserialize, Serialize};
@@ -137,7 +138,7 @@ pub struct Summary {
 }
 
 /// Refused management, storage or execution boundary.
-#[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, CandidType, Deserialize, Serialize)]
 #[candid_path("ic_platform::candid::contract")]
 pub enum Error {
     /// Caller lacks management or receiver authority.

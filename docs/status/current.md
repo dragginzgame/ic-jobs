@@ -2,28 +2,47 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.17.2**: `177a4dd4aa9a22492830839fec0ea6e42c5d234c`.
-Pending **0.17.3** adopts published Timers **0.28.1**'s completed-batch projection
-in the qualification canister and native maintenance consumer
-([#57](https://github.com/dragginzgame/ic-jobs/issues/57)), and selects development
-Rust **1.99.1** in the local toolchain and both workflows/evidence
-([#69](https://github.com/dragginzgame/ic-jobs/issues/69)). Work/deadline policies
-and trap-before-delivery ordering remain consumer-owned. Core and consumer MSRV
-selectors remain **1.91**, with separate native/Wasm qualification. These caller
-and compiler changes preserve public APIs, package versions, the locked graph
-and wire/storage formats. No release, upload, reset, conversion or deployment
-is selected.
+Delivered Jobs **0.17.3**: `8efd2444ede866e743f4d0dafe213fd04cc56de5`.
+Pending **0.17.4** switches the unpublished fixture's `receive_delivery` and
+`delivery_receipt` RPCs to published Wire **0.4.4** native Serde frames. There is
+one current protocol with separate method identities and finite request/response
+limits; Candid delivery input is refused. Installation and management stay
+Candid. The two Wire methods keep their callable exports but are omitted from
+the Candid service. Quiesce deliveries and dispose of in-flight calls before
+upgrading both fixture canisters together; retained JSON needs no reset.
 
-Both changes are integrated on `main`: [PR #71](https://github.com/dragginzgame/ic-jobs/pull/71)
+The published Jobs API, error transitions, consumer-owned storage and
+Running/Uncertain blocking rules are unchanged. This is a patch to the released
+library's qualification tooling, not a core API break. Package versions remain
+0.17.3. No release, upload, reset, conversion or deployment is selected.
+
+The incoming Build **0.18.0**, Platform **0.1.15**, cc **1.9.0** and
+find-msvc-tools **0.1.15** selections are preserved. Wire adds its published
+codec/derive and Postcard graph without changing earlier locked identities.
+Rust floors remain **1.91**, separately qualified for core and consumer; the
+development compiler remains **1.99.1**.
+
+Rust 1.91 passes 48 native consumer/codec/composition tests and the management
+reply-decoder test. All eight live tests compile but remain explicitly ignored.
+Separate core/consumer Rust 1.91 native/Wasm checks, the release Wasm build,
+strict native/Wasm Clippy, all four graph contexts, dependency boundaries/pins,
+formatting and documentation links pass. The failed
+attempt to use Rust 1.91 rustfmt made no changes; formatting uses development
+Rust 1.99.1 as selected by the repository.
+
+### Earlier acceptance (before the pending Wire cut)
+
+The earlier Timers caller and compiler changes are integrated on `main`:
+[PR #71](https://github.com/dragginzgame/ic-jobs/pull/71)
 and [PR #72](https://github.com/dragginzgame/ic-jobs/pull/72). Their complete
 Linux/Apple Silicon/Intel macOS matrices pass in [run 39140917132](https://github.com/dragginzgame/ic-jobs/actions/runs/39140917132)
 and [run 39141391926](https://github.com/dragginzgame/ic-jobs/actions/runs/39141391926).
 Retargeting #72 after #71 preserved its tested tree exactly.
 
-The separate incoming lockfile refresh selects Platform 0.1.13, Build 0.17.6,
-Host 0.27.6, Storage 0.5.4, Testkit 0.54.1 and Metrics 0.14.4. It is preserved
-and included in the pending changelog, but is outside those qualified PR graphs;
-their passing checks do not qualify these newer dependency selections.
+Delivered 0.17.3's lockfile selected Platform 0.1.13, Build 0.17.6,
+Host 0.27.6, Storage 0.5.4, Testkit 0.54.1 and Metrics 0.14.4. Those selections
+were outside the two caller/compiler PR graphs; their passing checks do not
+qualify a later dependency graph.
 
 Linux Rust 1.99.1 qualification passes 48 core, 46 consumer/composition/wire,
 four capture/recovery-decoder tests and six doctests. Rust 1.91 native/Wasm
@@ -59,7 +78,8 @@ resolution. Commit-before-dispatch ordering and error precedence are unchanged.
 
 The qualification app uses IC Memory's bounded fixture cell for durable bytes,
 IC Storage's governed cells in native integration tests, and IC Timers directly
-for volatile watchdogs. Platform owns Principal, Candid and the CDK frontend.
+for volatile watchdogs. Platform owns Principal, management Candid and the CDK
+frontend; Wire owns the delivery codec. Jobs owns its two method IDs and limits.
 Testkit owns PocketIC transport/startup; Build owns capture/retention and Host
 supplies native mechanics. Jobs retains scenarios, limits, optimizer flags,
 evidence names and exit/error policy. Shared Tooling owns common setup/checkers;
@@ -78,10 +98,11 @@ The separate fixture paths are intentional:
 
 ## Dependency and tooling boundaries
 
-Platform `candid` serves DTOs and finite decoders; `cdk` is enabled only on Wasm.
-Ordinary native consumer builds expose only API DTOs with Platform and Serde.
+Platform `candid` serves management DTOs and finite decoders; `cdk` is enabled only
+on Wasm. Ordinary native consumer builds expose DTOs and delivery identities/limits
+with Platform, Wire and Serde.
 Jobs, Memory, Timers and JSON are declared for Wasm and development only, matching
-the existing queue/reply module gates. The native normal/build graph now excludes
+the existing queue module gate. The native normal/build graph excludes
 these integrations and their runtime/storage branches. Recovery uses Platform's
 Serde contract export instead of a separate direct Serde declaration. The full
 IC executable bundle remains explicitly selected for installation and admission.
@@ -159,6 +180,6 @@ proposals are [#52](https://github.com/dragginzgame/ic-jobs/issues/52) and
 [#63](https://github.com/dragginzgame/ic-jobs/issues/63). Available sibling sources
 verify capability ownership, not deployed usage or final Canic/IcyDB composition.
 
-Seven live recovery scenarios remain explicitly gated. Full CI, native macOS and
-installed-IC recovery are not run by this audit. Earlier receipts qualify only
+Eight live recovery scenarios remain explicitly gated. Full CI, native macOS and
+installed-IC recovery are not run by this batch. Earlier receipts qualify only
 their tested sources and do not establish those outstanding observations.

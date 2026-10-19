@@ -21,15 +21,16 @@ repository = "https://github.com/dragginzgame/ic-jobs"
 serde = "1.0"
 
 # Tests and tooling only
-ic-build = "0.17"
-ic-host-fs = "0.27"
-ic-host-process = "0.27"
+ic-build = "0.19"
+ic-host-fs = "0.28"
+ic-host-process = "0.28"
 ic-jobs = { path = "crates/ic-jobs" }
 ic-memory = "0.48"
 ic-platform = { version = "0.1.11", default-features = false }
 ic-storage = "0.5.3"
 ic-testkit = "0.54"
-ic-timers = "0.28"
+ic-timers = "0.29"
+ic-wire = "0.4.4"
 jobs-test-consumer = { path = "apps/job-consumer" }
 serde_json = "1.0"
 serde_test = "1.0"

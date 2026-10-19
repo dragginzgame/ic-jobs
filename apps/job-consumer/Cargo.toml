@@ -27,6 +27,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # Tests and tooling only
 ic-platform = { workspace = true, features = ["candid"] }
+ic-wire.workspace = true
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
