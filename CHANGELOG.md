@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.5]
+## [0.17.5] - 2026-10-19
 
 - Adopt reviewed Shared Tooling 0.25.0 source. Prepare and select the released
   IC Build metadata editor automatically for standard release commands, without
