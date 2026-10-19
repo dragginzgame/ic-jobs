@@ -2,8 +2,43 @@
 
 ## Source and pending work
 
-Delivered Jobs **0.17.3**: `8efd2444ede866e743f4d0dafe213fd04cc56de5`.
-Pending **0.17.4** switches the unpublished fixture's `receive_delivery` and
+Delivered Jobs **0.17.4**: `1808a0d`. The incoming source is `e314142`
+(Wire 0.4.5, Platform 0.1.16, Build 0.19 and Timers 0.29), with its separate
+Host 0.28.1 lockfile update preserved.
+
+Pending **0.17.5** adopts reviewed Shared Tooling **0.25.0** committed source
+`2a79f5f93383f3d2a8a38d65406c7d52c2f77913`; this is not a claim of a tagged
+Shared release. The canonical exporter refreshed 114 files, retired both Perl
+Cargo editors and added Shared's preparation transaction. Jobs selects the
+released IC Build editor through `install-release-tools`/`release-tools-check`,
+with explicit absolute-path selection and a 1 MiB per-document allowance.
+CI prepares it separately from common tools. The adapter and actual local
+release fixtures use that editor; no release or upload runs in this checkout.
+
+The capture CLI now uses Clap; original/optimizer invocations and evidence
+ordering remain intact. Shared owns grouped-formatting defaults, so the duplicate
+Make commands are removed. Dependency-role headers live only in the root catalog.
+Tracked files and package assets have no symlinks; admitted tool-store pointers
+and isolated rejection fixtures retain their existing purpose.
+
+The remaining management/fault-control Candid RPCs were inspected. Migrating
+those existing message contracts is a separate consumer cut, not silently part
+of this tooling adoption. Delivery already uses Wire; the new baseline's
+preference does not establish that the remaining controlled RPC migration is
+complete. No new Candid use or fallback is introduced here.
+
+Rust 1.91 passes all four capture/CLI tests. The installed lock-selected editor
+passes admission and Jobs' release/publication fixtures, including actual local
+Git delivery/resume with substituted gate/registry/upload effects. Hook,
+formatting-evidence and consumer-tooling fixtures pass. Snapshot integrity,
+tool admission, all four graph contexts, dependency boundaries/pins, release
+command substitution, formatting, ShellCheck and 326 local documentation links
+pass. The package inventory and regular LICENSE copy were inspected. Native
+macOS, full CI and installed-IC recovery are not qualified by this batch.
+
+### Delivered delivery cut and earlier evidence
+
+The **0.17.4** change switches the unpublished fixture's `receive_delivery` and
 `delivery_receipt` RPCs to published Wire **0.4.4** native Serde frames. There is
 one current protocol with separate method identities and finite request/response
 limits; Candid delivery input is refused. Installation and management stay
@@ -11,13 +46,13 @@ Candid. The two Wire methods keep their callable exports but are omitted from
 the Candid service. Quiesce deliveries and dispose of in-flight calls before
 upgrading both fixture canisters together; retained JSON needs no reset.
 
-The published Jobs API, error transitions, consumer-owned storage and
-Running/Uncertain blocking rules are unchanged. This is a patch to the released
-library's qualification tooling, not a core API break. Package versions remain
-0.17.3. No release, upload, reset, conversion or deployment is selected.
+That change preserves the published Jobs API, error transitions, consumer-owned
+storage and Running/Uncertain blocking rules. This is a patch to the released
+library's qualification tooling, not a core API break. The earlier receipt used
+package version 0.17.3; it does not qualify the later graph automatically.
 
-The incoming Build **0.18.0**, Platform **0.1.15**, cc **1.9.0** and
-find-msvc-tools **0.1.15** selections are preserved. Wire adds its published
+The delivery-cut receipt preserved Build **0.18.0**, Platform **0.1.15**, cc **1.9.0**
+and find-msvc-tools **0.1.15**. Wire added its published
 codec/derive and Postcard graph without changing earlier locked identities.
 Rust floors remain **1.91**, separately qualified for core and consumer; the
 development compiler remains **1.99.1**.
@@ -114,8 +149,8 @@ the qualification Wasm still uses CDK 0.20.3, executor 2.0.0 and ic0 1.2.0.
 Host parsing, Agent and unused crypto/certification capabilities are not selected.
 Core and consumer Rust floors remain **1.91**; development is **1.99.1**.
 
-The snapshot keeps its 0.24.0 annotation and exact reviewed revision
-`6eb8c41785c5156aef62f082702bd54e8ce04606`. Canonical payloads remain managed
+The snapshot records reviewed 0.25.0 source
+`2a79f5f93383f3d2a8a38d65406c7d52c2f77913`. Canonical payloads remain managed
 through Shared Tooling, with product IC tools explicitly selected in Jobs.
 `ci/release-delivery.txt` is the sole direct-delivery declaration. Publication
 remains a separately authorized operation.

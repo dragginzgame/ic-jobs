@@ -8,13 +8,12 @@ license.workspace = true
 publish = false
 
 [dependencies]
-# Tests and tooling only
+clap = { workspace = true, features = ["std", "help", "usage", "error-context"] }
 ic-build.workspace = true
 
 # Candid and PocketIC support recovery tests against the qualification canister;
 # they are not dependencies of the published ic-jobs library or capture binary.
 [dev-dependencies]
-# Tests and tooling only
 ic-host-fs = { workspace = true, features = ["test-support"] }
 ic-host-process = { workspace = true, features = ["test-support"] }
 ic-platform = { workspace = true, features = ["candid"] }

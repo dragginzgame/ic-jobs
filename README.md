@@ -120,9 +120,9 @@ raw-system rendered identity. A fourth context excludes Jobs, Memory, Timers,
 JSON and the IC runtime from ordinary native consumer builds, including the
 Platform `cdk` feature.
 The policy lives in Make; Shared owns the [observation/checker](docs/cargo-graph-checks.md).
-The snapshot selects committed topic source from
-[Shared PR #285](https://github.com/dragginzgame/shared-tooling/pull/285), not a new
-published Shared release. No normal sibling checkout is a runtime prerequisite.
+The snapshot records reviewed Shared Tooling 0.25.0 source
+`2a79f5f93383f3d2a8a38d65406c7d52c2f77913`. This is a committed source adoption,
+not a claim of a tagged Shared release. No sibling checkout is a runtime prerequisite.
 
 Remaining enforcement limits: these are explicit known-name policies for the
 selected roots/targets/features, not inference from role comments or exhaustive
@@ -158,7 +158,7 @@ selections and release/publication policy.
 
 Run `make install-tools` to prepare common host/Rust tools and Jobs' selected IC
 bundle for optimized qualification; `make tools-check` admits them offline.
-Shared Tooling 0.24.0's common Rust set contains cargo-sort and cargo-sort-derives.
+Shared Tooling's common Rust set contains cargo-sort and cargo-sort-derives.
 Jobs has no Candid extractor caller and selects no extractor installation; older
 retained installations are preserved outside the newly selected common PATH.
 For an interactive shell, prepend
@@ -177,6 +177,12 @@ its separately admitted CLI: run `make install-testkit-tools` and
 `make testkit-tools-check` when updating that selection. PocketIC setup/check and
 live execution remain separate; see [consumer qualification](apps/job-consumer/README.md).
 Common setup and ordinary CI do not launch PocketIC.
+
+Release metadata qualification additionally selects IC Build's published
+`ic-build-release-metadata` executable through `make install-release-tools` and
+offline `make release-tools-check`. See [release preparation](docs/releasing.md#preparation)
+for its explicit path and byte allowance. The capture CLI uses Clap for argument
+parsing and preserves the original/optimized capture invocation forms.
 
 ## Delivery
 

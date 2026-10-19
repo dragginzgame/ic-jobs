@@ -21,7 +21,8 @@ repository = "https://github.com/dragginzgame/ic-jobs"
 serde = "1.0"
 
 # Tests and tooling only
-ic-build = "0.19"
+clap = { version = "4.6", default-features = false }
+ic-build = "0.20"
 ic-host-fs = "0.28"
 ic-host-process = "0.28"
 ic-jobs = { path = "crates/ic-jobs" }

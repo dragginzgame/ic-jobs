@@ -11,10 +11,24 @@ crates.io.
 ## Preparation
 
 Install the complete host, IC and Rust toolsets with `make install-tools`.
-Shared metadata preparation renders workspace versions directly; cargo-edit is
-not required.
-Jobs preserves dependency-role groups with `cargo sort --workspace --grouped`
-in both formatter commands. The metadata adapter selects
+Explicitly prepare the lock-selected IC Build editor before release qualification
+or `make test-release-tooling`:
+
+```sh
+make install-release-tools
+export CARGO_RELEASE_METADATA_EDITOR="$(make --silent --no-print-directory release-tools-check)"
+export CARGO_RELEASE_METADATA_MAX_BYTES=1048576
+```
+
+The editor renders candidates without release effects; Shared owns admission,
+independent checks and restoration. The 1 MiB per-document allowance covers
+Jobs' manifests, workspace context and lockfile. Preflight refuses a missing
+selection before cache/tool preparation or validation. Common tool setup does
+not implicitly install this optional release editor. CI prepares it explicitly;
+the release fixture selects its admitted absolute path and the same allowance.
+
+Shared's default formatter preserves dependency-role groups with
+`cargo sort --workspace --grouped`. The metadata adapter selects
 `--manifest-order-grouped` for prepared, commit-preparation and committed-source
 checks. The release fixture verifies unsorted-group refusal and selection of the
 recorded commit even when the working manifest has different ordering. These

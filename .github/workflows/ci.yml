@@ -38,6 +38,8 @@ jobs:
         run: make tools-check
       - name: Prepare selected dependency cache
         run: cargo fetch --locked
+      - name: Prepare the lock-selected release metadata editor
+        run: make install-release-tools
       - name: Validate the selected graph
         id: validate
         env:

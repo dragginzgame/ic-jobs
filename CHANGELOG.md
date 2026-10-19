@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.17.5]
+
+- Adopt reviewed Shared Tooling 0.25.0 source. Select the released IC Build
+  metadata editor explicitly for release preparation and fixtures, retire the
+  Perl renderers, and use Shared's grouped-formatting defaults. Run
+  `make install-release-tools` before release qualification; see
+  [preparation](docs/releasing.md#preparation) for the required editor selection.
+- Use Clap for the unpublished capture CLI's parsing, help and argument errors,
+  preserving capture and optimizer invocations. Keep dependency-role headers in
+  the root catalog and preserve the incoming Host 0.28.1 lockfile update.
+
 ## [0.17.4] - 2026-10-19
 
 - Switch the unpublished qualification consumer's two delivery RPCs from Candid

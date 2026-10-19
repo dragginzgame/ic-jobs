@@ -6,11 +6,9 @@ override RELEASE_DELIVERY_POLICY := $(CURDIR)/ci/release-delivery.txt
 LOCAL_TOOL_INSTALL_TARGETS := install-ic-tools
 LOCAL_TOOL_CHECK_TARGETS := ic-tools-check
 export PATH := $(CURDIR)/.tools/ic/bin:$(PATH)
-# Preserve dependency-role groups in hooks, CI and release qualification alike.
-FORMAT_WRITE_COMMAND = bash -ec '"$$1" sort --workspace --grouped; "$$1" fmt --all' -- "$(FORMAT_CARGO)"
-FORMAT_CHECK_COMMAND = bash -ec '"$$1" sort --workspace --grouped --check; "$$1" fmt --all -- --check' -- "$(FORMAT_CARGO)"
 include make/consumer.mk
 TESTKIT_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release
+RELEASE_METADATA_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-build --lockfile Cargo.lock --bin ic-build-release-metadata --profile debug
 VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
 	--input .shared-tooling.snapshot --input Makefile --input ci/tool-versions.env \
 	--input ci/ic-tools.tsv --input ci/release-delivery.txt --input ci/cargo-dependency-boundaries.json \
@@ -27,6 +25,7 @@ help:
 	@echo "Hook qualification: formatting-hook-check (disposable Git copies; prepared formatters required)"
 	@echo "Registry preparation: package (offline), publish-check (registry dry run; no upload)"
 	@echo "Explicit setup: install-tools, tools-check, install-hooks"
+	@echo "Release editor: install-release-tools; release-tools-check (admitted path for explicit selection)"
 	@echo "Complete gate: ci (explicit request or configured CI)"
 	@echo "Authorized release: release-patch, release-minor, release-major (requires a configured remote)"
 	@echo "Authorized publication: publish (clean HEAD, matching pushed annotated tag; crates.io)"
@@ -102,11 +101,11 @@ check-dependency-boundaries:
 	+bash scripts/ci/check-cargo-dependency-boundaries.sh --consumer "$(CURDIR)"
 
 # Jobs owns these concrete exclusions; Shared owns observation and matching.
-CORE_GRAPH_FORBIDDEN := candid candid_derive candid_parser ic-cdk ic-cdk-macros \
+CORE_GRAPH_FORBIDDEN := clap candid candid_derive candid_parser ic-cdk ic-cdk-macros \
 	ic-cdk-executor ic-cdk-timers ic-platform ic-platform-macros ic0 ic-memory ic-stable-structures ic-storage \
 	ic-timers ic-metrics ic-wire ic-wire-derive postcard ic-build ic-host-fs ic-host-process ic-testkit \
 	ic-testkit-candid jobs-test-consumer pocket-ic serde_json serde_test
-QUALIFICATION_GRAPH_FORBIDDEN := ic-storage candid_parser ic-agent ic-build ic-host-fs \
+QUALIFICATION_GRAPH_FORBIDDEN := clap ic-storage candid_parser ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid pocket-ic tokio
 .PHONY: check-dependency-graphs
 check-dependency-graphs:
@@ -132,8 +131,17 @@ check-release-commands:
 	bash scripts/ci/check-release-commands.sh . make/consumer.mk make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh scripts/ci/check-release-delivery.sh ci/release-delivery.txt
 
 test-release-tooling: format-tools-check
-	+bash scripts/release/test-tooling.sh
+	+@editor="$$( $(RELEASE_METADATA_TOOL) --check )" && \
+		CARGO_RELEASE_METADATA_EDITOR="$$editor" CARGO_RELEASE_METADATA_MAX_BYTES=1048576 \
+		bash scripts/release/test-tooling.sh
 	+bash scripts/release/test-publication.sh
+
+.PHONY: install-release-tools release-tools-check
+install-release-tools:
+	+$(RELEASE_METADATA_TOOL)
+
+release-tools-check:
+	+@$(RELEASE_METADATA_TOOL) --check
 
 test-formatting-evidence:
 	+bash scripts/ci/test-formatting-evidence.sh

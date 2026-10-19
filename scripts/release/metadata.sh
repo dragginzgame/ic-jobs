@@ -27,6 +27,10 @@ case "$operation" in
         # Refuse conflicting pending notes before a gate or preparation intent.
         awk -v version="${RELEASE_VERSION:?}" -v previous="$RELEASE_PREVIOUS" -v date="${RELEASE_DATE:?}" \
             -f scripts/ci/finalize-release-changelog.awk CHANGELOG.md > /dev/null
+        # Select the prepared editor before cache, tool or validation effects.
+        editor="${CARGO_RELEASE_METADATA_EDITOR:?select the admitted IC Build editor}"
+        limit="${CARGO_RELEASE_METADATA_MAX_BYTES:?select a positive input allowance}"
+        [[ "$editor" == /* && -f "$editor" && -x "$editor" && "$limit" =~ ^[1-9][0-9]*$ ]] || exit 2
         # Jobs admits source/candidate first; Shared owns locked preparation,
         # selected Make execution and unchanged tool-catalog admission.
         bash "$root/scripts/ci/cargo-release-preflight.sh" "$root" 1 \

@@ -1,9 +1,10 @@
 //! Jobs-owned optimizer recipe and evidence names around IC Build's exact capture.
+use clap::{Arg, Command as CliCommand, value_parser};
 use ic_build::artifacts::{CapturedArtifact, produce_and_retain_artifact};
 use std::{
     ffi::OsStr,
     fs, io,
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, ExitCode, ExitStatus},
 };
 
@@ -40,12 +41,6 @@ fn optimize(
     optimizer: &OsStr,
     level: &OsStr,
 ) -> io::Result<ExitCode> {
-    if !["-O3", "-Os", "-Oz"]
-        .iter()
-        .any(|allowed| level == *allowed)
-    {
-        return Err(io::Error::other("expected -O3, -Os or -Oz"));
-    }
     let parent = destination
         .parent()
         .ok_or_else(|| io::Error::other("missing evidence parent"))?;
@@ -71,25 +66,58 @@ fn optimize(
     Ok(optimizer_exit(status))
 }
 
+fn command() -> CliCommand {
+    CliCommand::new("jobs-capture-artifact")
+        .about("Capture qualification Wasm and retain optimizer evidence")
+        .version(env!("CARGO_PKG_VERSION"))
+        .arg(
+            Arg::new("input")
+                .required(true)
+                .value_parser(value_parser!(PathBuf)),
+        )
+        .arg(
+            Arg::new("destination")
+                .required(true)
+                .value_parser(value_parser!(PathBuf)),
+        )
+        .arg(
+            Arg::new("optimizer")
+                .long("optimize")
+                .value_name("OPTIMIZER")
+                .requires("level")
+                .value_parser(value_parser!(PathBuf)),
+        )
+        .arg(
+            Arg::new("level")
+                .value_name("LEVEL")
+                .requires("optimizer")
+                .allow_hyphen_values(true)
+                .value_parser(["-O3", "-Os", "-Oz"]),
+        )
+}
+
 fn main() -> io::Result<ExitCode> {
-    let args: Vec<_> = std::env::args_os().collect();
-    let (status, destination) = match args.as_slice() {
-        [_, source, destination] => {
-            capture(Path::new(source), Path::new(destination))?;
-            (ExitCode::SUCCESS, destination)
-        }
-        [_, source, destination, flag, optimizer, level] if flag == "--optimize" => (
-            optimize(Path::new(source), Path::new(destination), optimizer, level)?,
+    let args = command().get_matches();
+    let source = args.get_one::<PathBuf>("input").expect("required input");
+    let destination = args
+        .get_one::<PathBuf>("destination")
+        .expect("required destination");
+    let status = if let Some(optimizer) = args.get_one::<PathBuf>("optimizer") {
+        let level = args
+            .get_one::<String>("level")
+            .expect("optimizer requires level");
+        optimize(
+            source,
             destination,
-        ),
-        _ => {
-            return Err(io::Error::other(
-                "usage: jobs-capture-artifact INPUT DESTINATION [--optimize OPTIMIZER {-O3|-Os|-Oz}]",
-            ));
-        }
+            optimizer.as_os_str(),
+            OsStr::new(level),
+        )?
+    } else {
+        capture(source, destination)?;
+        ExitCode::SUCCESS
     };
     if status == ExitCode::SUCCESS {
-        eprintln!("Retained capture: {}", Path::new(destination).display());
+        eprintln!("Retained capture: {}", destination.display());
     }
     Ok(status)
 }
@@ -99,7 +127,57 @@ mod tests {
     use super::*;
     #[cfg(unix)]
     use ic_host_process::testing::write_executable_script;
-    use std::path::PathBuf;
+
+    #[test]
+    fn cli_preserves_capture_arguments_and_requires_complete_optimizer_selection() {
+        let args = command()
+            .try_get_matches_from(["capture", "input with spaces", "out.wasm"])
+            .unwrap();
+        assert_eq!(
+            args.get_one::<PathBuf>("input").unwrap(),
+            Path::new("input with spaces")
+        );
+        assert!(args.get_one::<PathBuf>("optimizer").is_none());
+        for level in ["-O3", "-Os", "-Oz"] {
+            let args = command()
+                .try_get_matches_from([
+                    "capture",
+                    "input",
+                    "output",
+                    "--optimize",
+                    "optimizer tool",
+                    level,
+                ])
+                .unwrap();
+            assert_eq!(args.get_one::<String>("level").unwrap(), level);
+            assert_eq!(
+                args.get_one::<PathBuf>("optimizer").unwrap(),
+                Path::new("optimizer tool")
+            );
+        }
+        for args in [
+            vec!["capture", "input"],
+            vec!["capture", "input", "output", "-Oz"],
+            vec!["capture", "input", "output", "--optimize", "optimizer"],
+            vec![
+                "capture",
+                "input",
+                "output",
+                "--optimize",
+                "optimizer",
+                "--all-features",
+            ],
+        ] {
+            assert!(command().try_get_matches_from(args).is_err());
+        }
+        assert_eq!(
+            command()
+                .try_get_matches_from(["capture", "--help"])
+                .unwrap_err()
+                .kind(),
+            clap::error::ErrorKind::DisplayHelp
+        );
+    }
 
     fn fixture() -> PathBuf {
         ic_host_fs::testing::create_fixture_directory(&std::env::temp_dir(), "jobs-capture")
@@ -220,13 +298,16 @@ mod tests {
         fs::create_dir(&directory).unwrap();
         let destination = directory.join("consumer.wasm");
         assert!(
-            optimize(
-                &source,
-                &destination,
-                optimizer.as_os_str(),
-                OsStr::new("--all-features")
-            )
-            .is_err()
+            command()
+                .try_get_matches_from([
+                    OsStr::new("capture"),
+                    source.as_os_str(),
+                    destination.as_os_str(),
+                    OsStr::new("--optimize"),
+                    optimizer.as_os_str(),
+                    OsStr::new("--all-features"),
+                ])
+                .is_err()
         );
         assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
         fs::write(directory.join("producer.wasm"), b"existing evidence").unwrap();

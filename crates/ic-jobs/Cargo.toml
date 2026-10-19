@@ -13,11 +13,9 @@ readme = "README.md"
 # Keep the published scheduling model platform-neutral: Serde only, with no
 # Candid, CDK, Memory or Timers dependency. Consumers own those integrations.
 [dependencies]
-# Production dependencies
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-# Tests and tooling only
 serde_json.workspace = true
 serde_test.workspace = true
 

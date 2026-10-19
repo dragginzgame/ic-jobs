@@ -187,6 +187,18 @@ MAKE
     # direct flags and inherited controls before any cache or runner effects.
     if [[ "$kind" == patch ]]; then
         mkdir "$fixture/metadata-errors-temp"
+        # Missing/invalid editor selection must refuse before cache/setup/gate.
+        for selection in missing zero; do
+            controls=(env RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09)
+            if [[ "$selection" == missing ]]; then
+                controls=(env -u CARGO_RELEASE_METADATA_EDITOR RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09)
+            else
+                controls+=(CARGO_RELEASE_METADATA_MAX_BYTES=0)
+            fi
+            refuse "editor-$selection" "${controls[@]}" bash scripts/release/metadata.sh preflight
+            [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e .git/gate-events && ! -e .git/tool-events ]] || exit 1
+            [[ -z "$(git status --porcelain)" && -z "$(git tag)" ]] || exit 1
+        done
         # A version mismatch must stop before cache/setup or metadata writes. The real
         # reader still validates the manifest; substitute Cargo rejects later effects.
         for operation in preflight prepare; do
@@ -413,7 +425,9 @@ MAKE
     # before later dirty-source admission, without changing the selected graph.
     release_date="$(awk -v version="$candidate" '$1 == "##" && $2 == "[" version "]" { print $4; exit }' CHANGELOG.md)"
     cp Cargo.lock .git/lock-before
-    perl scripts/ci/rewrite-local-lock-versions.pl Cargo.lock "$candidate" 0.0.0 ic-jobs > .git/invalid.lock
+    "${CARGO_RELEASE_METADATA_EDITOR:?select the admitted IC Build editor}" \
+        --max-input-bytes "${CARGO_RELEASE_METADATA_MAX_BYTES:?select the input allowance}" \
+        lock Cargo.lock "$candidate" 0.0.0 ic-jobs > .git/invalid.lock
     cp .git/invalid.lock Cargo.lock
     refuse "wrong-local-version-$kind" env RELEASE_VERSION="$candidate" RELEASE_DATE="$release_date" bash scripts/release/metadata.sh check
     grep -F 'invalid coordinated workspace lock identities' "$fixture/wrong-local-version-$kind.log" > /dev/null
