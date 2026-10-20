@@ -46,8 +46,6 @@ check-consumer:
 	+cargo +1.91.0 test -p jobs-test-consumer --lib --test api_wire --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
 	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --test recovery --locked --offline
-	+cargo clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
-	+cargo clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
 
 build-consumer:
 	+cargo +1.91.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
@@ -86,6 +84,8 @@ check-wasm:
 
 clippy:
 	+cargo clippy -p ic-jobs --all-targets --all-features --locked --offline -- -D warnings
+	+cargo clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
+	+cargo clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
 
 docs-check:
 	+RUSTDOCFLAGS="-D warnings" cargo doc -p ic-jobs --all-features --locked --offline --no-deps
@@ -159,6 +159,7 @@ package:
 	+cargo package -p ic-jobs --all-features --locked --offline --allow-dirty
 
 publish-check:
+	+$(MAKE) --no-print-directory clippy
 	+cargo publish -p ic-jobs --all-features --locked --registry crates-io --allow-dirty --dry-run
 
 publish:
@@ -170,10 +171,10 @@ validation-tools-check: tools-check format-tools-check
 # Ordered recursive calls preserve admission before dependent work under -j.
 ci: shared-tooling-check
 	+bash scripts/ci/run-validation-targets.sh --fail-fast $(VALIDATION_INPUTS) \
-		validation-tools-check check-doc-links check-pins check-dependency-boundaries check-dependency-graphs check-release-commands \
+		validation-tools-check clippy check-doc-links check-pins check-dependency-boundaries check-dependency-graphs check-release-commands \
 		test-release-tooling test-formatting-evidence test-consumer-tooling \
 		formatting-hook-check fmt-check check test-jobs test-consumers \
-		check-consumer check-msrv check-wasm clippy docs-check package
+		check-consumer check-msrv check-wasm docs-check package
 
 .PHONY: release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
 version release-version:

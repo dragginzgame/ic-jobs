@@ -73,8 +73,10 @@ admits the editor offline; setup reuses
 the selected installation and does not replace older roots. Saved-release
 reconciliation precedes this preparation; saved intent bypasses fresh setup.
 Ordinary `make ci` never installs:
-it runs `validation-tools-check` before dispatching its checks/builds, including
-under parallel Make. `make test-release-tooling` admits its formatter
+it runs `validation-tools-check`, then the complete `clippy` gate before
+dispatching builds, tests and packaging, including under parallel Make. That
+gate retains core all-target/all-feature, native consumer/harness all-target,
+and Wasm consumer linting with warnings denied. `make test-release-tooling` admits its formatter
 prerequisites before starting the fixture. The validation gate remains
 offline. CI and release validation checkpoint all workspace manifests, the lock,
 toolchain, snapshot, Makefile and selected tool catalogs. A changed, missing or
@@ -152,6 +154,11 @@ tag object exists at the sole push URL selected from `RELEASE_REMOTE` (default
 `origin`). It observes the exact version at crates.io: an existing version or
 an unavailable observation blocks a new upload. Only a confirmed absent version
 permits Cargo's verified upload, with a locked graph and all features.
+
+After publication admission, `make publish` passes the same complete Clippy gate
+and rechecks source cleanliness before uploading. `make publish-check` also
+passes Clippy before its dry run. Missing offline dependencies require explicit
+`cargo fetch --locked` preparation; neither lint gate updates the lockfile.
 
 An interrupted upload must be reconciled against crates.io before retrying.
 An existing version blocks repetition; crates.io versions are immutable. An

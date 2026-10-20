@@ -21,6 +21,7 @@ unset TOOLING_GATE_FAILURE TOOLING_REGISTRY_HTTP TOOLING_UPLOAD_RESULT
 unset TOOLING_FETCH_FAILURE
 unset TOOLING_INSTALL_FAILURE TOOLING_CHECK_FAILURE TOOLING_BUILD_EVENTS
 unset TOOLING_COMMON_CHECK_FAILURE
+unset TOOLING_CLIPPY_FAILURE
 export TOOLING_EDITOR="${CARGO_RELEASE_METADATA_EDITOR:?select the admitted fixture editor}"
 unset CARGO_RELEASE_METADATA_EDITOR CARGO_RELEASE_METADATA_MAX_BYTES TOOLING_EDITOR_FAILURE
 export RUSTUP_AUTO_INSTALL=0
@@ -58,6 +59,21 @@ mkdir "$fixture/cache-bin"
 cat > "$fixture/cache-bin/cargo" <<'CARGO'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "${1:-}" == clippy ]]; then
+    printf '%s\n' "$*" >> .git/clippy-events
+    if [[ "${TOOLING_CLIPPY_FAILURE:-0}" == "$(wc -l < .git/clippy-events | tr -d ' ')" ]]; then
+        echo 'fixture Clippy failure' >&2
+        exit 37
+    fi
+    exit 0
+fi
+if [[ -n "${TOOLING_CLIPPY_FAILURE:-}" ]]; then
+    case "${1:-}" in
+        check|test|build|package|doc|publish|run|+*)
+            printf '%s\n' "$*" >> .git/validation-events
+            exit 49 ;;
+    esac
+fi
 if [[ "${1:-}" == fetch ]]; then
     printf '%s\n' "$*" >> "$TOOLING_FETCH_EVENTS"
     [[ "$*" == 'fetch --locked' ]] || { echo 'unexpected cache preparation arguments' >&2; exit 45; }
@@ -77,6 +93,11 @@ CARGO
 chmod +x "$fixture/cache-bin/cargo"
 export PATH="$fixture/cache-bin:$PATH"
 base_version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable "$root/Cargo.toml")"
+cat > "$fixture/expected-clippy" <<'CLIPPY'
+clippy -p ic-jobs --all-targets --all-features --locked --offline -- -D warnings
+clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
+clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
+CLIPPY
 
 new_repository() {
     local name="$1"
@@ -193,7 +214,11 @@ refuse() {
 for kind in patch minor major; do
     new_repository "release-$kind"
     candidate="$(bash scripts/ci/next-release-version.sh "$base_version" "$kind")"
-    printf '# Changelog\n\n## [%s]\n\n- Fixture release.\n' "$candidate" > CHANGELOG.md
+    # Qualify both accepted numbered draft spellings through Jobs' actual
+    # preflight/render/commit route, not only the shared heading parser.
+    suffix=''
+    if [[ "$kind" == patch ]]; then suffix=' - Unreleased'; fi
+    printf '# Changelog\n\n## [%s]%s\n\n- Fixture release.\n' "$candidate" "$suffix" > CHANGELOG.md
     cat >> Makefile <<'MAKE'
 
 .PHONY: tooling-nested tooling-selection
@@ -406,6 +431,21 @@ MAKE
         refuse missing-rust-parallel-ci env TOOLING_COMMON_CHECK_FAILURE=rust-tools-check \
             make -j4 --no-print-directory ci
         [[ ! -e .git/validation-events && ! -e .git/gate-events ]] || exit 1
+
+        # Exercise the actual CI orchestrator and Make recipes. Each selected
+        # lint failure must stop before any later Cargo work, even under -j.
+        cp scripts/ci/run-validation-targets.sh "$fixture/substitute-validation-runner"
+        cp "$root/scripts/ci/run-validation-targets.sh" scripts/ci/run-validation-targets.sh
+        for lint in 1 2 3; do
+            : > .git/clippy-events
+            refuse "clippy-$lint-parallel-ci" env TOOLING_CLIPPY_FAILURE="$lint" \
+                make -j4 --no-print-directory ci
+            grep -F 'fixture Clippy failure' "$fixture/clippy-$lint-parallel-ci.log" > /dev/null
+            head -n "$lint" "$fixture/expected-clippy" > "$fixture/selected-clippy"
+            cmp .git/clippy-events "$fixture/selected-clippy"
+            [[ ! -e .git/validation-events && ! -e .git/gate-events ]] || exit 1
+        done
+        cp "$fixture/substitute-validation-runner" scripts/ci/run-validation-targets.sh
         # Both preparation boundaries stop before gate or metadata mutation.
         for failure in install check; do
             if [[ "$failure" == install ]]; then controls=(TOOLING_INSTALL_FAILURE=1);
@@ -544,7 +584,7 @@ if [[ "${1:-}" == publish ]]; then
     printf '%s\n' "$*" >> "$TOOLING_UPLOAD_EVENTS"
     exit "${TOOLING_UPLOAD_RESULT:-0}"
 fi
-exec "$TOOLING_REAL_CARGO" "$@"
+exec "$TOOLING_CACHE_CARGO" "$@"
 CARGO
 cat > "$fixture/bin/curl" <<'CURL'
 #!/usr/bin/env bash
@@ -553,6 +593,7 @@ printf '%s' "${TOOLING_REGISTRY_HTTP:-404}"
 exit 0
 CURL
 chmod +x "$fixture/bin/cargo" "$fixture/bin/curl"
+export TOOLING_CACHE_CARGO="$fixture/cache-bin/cargo"
 export PATH="$fixture/bin:$PATH"
 
 # The local real-Git publication fixture owns the source/tag/destination
@@ -565,7 +606,26 @@ git restore --source=HEAD --worktree -- README.md
 refuse make-mode-n env MAKEFLAGS=-n bash scripts/release/publish.sh origin
 [[ ! -s "$TOOLING_UPLOAD_EVENTS" ]] || exit 1
 
+for lint in 1 2 3; do
+    : > .git/clippy-events
+    refuse "clippy-$lint-publication" env TOOLING_CLIPPY_FAILURE="$lint" \
+        make -j4 --no-print-directory publish
+    head -n "$lint" "$fixture/expected-clippy" > "$fixture/selected-clippy"
+    cmp .git/clippy-events "$fixture/selected-clippy"
+    [[ ! -s "$TOOLING_UPLOAD_EVENTS" ]] || exit 1
+done
+: > .git/clippy-events
+refuse clippy-dry-run env TOOLING_CLIPPY_FAILURE=3 make -j4 --no-print-directory publish-check
+cmp .git/clippy-events "$fixture/expected-clippy"
+[[ ! -s "$TOOLING_UPLOAD_EVENTS" ]] || exit 1
+: > .git/clippy-events
+make -j4 --no-print-directory publish-check > "$fixture/publication-dry-run.log" 2>&1
+cmp .git/clippy-events "$fixture/expected-clippy"
+[[ "$(cat "$TOOLING_UPLOAD_EVENTS")" == 'publish -p ic-jobs --all-features --locked --registry crates-io --allow-dirty --dry-run' ]] || exit 1
+: > "$TOOLING_UPLOAD_EVENTS"
+: > .git/clippy-events
 bash scripts/release/publish.sh origin > "$fixture/publication.log" 2>&1
+cmp .git/clippy-events "$fixture/expected-clippy"
 [[ "$(cat "$TOOLING_UPLOAD_EVENTS")" == 'publish -p ic-jobs --all-features --locked --registry crates-io' ]] || exit 1
 : > "$TOOLING_UPLOAD_EVENTS"
 refuse failed-upload env TOOLING_UPLOAD_RESULT=42 bash scripts/release/publish.sh origin

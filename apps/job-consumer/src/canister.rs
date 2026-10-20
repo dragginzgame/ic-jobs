@@ -295,8 +295,7 @@ fn encode_receive(result: Result<Delivery, Error>) -> Vec<u8> {
 #[cdk::update(
     guard = "admit_delivery_input",
     decode_with = "decode_receive",
-    encode_with = "encode_receive",
-    hidden = true
+    encode_with = "encode_receive"
 )]
 fn receive_delivery(delivery: Delivery) -> Result<Delivery, Error> {
     if delivery.payload.destination != cdk::api::canister_self() {
@@ -320,8 +319,7 @@ fn encode_receipt(result: Result<Option<Delivery>, Error>) -> Vec<u8> {
 #[cdk::update(
     guard = "admit_delivery_input",
     decode_with = "decode_receipt",
-    encode_with = "encode_receipt",
-    hidden = true
+    encode_with = "encode_receipt"
 )]
 fn delivery_receipt(delivery: Delivery) -> Result<Option<Delivery>, Error> {
     with_queue(|queue| queue.receipt(cdk::api::msg_caller(), &delivery))

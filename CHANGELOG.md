@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.17.9]
+
+The published Jobs API, Serde-only runtime dependencies and Rust 1.91 minimum
+remain unchanged. These changes affect contributor tooling and the unpublished
+qualification application.
+
+### Changed
+
+- Align Build, Host and Testkit at 0.62.0, preserving optimizer capture,
+  retained failure evidence and PocketIC lifecycle policy. Keep optional
+  filesystem backends disabled and native tooling outside the qualification
+  Wasm graph.
+- Adopt matching Memory and Storage 0.50.0 dependencies for qualification.
+  Stored formats, allocation identities and lease/reopen behavior are unchanged;
+  no backing reset or data conversion is required by this update.
+- Adopt Platform 0.5.0 and Wire 0.5.3. Remove retired no-op entrypoint options
+  while preserving handler names, Wire frames and stored JSON. PocketIC Principal
+  conversions remain explicit at application boundaries.
+- Adopt Shared Tooling 0.25.8. Run the complete core, native qualification and
+  Wasm Clippy gate before CI builds, tests, packaging and publication or its dry
+  run. Lint failures stop later stages under parallel Make.
+- Retain failed Cargo metadata diagnostics and input identities during release
+  preparation. Automatically replace numbered `- Unreleased` changelog markers
+  with the saved release date before committing the release.
+
+### Contributor setup
+
+After updating, prepare dependencies with `cargo fetch --locked`, then run
+`make install-release-tools install-testkit-tools` and
+`make release-tools-check testkit-tools-check`. Rebuild the fixture and harness
+together before explicitly selecting live IC qualification.
+
 ## [0.17.8] - 2026-10-20
 
 - Refresh the reviewed Shared Tooling snapshot to committed 0.25.4 source,
