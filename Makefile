@@ -119,7 +119,7 @@ check-dependency-graphs:
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target wasm32-unknown-unknown --all-features \
 		--require ic-timers=1 --require ic-cdk-executor=1 --require ic0=1 \
-		--require ic-platform=1 --require ic-platform-macros=1 \
+		--max-count ic-platform=2 --require ic-platform-macros=1 \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \

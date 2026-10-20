@@ -59,7 +59,7 @@ application's selected target graph and source rather than counting manifests.
 For example, inspect the qualification Wasm's paths with:
 
 ```sh
-cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform --locked --offline
+cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.4 --locked --offline
 cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-cdk-executor --locked --offline
 ```
 
@@ -70,7 +70,7 @@ selected adoption and its source-bound evidence.
 The qualification app selects Platform's `cdk` feature only on Wasm. Native
 consumer builds expose Serde DTOs and Wire contracts with Principal from Platform;
 Jobs, Memory, Timers and JSON remain Wasm/test dependencies. Parser, Agent,
-certification and crypto features are not selected. Platform 0.2 owns the reviewed
+certification and crypto features are not selected. Platform 0.4 owns the reviewed
 runtime adapters and generator; registry executor 2.0.0 and ic0 1.2.0 remain shared
 with Timers. The qualification Wasm selects neither Candid nor full `ic-cdk`.
 
@@ -88,8 +88,9 @@ harness together. Existing delivery identities and stored JSON do not change;
 Running/Uncertain effects still require explicit disposition and exact evidence.
 The [consumer guide](apps/job-consumer/README.md) describes the boundaries, and the
 [handoff](docs/status/current.md) records qualification by source. Native Testkit
-uses the shared Platform 0.2 dependency for external simulator interfaces;
-there is no local decoder-type conversion or replacement transport.
+retains Platform 0.2 for external simulator interfaces. The harness keeps the
+upstream Principal for PocketIC calls and converts explicitly to Platform 0.4's
+owned Principal when constructing application DTOs. No decoder or transport is replaced.
 
 For the production library, locked normal/build graphs on native Linux and Wasm,
 with all features selected, contain Serde and its macro dependencies and exclude
@@ -109,13 +110,15 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
 host-only packages, Candid and full CDK. It requires one Timers, executor,
-raw-system, Platform and Platform-macro identity. Timers 0.29.3 and the fixture
-share Platform 0.2 in the qualification Wasm. A fourth context excludes Jobs, Memory, Timers,
+raw-system and Platform-macro identity, with at most two Platform identities.
+The fixture selects Platform 0.4; released Timers 0.29.4 retains 0.2. The cap
+also admits a unified graph when those upstream selections converge. A fourth
+context excludes Jobs, Memory, Timers,
 JSON and the IC runtime from ordinary native consumer builds, including the
 Platform `cdk` feature.
 The policy lives in Make; Shared owns the [observation/checker](docs/cargo-graph-checks.md).
-The snapshot records reviewed Shared Tooling 0.25.0 source
-`b66071bcd14da7086cc234a7ddf6c1223b41c3b9`. This is a committed source adoption,
+The snapshot records reviewed Shared Tooling 0.25.4 source
+`db555ab6cf4a93af9a183f18d921d3b0ee97c725`. This is a committed source adoption,
 not a claim of a tagged Shared release. No sibling checkout is a runtime prerequisite.
 
 Remaining enforcement limits: these are explicit known-name policies for the

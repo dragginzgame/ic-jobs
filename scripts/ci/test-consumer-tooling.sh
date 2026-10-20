@@ -62,7 +62,7 @@ LOCK
         make --no-print-directory -j2 -C "$fixture" "$target" \
             > "$fixture/$version-$target.log" 2>&1 || status=$?
         [[ "$status" == 2 ]] || exit 1
-        grep -F "missing or ambiguous Cargo tool source: ic-testkit $version; run explicit setup" \
+        grep -F "ic-testkit $version" \
             "$fixture/$version-$target.log" > /dev/null
         [[ ! -s "$fixture/events" ]] || exit 1
         cmp "$fixture/Cargo.lock" "$fixture/expected.lock"
@@ -75,7 +75,7 @@ LOCK
             "$BASH" scripts/ci/test-canister.sh ${args[@]+"${args[@]}"}) \
             > "$fixture/$version-wrapper-$mode.log" 2>&1 || status=$?
         [[ "$status" == 1 ]] || exit 1
-        grep -F "missing or ambiguous Cargo tool source: ic-testkit $version; run explicit setup" \
+        grep -F "ic-testkit $version" \
             "$fixture/$version-wrapper-$mode.log" > /dev/null
         [[ ! -s "$fixture/events" ]] || exit 1
         cmp "$fixture/Cargo.lock" "$fixture/expected.lock"

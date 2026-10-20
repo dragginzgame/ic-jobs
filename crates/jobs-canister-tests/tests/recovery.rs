@@ -1,6 +1,6 @@
 //! Explicit live PocketIC tests. Ordinary CI compiles these without launching a server.
 
-use ic_platform::Principal;
+use ic_platform::principal::ExternalPrincipal;
 use ic_testkit::pic::{
     CanisterDiagnosticsRequest, CanisterInstallError, CanisterInstallExt, CanisterLogRenderLimits,
     ErrorCode, InstallSpec, PocketIc, PocketIcBuilder, PocketIcDiagnosticsExt, PocketIcInstance,
@@ -18,9 +18,9 @@ use std::{convert::Infallible, path::PathBuf, task::Poll, time::Duration};
 struct Fixture {
     pic: PocketIcInstance<PocketIc>,
     wasm: Vec<u8>,
-    manager: Principal,
-    sender: Principal,
-    receiver: Principal,
+    manager: ExternalPrincipal,
+    sender: ExternalPrincipal,
+    receiver: ExternalPrincipal,
 }
 
 impl Fixture {
@@ -35,16 +35,16 @@ impl Fixture {
         let pic = config
             .build_instance(PocketIcBuilder::new().with_application_subnet())
             .expect("bounded PocketIC startup");
-        let manager = Principal::self_authenticating(b"jobs-manager");
-        let install = |delivery_sender| {
+        let manager = ExternalPrincipal::self_authenticating(b"jobs-manager");
+        let install = |delivery_sender: Option<ExternalPrincipal>| {
             pic.instance
                 .try_create_and_install(InstallSpec {
                     wasm: wasm.clone(),
                     init_bytes: native::encode_request(
                         Method::Init as u64,
                         &Init {
-                            manager,
-                            delivery_sender,
+                            manager: manager.into(),
+                            delivery_sender: delivery_sender.map(Into::into),
                         },
                         control::REQUEST_LIMITS,
                     )
@@ -60,8 +60,8 @@ impl Fixture {
                         let _ = pic.instance.write_canister_diagnostics(
                             CanisterDiagnosticsRequest {
                                 canister_id: *canister_id,
-                                status_sender: Principal::anonymous(),
-                                log_sender: Principal::anonymous(),
+                                status_sender: ExternalPrincipal::anonymous(),
+                                log_sender: ExternalPrincipal::anonymous(),
                                 log_limits: CanisterLogRenderLimits::default(),
                             },
                             "install Jobs consumer",
@@ -92,7 +92,7 @@ impl Fixture {
     }
     fn update_as<T: Serialize + DeserializeOwned, A: Serialize + DeserializeOwned>(
         &self,
-        caller: Principal,
+        caller: ExternalPrincipal,
         method: Method,
         args: A,
     ) -> Result<T, RejectResponse> {
@@ -108,7 +108,7 @@ impl Fixture {
     }
     fn query<T: Serialize + DeserializeOwned, A: Serialize + DeserializeOwned>(
         &self,
-        id: Principal,
+        id: ExternalPrincipal,
         method: Method,
         args: A,
     ) -> Result<T, Error> {
@@ -125,10 +125,10 @@ impl Fixture {
     fn view(&self, id: u64) -> View {
         self.query(self.sender, Method::Inspect, (id,)).unwrap()
     }
-    fn summary(&self, id: Principal) -> Summary {
+    fn summary(&self, id: ExternalPrincipal) -> Summary {
         self.query(id, Method::Summary, ()).unwrap()
     }
-    fn upgrade(&self, id: Principal) -> Result<(), RejectResponse> {
+    fn upgrade(&self, id: ExternalPrincipal) -> Result<(), RejectResponse> {
         self.pic
             .instance
             .upgrade_canister(id, self.wasm.clone(), Vec::new(), None)
@@ -166,7 +166,7 @@ fn reply_limits_admit_the_largest_consumer_page() {
         .map(|id| View {
             id,
             task: Task::Deliver(DeliveryPayload {
-                destination: Principal::self_authenticating(b"receiver"),
+                destination: ExternalPrincipal::self_authenticating(b"receiver").into(),
                 message: "x".repeat(256),
             }),
             status: Status::Pending { due_ns: u64::MAX },
@@ -264,7 +264,7 @@ fn delivery_wire_endpoints_refuse_candid_and_preserve_authorized_receipts() {
         occurrence: 0,
         sequence: 1,
         payload: DeliveryPayload {
-            destination: fixture.receiver,
+            destination: fixture.receiver.into(),
             message: "x".repeat(256),
         },
     };
@@ -305,7 +305,7 @@ fn delivery_wire_endpoints_refuse_candid_and_preserve_authorized_receipts() {
         .instance
         .update_call(
             fixture.receiver,
-            Principal::anonymous(),
+            ExternalPrincipal::anonymous(),
             "receive_delivery",
             request.clone(),
         )
@@ -365,7 +365,7 @@ fn management_upgrade_and_real_watchdog_delivery() {
     let now = fixture.pic.instance.get_time().as_nanos_since_unix_epoch();
     let unauthorized: Result<u64, Error> = fixture
         .update_as(
-            Principal::anonymous(),
+            ExternalPrincipal::anonymous(),
             Method::Create,
             (increment(now + 20_000_000_000, 5),),
         )
@@ -407,7 +407,7 @@ fn management_upgrade_and_real_watchdog_delivery() {
                     fixture.pic.instance.get_time().as_nanos_since_unix_epoch() + 10_000_000_000,
                 ),
                 task: Task::Deliver(DeliveryPayload {
-                    destination: fixture.receiver,
+                    destination: fixture.receiver.into(),
                     message: "timer delivery".into(),
                 }),
             },),
@@ -492,7 +492,7 @@ fn watchdog_batch_trap_rolls_back_then_recovers_without_repeating_local_effects(
         fixture
             .pic
             .instance
-            .fetch_canister_logs(fixture.sender, Principal::anonymous())
+            .fetch_canister_logs(fixture.sender, ExternalPrincipal::anonymous())
             .unwrap()
             .iter()
             .any(|record| {
@@ -545,7 +545,7 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
     let input = Create {
         timing: Timing::Once(0),
         task: Task::Deliver(DeliveryPayload {
-            destination: fixture.receiver,
+            destination: fixture.receiver.into(),
             message: "retained external effect".into(),
         }),
     };
@@ -584,7 +584,7 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
             (Create {
                 timing: Timing::Once(0),
                 task: Task::Deliver(DeliveryPayload {
-                    destination: fixture.receiver,
+                    destination: fixture.receiver.into(),
                     message: "never sent".into(),
                 }),
             },),
@@ -762,13 +762,13 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
         .unwrap();
     for method in [Method::Pause, Method::Resume] {
         let denied: Result<(), Error> = fixture
-            .update_as(Principal::anonymous(), method, (id,))
+            .update_as(ExternalPrincipal::anonymous(), method, (id,))
             .expect("PocketIC Wire call");
         assert_eq!(denied, Err(Error::Unauthorized));
     }
     let denied: Result<(), Error> = fixture
         .update_as(
-            Principal::anonymous(),
+            ExternalPrincipal::anonymous(),
             Method::Reschedule,
             (id, Timing::Once(0)),
         )

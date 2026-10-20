@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.17.8]
+
+- Refresh the reviewed Shared Tooling snapshot to committed 0.25.4 source,
+  including feature-bound tool receipts and actionable admission diagnostics.
+  Rerun `make install-tools`, `make install-release-tools` and
+  `make install-testkit-tools` before their offline checks.
+- Adopt Platform 0.4.0's owned Principal in the unpublished fixture, converting
+  explicitly at PocketIC boundaries. Preserve existing Wire frames and stored
+  JSON and raw Wire calls. Keep one executor/runtime-provider identity while
+  admitting the two released Platform versions used by the app and Timers.
+  [#70 — Use IC Wire for the unpublished job-consumer protocol and recovery harness](https://github.com/dragginzgame/ic-jobs/issues/70).
+
+- Adopt Testkit 0.57.0 and direct Host 0.31.1 dependencies in qualification
+  tooling, retaining native Wire callers, capture/error policy and consumer-owned recovery.
+  Published Jobs APIs, fixture messages and stored records remain unchanged.
+  [#52 — Adopt shared child-status projection after Host publication](https://github.com/dragginzgame/ic-jobs/issues/52),
+  [#63 — Adopt panic-safe diagnostic reporter after Testkit publication](https://github.com/dragginzgame/ic-jobs/issues/63).
+
 ## [0.17.7] - 2026-10-19
 
 - Adopt Wire 0.5.0, Testkit 0.56.0 and Platform 0.2.2 for qualification tooling.
