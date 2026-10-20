@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.9]
+## [0.17.9] - 2026-10-20
 
 The published Jobs API, Serde-only runtime dependencies and Rust 1.91 minimum
 remain unchanged. These changes affect contributor tooling and the unpublished
