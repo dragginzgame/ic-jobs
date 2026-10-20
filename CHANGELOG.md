@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.8]
+## [0.17.8] - 2026-10-20
 
 - Refresh the reviewed Shared Tooling snapshot to committed 0.25.4 source,
   including feature-bound tool receipts and actionable admission diagnostics.
