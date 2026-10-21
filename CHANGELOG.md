@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.13] - Unreleased
+## [0.17.13] - 2026-10-21
 
 - Refresh native IO observer adoption guidance for the consolidated Tooling owner.
   Qualify the replacement against the current Jobs source in isolation; retain

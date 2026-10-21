@@ -855,7 +855,7 @@ dependencies = [
 
 [[package]]
 name = "ic-jobs"
-version = "0.17.12"
+version = "0.17.13"
 dependencies = [
  "serde",
  "serde_json",
@@ -1201,7 +1201,7 @@ dependencies = [
 
 [[package]]
 name = "jobs-canister-tests"
-version = "0.17.12"
+version = "0.17.13"
 dependencies = [
  "clap",
  "ic-build",
@@ -1216,7 +1216,7 @@ dependencies = [
 
 [[package]]
 name = "jobs-test-consumer"
-version = "0.17.12"
+version = "0.17.13"
 dependencies = [
  "ic-jobs",
  "ic-memory",
