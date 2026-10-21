@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.17.11]
+
+- Adopt Platform 0.6.0 and explicitly enable `principal` for native DTOs and
+  recovery tests. Keep the published Jobs API, Rust 1.91 floor, Wire frames and
+  stored JSON unchanged; no data reset or conversion is required.
+- Retain Platform 0.5 transitively for released Timers 0.30 and native Testkit.
+  Qualify both wrappers with one executor, raw-system provider and entrypoint
+  generator; the qualification Wasm remains Candid-free.
+
 ## [0.17.10] - 2026-10-21
 
 - Adopt Shared Tooling 0.25.9: keep saved preparation when its candidate version

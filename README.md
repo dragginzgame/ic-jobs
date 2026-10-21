@@ -59,7 +59,7 @@ application's selected target graph and source rather than counting manifests.
 For example, inspect the qualification Wasm's paths with:
 
 ```sh
-cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.5 --locked --offline
+cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.6 --locked --offline
 cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-cdk-executor --locked --offline
 ```
 
@@ -68,9 +68,9 @@ The [workspace catalog](Cargo.toml) owns requirements; [Cargo.lock](Cargo.lock)
 owns the resolved versions. The [handoff](docs/status/current.md) records the
 selected adoption and its source-bound evidence.
 The qualification app selects Platform's `cdk` feature only on Wasm. Native
-consumer builds expose Serde DTOs and Wire contracts with Principal from Platform;
-Jobs, Memory, Timers and JSON remain Wasm/test dependencies. Parser, Agent,
-certification and crypto features are not selected. Platform 0.5 owns the reviewed
+consumer builds explicitly select Platform's `principal` feature for Serde DTOs
+and Wire contracts. Jobs, Memory, Timers and JSON remain Wasm/test dependencies. Parser, Agent,
+certification and crypto features are not selected. Platform 0.6 owns the reviewed
 runtime adapters and generator; registry executor 2.0.0 and ic0 1.2.0 remain shared
 with Timers. The qualification Wasm selects neither Candid nor full `ic-cdk`.
 
@@ -89,7 +89,7 @@ Running/Uncertain effects still require explicit disposition and exact evidence.
 The [consumer guide](apps/job-consumer/README.md) describes the boundaries, and the
 [handoff](docs/status/current.md) records qualification by source. Native Testkit
 uses Platform 0.5 for external simulator interfaces. The harness keeps the
-upstream Principal for PocketIC calls and converts explicitly to Platform 0.5's
+upstream Principal for PocketIC calls and converts explicitly to Platform 0.6's
 owned Principal when constructing application DTOs. No decoder or transport is replaced.
 
 For the production library, locked normal/build graphs on native Linux and Wasm,
@@ -110,11 +110,13 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
 host-only packages, Candid and full CDK. It requires one Timers, executor,
-raw-system, Platform and Platform-macro identity. The fixture and selected
-Timers 0.29.7 share Platform 0.5; the former two-version allowance is retired.
-A fourth
-context excludes Jobs, Memory, Timers,
-JSON and the IC runtime from ordinary native consumer builds, including the
+raw-system and Platform-macro identity, with at most two Platform identities.
+The fixture selects Platform 0.6; released Timers 0.30 still requires 0.5.
+Timers uses only the shared executor and raw-system interfaces, so no owned
+Principal crosses that boundary. Retire the second wrapper when a published
+Timers release adopts 0.6 and its integration is qualified here.
+A fourth context excludes Jobs, Memory, Timers, JSON and the IC runtime from
+ordinary native consumer builds, including the
 Platform `cdk` feature.
 The fifth context keeps Candid, PocketIC and Testkit out of the native capture
 binary's normal/build graph. Candid remains only in native recovery tests:

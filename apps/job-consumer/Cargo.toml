@@ -24,7 +24,7 @@ crate-type = ["cdylib", "rlib"]
 # Principal for native DTO consumers. Queue/runtime integration is Wasm or
 # test-only, matching the source module gates.
 [dependencies]
-ic-platform.workspace = true
+ic-platform = { workspace = true, features = ["principal"] }
 ic-wire.workspace = true
 serde = { workspace = true, features = ["derive"] }
 

@@ -133,11 +133,12 @@ JSON remain unchanged. Earlier Candid files are frozen negative inputs, with no
 compatibility decoder. The native consumer DTO/codec graph has no PocketIC,
 Candid, process or server dependency.
 
-On Wasm, Platform 0.5's `cdk` feature supplies explicit-codec entrypoints, raw calls,
+On Wasm, Platform 0.6's `cdk` feature supplies explicit-codec entrypoints, raw calls,
 system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
-2.0.0 and ic0 1.2.0 remain shared with Timers 0.29.6, which retains Platform 0.4.
-The application uses Platform 0.5's owned Principal; PocketIC calls retain the
+2.0.0 and ic0 1.2.0 remain shared with Timers 0.30, which retains Platform 0.5.
+Native DTOs and recovery tests explicitly select Platform 0.6's `principal`
+feature. The application uses its owned Principal; PocketIC calls retain the
 external Principal and convert explicitly when constructing application DTOs.
 Wire frames and stored JSON preserve their existing bytes; no timer, task or
 storage owner is replaced by this adoption.
