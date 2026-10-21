@@ -142,8 +142,9 @@ feature. The application uses its owned Principal; PocketIC calls retain the
 external Principal and convert explicitly when constructing application DTOs.
 Wire frames and stored JSON preserve their existing bytes; no timer, task or
 storage owner is replaced by this adoption.
-Native Testkit keeps its own published Platform/Candid dependencies for external
-simulator interfaces. The [workspace catalog](../../Cargo.toml),
+Native Testkit shares Platform 0.6 for external simulator interfaces without
+enabling its Candid adapter. PocketIC retains its required transitive Candid
+dependencies. The [workspace catalog](../../Cargo.toml),
 [lockfile](../../Cargo.lock) and [handoff](../../docs/status/current.md) own
 selection and source-bound qualification.
 

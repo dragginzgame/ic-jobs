@@ -23,6 +23,12 @@ the editor explicitly:
 make install-release-tools
 ```
 
+Build and Testkit 0.63 require their `cli` feature for executable tools. Jobs'
+Make adapters and live qualification wrapper select `--features cli` explicitly;
+library dependencies keep it disabled. Prepare the selected Testkit executable
+with `make install-testkit-tools`, then admit both tools with
+`make release-tools-check testkit-tools-check`.
+
 The editor renders candidates without release effects; Shared owns admission,
 independent checks and restoration. The 1 MiB per-document allowance covers
 Jobs' manifests, workspace context and lockfile. A failed installation or offline

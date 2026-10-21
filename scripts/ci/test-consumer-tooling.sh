@@ -90,9 +90,9 @@ cat > "$fixture/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
 #!/usr/bin/env bash
 set -euo pipefail
 case "$*" in
-    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release')
+    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --features cli')
         printf 'setup\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS" ;;
-    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --check')
+    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --features cli --check')
         printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
         echo 'selected CLI admission diagnostic' >&2
         [[ "$JOBS_CONSUMER_ADMISSION_FAILURE" == 0 ]] || exit 37

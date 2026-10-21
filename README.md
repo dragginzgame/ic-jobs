@@ -50,7 +50,7 @@ metadata checks use the same grouped policy for working and selected commits.
 | --- | --- | --- |
 | Published `ic-jobs` library | None | None; normal dependencies contain only Serde |
 | Qualification `jobs_test_consumer.wasm` | None; all owned inputs/replies use Wire | Platform's Wasm-only `cdk` runtime supplies entrypoints; upstream `ic-cdk` is absent, and Timers shares its registry executor |
-| Native recovery test executable | Testkit retains Candid for external simulator/management protocols; Jobs RPCs use Wire | Platform's `cdk` feature is enabled only for the qualification Wasm |
+| Native recovery test executable | PocketIC requires Candid for external simulator/management protocols; Jobs RPCs use Wire | Platform's `cdk` feature is enabled only for the qualification Wasm |
 | `jobs-capture-artifact` host binary | No Candid dependency in its normal/build graph | No CDK dependency in its normal/build graph |
 
 The Wasm above is an unpublished test fixture, not a production service. This
@@ -88,7 +88,7 @@ harness together. Existing delivery identities and stored JSON do not change;
 Running/Uncertain effects still require explicit disposition and exact evidence.
 The [consumer guide](apps/job-consumer/README.md) describes the boundaries, and the
 [handoff](docs/status/current.md) records qualification by source. Native Testkit
-uses Platform 0.5 for external simulator interfaces. The harness keeps the
+uses Platform 0.6 for external simulator interfaces. The harness keeps the
 upstream Principal for PocketIC calls and converts explicitly to Platform 0.6's
 owned Principal when constructing application DTOs. No decoder or transport is replaced.
 
@@ -120,8 +120,9 @@ ordinary native consumer builds, including the
 Platform `cdk` feature.
 The fifth context keeps Candid, PocketIC and Testkit out of the native capture
 binary's normal/build graph. Candid remains only in native recovery tests:
-Testkit enables Platform's external Candid/PocketIC integration, and PocketIC
-itself uses Candid management and transport DTOs. Disabling dependency defaults
+Testkit enables Platform's PocketIC integration, and PocketIC itself uses Candid
+management and transport DTOs. Testkit owns no Candid codec adapter. Disabling
+dependency defaults
 cannot remove those required edges. Jobs-owned RPCs continue to use Wire.
 The policy lives in Make; Shared owns the [observation/checker](docs/cargo-graph-checks.md).
 The snapshot records reviewed Shared Tooling 0.25.9 source

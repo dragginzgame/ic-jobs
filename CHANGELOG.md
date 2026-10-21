@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.17.12]
+
+- Adopt matching Build, Host and Testkit 0.63.0 packages. Select their required
+  `cli` feature only when preparing and checking the release editor and Testkit
+  server CLI; library dependencies retain their default features.
+- Testkit now shares Platform 0.6 and drops its Candid adapters and Metrics
+  dependency. Jobs already uses Wire calls; Candid remains required transitively
+  by PocketIC's external protocols. Published Jobs APIs, stored data and the
+  Rust 1.91 floor are unchanged.
+  [#223 — Remove Testkit-owned Candid call APIs and codec coupling](https://github.com/dragginzgame/ic-tooling/issues/223).
+- Select Memory/Storage 0.50.3 and Wire 0.5.6 for qualification.
+
+Prepare the new executables with `make install-release-tools install-testkit-tools`,
+then run `make release-tools-check testkit-tools-check` before offline tooling checks.
+
 ## [0.17.11] - 2026-10-21
 
 - Adopt Platform 0.6.0 and explicitly enable `principal` for native DTOs and

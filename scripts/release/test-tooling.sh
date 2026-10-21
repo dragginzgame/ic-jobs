@@ -135,14 +135,15 @@ set -euo pipefail
 consumer="$(cd -P . && printf '%s/.' "$PWD")"
 consumer="${consumer%/.}"
 if [[ "${1:-}" == --package ]]; then
-    [[ "${0##*/}" == install-rust-tools.sh && ( $# == 8 || $# == 9 ) ]] || exit 49
+    [[ "${0##*/}" == install-rust-tools.sh && ( $# == 10 || $# == 11 ) ]] || exit 49
     [[ "$2" == ic-build && "$3" == --lockfile && "$4" == /* && -f "$4" &&
-       "$5" == --bin && "$6" == ic-build-release-metadata && "$7" == --profile && "$8" == debug ]] || exit 49
+       "$5" == --bin && "$6" == ic-build-release-metadata && "$7" == --profile && "$8" == debug &&
+       "$9" == --features && "${10}" == cli ]] || exit 49
     # Verify selection is read from the supplied lock, including saved-source
     # recovery when live metadata cannot be parsed at all.
     yq -p toml -o json '.' "$4" | jq -e '.package[] | select(.name == "ic-build")' > /dev/null
     phase=install
-    if [[ "${9:-}" == --check ]]; then phase=check; else [[ $# == 8 ]] || exit 49; fi
+    if [[ "${11:-}" == --check ]]; then phase=check; else [[ $# == 10 ]] || exit 49; fi
     printf '%s\n' "$phase" >> .git/editor-events
     # A plausible path followed by failure must never dispatch the editor.
     printf '%s\n' "$TOOLING_EDITOR"
