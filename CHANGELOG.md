@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.12]
+## [0.17.12] - 2026-10-21
 
 - Adopt matching Build, Host and Testkit 0.63.0 packages. Select their required
   `cli` feature only when preparing and checking the release editor and Testkit
