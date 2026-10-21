@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.10]
+## [0.17.10] - 2026-10-21
 
 - Adopt Shared Tooling 0.25.9: keep saved preparation when its candidate version
   is committed without confirmed delivery, rather than silently incrementing
