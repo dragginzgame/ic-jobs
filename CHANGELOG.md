@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.14] - Unreleased
+## [0.17.14] - 2026-10-21
 
 - Use the published Testkit native IO observer for qualification and remove the
   local write counter. Keep shared reset, backing-byte and no-write assertions,
