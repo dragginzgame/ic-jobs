@@ -14,24 +14,24 @@ description = "Durable application job policies for Internet Computer canisters"
 repository = "https://github.com/dragginzgame/ic-jobs"
 
 # Shared declarations are opt-in for each member, not dependencies of every crate.
-# The published ic-jobs library uses only Serde at runtime; Candid and IC runtime
-# dependencies below support the unpublished qualification consumer and harness.
+# The published library uses only Serde at runtime. The qualification Wasm uses
+# Wire; only native PocketIC tests transitively require Candid.
 [workspace.dependencies]
 # Production dependencies
 serde = "1.0"
 
 # Tests and tooling only
 clap = { version = "4.6", default-features = false }
-ic-build = "0.62"
-ic-host-fs = { version = "0.62", default-features = false }
-ic-host-process = { version = "0.62", default-features = false }
+ic-build = "0.62.1"
+ic-host-fs = { version = "0.62.1", default-features = false }
+ic-host-process = { version = "0.62.1", default-features = false }
 ic-jobs = { path = "crates/ic-jobs" }
-ic-memory = "0.50"
-ic-platform = { version = "0.5", default-features = false }
-ic-storage = "0.50"
-ic-testkit = "0.62"
-ic-timers = "0.29"
-ic-wire = "0.5"
+ic-memory = "0.50.1"
+ic-platform = { version = "0.5.1", default-features = false }
+ic-storage = "0.50.1"
+ic-testkit = "0.62.1"
+ic-timers = "0.30"
+ic-wire = "0.5.4"
 jobs-test-consumer = { path = "apps/job-consumer" }
 serde_json = "1.0"
 serde_test = "1.0"

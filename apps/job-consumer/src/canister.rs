@@ -279,23 +279,19 @@ fn admit_delivery_input() -> Result<(), String> {
     Ok(())
 }
 
-fn decode_receive(bytes: Vec<u8>) -> Delivery {
-    required(native::decode_request(RECEIVE_ID, &bytes, REQUEST_LIMITS))
+fn decode_delivery<const ID: u64>(bytes: Vec<u8>) -> Delivery {
+    required(native::decode_request(ID, &bytes, REQUEST_LIMITS))
 }
 
-fn encode_receive(result: Result<Delivery, Error>) -> Vec<u8> {
+fn encode_delivery<T: Serialize + DeserializeOwned, const ID: u64>(result: T) -> Vec<u8> {
     // Encoding failure traps in the same segment as the receipt write.
-    required(native::encode_response(
-        RECEIVE_ID,
-        &result,
-        RESPONSE_LIMITS,
-    ))
+    required(native::encode_response(ID, &result, RESPONSE_LIMITS))
 }
 
 #[cdk::update(
     guard = "admit_delivery_input",
-    decode_with = "decode_receive",
-    encode_with = "encode_receive"
+    decode_with = "decode_delivery::<RECEIVE_ID>",
+    encode_with = "encode_delivery::<_, RECEIVE_ID>"
 )]
 fn receive_delivery(delivery: Delivery) -> Result<Delivery, Error> {
     if delivery.payload.destination != cdk::api::canister_self() {
@@ -304,22 +300,10 @@ fn receive_delivery(delivery: Delivery) -> Result<Delivery, Error> {
     with_queue(|queue| queue.receive(cdk::api::msg_caller(), delivery))
 }
 
-fn decode_receipt(bytes: Vec<u8>) -> Delivery {
-    required(native::decode_request(RECEIPT_ID, &bytes, REQUEST_LIMITS))
-}
-
-fn encode_receipt(result: Result<Option<Delivery>, Error>) -> Vec<u8> {
-    required(native::encode_response(
-        RECEIPT_ID,
-        &result,
-        RESPONSE_LIMITS,
-    ))
-}
-
 #[cdk::update(
     guard = "admit_delivery_input",
-    decode_with = "decode_receipt",
-    encode_with = "encode_receipt"
+    decode_with = "decode_delivery::<RECEIPT_ID>",
+    encode_with = "encode_delivery::<_, RECEIPT_ID>"
 )]
 fn delivery_receipt(delivery: Delivery) -> Result<Option<Delivery>, Error> {
     with_queue(|queue| queue.receipt(cdk::api::msg_caller(), &delivery))

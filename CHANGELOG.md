@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.17.10]
+
+- Adopt Shared Tooling 0.25.9: keep saved preparation when its candidate version
+  is committed without confirmed delivery, rather than silently incrementing
+  again. [#292 — Prevent committed release preparation from silently incrementing twice](https://github.com/dragginzgame/shared-tooling/issues/292).
+- Refuse publication when HEAD, workspace version or the release tag changes
+  during admission or Clippy, including changes committed to a clean tree.
+  Published Jobs APIs, stored data and consumer behavior remain unchanged.
+- Select Timers 0.29.7 for qualification, sharing Platform 0.5 with the consumer
+  and removing the older Platform identity from its locked graph.
+- Adopt Tooling 0.62.1, Memory/Storage 0.50.1 and Platform 0.5.1, retaining Wire
+  0.5.4 and the Rust 1.91 floor. Prepare the newly selected release editor and
+  Testkit CLI with `make install-release-tools install-testkit-tools`.
+- Share the delivery RPC codec hooks while preserving method identities, bounds,
+  replies and stored bytes. Retire the two-Platform graph allowance and guard
+  the native capture binary against Candid/PocketIC dependencies. Candid remains
+  required by external PocketIC protocols in native recovery tests only.
+
 ## [0.17.9] - 2026-10-20
 
 The published Jobs API, Serde-only runtime dependencies and Rust 1.91 minimum

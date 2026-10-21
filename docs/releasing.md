@@ -125,8 +125,11 @@ If validation or preflight fails, correct the source and rerun the normal releas
 command. At unchanged HEAD, interrupted preparation resumes its exact saved
 release. A normal direct-release command can instead restart preparation after a
 newer clean descendant commit records its metadata disposition, provided the
-saved attempt has no staging evidence and its destination still agrees. The
-runner archives the original plan, computes the requested increment from current
+saved attempt has no staging evidence and its destination still agrees. If that
+commit records the prepared candidate version, its annotated tag must also be
+confirmed at the saved destination, with the tagged commit included in its
+branch. Otherwise the runner keeps the original plan and refuses another bump.
+After admission, it archives the original plan, computes the increment from current
 metadata and repeats preflight and complete validation. `release-resume` remains
 exact-source recovery; staging and later phases retain exact effect reconciliation.
 See the [shared restart contract](releases.md#source-changes-after-saved-preparation-intent).
@@ -155,8 +158,10 @@ tag object exists at the sole push URL selected from `RELEASE_REMOTE` (default
 an unavailable observation blocks a new upload. Only a confirmed absent version
 permits Cargo's verified upload, with a locked graph and all features.
 
-After publication admission, `make publish` passes the same complete Clippy gate
-and rechecks source cleanliness before uploading. `make publish-check` also
+`make publish` captures HEAD, workspace version and tag object before admission,
+then passes the same complete Clippy gate. It requires those identities to remain
+unchanged and rechecks source cleanliness before uploading. A clean concurrent
+commit or tag replacement therefore also blocks upload. `make publish-check` also
 passes Clippy before its dry run. Missing offline dependencies require explicit
 `cargo fetch --locked` preparation; neither lint gate updates the lockfile.
 
@@ -175,9 +180,11 @@ uncertain observations refuse upload; validation never authorizes publication.
 
 `make test-release-tooling` uses real Git repositories and local bare remotes
 to exercise patch/minor/major preparation, exact release commits and annotated
-tags, failure before version mutation, and completed-release recovery. Publication
+tags, failure before version mutation, completed-release recovery and refusal to
+increment committed preparation whose delivery is unconfirmed. Publication
 checks cover source admission, local/remote tag identity, Make execution modes,
-registry availability and upload failure. The complete gate and registry/upload
+registry availability, release identity changes during lint and upload failure.
+The complete gate and registry/upload
 effects are substituted; the fixture performs no live release or publication.
 One common installer substitute retains Jobs catalog/root routing. Shared owns
 exhaustive common-leaf and selected-source metadata cases; Jobs keeps late

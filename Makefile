@@ -119,7 +119,7 @@ check-dependency-graphs:
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target wasm32-unknown-unknown --all-features \
 		--require ic-timers=1 --require ic-cdk-executor=1 --require ic0=1 \
-		--max-count ic-platform=2 --require ic-platform-macros=1 \
+		--require ic-platform=1 --require ic-platform-macros=1 \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \
@@ -127,6 +127,11 @@ check-dependency-graphs:
 		--forbid ic-jobs --forbid ic-memory --forbid ic-timers --forbid serde_json \
 		--forbid ic-stable-structures --forbid ic-cdk-executor --forbid ic0 --forbid ic-metrics \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
+	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-canister-tests \
+		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \
+		--forbid candid --forbid candid_derive --forbid candid_parser \
+		--forbid pocket-ic --forbid ic-testkit --forbid-feature ic-platform/candid \
+		--forbid-feature ic-platform/pocket-ic
 
 check-release-commands:
 	bash scripts/ci/check-release-commands.sh . make/consumer.mk make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh scripts/ci/check-release-delivery.sh ci/release-delivery.txt

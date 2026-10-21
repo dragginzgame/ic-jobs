@@ -21,7 +21,7 @@ unset TOOLING_GATE_FAILURE TOOLING_REGISTRY_HTTP TOOLING_UPLOAD_RESULT
 unset TOOLING_FETCH_FAILURE
 unset TOOLING_INSTALL_FAILURE TOOLING_CHECK_FAILURE TOOLING_BUILD_EVENTS
 unset TOOLING_COMMON_CHECK_FAILURE
-unset TOOLING_CLIPPY_FAILURE
+unset TOOLING_CLIPPY_FAILURE TOOLING_CLIPPY_MUTATION
 export TOOLING_EDITOR="${CARGO_RELEASE_METADATA_EDITOR:?select the admitted fixture editor}"
 unset CARGO_RELEASE_METADATA_EDITOR CARGO_RELEASE_METADATA_MAX_BYTES TOOLING_EDITOR_FAILURE
 export RUSTUP_AUTO_INSTALL=0
@@ -64,6 +64,28 @@ if [[ "${1:-}" == clippy ]]; then
     if [[ "${TOOLING_CLIPPY_FAILURE:-0}" == "$(wc -l < .git/clippy-events | tr -d ' ')" ]]; then
         echo 'fixture Clippy failure' >&2
         exit 37
+    fi
+    # Simulate concurrent edits at the last lint boundary, using real Git and
+    # coherent metadata. Upload itself remains intercepted below.
+    if [[ -n "${TOOLING_CLIPPY_MUTATION:-}" && "$(wc -l < .git/clippy-events | tr -d ' ')" == 3 ]]; then
+        version="$(bash scripts/ci/read-cargo-workspace-version.sh --stable Cargo.toml)"
+        case "$TOOLING_CLIPPY_MUTATION" in
+            head) git commit --quiet --allow-empty -m 'Fixture concurrent commit' ;;
+            version)
+                "$TOOLING_EDITOR" --max-input-bytes 1048576 \
+                    manifest Cargo.toml "$version" 0.0.0 > .git/concurrent-manifest
+                "$TOOLING_EDITOR" --max-input-bytes 1048576 \
+                    lock Cargo.lock "$version" 0.0.0 ic-jobs jobs-test-consumer jobs-canister-tests > .git/concurrent-lock
+                cp .git/concurrent-manifest Cargo.toml
+                cp .git/concurrent-lock Cargo.lock
+                git add -- Cargo.toml Cargo.lock
+                git commit --quiet -m 'Fixture concurrent version'
+                ;;
+            tag) git tag -f -a "v$version" -m 'Fixture concurrent tag replacement' ;;
+            missing-tag) git tag -d "v$version" ;;
+            dirty) printf '\nFixture concurrent edit.\n' >> README.md ;;
+            *) exit 49 ;;
+        esac
     fi
     exit 0
 fi
@@ -500,6 +522,33 @@ MAKE
     [[ -z "$(git status --porcelain)" ]] || exit 1
 done
 
+# A clean commit of prepared metadata does not establish release delivery. Keep
+# the original intent rather than silently incrementing past its untagged version.
+new_repository committed-undelivered
+candidate="$(bash scripts/ci/next-release-version.sh "$base_version" patch)"
+printf '# Changelog\n\n## [%s]\n\n- Fixture release.\n' "$candidate" > CHANGELOG.md
+commit_source
+base="$(git rev-parse HEAD)"
+if [[ "${CARGO_NET_OFFLINE:-false}" == true ]]; then touch "$TOOLING_CACHE_READY"; fi
+refuse interrupted-preparation env TOOLING_EDITOR_FAILURE=saved-check make --no-print-directory release-patch
+[[ "$(tail -n 1 ".git/release-state/$candidate.plan")" == prepare ]] || exit 1
+RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09 \
+    RELEASE_PREPARATION_SOURCE="$base" bash scripts/release/metadata.sh prepare > "$fixture/committed-preparation.log" 2>&1
+git add -- Cargo.toml Cargo.lock CHANGELOG.md
+git commit --quiet -m 'Fixture committed preparation without delivery'
+committed_preparation="$(git rev-parse HEAD)"
+cp ".git/release-state/$candidate.plan" "$fixture/undelivered.plan"
+cp .git/gate-events "$fixture/undelivered-gate-events"
+cp .git/tool-events "$fixture/undelivered-tool-events"
+refuse committed-undelivered make --no-print-directory release-patch
+grep -F 'delivery is unconfirmed' "$fixture/committed-undelivered.log" > /dev/null
+cmp ".git/release-state/$candidate.plan" "$fixture/undelivered.plan"
+cmp .git/gate-events "$fixture/undelivered-gate-events"
+cmp .git/tool-events "$fixture/undelivered-tool-events"
+[[ "$(git rev-parse HEAD)" == "$committed_preparation" && -z "$(git status --porcelain)" && -z "$(git tag)" ]] || exit 1
+[[ "$(find .git/release-state -name '*.plan' -print)" == ".git/release-state/$candidate.plan" ]] || exit 1
+[[ "$(git -C "$repository.git" rev-parse refs/heads/main)" == "$base" ]] || exit 1
+
 # Interrupt at saved preparation before rendering. Recovery must use the saved
 # lock, need no environment exports and never install or fetch against live bytes.
 new_repository editor-recovery
@@ -613,6 +662,27 @@ for lint in 1 2 3; do
     head -n "$lint" "$fixture/expected-clippy" > "$fixture/selected-clippy"
     cmp .git/clippy-events "$fixture/selected-clippy"
     [[ ! -s "$TOOLING_UPLOAD_EVENTS" ]] || exit 1
+done
+
+# Clean HEAD/version/tag changes can evade a cleanliness-only post-lint check.
+# Keep every refused mutation inside this disposable publication checkout.
+publication_commit="$(git rev-parse HEAD)"
+publication_tag="$(git rev-parse "$tag")"
+for mutation in head version tag missing-tag dirty; do
+    : > .git/clippy-events
+    refuse "clippy-mutation-$mutation" env TOOLING_CLIPPY_MUTATION="$mutation" \
+        make -j4 --no-print-directory publish
+    cmp .git/clippy-events "$fixture/expected-clippy"
+    [[ ! -s "$TOOLING_UPLOAD_EVENTS" ]] || exit 1
+    case "$mutation" in
+        head|version|tag)
+            grep -F 'release identity changed' "$fixture/clippy-mutation-$mutation.log" > /dev/null ;;
+    esac
+    if [[ "$mutation" == version ]]; then
+        "$TOOLING_REAL_CARGO" metadata --locked --offline --no-deps --format-version 1 > "$fixture/concurrent-version-metadata.json"
+    fi
+    git reset --quiet --hard "$publication_commit"
+    git update-ref "$tag" "$publication_tag"
 done
 : > .git/clippy-events
 refuse clippy-dry-run env TOOLING_CLIPPY_FAILURE=3 make -j4 --no-print-directory publish-check

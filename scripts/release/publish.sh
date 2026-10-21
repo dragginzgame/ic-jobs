@@ -13,8 +13,22 @@ root="${BASH_SOURCE[0]}"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
 cd "$root"
+# Capture identity before admission so network observations and linting must
+# authorize the same release. Source admission still precedes metadata reads.
+bash "$root/scripts/ci/check-make-execution.sh"
+bash "$root/scripts/ci/check-release-source.sh"
+commit="$(git rev-parse --verify HEAD)"
+version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable Cargo.toml)"
+tag="refs/tags/v$version"
+tag_object="$(git rev-parse --verify "$tag")"
 bash "$root/scripts/release/check-publication.sh" "$remote"
 "${RELEASE_MAKE:-make}" --no-print-directory -C "$root" clippy
-# Lint compilation must not let newly edited source pass the upload boundary.
+current_commit="$(git rev-parse --verify HEAD)"
+current_version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable Cargo.toml)"
+current_tag="$(git rev-parse --verify "$tag")"
+[[ "$current_commit" == "$commit" && "$current_version" == "$version" && "$current_tag" == "$tag_object" ]] || {
+    echo 'publication refused: release identity changed during admission or lint; upload has not started' >&2
+    exit 1
+}
 bash "$root/scripts/ci/check-release-source.sh"
 cargo publish -p ic-jobs --all-features --locked --registry crates-io

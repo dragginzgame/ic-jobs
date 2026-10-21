@@ -110,15 +110,20 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
 host-only packages, Candid and full CDK. It requires one Timers, executor,
-raw-system and Platform-macro identity, with at most two Platform identities.
-The fixture selects Platform 0.5; released Timers 0.29.6 retains 0.4. The cap
-also admits a unified graph when those upstream selections converge. A fourth
+raw-system, Platform and Platform-macro identity. The fixture and selected
+Timers 0.29.7 share Platform 0.5; the former two-version allowance is retired.
+A fourth
 context excludes Jobs, Memory, Timers,
 JSON and the IC runtime from ordinary native consumer builds, including the
 Platform `cdk` feature.
+The fifth context keeps Candid, PocketIC and Testkit out of the native capture
+binary's normal/build graph. Candid remains only in native recovery tests:
+Testkit enables Platform's external Candid/PocketIC integration, and PocketIC
+itself uses Candid management and transport DTOs. Disabling dependency defaults
+cannot remove those required edges. Jobs-owned RPCs continue to use Wire.
 The policy lives in Make; Shared owns the [observation/checker](docs/cargo-graph-checks.md).
-The snapshot records reviewed Shared Tooling 0.25.8 source
-`0a2d2ee3b5e0ae77755c2915ac28836d4d5ba359`. This is a committed source adoption,
+The snapshot records reviewed Shared Tooling 0.25.9 source
+`85aded191d85ac4a8c0e5deab207f6be18895862`. This is a committed source adoption,
 not a claim of a tagged Shared release. No sibling checkout is a runtime prerequisite.
 
 Remaining enforcement limits: these are explicit known-name policies for the
