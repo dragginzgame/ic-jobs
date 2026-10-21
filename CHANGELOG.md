@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.11]
+## [0.17.11] - 2026-10-21
 
 - Adopt Platform 0.6.0 and explicitly enable `principal` for native DTOs and
   recovery tests. Keep the published Jobs API, Rust 1.91 floor, Wire frames and
