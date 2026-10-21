@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.13] - Unreleased
+
+- Refresh native IO observer adoption guidance for the consolidated Tooling owner.
+  Qualify the replacement against the current Jobs source in isolation; retain
+  the local wrapper until the supplying registry package is published.
+  [#56 — Adopt canonical Testkit memory IO observer after publication](https://github.com/dragginzgame/ic-jobs/issues/56).
+
 ## [0.17.12] - 2026-10-21
 
 - Adopt matching Build, Host and Testkit 0.63.0 packages. Select their required
