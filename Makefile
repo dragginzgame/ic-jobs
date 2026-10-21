@@ -105,9 +105,9 @@ check-dependency-boundaries:
 CORE_GRAPH_FORBIDDEN := clap candid candid_derive candid_parser ic-cdk ic-cdk-macros \
 	ic-cdk-executor ic-cdk-timers ic-platform ic-platform-macros ic0 ic-memory ic-stable-structures ic-storage \
 	ic-timers ic-metrics ic-wire ic-wire-derive postcard ic-build ic-host-fs ic-host-process ic-testkit \
-	ic-testkit-candid jobs-test-consumer pocket-ic serde_json serde_test
+	ic-testkit-candid ic-testkit-native jobs-test-consumer pocket-ic serde_json serde_test
 QUALIFICATION_GRAPH_FORBIDDEN := clap ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
-	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid pocket-ic tokio
+	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native pocket-ic tokio
 # Timers 0.30 retains Platform 0.5; the fixture selects 0.6. Keep a single
 # executor, raw-system provider and entrypoint generator across those wrappers.
 .PHONY: check-dependency-graphs

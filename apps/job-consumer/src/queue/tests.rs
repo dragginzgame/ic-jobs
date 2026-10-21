@@ -1,6 +1,7 @@
 use super::*;
 use ic_memory::{VectorMemory, testing::memory_from_sparse_hex};
 use ic_storage::adapter::StableCell;
+use ic_testkit_native::memory::MeteredMemory;
 
 fn manager() -> Principal {
     Principal::self_authenticating(b"manager")
@@ -1079,42 +1080,18 @@ fn prior_memory_ledgers_are_refused_without_writes_or_reset() {
         // Memory owns sparse-image expansion; Jobs owns provenance and the
         // three-page ceiling of these frozen installation fixtures.
         let backing = memory_from_sparse_hex(frozen.pages, &frozen.runs, 3).unwrap();
-        let memory = CountedMemory {
-            backing,
-            writes: std::rc::Rc::new(std::cell::Cell::new(0)),
-        };
-        let before = memory.backing.borrow().clone();
+        let memory = MeteredMemory::new(backing);
+        let before = memory.backing().borrow().clone();
         for initial in [None, Some(config())] {
             assert!(matches!(
                 Queue::open(memory.clone(), initial),
                 Err(Error::Memory(_))
             ));
-            assert_eq!(memory.writes.get(), 0);
+            assert!(!memory.counts().overflowed);
+            assert_eq!(memory.counts().writes, 0);
             assert_eq!(memory.size(), frozen.pages);
-            assert_eq!(*memory.backing.borrow(), before);
+            assert_eq!(*memory.backing().borrow(), before);
         }
-    }
-}
-
-#[derive(Clone)]
-struct CountedMemory {
-    backing: VectorMemory,
-    writes: std::rc::Rc<std::cell::Cell<u64>>,
-}
-
-impl Memory for CountedMemory {
-    fn size(&self) -> u64 {
-        self.backing.size()
-    }
-    fn grow(&self, pages: u64) -> i64 {
-        self.backing.grow(pages)
-    }
-    fn read(&self, offset: u64, dst: &mut [u8]) {
-        self.backing.read(offset, dst);
-    }
-    fn write(&self, offset: u64, src: &[u8]) {
-        self.writes.set(self.writes.get() + 1);
-        self.backing.write(offset, src);
     }
 }
 
@@ -1128,10 +1105,7 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
         Some((JobState::Uncertain { started_ns: 100 }, 100)),
         Some((JobState::Completed, 100)),
     ] {
-        let memory = CountedMemory {
-            backing: VectorMemory::default(),
-            writes: std::rc::Rc::new(std::cell::Cell::new(0)),
-        };
+        let memory = MeteredMemory::new(VectorMemory::default());
         let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
         let id = state.map(|_| queue.create(increment(100)).unwrap().value);
         let mut loaded = queue.load().unwrap();
@@ -1141,7 +1115,7 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
         queue.commit(loaded, ()).unwrap();
         let expected_due = queue.summary().unwrap().next_due_ns;
         let before = queue.cell.bytes().to_vec();
-        memory.writes.set(0);
+        memory.reset();
         assert_eq!(
             queue.dispatch(99).unwrap(),
             Committed {
@@ -1150,25 +1124,24 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
             },
             "state {state:?}"
         );
-        assert_eq!(memory.writes.get(), 0, "state {state:?}");
+        assert!(!memory.counts().overflowed);
+        assert_eq!(memory.counts().writes, 0, "state {state:?}");
         assert_eq!(queue.cell.bytes(), before, "state {state:?}");
         if let Some(id) = id {
             queue.corrupt_record(id).unwrap();
             let before = queue.cell.bytes().to_vec();
-            memory.writes.set(0);
+            memory.reset();
             assert!(queue.dispatch(99).is_err(), "state {state:?}");
-            assert_eq!(memory.writes.get(), 0);
+            assert!(!memory.counts().overflowed);
+            assert_eq!(memory.counts().writes, 0);
             assert_eq!(queue.cell.bytes(), before);
         }
     }
     // Real due work still writes its metadata and local effect together.
-    let memory = CountedMemory {
-        backing: VectorMemory::default(),
-        writes: std::rc::Rc::new(std::cell::Cell::new(0)),
-    };
+    let memory = MeteredMemory::new(VectorMemory::default());
     let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
     queue.create(increment(100)).unwrap();
-    memory.writes.set(0);
+    memory.reset();
     assert_eq!(
         queue.dispatch(100).unwrap(),
         Committed {
@@ -1176,7 +1149,8 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
             next_due_ns: None
         }
     );
-    assert!(memory.writes.get() > 0);
+    assert!(!memory.counts().overflowed);
+    assert!(memory.counts().writes > 0);
     assert_eq!(queue.summary().unwrap().value.0, 1);
 }
 
@@ -1265,10 +1239,7 @@ fn mutation_replies_return_the_fresh_committed_deadline() {
 
 #[test]
 fn receipt_extraction_and_duplicate_acknowledgement_leave_storage_unchanged() {
-    let memory = CountedMemory {
-        backing: VectorMemory::default(),
-        writes: std::rc::Rc::new(std::cell::Cell::new(0)),
-    };
+    let memory = MeteredMemory::new(VectorMemory::default());
     let mut queue = Queue::open(
         memory.clone(),
         Some(Init {
@@ -1294,7 +1265,7 @@ fn receipt_extraction_and_duplicate_acknowledgement_leave_storage_unchanged() {
         assert_eq!(queue.receive(manager(), receipt.clone()).unwrap(), *receipt);
     }
     let before = queue.cell.bytes().to_vec();
-    memory.writes.set(0);
+    memory.reset();
     for receipt in receipts.iter().rev() {
         assert_eq!(
             queue.receipt(manager(), receipt).unwrap(),
@@ -1321,7 +1292,8 @@ fn receipt_extraction_and_duplicate_acknowledgement_leave_storage_unchanged() {
         Err(Error::Unauthorized)
     );
     assert_eq!(queue.summary().unwrap().value.1, 3);
-    assert_eq!(memory.writes.get(), 0);
+    assert!(!memory.counts().overflowed);
+    assert_eq!(memory.counts().writes, 0);
     assert_eq!(queue.cell.bytes(), before);
     drop(queue);
     let queue = Queue::open(memory, None).unwrap().0;

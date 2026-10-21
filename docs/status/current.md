@@ -2,11 +2,13 @@
 
 ## Accepted scope and source
 
-Delivered Jobs **0.17.12** is `a024cc9`; workspace metadata remains 0.17.12.
-Incoming lock updates select Memory/Storage **0.50.5**, Metrics **0.15.1**,
-Platform/macros **0.6.2**, Timers **0.30.1** and Wire/derive **0.5.9**.
-This task preserves that incoming lockfile byte-for-byte. Package versions,
-commits, releases and crates.io publication remain user-owned.
+Delivered Jobs **0.17.13** is `a734659`; workspace metadata remains 0.17.13.
+Pending **0.17.14** adopts the published Testkit native IO observer for #56.
+Incoming Memory/Storage **0.50.6** and Wire/derive **0.5.12** lock updates are
+preserved and included in qualification. Existing Platform/macros **0.6.3**,
+Timers **0.30.1** and Metrics **0.15.1** selections remain.
+Source and notes are prepared; staging, commits, package versions, release
+execution and crates.io publication remain user-owned.
 
 The published library retains its Serde-only API and Rust **1.91** floor. Core
 owns checked records, transitions and finite-batch selection. Consumers own
@@ -15,65 +17,63 @@ Every decoded record crosses `Job::restore`; Running/Uncertain work stays blocke
 until explicit reconciliation. Error precedence and commit-before-dispatch remain.
 The [root ownership map](../../README.md#scope-and-validation) is authoritative.
 
-## Native IO observer preparation
+## Published native IO observer adoption
 
-[#56](https://github.com/dragginzgame/ic-jobs/issues/56) now tracks the consolidated
-producer [Tooling #227](https://github.com/dragginzgame/ic-tooling/issues/227).
-Upstream prerequisite work was explicitly authorized in isolated checkouts.
-The observer was already being implemented in the Tooling checkout; qualification
-reused an isolated copy and left sibling checkouts untouched. Its tested source
-now matches committed Tooling `14a04da07c35abf3c2a0bddcc03c6b0bc51ab95c`.
-Platform **0.6.2 already publishes** the required stable-structures boundary;
-no additional Platform implementation is needed.
+[#56](https://github.com/dragginzgame/ic-jobs/issues/56) now uses registry
+`ic-testkit-native` **0.63.2**, with its actual supplying minimum in the root
+catalog and `stable-memory` selected only by the consumer dev-dependency.
+The supplying archive is non-yanked, declares Rust 1.91 and records release source
+`e5b4095150f49069fc51c3b497e192a8f8eda016`. Its SHA256 matches the canonical index:
+`b8948c336c3785c5dbd9251a5086779757f3010048684287705669dbf1bfc6ee`.
+Platform's published stable-structures feature supplies the shared Memory trait;
+no new Platform implementation or external path exception is needed.
 
-The source-only Jobs patch replaces `CountedMemory` with the opt-in native
-`MeteredMemory`, preserving shared clones/reset, frozen ledgers, full backing
-bytes, corruption refusal and zero-write assertions. Every count consumer rejects
-overflow. The feature remains dev-only; both normal consumer graphs exclude it.
-This preparation changes no production API, Wire frame, stored format or lifecycle.
+The local write-counter wrapper is removed. Canonical shared clones/reset,
+frozen ledgers, full backing-byte checks, corruption refusal and zero-write
+assertions remain; count consumers reject overflow before reporting exact writes.
+Normal native and deployed Wasm graphs explicitly exclude the observer.
+Published APIs, Wire frames, stored formats and lifecycle policy are unchanged.
 
-The registry's latest `ic-testkit-native` is still **0.63.0**, with no observer
-feature. Keep the active wrapper and dependency graph until the supplying release
-is published and registry-qualified. The temporary external path correctly fails
-the ordinary dependency-pin gate; no active path or exception was added.
-Use the actual first supplying registry minimum when adopting, not an assumed
-release number. Issue #56 contains the current source patch and remaining gates.
+## Validation and evidence
 
-## Validation and limits
+Linux passes **49 consumer tests** under Rust 1.91: 28 library, two API Wire and
+19 composition tests, against the actual registry package. All three existing
+strict Clippy commands pass, compiling native harness/capture callers as well
+as core, native consumer and Wasm code. Separate core/consumer Rust 1.91 native
+and Wasm checks, all five product dependency graph contexts, direct dependency
+boundaries and pin checks pass. The lock delta beyond incoming work adds only
+the observer and its selected Platform substrate edge.
 
-The isolated adoption passes **49 consumer tests** under Rust 1.91: 28 library,
-two API Wire and 19 composition tests. Consumer native/Wasm strict Clippy,
-separate core/native/Wasm MSRV checks, the five existing product dependency graph
-contexts, explicit observer exclusion from both normal consumer graphs and direct
-dependency boundaries pass. The incoming lock selections are preserved.
+Upstream archive qualification covers all four IO tests and two allocator tests,
+including shared reset, refused growth, specialized unsafe reads and actual
+overflow. Its recorded registry evidence is linked from
+[Tooling #227](https://github.com/dragginzgame/ic-tooling/issues/227).
+These are native IO observations, not IC instruction or cycle costs.
 
-The producer snapshot passes four IO tests and two allocation tests under Rust
-1.91, strict Clippy and Wasm feature checking. Its default native and opt-in Wasm
-normal/build closures remain dependency-free. Native IO selects Platform 0.6.2
-and stable-structures 0.7.2, sharing Memory/Storage's trait identity. Producer tests
-cover actual overflow, specialized unsafe reads, refused growth and shared reset.
+The exact producer release's browser, optimizer and PocketIC runtime matrices
+passed. Its native Intel CI setup failed on a Rust download DNS error; required
+native qualification remains tracked by
+[Tooling #230](https://github.com/dragginzgame/ic-tooling/issues/230).
+Linux checks here establish neither native macOS acceptance nor IC callback,
+trap, upgrade or uncertain-effect recovery behavior. No local full CI, live
+PocketIC qualification, release or publication ran in this task.
 
-These are Linux/source-fixture results. They do not establish registry adoption,
-native macOS support for the new source or IC callback/trap/upgrade/recovery
-behavior. No full CI, live PocketIC qualification, release or publication ran.
-The active checkout received documentation changes only; source replacements
-and qualification-only manifests remain outside its maintained source.
+Evidence: `target/qualification/native-memory-observer-0632/` retains the starting
+tree archive, previous handoff, incoming diff/lock, registry provenance, source
+hashes and focused logs. Prior path-only rehearsal is historical preparation;
+this batch selects a checksum-authenticated registry dependency.
 
-Evidence: `target/qualification/native-memory-observer/` preserves the previous
-handoff, source patch, producer archive/hashes, registry index, incoming and fixture
-locks, graph observations and focused logs. Disposable source checkouts remain at
-`/tmp/ic-jobs-issue-56.0kqmrg_e/qualification/`. Earlier Tooling 0.63 qualification
-at `target/qualification/tooling-063/` remains bound to its older locked inputs.
+## Delivery and existing tooling
 
-## Existing tooling and next action
+Keep #56 open until the adoption is delivered and its required native acceptance
+is verified. Reconcile it on the next reported push; do not treat publication
+alone as consumer adoption or close Tooling's separate qualification tracker.
 
-Build/Host/Testkit remain published **0.63.0**; executable selectors request
+Other Build/Host/Testkit selections remain **0.63.0**; executable selectors request
 `cli`, while library dependencies retain their existing feature selections.
 PocketIC's external protocols still require Candid; Jobs-owned RPCs remain Wire.
-Timers 0.30.1 now shares Platform 0.6.2 with the fixture. Shared Tooling remains
+Timers 0.30.1 shares Platform 0.6.3 with the fixture. Shared Tooling remains
 **0.25.9**, revision `85aded191d85ac4a8c0e5deab207f6be18895862`.
-
-Complete the published-observer gate on #56 before applying the replacement.
 Follow [release preparation](../releasing.md) for direct `origin`/`main` delivery.
 Rebuild fixture and harness together before explicitly selecting live IC
 qualification. Preserve retained data and unresolved effects.

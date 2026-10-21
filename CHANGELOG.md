@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.17.14] - Unreleased
+
+- Use the published Testkit native IO observer for qualification and remove the
+  local write counter. Keep shared reset, backing-byte and no-write assertions,
+  and reject overflowed counts. The observer remains a dev-dependency; public
+  APIs, stored data and production dependencies are unchanged.
+  [#56 — Adopt canonical Testkit memory IO observer after publication](https://github.com/dragginzgame/ic-jobs/issues/56).
+- Select Memory/Storage 0.50.6 and Wire 0.5.12 for qualification.
+
 ## [0.17.13] - 2026-10-21
 
 - Refresh native IO observer adoption guidance for the consolidated Tooling owner.

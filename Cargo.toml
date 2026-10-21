@@ -30,6 +30,7 @@ ic-memory = "0.50.1"
 ic-platform = { version = "0.6", default-features = false }
 ic-storage = "0.50.1"
 ic-testkit = "0.63"
+ic-testkit-native = "0.63.2"
 ic-timers = "0.30"
 ic-wire = "0.5.4"
 jobs-test-consumer = { path = "apps/job-consumer" }
