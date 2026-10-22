@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.16] - Unreleased
+## [0.17.16] - 2026-10-22
 
 - Adopt Host 0.64 with matching Build and Testkit packages. Native recovery tests
   and the local queue client now import PocketIC types directly from Platform.
