@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.15] - Unreleased
+## [0.17.15] - 2026-10-22
 
 - Add `make demo`: an interactive terminal connected to the local Jobs canister,
   showing queued jobs, deadlines, execution counts and watchdog state. Queue
