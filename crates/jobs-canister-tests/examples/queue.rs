@@ -1,9 +1,11 @@
 //! Interactive host client for the real qualification canister in local PocketIC.
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
-use ic_platform::principal::ExternalPrincipal;
+use ic_platform::{
+    pocket_ic::{PocketIc, PocketIcBuilder},
+    principal::ExternalPrincipal,
+};
 use ic_testkit::pic::{
-    CanisterInstallExt, InstallSpec, PocketIc, PocketIcBuilder, PocketIcInstance,
-    PocketIcStartupConfig, advance_and_tick,
+    CanisterInstallExt, InstallSpec, PocketIcInstance, PocketIcStartupConfig, advance_and_tick,
 };
 use ic_wire::native;
 use jobs_test_consumer::{

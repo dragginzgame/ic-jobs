@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.17.16] - Unreleased
+
+- Adopt Host 0.64 with matching Build and Testkit packages. Native recovery tests
+  and the local queue client now import PocketIC types directly from Platform.
+  Published Jobs APIs, production dependencies and stored data are unchanged.
+
+Prepare the selected executables with `make install-release-tools install-testkit-tools`
+before running offline tooling checks.
+
 ## [0.17.15] - 2026-10-22
 
 - Add `make demo`: an interactive terminal connected to the local Jobs canister,

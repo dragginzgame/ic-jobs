@@ -1,10 +1,13 @@
 //! Explicit live PocketIC tests. Ordinary CI compiles these without launching a server.
 
-use ic_platform::principal::ExternalPrincipal;
+use ic_platform::{
+    pocket_ic::{ErrorCode, PocketIc, PocketIcBuilder, RejectResponse},
+    principal::ExternalPrincipal,
+};
 use ic_testkit::pic::{
     CanisterDiagnosticsRequest, CanisterInstallError, CanisterInstallExt, CanisterLogRenderLimits,
-    ErrorCode, InstallSpec, PocketIc, PocketIcBuilder, PocketIcDiagnosticsExt, PocketIcInstance,
-    PocketIcStartupConfig, RejectResponse, RetryPolicy, advance_and_tick, tick_until,
+    InstallSpec, PocketIcDiagnosticsExt, PocketIcInstance, PocketIcStartupConfig, RetryPolicy,
+    advance_and_tick, tick_until,
 };
 use ic_wire::native;
 use jobs_test_consumer::{
