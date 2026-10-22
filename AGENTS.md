@@ -15,9 +15,9 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
   fixtures; `make ci` is the full release suite. Live PocketIC qualification
   retains its separate explicit selection.
 - Rust floor: 1.91 for core and consumer-owned Timers integration. Qualify both separately.
-- Host workflows support Linux and macOS Intel/Apple Silicon. Bind native
-  qualification to its tested source; IC recovery evidence remains pending and
-  native tests do not establish it.
+- Host workflows support Linux and macOS Intel/Apple Silicon. Bind native and
+  live IC recovery qualification to their tested source and dependency graph;
+  native tests do not establish IC recovery.
 - Use the common contribution and release authority rules. The public remote is
   `dragginzgame/ic-jobs`; configuring tooling does not authorize releases or
   publication. Direct release delivery uses `origin`/`main`; `make publish` is

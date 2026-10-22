@@ -21,6 +21,7 @@ help:
 	@echo "Focused: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
 	@echo "Consumer: check-consumer (native, Wasm, harness compilation); build-consumer (Wasm artifact)"
 	@echo "Explicit IC qualification: install-testkit-tools; install-consumer-server; test-canister[-optimized]"
+	@echo "Local canister queue: demo (interactive); test-demo (live scripted CLI scenario)"
 	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-dependency-boundaries, check-dependency-graphs, check-release-commands"
 	@echo "Tooling fixtures: version, test-release-tooling, test-formatting-evidence, test-consumer-tooling"
 	@echo "Hook qualification: formatting-hook-check (disposable Git copies; prepared formatters required)"
@@ -45,7 +46,7 @@ test-consumers:
 check-consumer:
 	+cargo +1.91.0 test -p jobs-test-consumer --lib --test api_wire --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
-	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --test recovery --locked --offline
+	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --example queue --test recovery --locked --offline
 
 build-consumer:
 	+cargo +1.91.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
@@ -73,6 +74,25 @@ test-canister test-canister-optimized: consumer-server-check
 	+$(MAKE) --no-print-directory build-recovery-tools
 	+cargo +1.91.0 test -p jobs-canister-tests --test recovery --locked --offline --no-run
 	+bash scripts/ci/test-canister.sh $(if $(filter test-canister-optimized,$@),--optimized)
+
+.PHONY: demo test-demo
+demo: consumer-server-check
+	+$(MAKE) --no-print-directory build-consumer
+	+cargo +1.91.0 build -p jobs-canister-tests --example queue --locked --offline
+	+@cli="$$( $(TESTKIT_TOOL) --check )" && \
+		target="$$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)" && \
+		server="$$( "$$cli" check )" && \
+		"$$target/debug/examples/queue" --server "$$server" \
+		--wasm "$$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
+
+test-demo: consumer-server-check
+	+$(MAKE) --no-print-directory build-consumer
+	+cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline --no-run
+	+@cli="$$( $(TESTKIT_TOOL) --check )" && \
+		target="$$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)" && \
+		IC_JOBS_CONSUMER_WASM="$$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" \
+		"$$cli" run --ttl 900 -- cargo +1.91.0 test -p jobs-canister-tests \
+		--example queue --locked --offline -- --ignored --nocapture --test-threads=1
 
 check-msrv:
 	+cargo +1.91.0 check -p ic-jobs --lib --locked --offline
@@ -102,11 +122,11 @@ check-dependency-boundaries:
 	+bash scripts/ci/check-cargo-dependency-boundaries.sh --consumer "$(CURDIR)"
 
 # Jobs owns these concrete exclusions; Shared owns observation and matching.
-CORE_GRAPH_FORBIDDEN := clap candid candid_derive candid_parser ic-cdk ic-cdk-macros \
+CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-cdk-macros \
 	ic-cdk-executor ic-cdk-timers ic-platform ic-platform-macros ic0 ic-memory ic-stable-structures ic-storage \
 	ic-timers ic-metrics ic-wire ic-wire-derive postcard ic-build ic-host-fs ic-host-process ic-testkit \
 	ic-testkit-candid ic-testkit-native jobs-test-consumer pocket-ic serde_json serde_test
-QUALIFICATION_GRAPH_FORBIDDEN := clap ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
+QUALIFICATION_GRAPH_FORBIDDEN := clap ctrlc ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native pocket-ic tokio
 # Timers 0.30 retains Platform 0.5; the fixture selects 0.6. Keep a single
 # executor, raw-system provider and entrypoint generator across those wrappers.
@@ -132,7 +152,7 @@ check-dependency-graphs:
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-canister-tests \
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \
 		--forbid candid --forbid candid_derive --forbid candid_parser \
-		--forbid pocket-ic --forbid ic-testkit --forbid-feature ic-platform/candid \
+		--forbid pocket-ic --forbid ic-testkit --forbid ctrlc --forbid-feature ic-platform/candid \
 		--forbid-feature ic-platform/pocket-ic
 
 check-release-commands:

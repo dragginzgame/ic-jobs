@@ -16,6 +16,11 @@ reconstruction example. The unpublished [canister consumer](apps/job-consumer/RE
 demonstrates application-owned storage, management and lifecycle integration.
 Its PocketIC harness is compiled by CI; live qualification is explicitly selected.
 
+To queue jobs for seconds, minutes or weeks and see their current schedule, run
+the [local canister queue demo](crates/jobs-canister-tests/README.md). `make demo`
+opens a terminal connected to the real fixture canister in local PocketIC;
+`watch` shows countdowns and `advance` fast-forwards IC time.
+
 ## Scope and validation
 
 The library owns metadata and checked transitions. Applications own storage,
@@ -50,7 +55,7 @@ metadata checks use the same grouped policy for working and selected commits.
 | --- | --- | --- |
 | Published `ic-jobs` library | None | None; normal dependencies contain only Serde |
 | Qualification `jobs_test_consumer.wasm` | None; all owned inputs/replies use Wire | Platform's Wasm-only `cdk` runtime supplies entrypoints; upstream `ic-cdk` is absent, and Timers shares its registry executor |
-| Native recovery test executable | PocketIC requires Candid for external simulator/management protocols; Jobs RPCs use Wire | Platform's `cdk` feature is enabled only for the qualification Wasm |
+| Native recovery tests and queue demo | PocketIC requires Candid for external simulator/management protocols; Jobs RPCs use Wire | Platform's `cdk` feature is enabled only for the qualification Wasm |
 | `jobs-capture-artifact` host binary | No Candid dependency in its normal/build graph | No CDK dependency in its normal/build graph |
 
 The Wasm above is an unpublished test fixture, not a production service. This

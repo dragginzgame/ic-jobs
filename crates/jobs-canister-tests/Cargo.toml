@@ -1,4 +1,4 @@
-# Tests and tooling packages: native capture binary and recovery harness.
+# Tests and tooling packages: native capture, recovery harness and local queue client.
 [package]
 name = "jobs-canister-tests"
 version.workspace = true
@@ -15,6 +15,7 @@ ic-host-process.workspace = true
 # Wire and PocketIC support recovery tests against the qualification canister;
 # they are not dependencies of the published ic-jobs library or capture binary.
 [dev-dependencies]
+ctrlc.workspace = true
 ic-host-fs = { workspace = true, features = ["test-support"] }
 ic-host-process = { workspace = true, features = ["test-support"] }
 ic-platform = { workspace = true, features = ["principal"] }

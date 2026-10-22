@@ -57,7 +57,7 @@ version = "$version"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 LOCK
     cp "$fixture/Cargo.lock" "$fixture/expected.lock"
-    for target in testkit-tools-check consumer-server-check test-canister test-canister-optimized; do
+    for target in testkit-tools-check consumer-server-check test-canister test-canister-optimized demo test-demo; do
         status=0
         make --no-print-directory -j2 -C "$fixture" "$target" \
             > "$fixture/$version-$target.log" 2>&1 || status=$?

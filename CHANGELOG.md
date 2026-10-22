@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.17.15] - Unreleased
+
+- Add `make demo`: an interactive terminal connected to the local Jobs canister,
+  showing queued jobs, deadlines, execution counts and watchdog state. Queue
+  seconds/minutes/weeks, watch countdowns, fast-forward IC time and manage jobs.
+- Add `make test-demo` for the live CLI scenario. Ordinary consumer checks run
+  input tests and compile the live case without launching PocketIC. The published
+  library API and production dependencies are unchanged.
+
 ## [0.17.14] - 2026-10-21
 
 - Use the published Testkit native IO observer for qualification and remove the
