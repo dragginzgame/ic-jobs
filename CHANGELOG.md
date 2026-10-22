@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.17] - Unreleased
+## [0.17.17] - 2026-10-22
 
 - Adopt Timers 0.30.3 for the qualification consumer and require its Wasm graph
   to share one Platform identity. Published Jobs dependencies, timer APIs,
