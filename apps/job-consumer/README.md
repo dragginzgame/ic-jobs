@@ -136,7 +136,8 @@ Candid, process or server dependency.
 On Wasm, Platform 0.6's `cdk` feature supplies explicit-codec entrypoints, raw calls,
 system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
-2.0.0 and ic0 1.2.0 remain shared with Timers 0.30, which retains Platform 0.5.
+2.0.0 and ic0 1.2.0 remain shared with Timers 0.30.3 through one Platform 0.6
+identity, enforced by the consumer's Wasm dependency graph check.
 Native DTOs and recovery tests explicitly select Platform 0.6's `principal`
 feature. The application uses its owned Principal; PocketIC calls retain the
 external Principal and convert explicitly when constructing application DTOs.

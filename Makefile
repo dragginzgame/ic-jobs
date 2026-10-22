@@ -128,8 +128,8 @@ CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-
 	ic-testkit-candid ic-testkit-native jobs-test-consumer pocket-ic serde_json serde_test
 QUALIFICATION_GRAPH_FORBIDDEN := clap ctrlc ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native pocket-ic tokio
-# Timers 0.30 retains Platform 0.5; the fixture selects 0.6. Keep a single
-# executor, raw-system provider and entrypoint generator across those wrappers.
+# Timers and the fixture share Platform 0.6. Keep one wrapper, executor,
+# raw-system provider and entrypoint generator in the deployed graph.
 .PHONY: check-dependency-graphs
 check-dependency-graphs:
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package ic-jobs \
@@ -141,7 +141,7 @@ check-dependency-graphs:
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target wasm32-unknown-unknown --all-features \
 		--require ic-timers=1 --require ic-cdk-executor=1 --require ic0=1 \
-		--max-count ic-platform=2 --require ic-platform-macros=1 \
+		--require ic-platform=1 --require ic-platform-macros=1 \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \

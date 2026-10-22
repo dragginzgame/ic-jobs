@@ -2,19 +2,25 @@
 
 ## Source and pending adoption
 
-Jobs **0.17.15** is delivered at
-`0a1341eff1c5bebe23464e2bf04b70575f1efa6d`. Workspace metadata remains 0.17.15;
-the **0.17.16** draft records the pending Host adoption. Staging, commits,
+Jobs **0.17.16** is delivered at
+`99a50f9f618fd0aef84b94bd163176b8ee35216d`. Workspace metadata remains 0.17.16;
+the **0.17.17** draft records the pending Timers adoption. Staging, commits,
 version changes, release execution and publication remain user-owned.
 
 The working graph selects Host FS/Process/Artifacts, Build and Testkit **0.64.0**.
 Build and Testkit move together because their previous line requires Host 0.63.
-Only those five lockfile packages changed. Testkit Native stays **0.63.3**;
-Memory/Storage, Platform and Wire retain their incoming selections.
+Testkit Native is also **0.64.0** in the starting source. Memory/Storage, Metrics,
+Platform and Wire retain their incoming selections during this task.
 Recovery tests and the queue example now import upstream PocketIC types from
 `ic_platform::pocket_ic`, with `pocket-ic` enabled only in harness dev-dependencies.
 Testkit retains startup/lifecycle extensions. Jobs does not use the removed
 Testkit principal/performance facades, diagnostics batch error or Wire call helper.
+
+The incoming lockfile already selected published Timers **0.30.3**; this task
+preserves it and sets that minimum in the workspace catalog. Its runtime source
+is identical to 0.30.2. No timer API adaptation is required. The Wasm graph now
+requires exactly one Platform identity, reflecting Timers' current 0.6 dependency
+instead of retaining the obsolete allowance for its earlier Platform 0.5 line.
 
 The published library retains its Serde-only API and Rust **1.91** floor.
 Consumers retain storage, payloads, endpoints, lifecycle, authentication and effect
@@ -39,7 +45,15 @@ It is retained in `target/qualification/queue-demo/`; it does not qualify 0.64.
 
 ## Current focused qualification
 
-Host adoption evidence, original tracked source and the previous handoff are in
+Timers evidence, starting source, incoming lockfile/patch and the previous handoff
+are in `target/qualification/timers-0303/`. All 19 composition tests, separate
+core/consumer Rust 1.91 and Wasm checks, native/Wasm consumer strict Clippy,
+five graph contexts, boundaries, pins, formatting and documentation links pass.
+`make test-demo` passes live seconds/minutes/weeks, recurrence, pause/resume and
+cancellation checks with Timers 0.30.3. The incoming lockfile remains byte-identical.
+No new full CI, native macOS or nine-scenario recovery result is claimed.
+
+Previous Host adoption evidence, tracked source and its earlier handoff are in
 `target/qualification/host-064/`. Rust 1.91 passes the four capture tests, recovery
 reply-limit test and queue parser test; nine recovery cases and the live queue
 case remain ignored in that ordinary native run. All five dependency graph
@@ -48,7 +62,7 @@ core/consumer MSRV and Wasm checks, consumer and release tooling fixtures,
 formatting and documentation links pass. Prepared Build/Testkit executables pass
 offline admission. `make test-demo` passes against the local PocketIC canister,
 covering seconds/minutes/weeks, recurrence, pause/resume and cancellation.
-This live CLI case does not rerun the separate nine-scenario recovery suite.
+Those results used the earlier Timers selection; they do not qualify 0.30.3.
 
 The selected Build and Testkit executables require `cli` during preparation;
 library dependencies retain their selected features. Use

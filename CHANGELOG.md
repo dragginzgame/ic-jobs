@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.17.17] - Unreleased
+
+- Adopt Timers 0.30.3 for the qualification consumer and require its Wasm graph
+  to share one Platform identity. Published Jobs dependencies, timer APIs,
+  schedules and stored formats are unchanged.
+
 ## [0.17.16] - 2026-10-22
 
 - Adopt Host 0.64 with matching Build and Testkit packages. Native recovery tests
