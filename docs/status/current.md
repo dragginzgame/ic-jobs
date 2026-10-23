@@ -2,30 +2,30 @@
 
 ## Delivered source and pending adoption
 
-Jobs **0.17.18** is delivered at `7d3f78b`; workspace metadata remains 0.17.18.
-The **0.17.19** draft records Host and Shared Tooling adoption. Staging, commits,
-version changes, releases and publication remain user-owned.
+Jobs **0.17.19** is delivered at `eab5a56`; workspace metadata remains 0.17.19.
+The **0.17.20** draft records the next Host and Shared Tooling adoption. Staging,
+commits, version changes, releases and publication remain user-owned.
 
-Host FS/Process/Artifacts, Build, Testkit and Testkit Native now select **0.65.0**.
-The incoming lockfile's Platform/macros **0.6.9**, Timers **0.30.4** and
-Wire/derive **0.6.5** selections are preserved, along with other incoming versions.
-Only the six Tooling packages change relative to that incoming lockfile.
-Jobs uses Wire's retained native Serde framing, not Testkit's optional Wire call
-helpers; the 0.65 signature change requires no local Rust adaptation.
+Host FS/Process/Artifacts, Build, Testkit and Testkit Native select **0.66.0**.
+Only those six packages change relative to the incoming lockfile. Incoming
+Memory/Storage **0.50.12**, Timers **0.30.5**, Wire/derive **0.6.7** and other
+selections are preserved. Platform/macros remains **0.6.9**.
 
-Shared Tooling **0.26.7** is exported from reviewed revision
-`3e8d7cd3e7e9b7b79a5e800c30daf0be2710dab0` through the canonical exporter,
-retaining the existing entrypoint selection. The baseline adds asynchronous
-hosted validation guidance, self-owned dependency repairs and explicit IC tool
-selection. Host/Cargo/IC version and digest pins are unchanged.
+Testkit's `PocketIcInstance` now hides client/server fields. The recovery harness
+and queue example use `instance()` for shared borrows; both retain the owner for
+the entire session. No ownership extraction, new server lifetime or async drop
+path is introduced. Client deletion still precedes managed server shutdown.
 
-Make, the optimized recovery wrapper and CI evidence callers explicitly select
-`quill icp didc ic-wasm wasm-opt`, preserving the previous full set. Local release
-and consumer fixtures admit those arguments. New IC installation receipts require
-explicit preparation; old tool bundles and evidence are preserved. Shared setup
-waits at most 60 seconds for another slot owner; offline checks remain immediate.
-Use `make install-ic-tools install-release-tools install-testkit-tools`, then the
-matching offline checks. PocketIC setup/admission stays Testkit-owned.
+Shared Tooling **0.26.8** is exported at reviewed revision
+`0b07c2a3163a5a66328e100b553baf93afd8ed07` with the existing entrypoints,
+including `audits/ci-release-integrity.md`. It fixes lock-cleanup contention and
+initializes Cargo's source cache without a global setup lock. Previous generations
+and old preparation slots remain retained. Pins and IC selections are unchanged.
+
+Rerun `make install-rust-tools install-release-tools install-testkit-tools` once
+for the changed Cargo-tool build policy, then admit the selections offline.
+Make, optimized recovery and CI evidence still select
+`quill icp didc ic-wasm wasm-opt`. PocketIC provisioning remains Testkit-owned.
 
 ## Ownership and compatibility
 
@@ -41,29 +41,24 @@ PocketIC's Candid management dependencies remain native-only.
 ## Current qualification
 
 Starting source, incoming patch/lockfile, previous handoff and logs are retained
-in `target/qualification/host-shared-01719/`. Snapshot integrity, release-command
-adapters, dependency graphs/boundaries/pins, strict Clippy, consumer unit/Wire and
-composition tests, capture tests and harness compilation pass. Separate core and
-consumer Rust 1.91/Wasm checks, formatter/hook and local evidence fixtures pass.
-Build, Testkit and IC tools are prepared. Shared-slot contention was safely
-refused at 60 seconds; retry reused the verified result after its owner finished.
-Release/publication and consumer tooling fixtures pass with substitute effects;
-no actual release or upload occurred. Prepared CLIs pass offline admission, and
-`make test-demo` passes live seconds/minutes/weeks, recurrence, pause/resume and
-cancellation checks against the local canister with this graph.
+in `target/qualification/host-shared-01720/`. Strict Clippy, consumer composition,
+unit/Wire tests, capture tests and harness compilation pass. Separate core and
+consumer Rust 1.91/Wasm checks, all five graph contexts, boundaries, pins and
+release-command checks pass. Snapshot integrity, all documentation links,
+formatting/hook checks and local failure-evidence fixtures pass. Common Cargo
+tools and Build/Testkit CLIs are prepared and admitted offline. Release/publication
+and consumer tooling fixtures pass with substitute effects; no release or upload
+occurred. `make test-demo` passes live seconds/minutes/weeks, recurrence,
+pause/resume and cancellation checks against the local canister on this graph.
 No full CI, new native macOS or nine-scenario recovery result is claimed.
-GitHub's repository description was reviewed and matches current ownership.
 
-Release validation exposed a missing audit-index target. The snapshot now selects
-`audits/ci-release-integrity.md` at the same pinned revision. Documentation links
-and snapshot integrity pass after repair; the earlier link-check claim was wrong.
-Repair evidence and the starting handoff are in `target/qualification/doc-link-repair/`.
-
-Earlier qualifications remain in `target/qualification/ic-deps-01718/`,
-`target/qualification/host-064/` and `target/qualification/timers-0303/`.
+Earlier qualifications remain in `target/qualification/host-shared-01719/`,
+`target/qualification/doc-link-repair/` and `target/qualification/ic-deps-01718/`.
 They bind their respective tested sources and graphs, not this adoption.
-New hosted native/integration runs follow the adopted asynchronous cadence;
-pending results do not establish qualification or bypass enforced checks.
+The prior missing audit document was fixed through canonical entrypoint selection;
+retain link checks on the complete source copy, including new snapshot payloads.
+Hosted native/integration runs follow the adopted asynchronous cadence; pending
+results do not establish qualification or bypass enforced checks.
 
 ## Local canister queue client
 

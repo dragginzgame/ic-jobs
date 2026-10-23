@@ -160,7 +160,7 @@ impl Demo {
             .map_err(failure)?;
         let manager = ExternalPrincipal::self_authenticating(b"jobs-queue-demo-manager");
         let canister = pic
-            .instance
+            .instance()
             .try_create_and_install(InstallSpec {
                 wasm: std::fs::read(wasm)?,
                 init_bytes: native::encode_request(
@@ -177,7 +177,7 @@ impl Demo {
                 label: Some("jobs-queue-demo".into()),
             })
             .map_err(failure)?;
-        let origin_ns = pic.instance.get_time().as_nanos_since_unix_epoch();
+        let origin_ns = pic.instance().get_time().as_nanos_since_unix_epoch();
         println!(
             "Connected to local canister {canister} (PocketIC).\n\
             Each job increments the canister counter. This session starts fresh.\n\
@@ -193,7 +193,7 @@ impl Demo {
     }
 
     fn now(&self) -> u64 {
-        self.pic.instance.get_time().as_nanos_since_unix_epoch()
+        self.pic.instance().get_time().as_nanos_since_unix_epoch()
     }
 
     fn call<T: Serialize + DeserializeOwned>(
@@ -206,11 +206,11 @@ impl Demo {
             native::encode_request(method as u64, args, REQUEST_LIMITS).map_err(failure)?;
         let reply = if query {
             self.pic
-                .instance
+                .instance()
                 .query_call(self.canister, self.manager, method.name(), request)
         } else {
             self.pic
-                .instance
+                .instance()
                 .update_call(self.canister, self.manager, method.name(), request)
         }
         .map_err(failure)?;
@@ -350,7 +350,7 @@ impl Demo {
         let before = self.views()?;
         // Drive real timer callbacks; never invoke dispatch_due from the host.
         // Fixed rounds keep a large CatchUp backlog from blocking the terminal.
-        advance_and_tick(&self.pic.instance, advance, 32);
+        advance_and_tick(self.pic.instance(), advance, 32);
         for view in self.views()? {
             let previous = before
                 .iter()

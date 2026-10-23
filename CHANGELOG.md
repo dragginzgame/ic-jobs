@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.20] - Unreleased
+
+- Adopt Host, Build and Testkit 0.66.0. The recovery harness and queue client
+  borrow PocketIC through its explicit accessor, retaining the owner for the
+  full session. Published Jobs APIs, Wire frames and stored formats are unchanged.
+- Adopt Shared Tooling 0.26.8, fixing setup contention during another owner's
+  lock cleanup and removing the global Cargo source-cache setup lock. Tool
+  versions and digests are unchanged; existing generations remain retained.
+
+Rerun `make install-rust-tools install-release-tools install-testkit-tools` once
+to prepare the tools under the updated build policy before offline checks.
+
 ## [0.17.19] - 2026-10-23
 
 - Adopt Host, Build and Testkit 0.65.0 for native tooling and qualification.

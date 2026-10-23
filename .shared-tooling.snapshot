@@ -1,8 +1,8 @@
 # Shared Tooling snapshot v1
-# version	0.26.7
+# version	0.26.8
 format	1
 source	https://github.com/dragginzgame/shared-tooling
-revision	3e8d7cd3e7e9b7b79a5e800c30daf0be2710dab0
+revision	0b07c2a3163a5a66328e100b553baf93afd8ed07
 # entrypoint	DRAGGINZGAME.md
 # entrypoint	rules/contributions.md
 # entrypoint	rules/changelogs.md
@@ -140,7 +140,7 @@ file	a8ee0ef056c34fc25703cb94feedbfc7afaf264329917f5da23621ea550cee21	-	docs/con
 file	68f257ad3efd1081d46d3ba9bbf633869fa8ce08116b2b8108261baf3c16dddd	-	docs/provenance.md
 file	a2946a1d73a393540f3d15dd86656f87dc4200cdb74c3b60823ead89ff5e1286	-	docs/verification-helpers.md
 file	f280d8dcb6b92d5ac3d051c7456a158ba8a724722e50cb252bf0ea754ad2b9be	-	docs/ic-tools.md
-file	8b29c6f91255ffbe8c1845222fa0b17d094ff15637cafb3f4c9a458930be5931	-	docs/local-setup.md
+file	341ed52a00404590c0cd8bff01027ec25464ad42fa6aa8a16a0951dbb393b53e	-	docs/local-setup.md
 file	235d355481adf5b15dd118bbd2e83174484af4e463d75714bf70fd7f7352a8fc	-	ci/ic-tools.tsv
 file	7d68c9443a11e53ff2b46bde5db2720889768606590a9d2882599c37cd8cd052	-	ci/tool-versions.env
 file	41294373b56a070f1a65f9ee936da64e6e9f905b9a5c0db06be12360987c8f6c	-	docs/supported-hosts.md
@@ -174,8 +174,8 @@ file	5be336cb3e8045b2d2d536542a94944b376ee812b03f786a90b9d962ab697f13	x	scripts/
 file	064ee8ecf5e36d760ae4b0aad1cc80563cac074445677526bc7d1d124ff5b303	x	scripts/ci/select-tool-evidence.sh
 file	227ce86878264ff60aa24a70bb20140b8ef3c8332be640186e96f93805ed1062	-	tasks/readme-freshness.md
 file	80c6200724f8542dd4454539bef4f35b56c564f3ca83716235a57275c14755a1	x	scripts/ci/check-formatting-hooks.sh
-file	518c9185b4f6112ec4d012808bd7809f6e9c15293f27053fb1f6c4c29ca27ee9	-	scripts/dev/tool-store.sh
-file	cc7daae8e361e31207b52a7c47e236f3a0277bd5fd49b9ab46e50a08c9185d16	-	scripts/dev/cargo-tool-build.sh
+file	e2eede6b9c71700361cbcc9eb54e412d9653223db06d7a9a0af6963423054ec3	-	scripts/dev/tool-store.sh
+file	5d55c982b343ac07d3ba38e684f9cd80d1081c531e1164402ca9b34f16cb5a03	-	scripts/dev/cargo-tool-build.sh
 file	c385168599f833bbcd390eaf5ba2aa7507e5a9f05df0ec7264907c3a0de02289	-	make/consumer.mk
 file	b504048aee31664bb51cfeb14061a43d13fbc1cfff6d84aa6951f1809d424294	-	docs/make-interface.md
 file	a9ed416a02f737d420723642935de94ffdd53cf92f75bb06ab4b0bc1c68430dc	-	tasks/cargo-tool-versions.md
