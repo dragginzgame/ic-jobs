@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.19] - Unreleased
+## [0.17.19] - 2026-10-23
 
 - Adopt Host, Build and Testkit 0.65.0 for native tooling and qualification.
   Jobs already uses Wire's native Serde framing; no public API, stored format
