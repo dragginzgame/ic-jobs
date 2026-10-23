@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.21] - Unreleased
+
+- Qualify Platform/macros 0.6.10, Metrics 0.15.7 and Timers 0.30.6 for the
+  consumer fixture. Their runtime source is unchanged from the prior selections;
+  Metrics remains transitive through Timers. Jobs APIs, stored formats, Wire
+  budgets and the Rust 1.91 floor are unchanged.
+
 ## [0.17.20] - 2026-10-23
 
 - Adopt Host, Build and Testkit 0.66.0. The recovery harness and queue client

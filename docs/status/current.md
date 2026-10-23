@@ -1,31 +1,30 @@
 # Current handoff
 
-## Delivered source and pending adoption
+## Delivered source and pending qualification
 
-Jobs **0.17.19** is delivered at `eab5a56`; workspace metadata remains 0.17.19.
-The **0.17.20** draft records the next Host and Shared Tooling adoption. Staging,
-commits, version changes, releases and publication remain user-owned.
+Jobs **0.17.20** is delivered at `2b867b8`; workspace metadata remains 0.17.20.
+The **0.17.21** draft records qualification of the pending Platform, Metrics and
+Timers selections. Staging, commits, version changes, releases and publication
+remain user-owned.
 
-Host FS/Process/Artifacts, Build, Testkit and Testkit Native select **0.66.0**.
-Only those six packages change relative to the incoming lockfile. Incoming
-Memory/Storage **0.50.12**, Timers **0.30.5**, Wire/derive **0.6.7** and other
-selections are preserved. Platform/macros remains **0.6.9**.
+The incoming lockfile already selected Platform/macros **0.6.10**, Metrics
+**0.15.7** and Timers **0.30.6**. These are the latest published releases reviewed
+for this task. No further lockfile or manifest edits are needed. Metrics remains
+transitive through Timers rather than becoming a new direct Jobs dependency.
 
-Testkit's `PocketIcInstance` now hides client/server fields. The recovery harness
-and queue example use `instance()` for shared borrows; both retain the owner for
-the entire session. No ownership extraction, new server lifetime or async drop
-path is introduced. Client deletion still precedes managed server shutdown.
+Published Platform, Metrics and Timers `src` trees match their prior selected
+versions, respectively 0.6.9, 0.15.6 and 0.30.5. The releases adopt tooling and
+metadata selections upstream. Jobs does not enable Platform's optional native
+`wire-schema` metadata; no feature, entrypoint, codec or timer policy is added.
+Platform's advertised Rust 1.91 floor matches the existing Jobs requirement.
 
-Shared Tooling **0.26.8** is exported at reviewed revision
-`0b07c2a3163a5a66328e100b553baf93afd8ed07` with the existing entrypoints,
-including `audits/ci-release-integrity.md`. It fixes lock-cleanup contention and
-initializes Cargo's source cache without a global setup lock. Previous generations
-and old preparation slots remain retained. Pins and IC selections are unchanged.
-
-Rerun `make install-rust-tools install-release-tools install-testkit-tools` once
-for the changed Cargo-tool build policy, then admit the selections offline.
-Make, optimized recovery and CI evidence still select
-`quill icp didc ic-wasm wasm-opt`. PocketIC provisioning remains Testkit-owned.
+Host/Build/Testkit/Testkit Native stay **0.66.0**. PocketIC access uses `instance()`
+while retaining the owner for the whole session. Memory/Storage stays **0.50.12**
+and Wire/derive stays **0.6.7**. Shared Tooling stays **0.26.8** at
+`0b07c2a3163a5a66328e100b553baf93afd8ed07`, including the integrity audit document.
+Common Cargo tools and selected CLIs were prepared after the build-policy change;
+this lockfile qualification does not require another executable installation.
+IC tools remain `quill icp didc ic-wasm wasm-opt`; provisioning stays Testkit-owned.
 
 ## Ownership and compatibility
 
@@ -40,23 +39,20 @@ PocketIC's Candid management dependencies remain native-only.
 
 ## Current qualification
 
-Starting source, incoming patch/lockfile, previous handoff and logs are retained
-in `target/qualification/host-shared-01720/`. Strict Clippy, consumer composition,
-unit/Wire tests, capture tests and harness compilation pass. Separate core and
-consumer Rust 1.91/Wasm checks, all five graph contexts, boundaries, pins and
-release-command checks pass. Snapshot integrity, all documentation links,
-formatting/hook checks and local failure-evidence fixtures pass. Common Cargo
-tools and Build/Testkit CLIs are prepared and admitted offline. Release/publication
-and consumer tooling fixtures pass with substitute effects; no release or upload
-occurred. `make test-demo` passes live seconds/minutes/weeks, recurrence,
-pause/resume and cancellation checks against the local canister on this graph.
-No full CI, new native macOS or nine-scenario recovery result is claimed.
+Starting source, incoming patch/lockfile, previous handoff and focused logs are in
+`target/qualification/platform-metrics-timers-01721/`. Strict Clippy, consumer
+composition/unit/Wire tests, capture tests and harness compilation pass. Separate
+core and consumer Rust 1.91/Wasm checks, all five graph contexts, boundaries,
+pins, formatting and documentation links pass. Source comparisons also confirm
+the Platform macros are unchanged. The incoming lockfile remains byte-identical;
+the Wasm feature graph excludes Platform's optional schema metadata.
+No full CI, new native macOS or live PocketIC result is claimed for this graph.
 
-Earlier qualifications remain in `target/qualification/host-shared-01719/`,
-`target/qualification/doc-link-repair/` and `target/qualification/ic-deps-01718/`.
-They bind their respective tested sources and graphs, not this adoption.
-The prior missing audit document was fixed through canonical entrypoint selection;
-retain link checks on the complete source copy, including new snapshot payloads.
+Earlier qualifications remain in `target/qualification/host-shared-01720/`,
+`target/qualification/host-shared-01719/` and `target/qualification/doc-link-repair/`.
+They bind their respective tested sources and graphs, not this selection.
+The 0.17.20 dependency graph passed the live queue scenario and focused native,
+Wasm, MSRV, graph and tooling checks; retain the source-bound evidence there.
 Hosted native/integration runs follow the adopted asynchronous cadence; pending
 results do not establish qualification or bypass enforced checks.
 
@@ -68,8 +64,8 @@ minutes or weeks; inspect jobs, advance IC time, watch countdowns and manage
 recurrence through existing Wire endpoints. The host retains display labels only;
 queue storage, scheduling and effects stay in the canister. Quit/EOF/Ctrl+C release
 the owned server. Interactive execution stays in the foreground; the batch runner
-is used for the noninteractive `make test-demo` live scenario. Earlier terminal
-qualification and interrupt cleanup evidence remain in `target/qualification/queue-demo/`.
+is used for the separately selected `make test-demo` live scenario. Earlier terminal
+and interrupt cleanup evidence remains in `target/qualification/queue-demo/`.
 The memory IO observer remains consumer dev-only; production graphs exclude it.
 
 ## Retained live recovery evidence
