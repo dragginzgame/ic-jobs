@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.20] - Unreleased
+## [0.17.20] - 2026-10-23
 
 - Adopt Host, Build and Testkit 0.66.0. The recovery harness and queue client
   borrow PocketIC through its explicit accessor, retaining the owner for the
