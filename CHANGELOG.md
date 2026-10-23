@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.18] - Unreleased
+## [0.17.18] - 2026-10-23
 
 - Adopt Wire 0.6 for the qualification canister and native clients, retaining
   explicit Serde framing, method identities and resource limits. Jobs does not
