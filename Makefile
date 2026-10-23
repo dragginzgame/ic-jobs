@@ -3,6 +3,7 @@ export RELEASE_DELIVERY ?= direct
 override SHARED_TOOLING_ROOT := $(CURDIR)
 override RELEASE_DELIVERY_POLICY := $(CURDIR)/ci/release-delivery.txt
 # Keep the full IC tool bundle installed; optimized qualification uses Binaryen.
+IC_TOOLS := quill icp didc ic-wasm wasm-opt
 LOCAL_TOOL_INSTALL_TARGETS := install-ic-tools
 LOCAL_TOOL_CHECK_TARGETS := ic-tools-check
 export PATH := $(CURDIR)/.tools/ic/bin:$(PATH)

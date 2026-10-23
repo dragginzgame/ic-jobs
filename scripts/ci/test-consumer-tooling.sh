@@ -210,7 +210,7 @@ export JOBS_CONSUMER_IC_BIN="$fixture/ic-bin" JOBS_CONSUMER_FROZEN="$fixture/inp
 export JOBS_CONSUMER_PRODUCER="$input" JOBS_CONSUMER_CAPTURED="$fixture/consumed"
 cat > "$fixture/scripts/dev/install-ic-tools.sh" <<'INSTALLER'
 #!/usr/bin/env bash
-[[ "$*" == --check ]] || exit 49
+[[ "$*" == '--tool quill --tool icp --tool didc --tool ic-wasm --tool wasm-opt --check' ]] || exit 49
 printf '%s\n' "$JOBS_CONSUMER_IC_BIN"
 INSTALLER
 cat > "$fixture/.tools/rust/common/bin/git" <<'GIT'

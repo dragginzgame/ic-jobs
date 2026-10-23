@@ -155,7 +155,7 @@ if [[ "${1:-}" == --package ]]; then
     [[ -f .git/editor-ready ]] || exit 38
     exit 0
 fi
-[[ $# == 4 || $# == 5 ]] || exit 49
+[[ $# -ge 4 ]] || exit 49
 [[ "$1" == --consumer && "$2" == "$consumer" ]] || exit 49
 case "${0##*/}" in
     install-host-tools.sh) toolset=host; catalog=--versions; file=tool-versions.env ;;
@@ -164,7 +164,15 @@ case "${0##*/}" in
     *) exit 49 ;;
 esac
 [[ "$3" == "$catalog" && "$4" == "$consumer/ci/$file" ]] || exit 49
-case "${5:-}" in
+shift 4
+if [[ "$toolset" == ic ]]; then
+    for tool in quill icp didc ic-wasm wasm-opt; do
+        [[ "${1:-}" == --tool && "${2:-}" == "$tool" ]] || exit 49
+        shift 2
+    done
+fi
+[[ $# -le 1 ]] || exit 49
+case "${1:-}" in
     --preflight)
         [[ "$toolset" != host ]] || exit 49
         if [[ "$toolset" == rust ]]; then printf 'rust-preflight\n' >> .git/tool-events; fi ;;

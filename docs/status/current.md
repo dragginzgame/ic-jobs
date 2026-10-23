@@ -1,55 +1,64 @@
 # Current handoff
 
-## Source and pending adoption
+## Delivered source and pending adoption
 
-Jobs **0.17.17** is delivered at `47201d7`;
-workspace metadata remains 0.17.17. The **0.17.18** draft records the current IC
-adoption. Staging, commits, version changes, releases and publication remain user-owned.
+Jobs **0.17.18** is delivered at `7d3f78b`; workspace metadata remains 0.17.18.
+The **0.17.19** draft records Host and Shared Tooling adoption. Staging, commits,
+version changes, releases and publication remain user-owned.
 
-The incoming lockfile already selected Platform/macros **0.6.8**, Memory/Storage
-**0.50.11**, Build/Host/Testkit/Testkit Native **0.64.1** and Wire **0.5.22**.
-This task preserves the patch selections, records their minimums in the catalog
-and adopts published Wire/derive **0.6.0**. Timers stays **0.30.3**; Metrics and
-other non-Wire lockfile selections are unchanged from the incoming tree.
+Host FS/Process/Artifacts, Build, Testkit and Testkit Native now select **0.65.0**.
+The incoming lockfile's Platform/macros **0.6.9**, Timers **0.30.4** and
+Wire/derive **0.6.5** selections are preserved, along with other incoming versions.
+Only the six Tooling packages change relative to that incoming lockfile.
+Jobs uses Wire's retained native Serde framing, not Testkit's optional Wire call
+helpers; the 0.65 signature change requires no local Rust adaptation.
 
-Jobs uses Wire's retained `native` Serde/Postcard framing only; the removed finite
-schema, typed-method and TypeScript APIs have no Jobs callers. No Rust adaptation,
-new codec, binding regeneration or application migration is required. Method IDs,
-limits and DTO layouts remain unchanged. The queue client and canister must still
-be rebuilt together. No borrowed metadata or unreleased Wire additions are selected.
+Shared Tooling **0.26.7** is exported from reviewed revision
+`3e8d7cd3e7e9b7b79a5e800c30daf0be2710dab0` through the canonical exporter,
+retaining the existing entrypoint selection. The baseline adds asynchronous
+hosted validation guidance, self-owned dependency repairs and explicit IC tool
+selection. Host/Cargo/IC version and digest pins are unchanged.
 
-Testkit's native management feature selects Platform's Candid and management DTOs.
-Those dependencies remain outside the production canister and core graphs.
-PocketIC retains management types 0.8 while Platform selects 0.11 on native tests;
-these separate upstream contracts are not exchanged by Jobs-owned APIs.
-No direct external IC dependencies or local facades are introduced.
+Make, the optimized recovery wrapper and CI evidence callers explicitly select
+`quill icp didc ic-wasm wasm-opt`, preserving the previous full set. Local release
+and consumer fixtures admit those arguments. New IC installation receipts require
+explicit preparation; old tool bundles and evidence are preserved. Shared setup
+waits at most 60 seconds for another slot owner; offline checks remain immediate.
+Use `make install-ic-tools install-release-tools install-testkit-tools`, then the
+matching offline checks. PocketIC setup/admission stays Testkit-owned.
+
+## Ownership and compatibility
 
 The published library retains its Serde-only API and Rust **1.91** floor.
 Consumers own storage, payloads, endpoints, lifecycle, authentication and effect
 disposition. Every decoded record crosses `Job::restore`; Running/Uncertain work
-stays blocked until explicit reconciliation. Error precedence, stored formats
-and commit-before-dispatch remain. The [root ownership map](../../README.md#scope-and-validation)
-is authoritative. The consumer Wasm graph requires one Platform identity.
+stays blocked until explicit reconciliation. Error precedence, stored formats,
+method IDs, Wire budgets and commit-before-dispatch remain unchanged.
+The [root ownership map](../../README.md#scope-and-validation) is authoritative.
+The consumer Wasm graph requires one Platform identity and excludes Candid/Host.
+PocketIC's Candid management dependencies remain native-only.
 
 ## Current qualification
 
-Starting source, incoming lockfile/patch, previous handoff and qualification logs
-are retained in `target/qualification/ic-deps-01718/`. Strict workspace-selected
-Clippy, consumer composition/unit/Wire tests, capture tests and harness compilation
-pass. Separate core/consumer Rust 1.91 and Wasm checks, all five graph contexts,
-boundaries, pins, formatting and documentation links pass. `make test-demo` passes
-against the local canister for seconds/minutes/weeks, recurrence, pause/resume and
-cancellation. Prepared Build/Testkit CLIs pass offline admission, and release,
-publication and consumer tooling fixtures pass with their documented substitute
-effects. No actual release or upload was performed.
+Starting source, incoming patch/lockfile, previous handoff and logs are retained
+in `target/qualification/host-shared-01719/`. Snapshot integrity, release-command
+adapters, dependency graphs/boundaries/pins, strict Clippy, consumer unit/Wire and
+composition tests, capture tests and harness compilation pass. Separate core and
+consumer Rust 1.91/Wasm checks, formatter/hook and local evidence fixtures pass.
+Build, Testkit and IC tools are prepared. Shared-slot contention was safely
+refused at 60 seconds; retry reused the verified result after its owner finished.
+Release/publication and consumer tooling fixtures pass with substitute effects;
+no actual release or upload occurred. Prepared CLIs pass offline admission, and
+`make test-demo` passes live seconds/minutes/weeks, recurrence, pause/resume and
+cancellation checks against the local canister with this graph.
 No full CI, new native macOS or nine-scenario recovery result is claimed.
+GitHub's repository description was reviewed and matches current ownership.
 
-Selected Build and Testkit executables require `cli` during preparation; library
-dependencies retain their selected features. Prepare with
-`make install-release-tools install-testkit-tools`, then admit offline with
-`make release-tools-check testkit-tools-check`. PocketIC setup/admission stays
-Testkit-owned. Shared Tooling remains **0.25.9**, revision
-`85aded191d85ac4a8c0e5deab207f6be18895862`.
+Earlier qualifications remain in `target/qualification/ic-deps-01718/`,
+`target/qualification/host-064/` and `target/qualification/timers-0303/`.
+They bind their respective tested sources and graphs, not this adoption.
+New hosted native/integration runs follow the adopted asynchronous cadence;
+pending results do not establish qualification or bypass enforced checks.
 
 ## Local canister queue client
 
@@ -59,13 +68,9 @@ minutes or weeks; inspect jobs, advance IC time, watch countdowns and manage
 recurrence through existing Wire endpoints. The host retains display labels only;
 queue storage, scheduling and effects stay in the canister. Quit/EOF/Ctrl+C release
 the owned server. Interactive execution stays in the foreground; the batch runner
-is used for the noninteractive `make test-demo` live scenario.
-
-Earlier Linux qualifications are retained in `target/qualification/queue-demo/`,
-`target/qualification/host-064/` and `target/qualification/timers-0303/`.
-They cover their respective source/graph selections, not the current adoption.
-The memory IO observer remains consumer dev-only, with exact counts and overflow
-rejection; production graphs exclude it.
+is used for the noninteractive `make test-demo` live scenario. Earlier terminal
+qualification and interrupt cleanup evidence remain in `target/qualification/queue-demo/`.
+The memory IO observer remains consumer dev-only; production graphs exclude it.
 
 ## Retained live recovery evidence
 

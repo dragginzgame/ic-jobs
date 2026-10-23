@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.19] - Unreleased
+
+- Adopt Host, Build and Testkit 0.65.0 for native tooling and qualification.
+  Jobs already uses Wire's native Serde framing; no public API, stored format
+  or RPC migration is required by Testkit's new optional Wire helpers.
+- Adopt Shared Tooling 0.26.7. Explicit tool setup can wait up to 60 seconds
+  for another checkout's shared installation; offline checks still refuse
+  immediately. Preserve the existing IC executable set through explicit setup,
+  recovery and failure-evidence selections. Tool versions and digests are unchanged.
+
+Prepare the refreshed selections with
+`make install-ic-tools install-release-tools install-testkit-tools` before offline checks.
+
 ## [0.17.18] - 2026-10-23
 
 - Adopt Wire 0.6 for the qualification canister and native clients, retaining

@@ -63,6 +63,7 @@ tools extend the aggregate through existing consumer-owned targets:
 
 ```make
 # Select only when this repository uses IC executables.
+IC_TOOLS := ic-wasm wasm-opt
 LOCAL_TOOL_INSTALL_TARGETS += install-ic-tools
 LOCAL_TOOL_CHECK_TARGETS += ic-tools-check
 include make/consumer.mk
@@ -394,6 +395,24 @@ product/native qualification. Formatting still requires rustfmt and the
 
 ### Standard Cargo tool-build environment
 
+Explicit Cargo setup waits up to 60 seconds per occupied selected-tool slot
+when its physical, user-owned lock has a readable, regular
+owner record. Set `SHARED_TOOLING_SETUP_WAIT_SECONDS` to a canonical integer from
+0 to 300 to select another budget; `0` retains immediate refusal. Diagnostics name
+the slot and recorded owner, then report release or timeout. The record identifies
+the claim, not whether its PID is still live. No lock is removed or owner killed.
+
+After waiting, setup rechecks compiler/build identity, lockfile selection and
+normal source/receipt/checksum admission before reuse or activation. An owner
+failure never makes its partial generation reusable. Malformed, redirected or
+unwritable lock routes fail rather than polling. Atomic `mkdir` still owns
+acquisition: if a new owner wins that race, or acquisition fails for another
+reason, its diagnostic/status is preserved without a retry. Timeouts are nonzero
+and retain previous selections and failed evidence. `--check`, `--preflight`,
+source-cache preparation locks, checkout locks and Host/IC setup keep their
+immediate, non-waiting behavior. The build policy and its digest are unchanged;
+this waiting change alone does not invalidate existing qualified tool binaries.
+
 Tool builds have a cleared environment, a fresh private HOME per attempt, the
 selected compiler's bin directory followed by system executable directories,
 fixed C locale/UTC timezone, private permissions and two compilation jobs.
@@ -444,8 +463,16 @@ For a tool selected by a consumer lockfile, replace `--version` with `--lockfile
 
 ```bash
 bash scripts/dev/install-rust-tools.sh --consumer "$PWD" \
-  --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release
+  --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server \
+  --profile release --features cli
+bash scripts/dev/install-rust-tools.sh --consumer "$PWD" \
+  --package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server \
+  --profile release --features cli --check
 ```
+
+Testkit 0.63 requires `cli` for the server binary. Setup and offline admission
+must request the same feature set, which is part of the tool's identity.
+Library-only Testkit dependencies should omit `cli`.
 
 Relative lockfile paths resolve beneath `--consumer`; absolute paths select an
 explicit independent graph. The prepared host yq/jq tools read TOML without Cargo
@@ -727,8 +754,9 @@ Version reporting defaults to host/Cargo selections. To include an explicitly
 selected IC bundle, pass both catalogs:
 
 ```bash
-bash scripts/ci/report-tool-versions.sh "$PWD" ci/tool-versions.env ci/ic-tools.tsv
+bash scripts/ci/report-tool-versions.sh "$PWD" ci/tool-versions.env ci/ic-tools.tsv 'ic-wasm wasm-opt'
 ```
 
-The IC install/check commands continue to verify all five executable selections
-and their reviewed native-host digests. Product ownership does not weaken admission.
+IC setup/check requires the product's explicit `IC_TOOLS` selection and verifies
+its reviewed native-host digests. The complete pin catalog is still validated;
+unselected tools need no installation. Product ownership does not weaken admission.

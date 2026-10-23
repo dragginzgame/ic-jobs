@@ -21,7 +21,7 @@ capture="$target/debug/jobs-capture-artifact"
 [[ -f "$capture" && ! -L "$capture" && -x "$capture" ]] || exit 1
 variants=(original)
 if [[ $# == 1 ]]; then
-    bin="$(bash scripts/dev/install-ic-tools.sh --check)"
+    bin="$(bash scripts/dev/install-ic-tools.sh --tool quill --tool icp --tool didc --tool ic-wasm --tool wasm-opt --check)"
     variants+=(O3 Os Oz)
 fi
 evidence="$(fixture_create "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/jobs-recovery.XXXXXX")"

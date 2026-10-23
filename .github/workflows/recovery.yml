@@ -95,3 +95,4 @@ jobs:
           temp-root: ${{ runner.temp }}
           repository-root: ${{ github.workspace }}
           compact-successful-tools: 'true'
+          ic-tools: 'quill icp didc ic-wasm wasm-opt'
