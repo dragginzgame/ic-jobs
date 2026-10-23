@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.21] - Unreleased
+## [0.17.21] - 2026-10-23
 
 - Qualify Platform/macros 0.6.10, Metrics 0.15.7 and Timers 0.30.6 for the
   consumer fixture. Their runtime source is unchanged from the prior selections;
