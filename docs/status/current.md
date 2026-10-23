@@ -2,74 +2,70 @@
 
 ## Source and pending adoption
 
-Jobs **0.17.16** is delivered at
-`99a50f9f618fd0aef84b94bd163176b8ee35216d`. Workspace metadata remains 0.17.16;
-the **0.17.17** draft records the pending Timers adoption. Staging, commits,
-version changes, release execution and publication remain user-owned.
+Jobs **0.17.17** is delivered at `47201d7`;
+workspace metadata remains 0.17.17. The **0.17.18** draft records the current IC
+adoption. Staging, commits, version changes, releases and publication remain user-owned.
 
-The working graph selects Host FS/Process/Artifacts, Build and Testkit **0.64.0**.
-Build and Testkit move together because their previous line requires Host 0.63.
-Testkit Native is also **0.64.0** in the starting source. Memory/Storage, Metrics,
-Platform and Wire retain their incoming selections during this task.
-Recovery tests and the queue example now import upstream PocketIC types from
-`ic_platform::pocket_ic`, with `pocket-ic` enabled only in harness dev-dependencies.
-Testkit retains startup/lifecycle extensions. Jobs does not use the removed
-Testkit principal/performance facades, diagnostics batch error or Wire call helper.
+The incoming lockfile already selected Platform/macros **0.6.8**, Memory/Storage
+**0.50.11**, Build/Host/Testkit/Testkit Native **0.64.1** and Wire **0.5.22**.
+This task preserves the patch selections, records their minimums in the catalog
+and adopts published Wire/derive **0.6.0**. Timers stays **0.30.3**; Metrics and
+other non-Wire lockfile selections are unchanged from the incoming tree.
 
-The incoming lockfile already selected published Timers **0.30.3**; this task
-preserves it and sets that minimum in the workspace catalog. Its runtime source
-is identical to 0.30.2. No timer API adaptation is required. The Wasm graph now
-requires exactly one Platform identity, reflecting Timers' current 0.6 dependency
-instead of retaining the obsolete allowance for its earlier Platform 0.5 line.
+Jobs uses Wire's retained `native` Serde/Postcard framing only; the removed finite
+schema, typed-method and TypeScript APIs have no Jobs callers. No Rust adaptation,
+new codec, binding regeneration or application migration is required. Method IDs,
+limits and DTO layouts remain unchanged. The queue client and canister must still
+be rebuilt together. No borrowed metadata or unreleased Wire additions are selected.
+
+Testkit's native management feature selects Platform's Candid and management DTOs.
+Those dependencies remain outside the production canister and core graphs.
+PocketIC retains management types 0.8 while Platform selects 0.11 on native tests;
+these separate upstream contracts are not exchanged by Jobs-owned APIs.
+No direct external IC dependencies or local facades are introduced.
 
 The published library retains its Serde-only API and Rust **1.91** floor.
-Consumers retain storage, payloads, endpoints, lifecycle, authentication and effect
+Consumers own storage, payloads, endpoints, lifecycle, authentication and effect
 disposition. Every decoded record crosses `Job::restore`; Running/Uncertain work
-stays blocked until explicit reconciliation. Error precedence, Wire frames,
-stored formats and commit-before-dispatch are unchanged.
-The [root ownership map](../../README.md#scope-and-validation) remains authoritative.
+stays blocked until explicit reconciliation. Error precedence, stored formats
+and commit-before-dispatch remain. The [root ownership map](../../README.md#scope-and-validation)
+is authoritative. The consumer Wasm graph requires one Platform identity.
+
+## Current qualification
+
+Starting source, incoming lockfile/patch, previous handoff and qualification logs
+are retained in `target/qualification/ic-deps-01718/`. Strict workspace-selected
+Clippy, consumer composition/unit/Wire tests, capture tests and harness compilation
+pass. Separate core/consumer Rust 1.91 and Wasm checks, all five graph contexts,
+boundaries, pins, formatting and documentation links pass. `make test-demo` passes
+against the local canister for seconds/minutes/weeks, recurrence, pause/resume and
+cancellation. Prepared Build/Testkit CLIs pass offline admission, and release,
+publication and consumer tooling fixtures pass with their documented substitute
+effects. No actual release or upload was performed.
+No full CI, new native macOS or nine-scenario recovery result is claimed.
+
+Selected Build and Testkit executables require `cli` during preparation; library
+dependencies retain their selected features. Prepare with
+`make install-release-tools install-testkit-tools`, then admit offline with
+`make release-tools-check testkit-tools-check`. PocketIC setup/admission stays
+Testkit-owned. Shared Tooling remains **0.25.9**, revision
+`85aded191d85ac4a8c0e5deab207f6be18895862`.
 
 ## Local canister queue client
 
 [The terminal demo](../../crates/jobs-canister-tests/README.md) shipped in 0.17.15.
 `make demo` installs a fresh fixture canister in local PocketIC. Queue seconds,
-minutes or weeks; inspect jobs, fast-forward IC time, watch countdowns and manage
+minutes or weeks; inspect jobs, advance IC time, watch countdowns and manage
 recurrence through existing Wire endpoints. The host retains display labels only;
 queue storage, scheduling and effects stay in the canister. Quit/EOF/Ctrl+C release
 the owned server. Interactive execution stays in the foreground; the batch runner
-is used for the noninteractive test. `make test-demo` selects the live CLI case.
+is used for the noninteractive `make test-demo` live scenario.
 
-Earlier Linux qualification of the 0.63.3 graph includes the actual terminal
-route, six-second countdown, week advance, normal quit and interrupt cleanup.
-It is retained in `target/qualification/queue-demo/`; it does not qualify 0.64.
-
-## Current focused qualification
-
-Timers evidence, starting source, incoming lockfile/patch and the previous handoff
-are in `target/qualification/timers-0303/`. All 19 composition tests, separate
-core/consumer Rust 1.91 and Wasm checks, native/Wasm consumer strict Clippy,
-five graph contexts, boundaries, pins, formatting and documentation links pass.
-`make test-demo` passes live seconds/minutes/weeks, recurrence, pause/resume and
-cancellation checks with Timers 0.30.3. The incoming lockfile remains byte-identical.
-No new full CI, native macOS or nine-scenario recovery result is claimed.
-
-Previous Host adoption evidence, tracked source and its earlier handoff are in
-`target/qualification/host-064/`. Rust 1.91 passes the four capture tests, recovery
-reply-limit test and queue parser test; nine recovery cases and the live queue
-case remain ignored in that ordinary native run. All five dependency graph
-contexts, dependency boundaries and pin declarations pass. Strict Clippy, separate
-core/consumer MSRV and Wasm checks, consumer and release tooling fixtures,
-formatting and documentation links pass. Prepared Build/Testkit executables pass
-offline admission. `make test-demo` passes against the local PocketIC canister,
-covering seconds/minutes/weeks, recurrence, pause/resume and cancellation.
-Those results used the earlier Timers selection; they do not qualify 0.30.3.
-
-The selected Build and Testkit executables require `cli` during preparation;
-library dependencies retain their selected features. Use
-`make install-release-tools install-testkit-tools` followed by the offline
-`make release-tools-check testkit-tools-check`. PocketIC provisioning/admission
-stays Testkit-owned. Candid remains transitive for PocketIC's external protocols;
-Jobs-owned messages use Wire. No full CI or new native macOS result is claimed.
+Earlier Linux qualifications are retained in `target/qualification/queue-demo/`,
+`target/qualification/host-064/` and `target/qualification/timers-0303/`.
+They cover their respective source/graph selections, not the current adoption.
+The memory IO observer remains consumer dev-only, with exact counts and overflow
+rejection; production graphs exclude it.
 
 ## Retained live recovery evidence
 
@@ -79,23 +75,14 @@ passed on **2026-10-21** against Jobs **0.17.14**, commit
 Nine scenarios passed for original Wasm and Binaryen `-O3`, `-Os`, `-Oz` on Linux,
 macOS Intel and Apple Silicon: **108 successful scenario executions**.
 The [regular CI matrix](https://github.com/dragginzgame/ic-jobs/actions/runs/39591155917)
-also passed for that delivered source. These results do not qualify newer graphs.
+also passed for that source. These results do not qualify newer graphs.
 
-`target/qualification/recovery-01714/` retains downloaded artifacts, job logs,
-source/lock/snapshot selections and verified Wasm hashes; preserve them.
-The tested lock SHA256 is
+`target/qualification/recovery-01714/` retains artifacts, job logs, selections and
+verified Wasm hashes; preserve them. The tested lock SHA256 is
 `0fb02c5ce5128281f0183b7911fde2c6196bd018fb478fff1b939299201dd6b9`.
 Coverage includes watchdog delivery, upgrades, overdue policies, rollback, trap
 recovery and receipt-based uncertain-effect reconciliation. It does not establish
 production deployment, instruction/cycle costs or untested consumer behavior.
-
-## Existing tooling and next delivery
-
-[#56 — Adopt canonical Testkit memory IO observer after publication](https://github.com/dragginzgame/ic-jobs/issues/56)
-is completed in 0.17.14. The observer remains consumer dev-only, with exact counts
-and overflow rejection; production graphs exclude it.
-Shared Tooling remains **0.25.9**, revision
-`85aded191d85ac4a8c0e5deab207f6be18895862`.
 Follow [release preparation](../releasing.md) for direct `origin`/`main` delivery.
-Rebuild fixture and harness together for any explicitly selected live recovery
+Rebuild fixture and harness together for an explicitly selected live recovery
 gate. Preserve retained data and unresolved effects.

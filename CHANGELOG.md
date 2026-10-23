@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.18] - Unreleased
+
+- Adopt Wire 0.6 for the qualification canister and native clients, retaining
+  explicit Serde framing, method identities and resource limits. Jobs does not
+  use the finite-schema APIs removed upstream; no client regeneration is needed.
+- Select Platform 0.6.8, Memory/Storage 0.50.11 and Build/Host/Testkit 0.64.1.
+  Testkit's additional Candid management support remains native-only. Published
+  Jobs APIs, production dependencies, stored data and Rust 1.91 support are unchanged.
+
+Prepare the selected executables with `make install-release-tools install-testkit-tools`
+before running offline tooling checks.
+
 ## [0.17.17] - 2026-10-22
 
 - Adopt Timers 0.30.3 for the qualification consumer and require its Wasm graph
