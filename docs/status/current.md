@@ -54,6 +54,11 @@ cancellation checks against the local canister with this graph.
 No full CI, new native macOS or nine-scenario recovery result is claimed.
 GitHub's repository description was reviewed and matches current ownership.
 
+Release validation exposed a missing audit-index target. The snapshot now selects
+`audits/ci-release-integrity.md` at the same pinned revision. Documentation links
+and snapshot integrity pass after repair; the earlier link-check claim was wrong.
+Repair evidence and the starting handoff are in `target/qualification/doc-link-repair/`.
+
 Earlier qualifications remain in `target/qualification/ic-deps-01718/`,
 `target/qualification/host-064/` and `target/qualification/timers-0303/`.
 They bind their respective tested sources and graphs, not this adoption.

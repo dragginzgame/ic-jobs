@@ -9,6 +9,8 @@
   for another checkout's shared installation; offline checks still refuse
   immediately. Preserve the existing IC executable set through explicit setup,
   recovery and failure-evidence selections. Tool versions and digests are unchanged.
+- Include the CI/release integrity audit in the snapshot selection, fixing the
+  missing document linked from the audit index that blocked release validation.
 
 Prepare the refreshed selections with
 `make install-ic-tools install-release-tools install-testkit-tools` before offline checks.
