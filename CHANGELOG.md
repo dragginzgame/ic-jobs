@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.25] - Unreleased
+
+- Adopt Wire/derive 0.7.1 and Build/Host/Testkit 0.68.0 for the qualification
+  consumer and native tooling. Existing DTOs, emitted frames, stored JSON and
+  Jobs' published API remain unchanged; no caller migration is required.
+  Prepare the selected executables with
+  `make install-release-tools install-testkit-tools` before offline checks.
+
 ## [0.17.24] - 2026-10-24
 
 - Adopt Wire 0.7's one-pass decoder in the qualification consumer and native
