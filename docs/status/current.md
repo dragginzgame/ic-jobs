@@ -1,5 +1,45 @@
 # Current handoff
 
+## IC Tooling 0.67 adoption
+
+The workspace catalog selects Build, Host FS/Process and Testkit/Native 0.67;
+the lock selects their published 0.67.0 releases plus Host Artifacts 0.67.0.
+The incoming Memory/Storage 0.50.14, Metrics 0.15.8 and Timers 0.30.10 selections
+are preserved. Only the six tooling packages changed from the task's incoming
+lockfile. Shared Tooling remains the reviewed 0.26.8 snapshot.
+
+Reviewed upstream 0.67 release/migration notes at `248df96b`. Jobs uses artifact
+capture/retention and native PocketIC lifecycle/diagnostics; it does not call the
+changed archive qualifier, configuration-limit or benchmark-comparison APIs.
+No Rust caller changes are required. Tooling remains outside the published core
+and consumer Wasm graphs. The compatible adoption extends the 0.17.23 draft;
+package versions, commits and releases remain user-owned.
+
+Task inputs and focused evidence are retained under
+`target/qualification/tooling-067/`, based on source `53e4800` plus the incoming
+README/changelog/handoff correction and lockfile updates.
+Native consumer, capture, parser, composition and memory-observer tests pass;
+the ignored live recovery/demo/process tests compile. Separate core and consumer
+Rust 1.91/Wasm checks, strict native Clippy, all five graph contexts, dependency
+boundaries/pins, tooling fixtures, formatting, snapshot and doc-link checks pass.
+The 0.67 release editor and Testkit CLI are prepared and admitted offline.
+Full CI, live PocketIC execution and fresh macOS qualification were not run;
+earlier live evidence does not qualify this graph.
+
+## README correction for issue #73
+
+Against released `53e4800` (0.17.22), the README now describes the single Platform
+identity required by the existing graph policy and shared by the fixture and
+Timers. Snapshot version/revision claims link to `.shared-tooling.snapshot`
+instead of repeating stale values. The manifest selects Shared Tooling 0.26.8 at
+`0b07c2a3163a5a66328e100b553baf93afd8ed07`. No dependency or graph policy changed.
+The compatible documentation correction is recorded in the 0.17.23 draft;
+package versions, commits and release delivery remain user-owned.
+All five `make check-dependency-graphs` contexts, snapshot verification,
+documentation links and whitespace checks pass. Concurrent lockfile updates were
+preserved; graph admission does not establish runtime qualification. No full CI
+or live PocketIC execution was needed for this documentation-only correction.
+
 ## Release fixture repair
 
 Against `10e5f18`, the release fixture still required the former five-tool IC

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.23] - Unreleased
+
+- Adopt Build, Host and Testkit 0.67.0 for native tooling and qualification.
+  Jobs' existing artifact capture and PocketIC APIs need no caller migration;
+  the published library API and consumer-owned scheduling policy are unchanged.
+  Rerun `make install-release-tools install-testkit-tools` to prepare the selected
+  executables before offline checks.
+- Correct the README's dependency graph description to reflect the single
+  Platform identity shared by the fixture and Timers, and link snapshot metadata
+  to its authoritative manifest. Resolves
+  [#73 — Refresh advisory README dependency and snapshot claims against their current owners](https://github.com/dragginzgame/ic-jobs/issues/73).
+
 ## [0.17.22] - 2026-10-24
 
 - Install only Binaryen for IC qualification. Contributors should rerun
