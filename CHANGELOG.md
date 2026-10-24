@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.26] - Unreleased
+
+- Adopt Platform/macros 0.6.15 and Timers 0.30.12 in the qualification consumer,
+  retaining the incoming Wire 0.7.2 selection. Their library source is unchanged
+  from the prior releases; no Jobs caller, stored-format or scheduling-policy
+  migration is required. The published core remains Serde-only.
+
 ## [0.17.25] - 2026-10-24
 
 - Adopt Wire/derive 0.7.1 and Build/Host/Testkit 0.68.0 for the qualification
