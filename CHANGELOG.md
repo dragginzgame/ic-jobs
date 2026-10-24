@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.26] - Unreleased
+## [0.17.26] - 2026-10-24
 
 - Adopt Platform/macros 0.6.15 and Timers 0.30.12 in the qualification consumer,
   retaining the incoming Wire 0.7.2 selection. Their library source is unchanged
