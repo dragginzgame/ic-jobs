@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.24] - Unreleased
+## [0.17.24] - 2026-10-24
 
 - Adopt Wire 0.7's one-pass decoder in the qualification consumer and native
   callers. Decode helpers require only deserialization; malformed integers remain
