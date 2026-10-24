@@ -2,8 +2,8 @@
 export RELEASE_DELIVERY ?= direct
 override SHARED_TOOLING_ROOT := $(CURDIR)
 override RELEASE_DELIVERY_POLICY := $(CURDIR)/ci/release-delivery.txt
-# Keep the full IC tool bundle installed; optimized qualification uses Binaryen.
-IC_TOOLS := quill icp didc ic-wasm wasm-opt
+# Optimized qualification uses Binaryen; no other IC executable is required.
+IC_TOOLS := wasm-opt
 LOCAL_TOOL_INSTALL_TARGETS := install-ic-tools
 LOCAL_TOOL_CHECK_TARGETS := ic-tools-check
 export PATH := $(CURDIR)/.tools/ic/bin:$(PATH)
@@ -22,7 +22,7 @@ help:
 	@echo "Focused: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
 	@echo "Consumer: check-consumer (native, Wasm, harness compilation); build-consumer (Wasm artifact)"
 	@echo "Explicit IC qualification: install-testkit-tools; install-consumer-server; test-canister[-optimized]"
-	@echo "Local canister queue: demo (interactive); test-demo (live scripted CLI scenario)"
+	@echo "Local canister queue: demo (interactive); test-demo (live scenario); test-demo-cli (process shutdown)"
 	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-dependency-boundaries, check-dependency-graphs, check-release-commands"
 	@echo "Tooling fixtures: version, test-release-tooling, test-formatting-evidence, test-consumer-tooling"
 	@echo "Hook qualification: formatting-hook-check (disposable Git copies; prepared formatters required)"
@@ -47,7 +47,7 @@ test-consumers:
 check-consumer:
 	+cargo +1.91.0 test -p jobs-test-consumer --lib --test api_wire --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
-	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --example queue --test recovery --locked --offline
+	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --example queue --test queue_cli --test recovery --locked --offline
 
 build-consumer:
 	+cargo +1.91.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
@@ -76,7 +76,7 @@ test-canister test-canister-optimized: consumer-server-check
 	+cargo +1.91.0 test -p jobs-canister-tests --test recovery --locked --offline --no-run
 	+bash scripts/ci/test-canister.sh $(if $(filter test-canister-optimized,$@),--optimized)
 
-.PHONY: demo test-demo
+.PHONY: demo test-demo test-demo-cli
 demo: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
 	+cargo +1.91.0 build -p jobs-canister-tests --example queue --locked --offline
@@ -94,6 +94,17 @@ test-demo: consumer-server-check
 		IC_JOBS_CONSUMER_WASM="$$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" \
 		"$$cli" run --ttl 900 -- cargo +1.91.0 test -p jobs-canister-tests \
 		--example queue --locked --offline -- --ignored --nocapture --test-threads=1
+
+# Spawn-mode process tests intentionally do not borrow the batch runner's server.
+test-demo-cli: consumer-server-check
+	+$(MAKE) --no-print-directory build-consumer
+	+cargo +1.91.0 build -p jobs-canister-tests --example queue --locked --offline
+	+@cli="$$( $(TESTKIT_TOOL) --check )" && \
+		target="$$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)" && \
+		IC_JOBS_QUEUE_SERVER="$$( "$$cli" check )" \
+		IC_JOBS_QUEUE_BIN="$$target/debug/examples/queue" \
+		IC_JOBS_CONSUMER_WASM="$$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" \
+		cargo +1.91.0 test -p jobs-canister-tests --test queue_cli --locked --offline -- --ignored --nocapture
 
 check-msrv:
 	+cargo +1.91.0 check -p ic-jobs --lib --locked --offline

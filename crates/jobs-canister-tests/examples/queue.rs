@@ -284,6 +284,10 @@ impl Demo {
     }
 
     fn show(&self) -> io::Result<()> {
+        self.show_views(self.views()?)
+    }
+
+    fn show_views(&self, mut views: Vec<View>) -> io::Result<()> {
         let summary: Summary = self.call(Method::Summary, &(), true)?;
         let now = self.now();
         println!(
@@ -296,7 +300,6 @@ impl Demo {
             "{:<4} {:<18} {:<24} {:<12} {:<20} RUNS",
             "ID", "NAME", "SCHEDULE", "STATE", "NEXT RUN"
         );
-        let mut views = self.views()?;
         views.sort_by_key(|view| {
             (
                 match view.status {
@@ -351,7 +354,8 @@ impl Demo {
         // Drive real timer callbacks; never invoke dispatch_due from the host.
         // Fixed rounds keep a large CatchUp backlog from blocking the terminal.
         advance_and_tick(self.pic.instance(), advance, 32);
-        for view in self.views()? {
+        let after = self.views()?;
+        for view in &after {
             let previous = before
                 .iter()
                 .find(|entry| entry.id == view.id)
@@ -366,7 +370,7 @@ impl Demo {
                 );
             }
         }
-        self.show()
+        self.show_views(after)
     }
 
     fn execute(&mut self, command: &ArgMatches) -> io::Result<bool> {

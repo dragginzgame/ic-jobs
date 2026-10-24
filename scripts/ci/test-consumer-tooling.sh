@@ -57,7 +57,7 @@ version = "$version"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 LOCK
     cp "$fixture/Cargo.lock" "$fixture/expected.lock"
-    for target in testkit-tools-check consumer-server-check test-canister test-canister-optimized demo test-demo; do
+    for target in testkit-tools-check consumer-server-check test-canister test-canister-optimized demo test-demo test-demo-cli; do
         status=0
         make --no-print-directory -j2 -C "$fixture" "$target" \
             > "$fixture/$version-$target.log" 2>&1 || status=$?
@@ -210,7 +210,7 @@ export JOBS_CONSUMER_IC_BIN="$fixture/ic-bin" JOBS_CONSUMER_FROZEN="$fixture/inp
 export JOBS_CONSUMER_PRODUCER="$input" JOBS_CONSUMER_CAPTURED="$fixture/consumed"
 cat > "$fixture/scripts/dev/install-ic-tools.sh" <<'INSTALLER'
 #!/usr/bin/env bash
-[[ "$*" == '--tool quill --tool icp --tool didc --tool ic-wasm --tool wasm-opt --check' ]] || exit 49
+[[ "$*" == '--tool wasm-opt --check' ]] || exit 49
 printf '%s\n' "$JOBS_CONSUMER_IC_BIN"
 INSTALLER
 cat > "$fixture/.tools/rust/common/bin/git" <<'GIT'

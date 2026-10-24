@@ -1,6 +1,22 @@
 # Current handoff
 
-## Delivered source and pending qualification
+## Pending local cleanup
+
+Against released `34c536a` (0.17.21), the 0.17.22 draft narrows IC tools to
+`wasm-opt`, reuses post-advance CLI views, and adds `make test-demo-cli` for real
+terminal quit/EOF/idle-interrupt cleanup. Public APIs and stored formats remain
+unchanged. The incoming Cargo.lock updates are preserved, not independently
+qualified by this cleanup. Rerun `make install-ic-tools` for the new selection.
+
+Focused checks pass: Rust 1.91 parser test and compilation of both ignored live
+tests, strict Clippy for the queue example/process test, consumer tooling
+fixtures, formatting and documentation links. No fresh live result is claimed:
+`make consumer-server-check` refuses because the lock-selected Testkit 0.66.3
+CLI has not been prepared. Prepare it with `make install-testkit-tools`, then
+`make install-consumer-server`; explicitly run `make test-demo test-demo-cli`.
+Full CI and macOS execution were not run.
+
+## Previous qualification handoff (historical)
 
 Jobs **0.17.20** is delivered at `2b867b8`; workspace metadata remains 0.17.20.
 The **0.17.21** draft records qualification of the pending Platform, Metrics and

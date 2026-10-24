@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.17.22] - Unreleased
+
+- Install only Binaryen for IC qualification. Contributors should rerun
+  `make install-ic-tools` to prepare the narrowed selection.
+- Add explicit real-terminal shutdown tests for quit, EOF and Ctrl+C through
+  `make test-demo-cli`, including owned PocketIC server cleanup.
+- Reuse the post-advance job listing when displaying the queue, avoiding a
+  redundant pagination pass during advances and watch updates.
+
 ## [0.17.21] - 2026-10-23
 
 - Qualify Platform/macros 0.6.10, Metrics 0.15.7 and Timers 0.30.6 for the

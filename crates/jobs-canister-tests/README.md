@@ -70,11 +70,16 @@ cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline
 
 # Explicit local canister test, with visible schedules and assertions.
 make test-demo
+
+# Explicit real terminal process tests: quit, EOF and idle Ctrl+C.
+make test-demo-cli
 ```
 
 The live scenario uses the same Clap commands as the terminal to queue seconds,
 minutes and weeks, then checks actual canister state after fast-forwarding,
 pausing, resuming and cancelling weekly recurrence. Ordinary `make check-consumer`
-includes the parser test and compiles the ignored live test. The separate
+includes the parser test and compiles the ignored live tests. The process test
+launches a fresh owned server for each shutdown mode, waits for a successful
+canister listing, and checks both terminal and server exit within bounded waits. The separate
 [recovery harness](../../apps/job-consumer/README.md) retains its own explicit
 PocketIC gate and recovery evidence; the demo does not replace it.
