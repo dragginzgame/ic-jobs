@@ -3,7 +3,8 @@
 ## [0.17.22] - Unreleased
 
 - Install only Binaryen for IC qualification. Contributors should rerun
-  `make install-ic-tools` to prepare the narrowed selection.
+  `make install-ic-tools` to prepare the narrowed selection. Release fixtures
+  enforce the same selection during tool preparation and offline checks.
 - Add explicit real-terminal shutdown tests for quit, EOF and Ctrl+C through
   `make test-demo-cli`, including owned PocketIC server cleanup.
 - Reuse the post-advance job listing when displaying the queue, avoiding a

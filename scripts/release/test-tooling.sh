@@ -166,10 +166,8 @@ esac
 [[ "$3" == "$catalog" && "$4" == "$consumer/ci/$file" ]] || exit 49
 shift 4
 if [[ "$toolset" == ic ]]; then
-    for tool in quill icp didc ic-wasm wasm-opt; do
-        [[ "${1:-}" == --tool && "${2:-}" == "$tool" ]] || exit 49
-        shift 2
-    done
+    [[ "${1:-}" == --tool && "${2:-}" == wasm-opt ]] || exit 49
+    shift 2
 fi
 [[ $# -le 1 ]] || exit 49
 case "${1:-}" in

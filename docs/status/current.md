@@ -1,5 +1,16 @@
 # Current handoff
 
+## Release fixture repair
+
+Against `10e5f18`, the release fixture still required the former five-tool IC
+selection and rejected the real `wasm-opt` preflight with exit 49. Its substitute
+installer now enforces `wasm-opt` alone for preparation and checks, matching the
+production Makefile. The existing 0.17.22 draft includes this correction.
+Package metadata, dependency selections and release state remain user-owned.
+`make test-release-tooling` passes, covering release/recovery and publication
+eligibility in disposable repositories with substituted gate/upload effects.
+Shell syntax, documentation links and whitespace checks pass. Full CI was not rerun.
+
 ## Pending local cleanup
 
 Against released `34c536a` (0.17.21), the 0.17.22 draft narrows IC tools to
