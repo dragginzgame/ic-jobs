@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.25] - Unreleased
+## [0.17.25] - 2026-10-24
 
 - Adopt Wire/derive 0.7.1 and Build/Host/Testkit 0.68.0 for the qualification
   consumer and native tooling. Existing DTOs, emitted frames, stored JSON and
