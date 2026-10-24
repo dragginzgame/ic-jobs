@@ -49,7 +49,7 @@ fn requests_preserve_the_envelope_and_reject_other_protocols() {
             native::decode_request::<Delivery>(method, candid, REQUEST_LIMITS),
             Err(ic_wire::Error::Identity)
         );
-        // A redundant zero group decodes to job 1 but is not canonical Postcard.
+        // A redundant zero group is a malformed, nonminimal integer.
         let small = Delivery {
             job: 1,
             ..delivery.clone()
@@ -58,7 +58,7 @@ fn requests_preserve_the_envelope_and_reject_other_protocols() {
         noncanonical.splice(11..12, [0x81, 0]);
         assert_eq!(
             native::decode_request::<Delivery>(method, &noncanonical, REQUEST_LIMITS),
-            Err(ic_wire::Error::Noncanonical)
+            Err(ic_wire::Error::Malformed)
         );
     }
 }
@@ -124,6 +124,19 @@ fn replies_preserve_exact_evidence_and_distinguish_absence_from_failure() {
     assert_eq!(
         decode_reply::<Delivery, ()>(RECEIVE_ID, Ok(b"malformed")),
         None
+    );
+}
+
+#[test]
+fn replies_can_decode_without_a_serializer() {
+    #[derive(Debug, PartialEq, serde::Deserialize)]
+    struct ReadOnly(u64);
+
+    let bytes =
+        native::encode_response(RECEIVE_ID, &Ok::<_, Error>(7_u64), RESPONSE_LIMITS).unwrap();
+    assert_eq!(
+        decode_reply::<ReadOnly, ()>(RECEIVE_ID, Ok(bytes)),
+        Some(ReadOnly(7))
     );
 }
 

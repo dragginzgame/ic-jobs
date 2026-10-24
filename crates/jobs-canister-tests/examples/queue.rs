@@ -196,10 +196,10 @@ impl Demo {
         self.pic.instance().get_time().as_nanos_since_unix_epoch()
     }
 
-    fn call<T: Serialize + DeserializeOwned>(
+    fn call<T: DeserializeOwned>(
         &self,
         method: Method,
-        args: &(impl Serialize + DeserializeOwned),
+        args: &impl Serialize,
         query: bool,
     ) -> io::Result<T> {
         let request =

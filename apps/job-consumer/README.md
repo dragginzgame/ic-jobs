@@ -21,6 +21,16 @@ Timers. It is a qualification fixture with deliberate fault endpoints, and must
 not be deployed as a production service. The Jobs library acquires no storage,
 authentication, payload, lifecycle or direct CDK timer ownership.
 
+The fixture and native callers use Wire 0.7's one-pass decoder. Decode success
+does not prove that re-encoding reproduces the original frame: Serde visitors
+can normalize inputs. Current RPC DTOs use ordered records, enums, sequences,
+strings and Principals; receipt reconciliation compares every typed delivery
+field, rather than re-encoded bytes or a hash. Request/reply budgets remain
+explicit and apply independently to encoding and decoding. Nonminimal integers
+are refused as malformed. Rebuild the fixture and harness together; method IDs,
+emitted layouts and stored JSON are unchanged. Future exact-frame retries or
+signatures must retain the original immutable frame bytes.
+
 The manager principal is supplied at installation and persisted. Management
 calls use the actual IC caller before reading or mutating the queue. `create`
 allocates an identity, `inspect` reads one job, `list` returns up to eight jobs

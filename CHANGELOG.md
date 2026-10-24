@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.24] - Unreleased
+
+- Adopt Wire 0.7's one-pass decoder in the qualification consumer and native
+  callers. Decode helpers require only deserialization; malformed integers remain
+  refused. Rebuild the fixture and harness together. The published Jobs API,
+  emitted RPC layouts, method IDs and stored JSON are unchanged.
+- Adopt Shared Tooling 0.26.13, including setup timing diagnostics and committed
+  release-preparation recovery. Use its common external IC dependency inventory
+  while retaining Jobs' stricter local bans. Tool pins are unchanged.
+- Qualify Platform/macros 0.6.14, Memory/Storage 0.50.16 and Timers 0.30.11.
+  Metrics remains transitive at 0.15.8; native tooling stays at 0.67.0.
+
 ## [0.17.23] - 2026-10-24
 
 - Adopt Build, Host and Testkit 0.67.0 for native tooling and qualification.

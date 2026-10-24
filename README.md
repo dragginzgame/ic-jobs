@@ -104,8 +104,9 @@ The qualification Wasm intentionally includes its test integrations above; those
 cannot be prohibited there using the production library's exclusion list.
 
 `make check-dependency-boundaries` runs the reviewed shared checker and is part of
-CI/release validation. Its [policy](ci/cargo-dependency-boundaries.json) forbids direct
-Candid/CDK, generator and retired decoder dependencies, including aliases,
+CI/release validation. It composes the [shared IC inventory](ci/external-ic-dependencies.txt)
+with [local bans](ci/cargo-dependency-boundaries.json) on direct generator and
+retired decoder dependencies, including aliases,
 across member normal/build/dev/target declarations. It does not enforce feature
 selection, inspect unused root catalog
 entries or scan independent workspaces; this workspace has no maintained independent

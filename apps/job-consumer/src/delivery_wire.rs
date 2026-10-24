@@ -6,7 +6,7 @@
 
 use ic_wire::Limits;
 #[cfg(any(test, target_arch = "wasm32"))]
-use serde::{Serialize, de::DeserializeOwned};
+use serde::de::DeserializeOwned;
 
 #[cfg(any(test, target_arch = "wasm32"))]
 use crate::api::Error;
@@ -35,7 +35,7 @@ pub const RESPONSE_LIMITS: Limits = Limits {
 #[cfg(any(test, target_arch = "wasm32"))]
 pub(crate) fn decode_reply<T, E>(method: u64, response: Result<impl AsRef<[u8]>, E>) -> Option<T>
 where
-    T: Serialize + DeserializeOwned,
+    T: DeserializeOwned,
 {
     ic_wire::native::decode_response::<Result<T, Error>>(
         method,

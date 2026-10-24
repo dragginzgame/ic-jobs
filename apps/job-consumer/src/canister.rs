@@ -84,11 +84,11 @@ fn admit_control_input() -> Result<(), String> {
     Ok(())
 }
 
-fn decode_control<T: Serialize + DeserializeOwned, const ID: u64>(bytes: Vec<u8>) -> T {
+fn decode_control<T: DeserializeOwned, const ID: u64>(bytes: Vec<u8>) -> T {
     required(native::decode_request(ID, &bytes, control::REQUEST_LIMITS))
 }
 
-fn encode_control<T: Serialize + DeserializeOwned, const ID: u64>(result: T) -> Vec<u8> {
+fn encode_control<T: Serialize, const ID: u64>(result: T) -> Vec<u8> {
     required(native::encode_response(
         ID,
         &result,
@@ -283,7 +283,7 @@ fn decode_delivery<const ID: u64>(bytes: Vec<u8>) -> Delivery {
     required(native::decode_request(ID, &bytes, REQUEST_LIMITS))
 }
 
-fn encode_delivery<T: Serialize + DeserializeOwned, const ID: u64>(result: T) -> Vec<u8> {
+fn encode_delivery<T: Serialize, const ID: u64>(result: T) -> Vec<u8> {
     // Encoding failure traps in the same segment as the receipt write.
     required(native::encode_response(ID, &result, RESPONSE_LIMITS))
 }

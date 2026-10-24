@@ -131,7 +131,7 @@ check-pins:
 
 .PHONY: check-dependency-boundaries
 check-dependency-boundaries:
-	+bash scripts/ci/check-cargo-dependency-boundaries.sh --consumer "$(CURDIR)"
+	+bash scripts/ci/check-cargo-dependency-boundaries.sh --consumer "$(CURDIR)" --external-ic
 
 # Jobs owns these concrete exclusions; Shared owns observation and matching.
 CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-cdk-macros \

@@ -85,7 +85,7 @@ impl Fixture {
         }
     }
 
-    fn update<T: Serialize + DeserializeOwned, A: Serialize + DeserializeOwned>(
+    fn update<T: DeserializeOwned, A: Serialize>(
         &self,
         method: Method,
         args: A,
@@ -93,7 +93,7 @@ impl Fixture {
         self.update_as(self.manager, method, args)
             .expect("PocketIC Wire call")
     }
-    fn update_as<T: Serialize + DeserializeOwned, A: Serialize + DeserializeOwned>(
+    fn update_as<T: DeserializeOwned, A: Serialize>(
         &self,
         caller: ExternalPrincipal,
         method: Method,
@@ -109,7 +109,7 @@ impl Fixture {
                     .expect("bounded Wire reply")
             })
     }
-    fn query<T: Serialize + DeserializeOwned, A: Serialize + DeserializeOwned>(
+    fn query<T: DeserializeOwned, A: Serialize>(
         &self,
         id: ExternalPrincipal,
         method: Method,

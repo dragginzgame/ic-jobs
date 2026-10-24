@@ -529,8 +529,8 @@ MAKE
     [[ -z "$(git status --porcelain)" ]] || exit 1
 done
 
-# A clean commit of prepared metadata does not establish release delivery. Keep
-# the original intent rather than silently incrementing past its untagged version.
+# A clean manually committed candidate can be the next release's base. Preserve
+# its undelivered intent and require fresh validation without replaying delivery.
 new_repository committed-undelivered
 candidate="$(bash scripts/ci/next-release-version.sh "$base_version" patch)"
 printf '# Changelog\n\n## [%s]\n\n- Fixture release.\n' "$candidate" > CHANGELOG.md
@@ -546,15 +546,25 @@ git commit --quiet -m 'Fixture committed preparation without delivery'
 committed_preparation="$(git rev-parse HEAD)"
 cp ".git/release-state/$candidate.plan" "$fixture/undelivered.plan"
 cp .git/gate-events "$fixture/undelivered-gate-events"
-cp .git/tool-events "$fixture/undelivered-tool-events"
-refuse committed-undelivered make --no-print-directory release-patch
-grep -F 'delivery is unconfirmed' "$fixture/committed-undelivered.log" > /dev/null
-cmp ".git/release-state/$candidate.plan" "$fixture/undelivered.plan"
+next_candidate="$(bash scripts/ci/next-release-version.sh "$candidate" patch)"
+refuse committed-revalidation env TOOLING_GATE_FAILURE=1 make --no-print-directory release-patch
+grep -F "Retained preparation: version=$candidate delivery=unconfirmed" "$fixture/committed-revalidation.log" > /dev/null
+archived_plans=(.git/release-state/"$candidate".attempt.*/"$candidate".plan)
+[[ ${#archived_plans[@]} == 1 && -f "${archived_plans[0]}" ]] || exit 1
+cmp "${archived_plans[0]}" "$fixture/undelivered.plan"
 cmp .git/gate-events "$fixture/undelivered-gate-events"
-cmp .git/tool-events "$fixture/undelivered-tool-events"
 [[ "$(git rev-parse HEAD)" == "$committed_preparation" && -z "$(git status --porcelain)" && -z "$(git tag)" ]] || exit 1
-[[ "$(find .git/release-state -name '*.plan' -print)" == ".git/release-state/$candidate.plan" ]] || exit 1
+[[ ! -e ".git/release-state/$candidate.plan" && ! -e ".git/release-state/$next_candidate.plan" ]] || exit 1
 [[ "$(git -C "$repository.git" rev-parse refs/heads/main)" == "$base" ]] || exit 1
+make --no-print-directory release-patch > "$fixture/committed-undelivered.log" 2>&1
+[[ "$(bash scripts/release/metadata.sh version)" == "$next_candidate" && -z "$(git status --porcelain)" ]] || exit 1
+[[ "$(tail -n 1 ".git/release-state/$next_candidate.plan")" == complete ]] || exit 1
+[[ "$(wc -l < .git/gate-events | tr -d ' ')" == 2 ]] || exit 1
+[[ "$(git tag)" == "v$next_candidate" && -z "$(git -C "$repository.git" tag --list "v$candidate")" ]] || exit 1
+[[ "$(git -C "$repository.git" rev-parse refs/heads/main)" == "$(git rev-parse HEAD)" ]] || exit 1
+[[ "$(git -C "$repository.git" rev-parse "refs/tags/v$next_candidate")" == "$(git rev-parse "refs/tags/v$next_candidate")" ]] || exit 1
+cmp "${archived_plans[0]}" "$fixture/undelivered.plan"
+[[ "$(tail -n 1 "${archived_plans[0]}")" == prepare ]] || exit 1
 
 # Interrupt at saved preparation before rendering. Recovery must use the saved
 # lock, need no environment exports and never install or fetch against live bytes.
