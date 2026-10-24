@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.23] - Unreleased
+## [0.17.23] - 2026-10-24
 
 - Adopt Build, Host and Testkit 0.67.0 for native tooling and qualification.
   Jobs' existing artifact capture and PocketIC APIs need no caller migration;
