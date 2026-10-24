@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.22] - Unreleased
+## [0.17.22] - 2026-10-24
 
 - Install only Binaryen for IC qualification. Contributors should rerun
   `make install-ic-tools` to prepare the narrowed selection. Release fixtures
