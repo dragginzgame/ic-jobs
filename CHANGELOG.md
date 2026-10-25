@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.27] - Unreleased
+## [0.17.27] - 2026-10-25
 
 - Use typed commands in the local queue client while preserving command names,
   flags, aliases and duration validation. Native management calls share Testkit's
