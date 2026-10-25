@@ -2,20 +2,26 @@
 
 ## Selected source and dependencies
 
-The released baseline is `81e0c06` (Jobs 0.17.25). The incoming lockfile already
-selected Platform/macros 0.6.15, Timers 0.30.12 and Wire/derive 0.7.2. This task
-raises the Platform and Timers catalog minimums to those reviewed releases and
-preserves the incoming lockfile byte-for-byte. Memory/Storage remain 0.50.16,
-transitive Metrics remains 0.15.8, and Build/Host/Testkit remain 0.68.0.
+The released baseline is `fa951dc` (Jobs 0.17.26). Incoming work already selects
+Memory/Storage 0.51.0, Timers 0.31.0, transitive Metrics 0.16.1, Tooling 0.68.1
+and Wire/derive 0.7.8. This batch preserves those selections and requires Wire
+0.7.8 in the catalog. Platform/macros stay 0.6.15. Metrics remains transitive;
+Jobs does not consume the stable adapter moved to IC Persistence. Metrics 0.16
+arithmetic and Jobs' stored formats need no conversion or reset.
 
-Reviewed Timers release `798f559` and Platform release `6dcf54a`. Published `src`
-trees for Timers, Platform and Platform macros are identical to their previous
-selections (0.30.11 and 0.6.14). Timers updates its own unpublished tooling/probes;
-Platform aligns optional native Wire metadata with Wire 0.7.2. Jobs uses neither
-upstream probe code nor Platform's `wire-schema` metadata. No Rust caller,
-endpoint, codec-budget, stored-data or scheduling-policy migration is required.
-The incoming Wire 0.7.2 patch changes upstream tooling only, preserving its
-runtime dependencies, frame bytes and codec behavior.
+Reviewed released Metrics `b6193cb` (0.16.1) and Wire `dece7fc` (0.7.8). Supplier
+drafts are excluded. Wire's current metadata/browser changes require no Jobs
+field adoption or generated clients; existing runtime frames and budgets remain.
+The incoming Timers/Memory minor updates exchange no public core Jobs types.
+
+The native queue client uses private typed Clap commands instead of string/type
+lookups. Existing command names, aliases, flags and validation are retained.
+Clap derive is enabled only in harness dev-dependencies, where the example lives.
+The CLI and recovery harness delegate normal management RPC framing/admission to
+Testkit's Wire feature through one native-only projection of consumer-owned
+method names, IDs and limits. Recovery exposes original typed RejectResponses;
+codec failures still fail the harness and deliberately malformed calls stay raw.
+No transport retry, server ownership or canister scheduling policy was added.
 
 Shared Tooling remains 0.26.13 at `2f4a95f88743982716f12def87f0a30c197dd07b`, exported
 from its clean committed source through the canonical preview/refresh workflow.
@@ -25,7 +31,7 @@ and Rust 1.91 core/consumer floors are unchanged. Jobs still selects only
 Jobs enables the common external IC dependency inventory, retaining local
 bans on direct Platform macros and the retired Testkit Candid adapter.
 
-The compatible batch is recorded in the 0.17.26 draft. Package versions, staging,
+The compatible batch is recorded in the 0.17.27 draft. Package versions, staging,
 commits, release delivery and publication remain user-owned.
 
 ## Wire and ownership contracts
@@ -53,23 +59,13 @@ Candid/Host; native PocketIC dependencies do not establish IC recovery.
 
 ## Qualification and retained evidence
 
-Inputs, prior handoff, published-source comparisons and focused logs are under
-`target/qualification/timers-03012-platform-0615/`. They bind source `81e0c06`,
-the incoming dependency selections and the current catalog/documentation patch.
+Inputs, prior handoff, source/lock digests and focused logs are under
+`target/qualification/native-cleanup-metrics-wire/`. They bind source `fa951dc`,
+the incoming dependency update and this native-tooling/catalog patch.
+Qualification is in progress; prior results do not qualify this selection.
 
-Native consumer/Wire, capture, parser, composition and memory-observer tests
-pass; ignored live recovery/demo/process tests compile. Separate core/consumer
-Rust 1.91/Wasm checks, native/Wasm strict Clippy, all five graph contexts,
-boundaries, pins, snapshot, formatting and documentation checks pass. Consumer
-tooling fixtures and the existing 0.68 CLI offline admission pass. Wasm feature
-inspection confirms the new Platform/Timers selection without host schema or
-PocketIC features. The incoming lockfile remains byte-identical.
-
-Full CI, live PocketIC execution and fresh macOS Intel/Apple Silicon qualification
-were not run. Keep explicit `make test-demo`, `make test-demo-cli` and
-`make test-canister[-optimized]` selection separate from native compilation.
-
-Prior Wire 0.7.1/Tooling 0.68 evidence remains at
+Prior Timers/Platform evidence remains at
+`target/qualification/timers-03012-platform-0615/`. Wire 0.7.1/Tooling 0.68 evidence remains at
 `target/qualification/wire-071-tooling-068/`. Wire/Shared adoption evidence remains at
 `target/qualification/upstream-wire-070/`, including the native 330-value frame
 comparison and recovery-fixture alignment. Tooling 0.67 evidence remains at

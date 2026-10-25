@@ -6,8 +6,9 @@ use ic_platform::{
 };
 use ic_testkit::pic::{
     CanisterDiagnosticsRequest, CanisterInstallError, CanisterInstallExt, CanisterLogRenderLimits,
-    InstallSpec, PocketIcDiagnosticsExt, PocketIcInstance, PocketIcStartupConfig, RetryPolicy,
-    advance_and_tick, tick_until,
+    InstallSpec, PocketIcCallFailure, PocketIcDiagnosticsExt, PocketIcInstance,
+    PocketIcStartupConfig, RetryPolicy, WireCallError, advance_and_tick, query_wire, tick_until,
+    update_wire,
 };
 use ic_wire::native;
 use jobs_test_consumer::{
@@ -17,6 +18,9 @@ use jobs_test_consumer::{
 };
 use serde::{Serialize, de::DeserializeOwned};
 use std::{convert::Infallible, path::PathBuf, task::Poll, time::Duration};
+
+#[path = "../support/wire.rs"]
+mod wire;
 
 struct Fixture {
     pic: PocketIcInstance<PocketIc>,
@@ -99,15 +103,20 @@ impl Fixture {
         method: Method,
         args: A,
     ) -> Result<T, RejectResponse> {
-        let bytes = native::encode_request(method as u64, &args, control::REQUEST_LIMITS)
-            .expect("bounded Wire request");
-        self.pic
-            .instance()
-            .update_call(self.sender, caller, method.name(), bytes)
-            .map(|bytes| {
-                native::decode_response(method as u64, &bytes, control::RESPONSE_LIMITS)
-                    .expect("bounded Wire reply")
-            })
+        match update_wire(
+            self.pic.instance(),
+            self.sender,
+            caller,
+            wire::control(method),
+            &args,
+        ) {
+            Ok(value) => Ok(value),
+            Err(WireCallError::Call { source, .. }) => match *source {
+                PocketIcCallFailure::Rejected(response) => Err(response),
+                other => panic!("PocketIC Wire call failed: {other:?}"),
+            },
+            Err(other) => panic!("PocketIC Wire contract failed: {other:?}"),
+        }
     }
     fn query<T: DeserializeOwned, A: Serialize>(
         &self,
@@ -115,15 +124,14 @@ impl Fixture {
         method: Method,
         args: A,
     ) -> Result<T, Error> {
-        let bytes = native::encode_request(method as u64, &args, control::REQUEST_LIMITS)
-            .expect("bounded Wire request");
-        let bytes = self
-            .pic
-            .instance()
-            .query_call(id, self.manager, method.name(), bytes)
-            .expect("PocketIC Wire call");
-        native::decode_response(method as u64, &bytes, control::RESPONSE_LIMITS)
-            .expect("bounded Wire reply")
+        query_wire(
+            self.pic.instance(),
+            id,
+            self.manager,
+            wire::control(method),
+            &args,
+        )
+        .expect("PocketIC Wire call")
     }
     fn view(&self, id: u64) -> View {
         self.query(self.sender, Method::Inspect, (id,)).unwrap()

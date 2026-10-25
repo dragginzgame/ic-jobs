@@ -1,16 +1,17 @@
 //! Interactive host client for the real qualification canister in local PocketIC.
-use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
+use clap::{CommandFactory, Parser, Subcommand};
 use ic_platform::{
     pocket_ic::{PocketIc, PocketIcBuilder},
     principal::ExternalPrincipal,
 };
 use ic_testkit::pic::{
     CanisterInstallExt, InstallSpec, PocketIcInstance, PocketIcStartupConfig, advance_and_tick,
+    query_wire, update_wire,
 };
 use ic_wire::native;
 use jobs_test_consumer::{
-    api::{Create, Init, Status, Summary, Task, Timing, View},
-    management_wire::{Method, REQUEST_LIMITS, RESPONSE_LIMITS},
+    api::{Create, Error as ApiError, Init, Status, Summary, Task, Timing, View},
+    management_wire::{Method, REQUEST_LIMITS},
 };
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
@@ -23,6 +24,9 @@ use std::{
     },
     time::Duration,
 };
+
+#[path = "../support/wire.rs"]
+mod wire;
 
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 
@@ -56,65 +60,74 @@ fn positive_duration(value: &str) -> Result<Duration, String> {
     Ok(parsed)
 }
 
-fn commands() -> Command {
-    Command::new("queue")
-        .no_binary_name(true)
-        .subcommand_required(true)
-        .about("Manage jobs in the local canister. Durations: 5s, 2m, 3h, 4d, 1w.")
-        .after_help(
-            "Clock time advances only with advance or watch. Names are single words.\n\
-            Try: sample; watch 6s; advance 1m; advance 1w (one command per line).",
-        )
-        .subcommand(Command::new("sample").about("Queue jobs for 5s, 1m and every 1w"))
-        .subcommand(
-            Command::new("add")
-                .about("Queue a counter increment in the canister")
-                .arg(Arg::new("name").required(true))
-                .arg(
-                    Arg::new("after")
-                        .long("after")
-                        .required(true)
-                        .value_parser(duration),
-                )
-                .arg(
-                    Arg::new("every")
-                        .long("every")
-                        .value_parser(positive_duration),
-                )
-                .arg(
-                    Arg::new("catch-up")
-                        .long("catch-up")
-                        .requires("every")
-                        .action(ArgAction::SetTrue),
-                ),
-        )
-        .subcommand(Command::new("list").about("Read the current schedule and execution counts"))
-        .subcommand(
-            Command::new("advance")
-                .about("Fast-forward IC time once, then deliver 32 canister rounds")
-                .arg(Arg::new("duration").required(true).value_parser(duration)),
-        )
-        .subcommand(
-            Command::new("watch")
-                .about("Advance one IC second per display, waiting between displays")
-                .arg(
-                    Arg::new("duration")
-                        .required(true)
-                        .value_parser(positive_duration),
-                ),
-        )
-        .subcommands(["pause", "resume", "cancel"].map(|name| {
-            Command::new(name).arg(
-                Arg::new("id")
-                    .required(true)
-                    .value_parser(value_parser!(u64)),
-            )
-        }))
-        .subcommand(
-            Command::new("quit")
-                .alias("exit")
-                .about("End this temporary canister session"),
-        )
+#[derive(Parser)]
+#[command(
+    name = "queue",
+    no_binary_name = true,
+    subcommand_required = true,
+    about = "Manage jobs in the local canister. Durations: 5s, 2m, 3h, 4d, 1w.",
+    after_help = "Clock time advances only with advance or watch. Names are single words.\nTry: sample; watch 6s; advance 1m; advance 1w (one command per line)."
+)]
+struct Prompt {
+    #[command(subcommand)]
+    command: QueueCommand,
+}
+
+#[derive(Subcommand)]
+enum QueueCommand {
+    /// Queue jobs for 5s, 1m and every 1w
+    Sample,
+    /// Queue a counter increment in the canister
+    Add {
+        #[arg(value_name = "name")]
+        name: String,
+        #[arg(long, value_parser = duration, value_name = "after")]
+        after: Duration,
+        #[arg(long, value_parser = positive_duration, value_name = "every")]
+        every: Option<Duration>,
+        #[arg(long, requires = "every")]
+        catch_up: bool,
+    },
+    /// Read the current schedule and execution counts
+    List,
+    /// Fast-forward IC time once, then deliver 32 canister rounds
+    Advance {
+        #[arg(value_parser = duration, value_name = "duration")]
+        duration: Duration,
+    },
+    /// Advance one IC second per display, waiting between displays
+    Watch {
+        #[arg(value_parser = positive_duration, value_name = "duration")]
+        duration: Duration,
+    },
+    Pause {
+        #[arg(value_name = "id")]
+        id: u64,
+    },
+    Resume {
+        #[arg(value_name = "id")]
+        id: u64,
+    },
+    Cancel {
+        #[arg(value_name = "id")]
+        id: u64,
+    },
+    /// End this temporary canister session
+    #[command(alias = "exit")]
+    Quit,
+}
+
+#[derive(Parser)]
+#[command(
+    name = "queue-demo",
+    about = "Watch real Jobs canister scheduling in local PocketIC",
+    version
+)]
+struct Options {
+    #[arg(long, value_name = "server")]
+    server: PathBuf,
+    #[arg(long, value_name = "wasm")]
+    wasm: PathBuf,
 }
 
 fn failure(error: impl std::fmt::Debug) -> io::Error {
@@ -202,25 +215,25 @@ impl Demo {
         args: &impl Serialize,
         query: bool,
     ) -> io::Result<T> {
-        let request =
-            native::encode_request(method as u64, args, REQUEST_LIMITS).map_err(failure)?;
-        let reply = if query {
-            self.pic
-                .instance()
-                .query_call(self.canister, self.manager, method.name(), request)
+        let reply: Result<T, ApiError> = if query {
+            query_wire(
+                self.pic.instance(),
+                self.canister,
+                self.manager,
+                wire::control(method),
+                args,
+            )
         } else {
-            self.pic
-                .instance()
-                .update_call(self.canister, self.manager, method.name(), request)
+            update_wire(
+                self.pic.instance(),
+                self.canister,
+                self.manager,
+                wire::control(method),
+                args,
+            )
         }
         .map_err(failure)?;
-        native::decode_response::<Result<T, jobs_test_consumer::api::Error>>(
-            method as u64,
-            &reply,
-            RESPONSE_LIMITS,
-        )
-        .map_err(failure)?
-        .map_err(failure)
+        reply.map_err(failure)
     }
 
     fn views(&self) -> io::Result<Vec<View>> {
@@ -373,11 +386,15 @@ impl Demo {
         self.show_views(after)
     }
 
-    fn execute(&mut self, command: &ArgMatches) -> io::Result<bool> {
-        let (name, args) = command.subcommand().expect("Clap requires a command");
-        match name {
-            "quit" => return Ok(false),
-            "sample" => {
+    fn manage(&self, method: Method, id: u64) -> io::Result<()> {
+        self.call::<()>(method, &(id,), false)?;
+        self.show()
+    }
+
+    fn execute(&mut self, command: &QueueCommand) -> io::Result<bool> {
+        match command {
+            QueueCommand::Quit => return Ok(false),
+            QueueCommand::Sample => {
                 self.add("seconds", Duration::from_secs(5), None, false)?;
                 self.add("minutes", Duration::from_secs(60), None, false)?;
                 self.add(
@@ -388,19 +405,19 @@ impl Demo {
                 )?;
                 self.show()?;
             }
-            "add" => {
-                self.add(
-                    args.get_one::<String>("name").unwrap(),
-                    *args.get_one::<Duration>("after").unwrap(),
-                    args.get_one::<Duration>("every").copied(),
-                    args.get_flag("catch-up"),
-                )?;
+            QueueCommand::Add {
+                name,
+                after,
+                every,
+                catch_up,
+            } => {
+                self.add(name, *after, *every, *catch_up)?;
                 self.show()?;
             }
-            "list" => self.show()?,
-            "advance" => self.advance(*args.get_one::<Duration>("duration").unwrap())?,
-            "watch" => {
-                let mut remaining = *args.get_one::<Duration>("duration").unwrap();
+            QueueCommand::List => self.show()?,
+            QueueCommand::Advance { duration } => self.advance(*duration)?,
+            QueueCommand::Watch { duration } => {
+                let mut remaining = *duration;
                 while !remaining.is_zero() && !INTERRUPTED.load(Ordering::Relaxed) {
                     let step = remaining.min(Duration::from_secs(1));
                     std::thread::sleep(step);
@@ -408,48 +425,26 @@ impl Demo {
                     remaining -= step;
                 }
             }
-            "pause" | "resume" | "cancel" => {
-                let method = match name {
-                    "pause" => Method::Pause,
-                    "resume" => Method::Resume,
-                    _ => Method::Cancel,
-                };
-                self.call::<()>(method, &(*args.get_one::<u64>("id").unwrap(),), false)?;
-                self.show()?;
-            }
-            _ => unreachable!("Clap owns the command set"),
+            QueueCommand::Pause { id } => self.manage(Method::Pause, *id)?,
+            QueueCommand::Resume { id } => self.manage(Method::Resume, *id)?,
+            QueueCommand::Cancel { id } => self.manage(Method::Cancel, *id)?,
         }
         Ok(true)
     }
 }
 
 fn main() -> io::Result<()> {
-    let args = Command::new("queue-demo")
-        .about("Watch real Jobs canister scheduling in local PocketIC")
-        .version(env!("CARGO_PKG_VERSION"))
-        .arg(
-            Arg::new("server")
-                .long("server")
-                .required(true)
-                .value_parser(value_parser!(PathBuf)),
-        )
-        .arg(
-            Arg::new("wasm")
-                .long("wasm")
-                .required(true)
-                .value_parser(value_parser!(PathBuf)),
-        )
-        .get_matches();
+    let args = Options::parse();
     ctrlc::set_handler(|| INTERRUPTED.store(true, Ordering::Relaxed)).map_err(failure)?;
     let config = PocketIcStartupConfig::Spawn {
-        server_binary: args.get_one::<PathBuf>("server").unwrap().clone(),
+        server_binary: args.server,
         timeout: Duration::from_secs(30),
         server_hard_ttl: Some(Duration::from_secs(3600)),
         server_idle_ttl: Some(Duration::from_secs(3600)),
         server_output_files: None,
     };
-    let mut demo = Demo::new(args.get_one::<PathBuf>("wasm").unwrap(), config)?;
-    commands().print_help()?;
+    let mut demo = Demo::new(&args.wasm, config)?;
+    Prompt::command().print_help()?;
     println!();
     let stdin = io::stdin();
     let interactive = stdin.is_terminal();
@@ -485,7 +480,7 @@ fn main() -> io::Result<()> {
         if line.trim().is_empty() {
             continue;
         }
-        let command = match commands().try_get_matches_from(line.split_whitespace()) {
+        let command = match Prompt::try_parse_from(line.split_whitespace()) {
             Ok(command) => command,
             Err(error) if matches!(error.kind(), clap::error::ErrorKind::DisplayHelp) => {
                 error.print()?;
@@ -497,7 +492,7 @@ fn main() -> io::Result<()> {
             }
             Err(error) => return Err(failure(error)),
         };
-        match demo.execute(&command) {
+        match demo.execute(&command.command) {
             Ok(false) => break,
             Ok(true) => {}
             Err(error) if interactive => eprintln!("{error}"),
@@ -525,17 +520,34 @@ mod tests {
         for input in ["", "5", "1.5m", "-1s", "1m30s", "999999999999999999w"] {
             assert!(duration(input).is_err());
         }
+        let QueueCommand::Add {
+            name,
+            after,
+            every,
+            catch_up,
+        } = Prompt::try_parse_from(
+            "add report --after 0s --every 2w --catch-up".split_whitespace(),
+        )
+        .unwrap()
+        .command
+        else {
+            panic!("expected typed add command");
+        };
+        assert_eq!(name, "report");
+        assert_eq!(after, Duration::ZERO);
+        assert_eq!(every, Some(Duration::from_secs(1_209_600)));
+        assert!(catch_up);
+        assert!(matches!(
+            Prompt::try_parse_from(["exit"]).unwrap().command,
+            QueueCommand::Quit
+        ));
         for input in [
             "add x --after 1s --every 0s",
             "add x --after 1s --catch-up",
             "watch 0s",
             "pause nope",
         ] {
-            assert!(
-                commands()
-                    .try_get_matches_from(input.split_whitespace())
-                    .is_err()
-            );
+            assert!(Prompt::try_parse_from(input.split_whitespace()).is_err());
         }
     }
 
@@ -547,10 +559,8 @@ mod tests {
         let config = PocketIcStartupConfig::from_env(Duration::from_secs(30)).unwrap();
         let mut demo = Demo::new(Path::new(&wasm), config).unwrap();
         let run = |demo: &mut Demo, line: &str| {
-            let args = commands()
-                .try_get_matches_from(line.split_whitespace())
-                .unwrap();
-            assert!(demo.execute(&args).unwrap());
+            let args = Prompt::try_parse_from(line.split_whitespace()).unwrap();
+            assert!(demo.execute(&args.command).unwrap());
         };
         run(&mut demo, "sample");
         assert!(

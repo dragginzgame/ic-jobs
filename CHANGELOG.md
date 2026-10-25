@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.17.27] - Unreleased
+
+- Use typed commands in the local queue client while preserving command names,
+  flags, aliases and duration validation. Native management calls share Testkit's
+  bounded Wire transport; recovery assertions retain typed canister rejections
+  and malformed-frame tests keep raw transport.
+- Qualify Metrics 0.16.1 through Timers 0.31.0 and adopt Wire/derive 0.7.8,
+  retaining the incoming Memory/Storage 0.51.0 and Tooling 0.68.1 selections.
+  Jobs' public API, RPC layouts and stored formats remain unchanged; Metrics
+  remains transitive and no storage reset or client regeneration is required.
+
 ## [0.17.26] - 2026-10-24
 
 - Adopt Platform/macros 0.6.15 and Timers 0.30.12 in the qualification consumer,
