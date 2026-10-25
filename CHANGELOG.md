@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.28] - Unreleased
+## [0.17.28] - 2026-10-25
 
 - Qualify Tooling 0.68.2, Memory/Storage 0.51.1, Metrics 0.16.2, Timers 0.31.1
   and Wire/derive 0.7.9, preserving the incoming resolved selections. Platform
