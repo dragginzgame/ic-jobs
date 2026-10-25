@@ -62,7 +62,26 @@ Candid/Host; native PocketIC dependencies do not establish IC recovery.
 Inputs, prior handoff, source/lock digests and focused logs are under
 `target/qualification/native-cleanup-metrics-wire/`. They bind source `fa951dc`,
 the incoming dependency update and this native-tooling/catalog patch.
-Qualification is in progress; prior results do not qualify this selection.
+The maintainer committed the code batch as `d210e86` while checks ran; its Rust,
+catalog and lockfile bytes match the tested selection. These final validation
+notes were added after that commit.
+Native consumer/Wire, capture, parser, composition and memory-observer tests
+pass. Separate core/consumer Rust 1.91/Wasm checks, native/Wasm strict Clippy,
+all five graph contexts, dependency boundaries/pins, snapshot integrity,
+formatting, doc links and consumer-tooling fixtures pass. Prepared 0.68.1 tools
+retain their existing admission and ownership boundaries.
+
+Explicit Linux PocketIC qualification passes `make test-demo test-demo-cli
+test-canister`: seconds/minutes/weeks and recurrence management, real CLI
+quit/EOF/idle-Ctrl+C cleanup, and all nine recovery scenarios on original Wasm.
+The installed Wasm SHA256 is
+`bd6c9884c935827556e00975d9f09f922c5778967997b0a98973762ce596e55f`.
+Retained IC evidence is `/tmp/jobs-recovery.Y82NZe`; the full selected run is
+`live-canister.log` in this task's qualification directory. The first attempt's
+sandbox-localhost bind failure is retained separately; the passing run executed
+outside that sandbox. Expected invalid-init trap diagnostics are passing refusal
+cases, not failed scenarios. Full CI, optimizer variants and fresh native macOS
+qualification were not run; the Linux result does not establish those claims.
 
 Prior Timers/Platform evidence remains at
 `target/qualification/timers-03012-platform-0615/`. Wire 0.7.1/Tooling 0.68 evidence remains at
