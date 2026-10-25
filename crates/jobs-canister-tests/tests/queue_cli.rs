@@ -51,7 +51,7 @@ fn quit_eof_and_idle_interrupt_release_owned_server() {
     let binary = std::env::var_os("IC_JOBS_QUEUE_BIN").expect("queue binary");
     let server = std::env::var_os("IC_JOBS_QUEUE_SERVER").expect("admitted server binary");
     let wasm = std::env::var_os("IC_JOBS_CONSUMER_WASM").expect("consumer Wasm");
-    for mode in ["quit", "eof", "interrupt"] {
+    for mode in ["quit", "eof", "interrupt", "watch-interrupt"] {
         let fixture =
             ic_host_fs::testing::FixtureDirectory::new(&std::env::temp_dir(), "jobs-queue-cli")
                 .unwrap();
@@ -95,6 +95,14 @@ fn quit_eof_and_idle_interrupt_release_owned_server() {
             "quit" => writeln!(stdin, "quit").unwrap(),
             "eof" => drop(stdin),
             "interrupt" => assert!(signal(&session.child.id().to_string(), "-INT")),
+            "watch-interrupt" => {
+                writeln!(stdin, "add after-stop --after 1s\nwatch 1w").unwrap();
+                until(
+                    || fs::read_to_string(&log_path).unwrap().contains("Watching;"),
+                    "watch entered before its first advance",
+                );
+                assert!(signal(&session.child.id().to_string(), "-INT"));
+            }
             _ => unreachable!(),
         }
         until(
@@ -107,6 +115,12 @@ fn quit_eof_and_idle_interrupt_release_owned_server() {
             fs::read_to_string(&log_path).unwrap()
         );
         until(|| !signal(pid.trim(), "-0"), "owned server exit");
+        if mode == "watch-interrupt" {
+            assert!(
+                !fs::read_to_string(&log_path).unwrap().contains("RAN #"),
+                "watch dispatched work after Ctrl+C"
+            );
+        }
         // Do not send cleanup signals after successful natural termination.
         fs::remove_file(&session.server_pid).unwrap();
     }

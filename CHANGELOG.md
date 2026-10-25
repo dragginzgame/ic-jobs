@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.28] - Unreleased
+
+- Qualify Tooling 0.68.2, Memory/Storage 0.51.1, Metrics 0.16.2, Timers 0.31.1
+  and Wire/derive 0.7.9, preserving the incoming resolved selections. Platform
+  remains 0.6.15; Jobs' published API, RPC layouts and stored formats are unchanged.
+- Adopt Shared Tooling 0.26.16, including distinct busy-tool admission and the
+  common generated-RPC budget ownership rule. Existing tool pins and native
+  consumer-owned budgets remain unchanged.
+- Stop `watch` before advancing IC time when Ctrl+C arrives during its wait,
+  preventing one last job dispatch after the stop request. Extend the real CLI
+  process check to cover interruption during an active watch.
+
 ## [0.17.27] - 2026-10-25
 
 - Use typed commands in the local queue client while preserving command names,

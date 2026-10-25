@@ -419,8 +419,14 @@ impl Demo {
             QueueCommand::Watch { duration } => {
                 let mut remaining = *duration;
                 while !remaining.is_zero() && !INTERRUPTED.load(Ordering::Relaxed) {
+                    if remaining == *duration {
+                        println!("Watching; press Ctrl+C to stop.");
+                    }
                     let step = remaining.min(Duration::from_secs(1));
                     std::thread::sleep(step);
+                    if INTERRUPTED.load(Ordering::Relaxed) {
+                        break;
+                    }
                     self.advance(step)?;
                     remaining -= step;
                 }
