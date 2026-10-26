@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.17.29] - Unreleased
+## [0.17.29] - 2026-10-26
 
 - Adopt Tooling 0.68.5, Memory/Storage 0.51.3, Platform/macros 0.6.16,
   Timers 0.31.2 and Wire/derive 0.7.12, preserving the incoming resolved selections.
