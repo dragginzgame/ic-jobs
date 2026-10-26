@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.29] - Unreleased
+
+- Adopt Tooling 0.68.5, Memory/Storage 0.51.3, Platform/macros 0.6.16,
+  Timers 0.31.2 and Wire/derive 0.7.12, preserving the incoming resolved selections.
+  Existing caller APIs, endpoint codecs and stored formats are retained;
+  no client regeneration or retained-data migration is required.
+
 ## [0.17.28] - 2026-10-25
 
 - Qualify Tooling 0.68.2, Memory/Storage 0.51.1, Metrics 0.16.2, Timers 0.31.1

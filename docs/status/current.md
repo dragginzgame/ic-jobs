@@ -2,78 +2,75 @@
 
 ## Source and selected adoption
 
-Released baseline: `647dd65` (Jobs 0.17.27). The incoming lockfile selects Build/
-Host/Testkit 0.68.2, Memory/Storage 0.51.1, transitive Metrics 0.16.2, Timers
-0.31.1 and Wire/derive 0.7.9. This batch raises the direct catalog minimums to
-those reviewed published releases and preserves the incoming lock byte-for-byte.
-Platform/macros remain 0.6.15; Platform's pending 0.6.16 source is not adopted.
-Supplier release sources reviewed: Tooling `4357e0ab`, Persistence `fa5cfd7`,
-Metrics `0d60020`, Timers `6dd07a1` and Wire `00b1686`.
+Released baseline: `04ae957` (Jobs 0.17.28). The incoming lockfile selects
+Build/Host/Testkit 0.68.5, Memory/Storage 0.51.3, Platform/macros 0.6.16,
+Timers 0.31.2 and Wire/derive 0.7.12. This batch aligns direct catalog minimums
+and preserves the incoming lockfile byte-for-byte. Metrics remains transitive at
+0.16.2. The published core remains Serde-only.
 
-Shared Tooling 0.26.16 at `2077c934efb82b181bea58fe50078dbad289c1aa` is adopted
-through its clean-source impact/refresh exporter. Its 118 payloads verify.
-Busy-tool admission is distinct from missing setup; no other owner's locks or
-retained generations are removed. Existing tool pins, development Rust 1.99.1
-and separate core/consumer Rust 1.91 floors are unchanged. IC tooling still
-selects only `wasm-opt`. The compatible draft is 0.17.28; package versions,
-staging, commits, release delivery and publication remain maintainer-owned.
+Reviewed supplier release sources: Tooling `52457b72`, Persistence `6cb8082`,
+Wire `974b6ff`, Platform `0b84c2e` and Timers `50ee4ca`. Later supplier drafts,
+including Wire's 0.7.13 notes at `a806197`, are excluded. Tooling simplifies
+startup deadlines, cache completion and native tooling; Persistence simplifies
+bootstrap/allocation flows. Wire 0.7.11 changes its host TypeScript-generation
+API, which Jobs does not call; 0.7.12 strengthens qualification without changing
+runtime frames. Jobs' public APIs, endpoint codecs/IDs and stored formats remain
+unchanged. No Rust caller change, generated-client update or data migration.
 
-## Local improvement and maintained contracts
+Shared Tooling remains 0.26.16 at
+`2077c934efb82b181bea58fe50078dbad289c1aa`; its 118 payloads verify.
+Existing tool pins, development Rust 1.99.1 and separate core/consumer Rust 1.91
+floors are unchanged. IC tooling selects only `wasm-opt`. The compatible draft
+remains 0.17.29; package versions, staging, commits, release delivery and
+publication remain maintainer-owned.
 
-The CLI's watch loop now checks interruption after sleeping and before advancing
-IC time. A watch-start message confirms the loop was entered; the real process
-fixture queues a job due at the first advance, interrupts that wait, and checks
-that no dispatch occurred. Quit, EOF and idle interruption remain covered.
-The initial regression failure and final focused evidence are retained below.
+## Maintained contracts
 
-The published core stays Serde-only. Every decoded Job crosses `Job::restore`;
-Running/Uncertain work stays blocked until explicit disposition. Storage,
-payloads, authentication, lifecycle, timer integration and effect policy remain
-consumer-owned. No new persisted formats, handler registry or timer provider.
+The CLI watch loop checks interruption after sleeping and before advancing IC
+time. The real process fixture covers quit, EOF, idle Ctrl+C and watch Ctrl+C
+without dispatching work after interruption. Its pre-fix reproduction is retained
+under `target/qualification/deps-watch-01728/`.
 
-Native management calls still use Testkit's Wire adapter and one projection of
+Every decoded Job crosses `Job::restore`; Running/Uncertain work stays blocked
+until explicit disposition. Storage, payloads, authentication, lifecycle, timer
+integration and effect policy remain consumer-owned. No new persisted formats,
+handler registry, timer provider or production dependency is introduced.
+
+Native management calls use Testkit's Wire adapter and one projection of
 consumer-owned method names, IDs and request/reply limits. Delivery/management
-budgets remain in the consumer modules; no generated browser clients exist.
-Shared's new cross-runtime budget rule therefore adds no browser generation or
-second policy here. Full typed receipt equality, raw malformed-frame tests,
-Wire's one-pass decoder and explicit directional limits are unchanged. Future
-exact-byte retries/signatures must retain original frames; decode success does
-not prove identical re-encoding. Metrics remains transitive and no stable adapter
-is consumed by Jobs. Current DTOs and stored JSON require no migration/reset.
+budgets remain in the consumer modules. Full typed receipt equality, malformed
+frame checks, one-pass decoding and directional limits are retained. Jobs has no
+generated browser clients and consumes no stable Metrics adapter. Future exact-byte
+retries/signatures must retain original frames; successful decode does not prove
+identical re-encoding.
 
 ## Qualification and evidence
 
-`target/qualification/deps-watch-01728/` retains starting source/lock/snapshot,
-prior handoff, exporter impact/refresh output, focused logs and final identities.
-These bind the released baseline above, incoming dependency selections and the
-current local patch. Native consumer/Wire, capture, parser, composition and
-memory-observer tests pass. Separate core/consumer Rust 1.91/Wasm checks,
-native/Wasm strict Clippy, all five graph contexts, dependency boundaries/pins,
-snapshot integrity, formatting/hooks, release routing, documentation links and
-release/publication/consumer/evidence fixtures pass.
+`target/qualification/deps-20261026.zBqNbK/` retains incoming source/lock/catalog/handoff,
+focused logs and the final patch/source identities. The evidence binds the
+released base, its incoming dependency update and this catalog/documentation
+patch. Consumer/composition tests, strict native/Wasm Clippy, separate
+core/consumer Rust 1.91 native/Wasm checks, dependency graphs/boundaries,
+pins/snapshot, formatting, documentation links and release/consumer tooling
+fixtures pass. Lock-selected release/Testkit CLIs pass offline admission.
+The consumer Wasm graph excludes Platform's `wire-schema` and `pocket-ic` features.
 
-The pre-fix CLI fails the new live watch test with an observed dispatch after
-Ctrl+C. Its executable, source and hash remain in this qualification directory.
-The final explicit Linux `make test-demo test-demo-cli test-canister` passes:
-seconds/minutes/weeks and recurrence management, four shutdown modes including
-active-watch interruption with no dispatch, and all nine original-Wasm recovery
-scenarios. The installed Wasm SHA256 is
-`a6bb47086ac9ebfa796c0097492e9e2dc82f64ac093faf94fbaf1ef6d141364a`.
-Recovery evidence is retained at `/tmp/jobs-recovery.oWUrxD` and copied here.
+The explicit Linux live run passes the queue demo, all four CLI shutdown modes
+and all nine original-Wasm recovery scenarios. Its retained recovery directory
+is copied into this qualification directory as `recovery-evidence/`; the
+installed Wasm hash is
+`a0612f050f0a3fd6f84e277f54c1869dc81ffb2a577eeb0a9b4af09cb283c42b`.
+Full CI, optimized recovery variants and fresh macOS qualification were not run.
 
-Both refreshed CLIs pass offline admission. The first Testkit setup wait expired
-while another checkout owned its slot; a supported bounded retry reused the
-completed tool without cleanup or interference. The timeout and pre-fix test
-failure remain retained. Full CI, optimizer variants and fresh native macOS
-qualification were not run; historical host results do not establish them.
+The prior Tooling 0.68.3 graph is retained under
+`target/qualification/deps-01729/`, including passing focused tests, separate
+core/consumer Rust 1.91 native/Wasm checks, Clippy, tooling fixtures and Linux
+live queue/CLI/recovery evidence. Its installed Wasm hash was
+`23801bf701f5989216afe7784f1deddfd27c45456316c70b644f61000161aec9`.
 
-Prior Linux native/live evidence remains under
-`target/qualification/native-cleanup-metrics-wire/`: the queue demo, three CLI
-shutdown modes and all nine original-Wasm recovery cases passed for the preceding
-graph. Its recovery artifact hash is
-`bd6c9884c935827556e00975d9f09f922c5778967997b0a98973762ce596e55f`.
-That result does not qualify new dependency selections. Earlier qualification
-directories, failed attempts, release plans and unresolved effects stay retained.
+Earlier evidence remains under `target/qualification/deps-watch-01728/` and
+`target/qualification/native-cleanup-metrics-wire/`; failed attempts, original
+artifacts, release plans and unresolved effects remain retained.
 
 The last recorded three-host live recovery run qualified Jobs 0.17.14 at
 `7d1f808de0bc14d823bd1d3f04a5a62f06ad7a52` with Tooling 0.63.2:
