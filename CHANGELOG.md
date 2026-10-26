@@ -2,6 +2,8 @@
 
 ## [0.17.30] - 2026-10-26
 
+### 📝 Summary
+
 - Adopt Tooling/Testkit 0.68.7, Timers 0.31.4, Wire/derive 0.7.16 and the incoming
   Platform/macros 0.6.18 graph. Jobs' public APIs, endpoint codecs and stored
   formats are unchanged; no client regeneration or retained-data migration is
