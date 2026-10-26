@@ -76,8 +76,8 @@ then stop the release with its original fetch failure. Version reads, metadata
 checks stay offline. After successful admission/fetch, preflight runs
 `make install-tools`, `make tools-check` and `make install-release-tools`, then
 admits the editor offline; setup reuses
-the selected installation and does not replace older roots. Saved-release
-reconciliation precedes this preparation; saved intent bypasses fresh setup.
+the selected installation and does not replace older roots. Explicit
+`release-resume` selects saved intent before dispatch and bypasses fresh setup.
 Ordinary `make ci` never installs:
 it runs `validation-tools-check`, then the complete `clippy` gate before
 dispatching builds, tests and packaging, including under parallel Make. That
@@ -95,8 +95,9 @@ staged, unstaged or untracked work. The first tagged release, 0.1.1, advanced th
 initial 0.1.0 implementation with compatible delivery tooling and packaging fixes.
 The changelog records the initial implementation separately from those additions.
 
-The shared source checker reports every refused path, including unusual path
-bytes, without changing source or the index. Release metadata permits only
+The runner requires clean committed source before fresh release preflight. The
+standalone metadata adapter's shared source checker reports every refused path,
+including unusual path bytes, without changing source or the index. It permits only
 `Cargo.toml`, `Cargo.lock` and `CHANGELOG.md`; publication permits no exceptions.
 An initial release-preflight refusal reports that validation and version
 preparation have not started for that attempt. Failed Git observations are
@@ -127,17 +128,19 @@ It updates only `Cargo.toml`, local workspace rows in `Cargo.lock` and
 `CHANGELOG.md`, then commits, creates the annotated tag and atomically pushes
 the selected branch and that tag. Dependencies are not upgraded.
 
-If validation or preflight fails, correct the source and rerun the normal release
-command. At unchanged HEAD, interrupted preparation resumes its exact saved
-release. A normal direct-release command can instead restart preparation after a
-newer clean descendant commit records its metadata disposition, provided the
-saved attempt has no staging evidence and its destination still agrees. If that
-commit records the prepared candidate version, its annotated tag must also be
-confirmed at the saved destination, with the tagged commit included in its
-branch. Otherwise the runner keeps the original plan and refuses another bump.
-After admission, it archives the original plan, computes the increment from current
-metadata and repeats preflight and complete validation. `release-resume` remains
-exact-source recovery; staging and later phases retain exact effect reconciliation.
+If validation or preflight fails, correct and commit the source, then rerun the
+normal release command. Normal commands always start fresh from current committed
+metadata and repeat preflight and complete validation. Historical plans, including
+malformed or undelivered attempts, are not read or replayed; missing older tags
+do not block the next release. Stale receipts for the newly selected candidate
+are discarded under the release lock. Build and validation evidence is retained.
+
+Use `make release-resume VERSION=X.Y.Z` to continue a particular saved attempt,
+including interrupted preparation at unchanged HEAD. Recovery remains bound to
+that attempt's source, payload and destination. Dirty source/index, occupied
+locks and conflicting candidate refs still refuse. Uncommitted preparation needs
+explicit recovery or a deliberate committed/restored disposition before a fresh
+release; the runner does not reset files or stage them to make a release possible.
 See the [shared restart contract](releases.md#source-changes-after-saved-preparation-intent).
 
 Jobs' preparation adapter changes only `Cargo.toml`, local workspace versions in
@@ -186,8 +189,9 @@ uncertain observations refuse upload; validation never authorizes publication.
 
 `make test-release-tooling` uses real Git repositories and local bare remotes
 to exercise patch/minor/major preparation, exact release commits and annotated
-tags, failure before version mutation, completed-release recovery and refusal to
-increment committed preparation whose delivery is unconfirmed. Publication
+tags, failure before version mutation, explicit completed-release recovery and
+fresh releases despite undelivered or malformed historical plans. Archived
+changelog Draft labels are preserved through the actual preparation path. Publication
 checks cover source admission, local/remote tag identity, Make execution modes,
 registry availability, release identity changes during lint and upload failure.
 The complete gate and registry/upload

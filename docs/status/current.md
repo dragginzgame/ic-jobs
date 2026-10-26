@@ -1,79 +1,83 @@
 # Current handoff
 
-## Source and selected adoption
+## Selected adoption
 
-Released baseline: `04ae957` (Jobs 0.17.28). The incoming lockfile selects
-Build/Host/Testkit 0.68.5, Memory/Storage 0.51.3, Platform/macros 0.6.16,
-Timers 0.31.2 and Wire/derive 0.7.12. This batch aligns direct catalog minimums
-and preserves the incoming lockfile byte-for-byte. Metrics remains transitive at
-0.16.2. The published core remains Serde-only.
+Released baseline: `90f51ee` (Jobs 0.17.29). The incoming lockfile selects
+Build/Host/Testkit 0.68.7, Timers 0.31.4, Wire/derive 0.7.16 and Platform/macros
+0.6.18. Direct catalog minimums now match those selections; the incoming
+lockfile is preserved byte-for-byte. Memory/Storage remain 0.51.3 and transitive
+Metrics 0.16.2. Own package versions remain 0.17.29.
 
-Reviewed supplier release sources: Tooling `52457b72`, Persistence `6cb8082`,
-Wire `974b6ff`, Platform `0b84c2e` and Timers `50ee4ca`. Later supplier drafts,
-including Wire's 0.7.13 notes at `a806197`, are excluded. Tooling simplifies
-startup deadlines, cache completion and native tooling; Persistence simplifies
-bootstrap/allocation flows. Wire 0.7.11 changes its host TypeScript-generation
-API, which Jobs does not call; 0.7.12 strengthens qualification without changing
-runtime frames. Jobs' public APIs, endpoint codecs/IDs and stored formats remain
-unchanged. No Rust caller change, generated-client update or data migration.
+Reviewed release sources: Tooling `7ae301d00353e1e27e94300d492e47f9736941c3`,
+Timers `b04401c713d464a38d700af9b68a8fd437acda82`, Wire `27304e5` and Platform
+`98a2a8a`. Tooling retains successful Cargo completion admission and now shares
+final startup deadline/server checks across Testkit constructors. Timers' library
+source matches 0.31.2. Wire's u16/i16 decode optimization preserves frame bytes,
+limits and malformed-varint rejection. Platform's optional BLAKE3 feature and
+browser SDK are not consumed here. No Jobs caller adaptation was required.
 
-Shared Tooling remains 0.26.16 at
-`2077c934efb82b181bea58fe50078dbad289c1aa`; its 118 payloads verify.
-Existing tool pins, development Rust 1.99.1 and separate core/consumer Rust 1.91
-floors are unchanged. IC tooling selects only `wasm-opt`. The compatible draft
-remains 0.17.29; package versions, staging, commits, release delivery and
-publication remain maintainer-owned.
+Shared Tooling 0.26.20 at `a7f85d45d4212d4c39225f58597580560a333550` is adopted
+through canonical impact/refresh export; its 120 payloads verify. Specialist
+rules accompany the compact baseline. README/Make help distinguish focused
+commands from aggregate gates. Detailed change accounting is opt-in. The new
+npm boundary is inapplicable to this Rust-only consumer; its linked Node guide
+is explicitly included so local documentation links remain complete.
+
+The incoming 0.26.19 release changes remain: normal release targets start fresh
+from clean committed metadata; only `release-resume VERSION=X.Y.Z` recovers saved
+intent. Historical plans do not block fresh releases, stale candidate receipts
+are cleared under the lock, and archived changelog Draft labels remain intact.
+Jobs retains saved-lock recovery and refusal before source/index, gate or
+preparation effects. Make help now describes explicit resume accurately.
+
+Existing tool pins, development Rust 1.99.1, separate core/consumer Rust 1.91
+floors and the optimizer-only IC selection are unchanged. The compatible next
+draft is 0.17.30: public library APIs, endpoint codecs and stored formats are
+unchanged. No client regeneration or retained-data migration is required.
+Staging, commits, release execution and publication remain maintainer-owned.
 
 ## Maintained contracts
 
+The published core remains Serde-only. Every decoded Job crosses `Job::restore`;
+Running/Uncertain work stays blocked until explicit disposition. Storage,
+payloads, authentication, lifecycle, timer integration and effect policy remain
+consumer-owned. No production dependency, handler registry or timer provider.
+
 The CLI watch loop checks interruption after sleeping and before advancing IC
-time. The real process fixture covers quit, EOF, idle Ctrl+C and watch Ctrl+C
-without dispatching work after interruption. Its pre-fix reproduction is retained
-under `target/qualification/deps-watch-01728/`.
-
-Every decoded Job crosses `Job::restore`; Running/Uncertain work stays blocked
-until explicit disposition. Storage, payloads, authentication, lifecycle, timer
-integration and effect policy remain consumer-owned. No new persisted formats,
-handler registry, timer provider or production dependency is introduced.
-
-Native management calls use Testkit's Wire adapter and one projection of
-consumer-owned method names, IDs and request/reply limits. Delivery/management
-budgets remain in the consumer modules. Full typed receipt equality, malformed
-frame checks, one-pass decoding and directional limits are retained. Jobs has no
-generated browser clients and consumes no stable Metrics adapter. Future exact-byte
-retries/signatures must retain original frames; successful decode does not prove
-identical re-encoding.
+time. Native Wire callers retain one projection of consumer-owned method IDs,
+names and directional limits. Full receipt equality, malformed-frame refusal
+and one-pass decoding are unchanged. No browser clients or stable Metrics adapter
+are consumed. Exact-byte retries/signatures must retain original frames.
 
 ## Qualification and evidence
 
-`target/qualification/deps-20261026.zBqNbK/` retains incoming source/lock/catalog/handoff,
-focused logs and the final patch/source identities. The evidence binds the
-released base, its incoming dependency update and this catalog/documentation
-patch. Consumer/composition tests, strict native/Wasm Clippy, separate
-core/consumer Rust 1.91 native/Wasm checks, dependency graphs/boundaries,
-pins/snapshot, formatting, documentation links and release/consumer tooling
-fixtures pass. Lock-selected release/Testkit CLIs pass offline admission.
-The consumer Wasm graph excludes Platform's `wire-schema` and `pocket-ic` features.
+`/tmp/ic-jobs-adoption.2n_gbkqr/` retains the full incoming tracked source,
+lockfile, dirty diff/status, Shared impact/refresh output and focused logs. This
+separates the new adoption from incoming release-adapter work. Linux native
+consumer tests pass (29 library, 2 codec and 19 composition cases); native harness
+checks pass with explicit live cases ignored. Consumer/harness native Clippy,
+consumer Wasm Clippy, and separate core/consumer Rust 1.91 native/Wasm checks pass.
+Pins, dependency boundaries/graphs, release-command routing, formatting and local
+links pass. Lock-selected Build/Testkit 0.68.7 tools are prepared and admitted.
+Formatting-failure evidence retention passes. Jobs' release/publication and
+consumer-tooling fixtures pass for this selected graph, including explicit
+saved-lock recovery, selected-source metadata checks and refusal before tool,
+build or server effects. The selected Testkit CLI admits the prepared server
+offline; no server was launched.
+The initial missing Node-guide link and sandbox-denied tool setup logs remain
+retained; canonical refresh and authorized shared-store setup resolved them.
 
-The explicit Linux live run passes the queue demo, all four CLI shutdown modes
-and all nine original-Wasm recovery scenarios. Its retained recovery directory
-is copied into this qualification directory as `recovery-evidence/`; the
-installed Wasm hash is
-`a0612f050f0a3fd6f84e277f54c1869dc81ffb2a577eeb0a9b4af09cb283c42b`.
-Full CI, optimized recovery variants and fresh macOS qualification were not run.
-
-The prior Tooling 0.68.3 graph is retained under
-`target/qualification/deps-01729/`, including passing focused tests, separate
-core/consumer Rust 1.91 native/Wasm checks, Clippy, tooling fixtures and Linux
-live queue/CLI/recovery evidence. Its installed Wasm hash was
-`23801bf701f5989216afe7784f1deddfd27c45456316c70b644f61000161aec9`.
-
-Earlier evidence remains under `target/qualification/deps-watch-01728/` and
-`target/qualification/native-cleanup-metrics-wire/`; failed attempts, original
-artifacts, release plans and unresolved effects remain retained.
+Earlier evidence is retained at `/tmp/ic-jobs-tooling-wire-shared.1SRGqz/`, with
+its original handoff copied into the current evidence directory's
+`incoming/docs/status/current.md`. That earlier batch selected Tooling 0.68.6,
+Timers 0.31.2, Platform 0.6.17 and Wire 0.7.15; its Linux live queue demo, four CLI
+shutdown modes and nine recovery scenarios passed. The installed module hash was
+`0a7d5f3b6712c482953d5118cd6ec00d1e503e0629ab7232282bf41e16b9ff7f`.
+Those observations do not qualify the newly selected dependency graph.
+Full CI, fresh live PocketIC/optimized recovery and macOS qualification have not
+been selected for this adoption. Live qualification retains its separate
+explicit selection; native checks do not establish IC recovery.
 
 The last recorded three-host live recovery run qualified Jobs 0.17.14 at
 `7d1f808de0bc14d823bd1d3f04a5a62f06ad7a52` with Tooling 0.63.2:
 [108 successful scenario executions](https://github.com/dragginzgame/ic-jobs/actions/runs/39618054793).
-Its artifacts remain in `target/qualification/recovery-01714/`. Linux compilation
-and native tests alone do not qualify fresh macOS or installed-IC recovery.

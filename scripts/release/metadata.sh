@@ -15,8 +15,8 @@ admit_files() {
     bash "$root/scripts/ci/check-release-source.sh" \
         --allow Cargo.toml --allow Cargo.lock --allow CHANGELOG.md
 }
-# The runner reconciles saved intent before dispatch. Its presence only removes
-# setup authority here; the runner remains the owner of journal interpretation.
+# The runner binds the selected attempt before preparation. A present plan
+# selects its admitted source lock without granting setup authority here.
 select_release_tools() {
     local plan source
     export RELEASE_METADATA_LOCKFILE="$root/Cargo.lock"

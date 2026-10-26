@@ -149,6 +149,20 @@ bounded recurring work. These fixtures request IC Memory allocations through the
 stable cells. See [test consumers](docs/test-consumers.md) for their storage and
 timer boundaries.
 
+Choose checks for the affected caller. For native consumer storage/timer
+composition, use `cargo +1.91.0 test -p jobs-test-consumer --test composition
+--locked --offline`; for endpoint codecs, select `--test api_wire` instead.
+Qualify the core Rust floor separately with `cargo +1.91.0 check -p ic-jobs
+--lib --locked --offline`. For the consumer's Wasm floor, use `cargo +1.91.0
+check -p jobs-test-consumer --lib --target wasm32-unknown-unknown --locked
+--offline`. Lint the affected consumer with `cargo clippy -p jobs-test-consumer
+--all-targets --locked --offline -- -D warnings`, or select the Wasm target
+when runtime integration changes.
+
+`make clippy`, `make check-wasm`, `make check-msrv` and the other package-group
+targets aggregate several checks. `make ci` runs the full release suite and
+requires an explicit request or release authorization for local execution.
+
 The package and its direct Timers qualification consumer require Rust 1.91. Compiler
 selections are recorded in [rust-toolchain.toml](rust-toolchain.toml) and
 [the local tool catalog](ci/tool-versions.env). Linux and macOS Intel/Apple Silicon
@@ -173,9 +187,9 @@ For an interactive shell, prepend
 `$PWD/.tools/host/bin:$PWD/.tools/ic/bin:$PWD/.tools/rust/common/bin` to PATH.
 Use the same `SHARED_TOOLING_STORE` for setup, checks and evidence collection;
 see [local setup](docs/local-setup.md) for prerequisites, storage and reuse rules.
-`make help` lists focused checks. `make install-hooks` enables the reviewed
-formatting hook after tool preparation; `make formatting-hook-check` verifies it
-in disposable repositories.
+`make help` lists check groups and points to focused selections.
+`make install-hooks` enables the reviewed formatting hook after tool preparation;
+`make formatting-hook-check` verifies it in disposable repositories.
 This target exercises Jobs' actual manifests, Make recipes, hook refresh and
 preservation behavior. Shared Tooling owns the general hook/frontend test matrix;
 this repository has no frontend formatter integration.

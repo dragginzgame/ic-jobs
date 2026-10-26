@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.30] - Unreleased
+
+- Adopt Tooling/Testkit 0.68.7, Timers 0.31.4, Wire/derive 0.7.16 and the incoming
+  Platform/macros 0.6.18 graph. Jobs' public APIs, endpoint codecs and stored
+  formats are unchanged; no client regeneration or retained-data migration is
+  required.
+- Adopt Shared Tooling 0.26.19: normal release targets start fresh from current
+  committed metadata. Use `release-resume VERSION=X.Y.Z` to recover a saved
+  attempt. Historical changelog Draft labels no longer block a fresh release.
+- Refresh Shared Tooling to 0.26.20 with focused validation guidance and a
+  compact baseline backed by specialist rules. Detailed change accounting is
+  opt-in; release gates retain their complete validation.
+
 ## [0.17.29] - 2026-10-26
 
 - Adopt Tooling 0.68.5, Memory/Storage 0.51.3, Platform/macros 0.6.16,

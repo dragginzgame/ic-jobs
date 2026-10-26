@@ -19,7 +19,8 @@ VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchai
 
 .PHONY: help version install-hooks check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling test-formatting-evidence package publish-check publish ci
 help:
-	@echo "Focused: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
+	@echo "Focused selections: see README (Consumer qualification) for package/test/target commands"
+	@echo "Aggregates: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
 	@echo "Consumer: check-consumer (native, Wasm, harness compilation); build-consumer (Wasm artifact)"
 	@echo "Explicit IC qualification: install-testkit-tools; install-consumer-server; test-canister[-optimized]"
 	@echo "Local canister queue: demo (interactive); test-demo (live scenario); test-demo-cli (process shutdown)"
@@ -32,7 +33,7 @@ help:
 	@echo "Complete gate: ci (explicit request or configured CI)"
 	@echo "Authorized release: release-patch, release-minor, release-major (requires a configured remote)"
 	@echo "Authorized publication: publish (clean HEAD, matching pushed annotated tag; crates.io)"
-	@echo "Recovery: rerun the release target, or release-resume VERSION=X.Y.Z"
+	@echo "Recovery: release-resume VERSION=X.Y.Z (normal release targets start fresh)"
 
 check:
 	+cargo check -p ic-jobs --all-targets --all-features --locked --offline

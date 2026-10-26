@@ -248,6 +248,8 @@ for kind in patch minor major; do
     suffix=''
     if [[ "$kind" == patch ]]; then suffix=' - Unreleased'; fi
     printf '# Changelog\n\n## [%s]%s\n\n- Fixture release.\n' "$candidate" "$suffix" > CHANGELOG.md
+    printf '\n## [0.0.0] - 2020-01-01\n\n## [Draft]\n\n- Archived wording.\n' > "$fixture/archived-changelog"
+    cat "$fixture/archived-changelog" >> CHANGELOG.md
     cat >> Makefile <<'MAKE'
 
 .PHONY: tooling-nested tooling-selection
@@ -382,12 +384,13 @@ MAKE
         cp LICENSE "$fixture/source-working"
         cp "$unusual" "$fixture/source-untracked"
         refuse refused-source make --no-print-directory release-patch
-        for expected in 'staged: README.md' 'unstaged: README.md' 'unstaged: LICENSE' \
-            'preflight refused; this attempt has not started validation or version preparation'; do
-            grep -F "$expected" "$fixture/refused-source.log" > /dev/null
+        refuse refused-source-adapter env RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" \
+            RELEASE_DATE=2026-10-09 bash scripts/release/metadata.sh preflight
+        for expected in 'staged: README.md' 'unstaged: README.md' 'unstaged: LICENSE'; do
+            grep -F "$expected" "$fixture/refused-source-adapter.log" > /dev/null
         done
         printf '  untracked: %q\n' "$unusual" > "$fixture/source-expected"
-        grep -Fx -f "$fixture/source-expected" "$fixture/refused-source.log" > /dev/null
+        grep -Fx -f "$fixture/source-expected" "$fixture/refused-source-adapter.log" > /dev/null
         cmp .git/index "$fixture/source-index"
         cmp LICENSE "$fixture/source-working"
         cmp "$unusual" "$fixture/source-untracked"
@@ -505,6 +508,8 @@ MAKE
     [[ "$(git log -1 --format=%s)" == "Release $candidate" ]] || exit 1
     [[ "$(git log -1 --format=%P)" == "$base" ]] || exit 1
     bash scripts/ci/check-release-tag.sh "$(git rev-parse HEAD)" "$candidate"
+    tail -n "$(wc -l < "$fixture/archived-changelog" | tr -d ' ')" CHANGELOG.md > "$fixture/retained-changelog"
+    cmp "$fixture/archived-changelog" "$fixture/retained-changelog"
     [[ "$(git -C "$repository.git" rev-parse refs/heads/main)" == "$(git rev-parse HEAD)" ]] || exit 1
     [[ "$(git -C "$repository.git" rev-parse "refs/tags/v$candidate")" == "$(git rev-parse "refs/tags/v$candidate")" ]] || exit 1
     # Compare machine-owned paths in byte order, regardless of the caller's locale.
@@ -547,14 +552,15 @@ committed_preparation="$(git rev-parse HEAD)"
 cp ".git/release-state/$candidate.plan" "$fixture/undelivered.plan"
 cp .git/gate-events "$fixture/undelivered-gate-events"
 next_candidate="$(bash scripts/ci/next-release-version.sh "$candidate" patch)"
+printf 'not a release plan\n' > .git/release-state/0.0.0.plan
+cp .git/release-state/0.0.0.plan "$fixture/malformed-history.plan"
+printf 'stale candidate plan\n' > ".git/release-state/$next_candidate.plan"
 refuse committed-revalidation env TOOLING_GATE_FAILURE=1 make --no-print-directory release-patch
-grep -F "Retained preparation: version=$candidate delivery=unconfirmed" "$fixture/committed-revalidation.log" > /dev/null
-archived_plans=(.git/release-state/"$candidate".attempt.*/"$candidate".plan)
-[[ ${#archived_plans[@]} == 1 && -f "${archived_plans[0]}" ]] || exit 1
-cmp "${archived_plans[0]}" "$fixture/undelivered.plan"
+cmp ".git/release-state/$candidate.plan" "$fixture/undelivered.plan"
+cmp .git/release-state/0.0.0.plan "$fixture/malformed-history.plan"
 cmp .git/gate-events "$fixture/undelivered-gate-events"
 [[ "$(git rev-parse HEAD)" == "$committed_preparation" && -z "$(git status --porcelain)" && -z "$(git tag)" ]] || exit 1
-[[ ! -e ".git/release-state/$candidate.plan" && ! -e ".git/release-state/$next_candidate.plan" ]] || exit 1
+[[ ! -e ".git/release-state/$next_candidate.plan" ]] || exit 1
 [[ "$(git -C "$repository.git" rev-parse refs/heads/main)" == "$base" ]] || exit 1
 make --no-print-directory release-patch > "$fixture/committed-undelivered.log" 2>&1
 [[ "$(bash scripts/release/metadata.sh version)" == "$next_candidate" && -z "$(git status --porcelain)" ]] || exit 1
@@ -563,8 +569,9 @@ make --no-print-directory release-patch > "$fixture/committed-undelivered.log" 2
 [[ "$(git tag)" == "v$next_candidate" && -z "$(git -C "$repository.git" tag --list "v$candidate")" ]] || exit 1
 [[ "$(git -C "$repository.git" rev-parse refs/heads/main)" == "$(git rev-parse HEAD)" ]] || exit 1
 [[ "$(git -C "$repository.git" rev-parse "refs/tags/v$next_candidate")" == "$(git rev-parse "refs/tags/v$next_candidate")" ]] || exit 1
-cmp "${archived_plans[0]}" "$fixture/undelivered.plan"
-[[ "$(tail -n 1 "${archived_plans[0]}")" == prepare ]] || exit 1
+cmp ".git/release-state/$candidate.plan" "$fixture/undelivered.plan"
+cmp .git/release-state/0.0.0.plan "$fixture/malformed-history.plan"
+[[ "$(tail -n 1 ".git/release-state/$candidate.plan")" == prepare ]] || exit 1
 
 # Interrupt at saved preparation before rendering. Recovery must use the saved
 # lock, need no environment exports and never install or fetch against live bytes.
