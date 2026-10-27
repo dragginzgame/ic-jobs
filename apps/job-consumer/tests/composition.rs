@@ -14,7 +14,10 @@ use ic_memory::{
 use ic_storage::adapter::StableCell;
 mod consumer_support;
 
-use consumer_support::*;
+use consumer_support::{
+    Destination, Maintenance, MaintenanceSnapshot, ManagementError, NOTIFICATION_MANAGER,
+    Notification, NotificationSnapshot, Notifications, Result, Wake,
+};
 
 #[test]
 fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> Result<()> {

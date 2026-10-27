@@ -64,7 +64,10 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
     assert_eq!(
         queue.summary().unwrap(),
         Committed {
-            value: (2, 0),
+            value: QueueTotals {
+                counter: 2,
+                receipts: 0
+            },
             next_due_ns: None
         }
     );
@@ -105,7 +108,10 @@ fn paused_rescheduled_work_retains_identity_payload_and_deadline_across_reopen()
     assert_eq!(
         queue.summary().unwrap(),
         Committed {
-            value: (4, 0),
+            value: QueueTotals {
+                counter: 4,
+                receipts: 0
+            },
             next_due_ns: Some(510)
         }
     );
@@ -224,7 +230,10 @@ fn retained_queue_restores_payloads_deadlines_cancellation_and_id_authority() {
     assert_eq!(
         restored.summary().unwrap(),
         Committed {
-            value: (0, 0),
+            value: QueueTotals {
+                counter: 0,
+                receipts: 0
+            },
             next_due_ns: Some(200)
         }
     );
@@ -262,7 +271,10 @@ fn local_effects_and_bounded_overdue_work_commit_together() {
     assert_eq!(
         queue.summary().unwrap(),
         Committed {
-            value: (4, 0),
+            value: QueueTotals {
+                counter: 4,
+                receipts: 0
+            },
             next_due_ns: Some(120)
         }
     );
@@ -273,7 +285,10 @@ fn local_effects_and_bounded_overdue_work_commit_together() {
     assert_eq!(
         queue.summary().unwrap(),
         Committed {
-            value: (6, 0),
+            value: QueueTotals {
+                counter: 6,
+                receipts: 0
+            },
             next_due_ns: Some(130)
         }
     );
@@ -372,7 +387,10 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
         assert_eq!(
             queue.summary().unwrap(),
             Committed {
-                value: (3, 0),
+                value: QueueTotals {
+                    counter: 3,
+                    receipts: 0
+                },
                 next_due_ns: Some(100)
             }
         );
@@ -402,7 +420,10 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
         assert_eq!(
             restored.summary().unwrap(),
             Committed {
-                value: (4, 0),
+                value: QueueTotals {
+                    counter: 4,
+                    receipts: 0
+                },
                 next_due_ns: None
             }
         );
@@ -420,7 +441,10 @@ fn known_local_failure_is_terminal_and_preserves_bounded_batch_progress() {
         assert_eq!(
             restored.summary().unwrap(),
             Committed {
-                value: (4, 0),
+                value: QueueTotals {
+                    counter: 4,
+                    receipts: 0
+                },
                 next_due_ns: None
             }
         );
@@ -484,7 +508,7 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
         receiver.receive(manager(), delivery.clone()).unwrap();
         drop(receiver);
         let receiver = Queue::open(receiver_memory, None).unwrap().0;
-        assert_eq!(receiver.summary().unwrap().value.1, 1);
+        assert_eq!(receiver.summary().unwrap().value.receipts, 1);
         assert_eq!(
             receiver.receipt(manager(), delivery).unwrap(),
             Some(delivery.clone())
@@ -911,7 +935,10 @@ fn typed_commit_preserves_canonical_snapshot_bytes_and_metadata() {
     assert_eq!(
         queue.summary().unwrap(),
         Committed {
-            value: (1, 1),
+            value: QueueTotals {
+                counter: 1,
+                receipts: 1
+            },
             next_due_ns: None
         }
     );
@@ -1186,7 +1213,7 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
     );
     assert!(!memory.counts().overflowed);
     assert!(memory.counts().writes > 0);
-    assert_eq!(queue.summary().unwrap().value.0, 1);
+    assert_eq!(queue.summary().unwrap().value.counter, 1);
 }
 
 #[test]
@@ -1329,14 +1356,27 @@ fn receipt_extraction_and_duplicate_acknowledgement_leave_storage_unchanged() {
         queue.receipt(Principal::anonymous(), &absent),
         Err(Error::Unauthorized)
     );
-    assert_eq!(queue.summary().unwrap().value.1, 3);
+    assert_eq!(queue.summary().unwrap().value.receipts, 3);
     assert!(!memory.counts().overflowed);
     assert_eq!(memory.counts().writes, 0);
     assert_eq!(queue.cell.bytes(), before);
     drop(queue);
-    let queue = Queue::open(memory, None).unwrap().0;
+    let mut queue = Queue::open(memory, None).unwrap().0;
     assert_eq!(queue.cell.bytes(), before);
-    assert_eq!(queue.summary().unwrap().value.1, 3);
+    assert_eq!(queue.summary().unwrap().value.receipts, 3);
+    // Both receiver entrypoints reject an unauthenticated caller before decoding
+    // corrupt private storage, and neither refusal replaces the retained bytes.
+    queue.cell.try_set(b"not a snapshot".to_vec()).unwrap();
+    let corrupt = queue.cell.bytes().to_vec();
+    assert_eq!(
+        queue.receive(Principal::anonymous(), receipts[0].clone()),
+        Err(Error::Unauthorized)
+    );
+    assert_eq!(
+        queue.receipt(Principal::anonymous(), &receipts[0]),
+        Err(Error::Unauthorized)
+    );
+    assert_eq!(queue.cell.bytes(), corrupt);
 }
 
 #[test]

@@ -38,14 +38,10 @@ impl Fixture {
     ) -> ExternalPrincipal {
         pic.try_create_and_install(InstallSpec {
             wasm: wasm.to_vec(),
-            init_bytes: native::encode_request(
-                Method::Init as u64,
-                &Init {
-                    manager: manager.into(),
-                    delivery_sender: delivery_sender.map(Into::into),
-                },
-                control::REQUEST_LIMITS,
-            )
+            init_bytes: wire::init_bytes(&Init {
+                manager: manager.into(),
+                delivery_sender: delivery_sender.map(Into::into),
+            })
             .unwrap(),
             cycles: 10_000_000_000_000,
             install_sender: None,

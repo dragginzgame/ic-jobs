@@ -9,6 +9,9 @@ source "$root/scripts/ci/fixture-lifecycle.sh"
 fixture="$(fixture_create "${TMPDIR:-/tmp}/publication-test.XXXXXX")"
 fixture_complete=false
 trap 'fixture_finish "$?" "$fixture" "Publication fixture retained"' EXIT
+
+phase_stubbed_checker() (
+trap - EXIT
 mkdir -p "$fixture/snapshot/scripts/ci" "$fixture/snapshot/scripts/release" "$fixture/consumer" "$fixture/bin"
 cp "$root/scripts/release/check-publication.sh" "$fixture/snapshot/scripts/release/"
 export PUBLICATION_TEST_TRACE="$fixture/trace" PUBLICATION_TEST_CONSUMER="$fixture/consumer"
@@ -46,7 +49,7 @@ if [[ "${PUBLICATION_TEST_FAILURE:-}" == remote && "$*" == 'remote get-url --pus
 if [[ "${PUBLICATION_TEST_FAILURE:-}" == observation && "$1" == ls-remote ]]; then exit 43; fi
 GIT
 chmod +x "$fixture/bin/git"
-original_path="$PATH"
+# shellcheck disable=SC2030 # The stubbed PATH intentionally ends with this phase.
 export PATH="$fixture/bin:$PATH"
 cd "$fixture/consumer"
 checker="$fixture/snapshot/scripts/release/check-publication.sh"
@@ -101,12 +104,13 @@ for suffix in $'\n' $'\r'; do
  rm "$fixture/alias"
  rmdir "$bad"
 done
+)
 
 # Own native Git eligibility alongside the ordering tests above. Only registry
 # transport is substituted; the actual checker, source/version/tag helpers and
 # local bare destination participate. No publication command can be dispatched.
-(
-    export PATH="$original_path"
+phase_real_git() (
+    trap - EXIT
     unset MAKEFLAGS MFLAGS MAKEOVERRIDES GNUMAKEFLAGS MAKEFILES
     unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE
     repository="$fixture/real publication checkout"
@@ -118,6 +122,7 @@ printf '%s' "${PUBLICATION_HTTP:-404}"
 exit "${PUBLICATION_TRANSPORT:-0}"
 CURL
     chmod +x "$fixture/registry-bin/curl"
+    # shellcheck disable=SC2031 # This phase starts from the caller PATH, without Git stubs.
     export PATH="$fixture/registry-bin:$PATH"
     git init --quiet --initial-branch=main "$repository"
     git init --quiet --bare "$destination"
@@ -178,5 +183,7 @@ CURL
     "$BASH" "$checker" origin
     [[ "$(git rev-parse HEAD)" == "$commit" && "$(git rev-parse "$tag")" == "$tag_object" && -z "$(git status --porcelain)" ]] || exit 1
 )
+phase_stubbed_checker
+phase_real_git
 fixture_complete=true
 echo 'Publication ordering and real-Git eligibility passed (substitute registry; no upload)'

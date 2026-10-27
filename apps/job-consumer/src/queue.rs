@@ -111,6 +111,13 @@ pub(crate) struct DispatchBatch {
     pub(crate) work: u64,
 }
 
+/// Counts projected from the admitted queue and its independent receipts.
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct QueueTotals {
+    pub(crate) counter: u64,
+    pub(crate) receipts: u64,
+}
+
 impl Snapshot<Job> {
     fn next_due_ns(&self) -> Option<u64> {
         next_due_ns(self.jobs.iter().map(|entry| &entry.job))
@@ -389,10 +396,13 @@ impl<M: Memory> Queue<M> {
         self.commit(snapshot, ())
     }
 
-    pub(crate) fn summary(&self) -> Result<Committed<(u64, u64)>, Error> {
+    pub(crate) fn summary(&self) -> Result<Committed<QueueTotals>, Error> {
         let snapshot = self.load()?;
         Ok(Committed {
-            value: (snapshot.counter, snapshot.receipts.len() as u64),
+            value: QueueTotals {
+                counter: snapshot.counter,
+                receipts: snapshot.receipts.len() as u64,
+            },
             next_due_ns: snapshot.next_due_ns(),
         })
     }
@@ -482,14 +492,19 @@ impl<M: Memory> Queue<M> {
         self.commit(snapshot, ())
     }
 
+    fn authorize_delivery_sender(&self, caller: Principal) -> Result<(), Error> {
+        if self.init.delivery_sender != Some(caller) {
+            return Err(Error::Unauthorized);
+        }
+        Ok(())
+    }
+
     pub(crate) fn receive(
         &mut self,
         caller: Principal,
         delivery: Delivery,
     ) -> Result<Delivery, Error> {
-        if self.init.delivery_sender != Some(caller) {
-            return Err(Error::Unauthorized);
-        }
+        self.authorize_delivery_sender(caller)?;
         if !delivery_valid(&delivery) {
             return Err(Error::InvalidInput);
         }
@@ -514,9 +529,7 @@ impl<M: Memory> Queue<M> {
         caller: Principal,
         delivery: &Delivery,
     ) -> Result<Option<Delivery>, Error> {
-        if self.init.delivery_sender != Some(caller) {
-            return Err(Error::Unauthorized);
-        }
+        self.authorize_delivery_sender(caller)?;
         let mut snapshot = self.load()?;
         Ok(snapshot
             .receipt_index(delivery)

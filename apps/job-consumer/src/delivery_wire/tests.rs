@@ -18,7 +18,12 @@ fn delivery() -> Delivery {
 #[test]
 fn requests_preserve_the_envelope_and_reject_other_protocols() {
     let delivery = delivery();
-    for (method, other) in [(RECEIVE_ID, RECEIPT_ID), (RECEIPT_ID, RECEIVE_ID)] {
+    for (method, other, name) in [
+        (Method::Receive, RECEIPT_ID, "receive_delivery"),
+        (Method::Receipt, RECEIVE_ID, "delivery_receipt"),
+    ] {
+        assert_eq!(method.name(), name);
+        let method = method.id();
         let bytes = native::encode_request(method, &delivery, REQUEST_LIMITS).unwrap();
         assert_eq!(
             native::decode_request::<Delivery>(method, &bytes, REQUEST_LIMITS).unwrap(),
@@ -33,11 +38,12 @@ fn requests_preserve_the_envelope_and_reject_other_protocols() {
             native::decode_request::<Delivery>(method, &response, REQUEST_LIMITS),
             Err(ic_wire::Error::Identity)
         );
-        for end in 0..bytes.len() {
-            assert!(
-                native::decode_request::<Delivery>(method, &bytes[..end], REQUEST_LIMITS).is_err()
-            );
-        }
+        // Wire owns exhaustive prefix/integer encoding proofs. Jobs retains a
+        // truncated payload at its actual envelope and request limits.
+        assert!(
+            native::decode_request::<Delivery>(method, &bytes[..bytes.len() - 1], REQUEST_LIMITS)
+                .is_err()
+        );
         let mut trailing = bytes.clone();
         trailing.push(0);
         assert_eq!(
@@ -48,17 +54,6 @@ fn requests_preserve_the_envelope_and_reject_other_protocols() {
         assert_eq!(
             native::decode_request::<Delivery>(method, candid, REQUEST_LIMITS),
             Err(ic_wire::Error::Identity)
-        );
-        // A redundant zero group is a malformed, nonminimal integer.
-        let small = Delivery {
-            job: 1,
-            ..delivery.clone()
-        };
-        let mut noncanonical = native::encode_request(method, &small, REQUEST_LIMITS).unwrap();
-        noncanonical.splice(11..12, [0x81, 0]);
-        assert_eq!(
-            native::decode_request::<Delivery>(method, &noncanonical, REQUEST_LIMITS),
-            Err(ic_wire::Error::Malformed)
         );
     }
 }
@@ -73,12 +68,10 @@ fn replies_preserve_exact_evidence_and_distinguish_absence_from_failure() {
         Some(delivery.clone())
     );
     assert_eq!(decode_reply::<Delivery, ()>(RECEIPT_ID, Ok(&bytes)), None);
-    for end in 0..bytes.len() {
-        assert_eq!(
-            decode_reply::<Delivery, ()>(RECEIVE_ID, Ok(&bytes[..end])),
-            None
-        );
-    }
+    assert_eq!(
+        decode_reply::<Delivery, ()>(RECEIVE_ID, Ok(&bytes[..bytes.len() - 1])),
+        None
+    );
     let request = native::encode_request(RECEIVE_ID, &delivery, REQUEST_LIMITS).unwrap();
     assert_eq!(decode_reply::<Delivery, ()>(RECEIVE_ID, Ok(request)), None);
     let mut trailing = bytes;

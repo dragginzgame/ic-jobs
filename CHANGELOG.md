@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.17.34]
+
+### 🧹 Cleanup
+
+- Share delivery-sender authorization and bind outbound RPC names to their
+  existing identities. Name internal queue totals and share native installation
+  encoding without changing public APIs, message bytes or retained storage.
+- Derive demo scheduling requests and labels together, and keep pagination
+  sizing in one place.
+
+### 🧪 Testing
+
+- Isolate publication-test environments and simplify native fixture setup/imports.
+  Keep codec implementation proofs with Wire while retaining Jobs' envelope,
+  budget, malformed-reply and uncertain-effect qualification.
+
 ## [0.17.33] - 2026-10-27
 
 ### 🧹 Cleanup

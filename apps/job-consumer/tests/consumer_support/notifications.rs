@@ -97,7 +97,7 @@ impl Notifications {
 
     pub(crate) fn new() -> Result<Self> {
         Ok(Self {
-            store: Store::new(&vec![NotificationSnapshot {
+            store: Store::new(&[NotificationSnapshot {
                 job: Job::new(
                     JobId(1),
                     Schedule::Once { at_ns: 100 },

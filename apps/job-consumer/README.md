@@ -31,6 +31,13 @@ are refused as malformed. Rebuild the fixture and harness together; method IDs,
 emitted layouts and stored JSON are unchanged. Future exact-frame retries or
 signatures must retain the original immutable frame bytes.
 
+Native codec tests retain Jobs' envelope shapes, method selection, resource
+limits and refusal/uncertainty behavior. Exhaustive prefix truncation and generic
+integer canonicality proofs stay with the selected Wire 0.7.18
+[native tests](https://github.com/dragginzgame/ic-wire/blob/c748379325266d7fa614fefee9d745eb4a88acca/crates/ic-wire/tests/native/mod.rs).
+Jobs keeps representative truncated payloads and malformed replies at its own
+request/reply boundaries, alongside the separately selected live endpoint tests.
+
 The manager principal is supplied at installation and persisted. Management
 calls use the actual IC caller before reading or mutating the queue. `create`
 allocates an identity, `inspect` reads one job, `list` returns up to eight jobs

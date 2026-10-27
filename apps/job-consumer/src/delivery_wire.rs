@@ -16,6 +16,29 @@ pub const RECEIVE_ID: u64 = u64::from_le_bytes(*b"JOBSRCV1");
 /// `delivery_receipt`: Delivery -> Result<Option<Delivery>, Error>.
 pub const RECEIPT_ID: u64 = u64::from_le_bytes(*b"JOBSRCP1");
 
+/// Closed outbound selection keeps each exported name with its Wire identity.
+#[cfg(any(test, target_arch = "wasm32"))]
+#[derive(Clone, Copy)]
+#[repr(u64)]
+pub(crate) enum Method {
+    Receive = RECEIVE_ID,
+    Receipt = RECEIPT_ID,
+}
+
+#[cfg(any(test, target_arch = "wasm32"))]
+impl Method {
+    pub(crate) const fn id(self) -> u64 {
+        self as u64
+    }
+
+    pub(crate) const fn name(self) -> &'static str {
+        match self {
+            Self::Receive => "receive_delivery",
+            Self::Receipt => "delivery_receipt",
+        }
+    }
+}
+
 /// Complete request frame and native Serde traversal allowances.
 pub const REQUEST_LIMITS: Limits = Limits {
     bytes: 1024,

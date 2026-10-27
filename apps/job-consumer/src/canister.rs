@@ -15,9 +15,12 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     api::{Create, Delivery, Error, Init, Summary, View},
-    delivery_wire::{RECEIPT_ID, RECEIVE_ID, REQUEST_LIMITS, RESPONSE_LIMITS, decode_reply},
+    delivery_wire::{
+        Method as DeliveryMethod, RECEIPT_ID, RECEIVE_ID, REQUEST_LIMITS, RESPONSE_LIMITS,
+        decode_reply,
+    },
     management_wire::{self as control, Method},
-    queue::{Committed, DispatchBatch, Queue},
+    queue::{Committed, DispatchBatch, Queue, QueueTotals},
 };
 
 thread_local! {
@@ -192,7 +195,7 @@ fn reschedule(id: u64, timing: crate::api::Timing) -> Result<(), Error> {
 )]
 fn summary() -> Result<Summary, Error> {
     let Committed {
-        value: (counter, receipts),
+        value: QueueTotals { counter, receipts },
         next_due_ns,
     } = with_authorized_queue(|queue| queue.summary())?;
     let armed = WATCHDOG.with(|watchdog| {
@@ -217,18 +220,22 @@ fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error>
 
 async fn delivery_call(
     delivery: &Delivery,
-    method: &'static str,
-    id: u64,
+    method: DeliveryMethod,
 ) -> Result<cdk::call::Response, cdk::call::CallFailed> {
-    let bytes = required(native::encode_request(id, delivery, REQUEST_LIMITS));
-    cdk::call::Call::unbounded_wait(delivery.payload.destination, method)
+    let bytes = required(native::encode_request(
+        method.id(),
+        delivery,
+        REQUEST_LIMITS,
+    ));
+    cdk::call::Call::unbounded_wait(delivery.payload.destination, method.name())
         .with_raw_args(&bytes)
         .await
 }
 
 async fn delivery_confirmed(delivery: &Delivery) -> bool {
-    let response = delivery_call(delivery, "receive_delivery", RECEIVE_ID).await;
-    decode_reply::<Delivery, _>(RECEIVE_ID, response).is_some_and(|receipt| receipt == *delivery)
+    let method = DeliveryMethod::Receive;
+    let response = delivery_call(delivery, method).await;
+    decode_reply::<Delivery, _>(method.id(), response).is_some_and(|receipt| receipt == *delivery)
 }
 
 async fn deliver(delivery: Delivery) {
@@ -322,8 +329,9 @@ fn delivery_receipt(delivery: Delivery) -> Result<Option<Delivery>, Error> {
 )]
 async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
     let delivery = with_authorized_queue(|queue| queue.outstanding(id))?;
-    let response = delivery_call(&delivery, "delivery_receipt", RECEIPT_ID).await;
-    let receipt = decode_reply::<Option<Delivery>, _>(RECEIPT_ID, response).flatten();
+    let method = DeliveryMethod::Receipt;
+    let response = delivery_call(&delivery, method).await;
+    let receipt = decode_reply::<Option<Delivery>, _>(method.id(), response).flatten();
     let Some(receipt) = receipt else {
         return Ok(false);
     };

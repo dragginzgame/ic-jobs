@@ -8,10 +8,9 @@ use ic_testkit::pic::{
     CanisterInstallExt, InstallSpec, PocketIcInstance, PocketIcStartupConfig, advance_and_tick,
     query_wire, update_wire,
 };
-use ic_wire::native;
 use jobs_test_consumer::{
     api::{Create, Error as ApiError, Init, Status, Summary, Task, Timing, View},
-    management_wire::{Method, REQUEST_LIMITS},
+    management_wire::Method,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
@@ -178,14 +177,10 @@ impl Demo {
             .instance()
             .try_create_and_install(InstallSpec {
                 wasm: std::fs::read(wasm)?,
-                init_bytes: native::encode_request(
-                    Method::Init as u64,
-                    &Init {
-                        manager: manager.into(),
-                        delivery_sender: None,
-                    },
-                    REQUEST_LIMITS,
-                )
+                init_bytes: wire::init_bytes(&Init {
+                    manager: manager.into(),
+                    delivery_sender: None,
+                })
                 .map_err(failure)?,
                 cycles: 10_000_000_000_000,
                 install_sender: None,
@@ -236,11 +231,12 @@ impl Demo {
     }
 
     fn views(&self) -> io::Result<Vec<View>> {
+        const PAGE_LIMIT: u8 = 8;
         let mut views = vec![];
         let mut after = None;
         loop {
-            let page: Vec<View> = self.query(Method::List, &(after, 8_u8))?;
-            let complete = page.len() < 8;
+            let page: Vec<View> = self.query(Method::List, &(after, PAGE_LIMIT))?;
+            let complete = page.len() < usize::from(PAGE_LIMIT);
             after = page.last().map(|view| view.id);
             views.extend(page);
             if complete {
@@ -260,14 +256,22 @@ impl Demo {
             .now()
             .checked_add(u64::try_from(after.as_nanos()).map_err(failure)?)
             .ok_or_else(|| io::Error::other("deadline exceeds the canister timestamp range"))?;
-        let timing = if let Some(interval) = every {
-            Timing::FixedRate {
-                first_ns,
-                every_ns: u64::try_from(interval.as_nanos()).map_err(failure)?,
-                catch_up,
-            }
+        let (timing, schedule) = if let Some(interval) = every {
+            let every_ns = u64::try_from(interval.as_nanos()).map_err(failure)?;
+            (
+                Timing::FixedRate {
+                    first_ns,
+                    every_ns,
+                    catch_up,
+                },
+                format!(
+                    "every {} ({})",
+                    span(every_ns),
+                    if catch_up { "catch-up" } else { "skip" }
+                ),
+            )
         } else {
-            Timing::Once(first_ns)
+            (Timing::Once(first_ns), "once".into())
         };
         let id: u64 = self.update(
             Method::Create,
@@ -276,16 +280,6 @@ impl Demo {
                 task: Task::Increment(1),
             },),
         )?;
-        let schedule = every.map_or_else(
-            || "once".into(),
-            |interval| {
-                format!(
-                    "every {} ({})",
-                    span(interval.as_nanos() as u64),
-                    if catch_up { "catch-up" } else { "skip" }
-                )
-            },
-        );
         self.labels.insert(id, (name.into(), schedule));
         println!(
             "QUEUED #{id} {name}: first run in {}",
