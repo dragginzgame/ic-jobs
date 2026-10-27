@@ -113,12 +113,8 @@ fn host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects() -> 
                 host.open_memory(requests[1].stable_key().as_str())?,
                 Vec::<u8>::new(),
             );
-            let mut restored = Notifications {
-                store: Store::from_bytes(queue.get().clone()),
-            };
-            let restored_maintenance = Maintenance {
-                store: Store::from_bytes(state.get().clone()),
-            };
+            let mut restored = Notifications::from_bytes(queue.get().clone());
+            let restored_maintenance = Maintenance::from_bytes(state.get().clone());
             assert_eq!(restored.outstanding()?, vec![delivery.clone()]);
             assert_eq!(
                 restored.dispatch_due(NOTIFICATION_MANAGER, 150)?.value,
@@ -192,9 +188,7 @@ fn lost_reply_and_failed_result_commit_reconcile_without_redelivery() -> Result<
         }
 
         // Only committed bytes survive reconstruction; the destination is separate.
-        let mut restored = Notifications {
-            store: Store::from_bytes(sender.store.bytes),
-        };
+        let mut restored = Notifications::from_bytes(sender.store.bytes);
         assert_eq!(restored.outstanding()?, vec![delivery.clone()]);
         assert_eq!(
             restored.dispatch_due(NOTIFICATION_MANAGER, 200)?.value,
@@ -279,9 +273,7 @@ fn known_rejection_retries_same_payload_and_rejects_old_reply() -> Result<()> {
 #[test]
 fn maintenance_reconstruction_bounds_catch_up_and_rebuilds_deadlines() -> Result<()> {
     let maintenance = Maintenance::new(MissedRunPolicy::CatchUp)?;
-    let mut restored = Maintenance {
-        store: Store::from_bytes(maintenance.store.bytes),
-    };
+    let mut restored = Maintenance::from_bytes(maintenance.store.bytes);
     let early = restored.wake(99)?;
     assert_eq!(
         early,
@@ -422,9 +414,7 @@ fn shared_notification_wakeup_preserves_order_and_progress_past_unresolved_work(
     assert_eq!(first.attempt.execution.job, JobId(2));
 
     // Reconstruct the whole bounded queue with job 2's intent still unresolved.
-    let mut restored = Notifications {
-        store: Store::from_bytes(sender.store.bytes),
-    };
+    let mut restored = Notifications::from_bytes(sender.store.bytes);
     let mut destination = Destination::default();
     let tied = restored
         .dispatch_due(NOTIFICATION_MANAGER, 90)?
@@ -469,9 +459,7 @@ fn interruption_before_delivery_keeps_committed_intent_blocked() -> Result<()> {
         .dispatch_due(NOTIFICATION_MANAGER, 100)?
         .value
         .unwrap();
-    let mut restored = Notifications {
-        store: Store::from_bytes(sender.store.bytes),
-    };
+    let mut restored = Notifications::from_bytes(sender.store.bytes);
     let destination = Destination::default();
     assert_eq!(
         restored.dispatch_due(NOTIFICATION_MANAGER, 200)?.value,
@@ -562,9 +550,7 @@ fn lost_rejection_reply_uses_exact_evidence_and_retains_retry_budget() -> Result
         assert!(!destination.deliver(&first));
         // The receiver retains its rejection even if an old delivery is repeated.
         assert!(!destination.deliver(&first));
-        let mut restored = Notifications {
-            store: Store::from_bytes(sender.store.bytes),
-        };
+        let mut restored = Notifications::from_bytes(sender.store.bytes);
         assert_eq!(
             restored.dispatch_due(NOTIFICATION_MANAGER, 101)?.value,
             None
@@ -687,9 +673,7 @@ fn maintenance_resumes_after_partial_batch_commit_without_repeating_work() -> Re
     assert_eq!(snapshot.job.record().sequence, 1);
     assert_eq!(snapshot.job.next_due_ns(), Some(110));
 
-    let mut restored = Maintenance {
-        store: Store::from_bytes(maintenance.store.bytes),
-    };
+    let mut restored = Maintenance::from_bytes(maintenance.store.bytes);
     assert_eq!(
         restored.wake(135)?,
         Wake {
@@ -733,9 +717,7 @@ fn management_creation_inspection_and_pages_survive_reconstruction() -> Result<(
         assert_eq!(snapshot.job.state, JobState::Pending { due_ns: at_ns });
         assert_eq!(snapshot.payload.body, body);
     }
-    let mut restored = Notifications {
-        store: Store::from_bytes(sender.store.bytes),
-    };
+    let mut restored = Notifications::from_bytes(sender.store.bytes);
     let before = restored.store.bytes.clone();
     let reply = restored.inspect(NOTIFICATION_MANAGER, JobId(8))?;
     assert_eq!(reply.value.payload.body, "eight");
@@ -771,14 +753,29 @@ fn management_creation_inspection_and_pages_survive_reconstruction() -> Result<(
     Ok(())
 }
 
-// Erase only successful reply values to exercise the same refusal at each typed
-// entrypoint. The fixture itself has no command protocol or untyped reply union.
-type ManagementOperation = fn(&mut Notifications, &str) -> Result<Option<u64>>;
+// Test selections name the typed entrypoints; only successful reply values are
+// erased so each refusal still crosses the real application boundary.
+#[derive(Clone, Copy, Debug)]
+enum ManagementOperation {
+    Enqueue,
+    Inspect,
+    Page,
+    Cancel,
+    Dispatch,
+}
 
-fn management_operations() -> [ManagementOperation; 5] {
-    [
-        |sender, caller| {
-            sender
+impl ManagementOperation {
+    const ALL: [Self; 5] = [
+        Self::Enqueue,
+        Self::Inspect,
+        Self::Page,
+        Self::Cancel,
+        Self::Dispatch,
+    ];
+
+    fn apply(self, sender: &mut Notifications, caller: &str) -> Result<Option<u64>> {
+        match self {
+            Self::Enqueue => sender
                 .enqueue(
                     caller,
                     JobId(3),
@@ -788,25 +785,19 @@ fn management_operations() -> [ManagementOperation; 5] {
                         body: "private".into(),
                     },
                 )
-                .map(|reply| reply.next_due_ns)
-        },
-        |sender, caller| {
-            sender
+                .map(|reply| reply.next_due_ns),
+            Self::Inspect => sender
                 .inspect(caller, JobId(1))
-                .map(|reply| reply.next_due_ns)
-        },
-        |sender, caller| sender.page(caller, None, 4).map(|reply| reply.next_due_ns),
-        |sender, caller| {
-            sender
+                .map(|reply| reply.next_due_ns),
+            Self::Page => sender.page(caller, None, 4).map(|reply| reply.next_due_ns),
+            Self::Cancel => sender
                 .cancel(caller, JobId(1), 100)
-                .map(|reply| reply.next_due_ns)
-        },
-        |sender, caller| {
-            sender
+                .map(|reply| reply.next_due_ns),
+            Self::Dispatch => sender
                 .dispatch_due(caller, 100)
-                .map(|reply| reply.next_due_ns)
-        },
-    ]
+                .map(|reply| reply.next_due_ns),
+        }
+    }
 }
 
 #[test]
@@ -818,11 +809,12 @@ fn management_refuses_unauthorized_calls_before_decoding_or_writing() -> Result<
         }
         let before = sender.store.bytes.clone();
         sender.store.writes_before_failure = Some(0);
-        for operation in management_operations() {
-            let error = operation(&mut sender, "other-caller").unwrap_err();
+        for operation in ManagementOperation::ALL {
+            let error = operation.apply(&mut sender, "other-caller").unwrap_err();
             assert_eq!(
                 error.downcast_ref::<ManagementError>(),
-                Some(&ManagementError::Unauthorized)
+                Some(&ManagementError::Unauthorized),
+                "{operation:?}"
             );
             assert_eq!(sender.store.bytes, before);
             assert_eq!(sender.store.writes_before_failure, Some(0));
@@ -833,12 +825,17 @@ fn management_refuses_unauthorized_calls_before_decoding_or_writing() -> Result<
 
 #[test]
 fn management_commit_failures_preserve_queue_and_derived_wakeup() -> Result<()> {
-    let [enqueue, _, _, cancel, dispatch] = management_operations();
-    for (operation, expected_deadline) in [(enqueue, Some(80)), (cancel, None), (dispatch, None)] {
+    for (operation, expected_deadline) in [
+        (ManagementOperation::Enqueue, Some(80)),
+        (ManagementOperation::Cancel, None),
+        (ManagementOperation::Dispatch, None),
+    ] {
         let mut sender = Notifications::new()?;
         let before = sender.store.bytes.clone();
         sender.store.writes_before_failure = Some(0);
-        let error = operation(&mut sender, NOTIFICATION_MANAGER).unwrap_err();
+        let error = operation
+            .apply(&mut sender, NOTIFICATION_MANAGER)
+            .unwrap_err();
         assert_eq!(
             error.downcast_ref::<io::Error>().unwrap().kind(),
             io::ErrorKind::Other
@@ -847,8 +844,8 @@ fn management_commit_failures_preserve_queue_and_derived_wakeup() -> Result<()> 
         assert!(sender.outstanding()?.is_empty());
         assert_eq!(sender.next_due_ns()?, Some(100));
 
-        let deadline = operation(&mut sender, NOTIFICATION_MANAGER)?;
-        assert_eq!(deadline, expected_deadline);
+        let deadline = operation.apply(&mut sender, NOTIFICATION_MANAGER)?;
+        assert_eq!(deadline, expected_deadline, "{operation:?}");
     }
     Ok(())
 }
@@ -873,9 +870,7 @@ fn management_preserves_due_admission_and_blocks_unresolved_effects() -> Result<
     assert_eq!(error.downcast_ref::<JobError>(), Some(&JobError::InFlight));
     assert_eq!(sender.store.bytes, before);
 
-    let mut restored = Notifications {
-        store: Store::from_bytes(sender.store.bytes),
-    };
+    let mut restored = Notifications::from_bytes(sender.store.bytes);
     assert_eq!(
         restored.dispatch_due(NOTIFICATION_MANAGER, 200)?.value,
         None
@@ -987,8 +982,10 @@ fn management_validates_future_records_before_reads_or_mutation() -> Result<()> 
         );
         assert_eq!(sender.store.bytes, before);
     }
-    for operation in management_operations() {
-        let error = operation(&mut sender, NOTIFICATION_MANAGER).unwrap_err();
+    for operation in ManagementOperation::ALL {
+        let error = operation
+            .apply(&mut sender, NOTIFICATION_MANAGER)
+            .unwrap_err();
         assert_eq!(
             error.downcast_ref::<JobError>(),
             Some(&JobError::InvalidRecord)

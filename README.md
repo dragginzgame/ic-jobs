@@ -168,6 +168,7 @@ Release-adapter fixtures can be selected independently with
 `make test-release-tooling-recovery`, `make test-release-tooling-metadata`, or
 `make test-release-tooling-publication`. The existing `test-release-tooling`
 aggregate still runs every group and the publication eligibility fixture.
+The retention selection needs no prepared metadata editor or formatters.
 
 The package and its direct Timers qualification consumer require Rust 1.91. Compiler
 selections are recorded in [rust-toolchain.toml](rust-toolchain.toml) and

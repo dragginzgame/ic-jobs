@@ -29,6 +29,12 @@ impl Wake {
 }
 
 impl Maintenance {
+    pub(crate) fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self {
+            store: Store::from_bytes(bytes),
+        }
+    }
+
     pub(crate) fn memory_request() -> Result<MemoryRequest> {
         Ok(MemoryRequest::new(
             "test.maintenance",

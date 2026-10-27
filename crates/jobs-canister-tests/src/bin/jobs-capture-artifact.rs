@@ -112,6 +112,8 @@ fn main() -> io::Result<ExitCode> {
 mod tests {
     use super::*;
     #[cfg(unix)]
+    use ic_host_fs::testing::FixtureDirectory;
+    #[cfg(unix)]
     use ic_host_process::testing::write_executable_script;
 
     #[test]
@@ -165,27 +167,24 @@ mod tests {
         );
     }
 
-    fn fixture() -> PathBuf {
-        ic_host_fs::testing::create_fixture_directory(&std::env::temp_dir(), "jobs-capture")
-            .unwrap()
-    }
-
     // IC Build owns generic capture/retention proofs. Keep Jobs optimizer
     // ordering here and the original-capture command path in consumer tooling.
     #[cfg(unix)]
-    fn optimizer_fixture() -> (PathBuf, PathBuf, PathBuf) {
-        let root = fixture();
+    fn optimizer_fixture() -> (FixtureDirectory, PathBuf, PathBuf) {
+        let fixture = FixtureDirectory::new(&std::env::temp_dir(), "jobs-capture").unwrap();
+        let root = fixture.path();
         let source = root.join("frozen input.wasm");
         fs::write(&source, b"exact frozen bytes\n").unwrap();
         let optimizer = root.join("optimizer tool");
         write_executable_script(&optimizer, b"#!/bin/sh\n[ \"$3\" = -o ] || exit 49\ncat \"$1\" > \"$4\"\nprintf '%s\\n' \"$2\" >> \"$4\"\necho optimizer-out\necho optimizer-err >&2\n").unwrap();
-        (root, source, optimizer)
+        (fixture, source, optimizer)
     }
 
     #[cfg(unix)]
     #[test]
     fn optimized_variants_capture_exact_flags_then_retire_only_the_producer() {
-        let (root, source, optimizer) = optimizer_fixture();
+        let (fixture, source, optimizer) = optimizer_fixture();
+        let root = fixture.path();
         for level in ["-O3", "-Os", "-Oz"] {
             let directory = root.join(level);
             fs::create_dir(&directory).unwrap();
@@ -210,13 +209,13 @@ mod tests {
             assert_eq!(fs::read_dir(&directory).unwrap().count(), 2);
         }
         assert_eq!(fs::read(&source).unwrap(), b"exact frozen bytes\n");
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]
     #[test]
     fn failed_optimization_and_failed_capture_retain_producer_and_diagnostics() {
-        let (root, source, optimizer) = optimizer_fixture();
+        let (fixture, source, optimizer) = optimizer_fixture();
+        let root = fixture.path();
         let failed = root.join("failed");
         fs::create_dir(&failed).unwrap();
         write_executable_script(
@@ -300,13 +299,13 @@ mod tests {
             fs::read(&retained.retained_path).unwrap(),
             b"exact frozen bytes\n"
         );
-        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]
     #[test]
     fn invalid_flags_and_existing_evidence_refuse_before_optimizer_dispatch() {
-        let (root, source, optimizer) = optimizer_fixture();
+        let (fixture, source, optimizer) = optimizer_fixture();
+        let root = fixture.path();
         let directory = root.join("invalid");
         fs::create_dir(&directory).unwrap();
         let destination = directory.join("consumer.wasm");
@@ -338,6 +337,5 @@ mod tests {
             b"existing evidence"
         );
         assert!(!directory.join("optimizer.log").exists());
-        fs::remove_dir_all(root).unwrap();
     }
 }

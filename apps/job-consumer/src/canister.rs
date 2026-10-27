@@ -17,7 +17,7 @@ use crate::{
     api::{Create, Delivery, Error, Init, Summary, View},
     delivery_wire::{RECEIPT_ID, RECEIVE_ID, REQUEST_LIMITS, RESPONSE_LIMITS, decode_reply},
     management_wire::{self as control, Method},
-    queue::{Committed, Queue},
+    queue::{Committed, DispatchBatch, Queue},
 };
 
 thread_local! {
@@ -252,7 +252,7 @@ fn launch_deliveries(deliveries: Vec<Delivery>) {
 
 fn wake() -> WatchdogRunResult {
     let result = required(with_queue(|queue| queue.dispatch(cdk::api::time())));
-    let (deliveries, work) = result.value;
+    let DispatchBatch { deliveries, work } = result.value;
     if work > 0 && TRAP_WATCHDOG_BATCH.with(Cell::get) {
         // A stable write in this segment is not independently committed. No
         // external delivery escapes before this deliberate rollback boundary.
@@ -274,8 +274,7 @@ fn dispatch_due() -> Result<(), Error> {
 }
 
 fn dispatch_reconciled() -> Result<Vec<Delivery>, Error> {
-    let (deliveries, _) = update_queue(|queue| queue.dispatch(cdk::api::time()))?;
-    Ok(deliveries)
+    Ok(update_queue(|queue| queue.dispatch(cdk::api::time()))?.deliveries)
 }
 
 fn admit_delivery_input() -> Result<(), String> {

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.17.33]
+
+### 🧹 Cleanup
+
+- Simplify consumer dispatch results, native reconstruction and inspection
+  replies while preserving validated restore, commit ordering and receipt checks.
+- Share demo launch plumbing and deadline display formatting, keeping the
+  existing commands and distinct Testkit server lifetimes.
+
+### 🧪 Testing
+
+- Let release retention fixtures run without metadata-editor or formatter setup.
+  Name admission/management cases and reuse panic-retaining fixture cleanup.
+
 ## [0.17.32] - 2026-10-27
 
 ### 🧹 Cleanup

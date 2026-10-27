@@ -22,7 +22,7 @@ prepare_phase() {
     bash "$root/scripts/ci/prepare-script-fixture.sh" "$root" "$fixture" make/consumer.mk
     cp "$root/Makefile" "$fixture/"
     cp -R "$root/ci" "$fixture/"
-    cp "$root/scripts/dev/"{install-rust-tools,tool-store,cargo-tool-build,testkit-tool}.sh "$fixture/scripts/dev/"
+    cp "$root/scripts/dev/"{install-rust-tools,tool-store,cargo-tool-build,testkit-tool,queue-command}.sh "$fixture/scripts/dev/"
     cp "$root/scripts/ci/"{verify-file-checksum,test-canister,fixture-lifecycle}.sh "$fixture/scripts/ci/"
     cp "$root/Cargo.lock" "$fixture/Cargo.lock"
     export JOBS_CONSUMER_TOOLING_EVENTS="$fixture/events"
@@ -192,6 +192,79 @@ for outcome in accepted refused; do
     fi
 done
 echo 'Hosted CLI selection admits once, retains diagnostics and refuses before receipt copying (actual workflow/Make; substitute installer)'
+)
+
+phase_demo_commands() (
+local fixture
+trap - EXIT
+prepare_phase demo-commands
+stub_testkit_selection
+# Exercise the actual Make recipes and launcher without compilation or servers.
+# Spaces in every selected path also qualify the launcher's quoting.
+# shellcheck disable=SC2030,SC2031 # Stub inputs intentionally stay inside this phase.
+local -x JOBS_CONSUMER_CLI="$fixture/testkit selected" JOBS_CONSUMER_WASM_TARGET="$fixture/target with spaces"
+mkdir -p "$JOBS_CONSUMER_WASM_TARGET/debug/examples"
+cat > "$JOBS_CONSUMER_CLI" <<'SERVER'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'server %s\n' "$*" >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+case "$*" in
+    check) printf '%s\n' "$JOBS_CONSUMER_WASM_TARGET/server binary" ;;
+    'run --ttl 900 -- cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline -- --ignored --nocapture --test-threads=1')
+        [[ "$IC_JOBS_CONSUMER_WASM" == "$JOBS_CONSUMER_WASM_TARGET/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" ]] ;;
+    *) exit 49 ;;
+esac
+SERVER
+cat > "$fixture/.tools/rust/common/bin/cargo" <<'CARGO'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'cargo %s\n' "$*" >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+case "$*" in
+    '+1.91.0 metadata --format-version 1 --no-deps --locked --offline')
+        printf '{"target_directory":"%s"}\n' "$JOBS_CONSUMER_WASM_TARGET" ;;
+    '+1.91.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline'|\
+    '+1.91.0 build -p jobs-canister-tests --example queue --locked --offline'|\
+    '+1.91.0 test -p jobs-canister-tests --example queue --locked --offline --no-run') ;;
+    '+1.91.0 test -p jobs-canister-tests --test queue_cli --locked --offline -- --ignored --nocapture')
+        [[ "$IC_JOBS_QUEUE_SERVER" == "$JOBS_CONSUMER_WASM_TARGET/server binary" &&
+           "$IC_JOBS_QUEUE_BIN" == "$JOBS_CONSUMER_WASM_TARGET/debug/examples/queue" &&
+           "$IC_JOBS_CONSUMER_WASM" == "$JOBS_CONSUMER_WASM_TARGET/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" ]] ;;
+    *) exit 49 ;;
+esac
+CARGO
+cat > "$JOBS_CONSUMER_WASM_TARGET/debug/examples/queue" <<'QUEUE'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $# == 4 && "$1" == --server && "$2" == "$JOBS_CONSUMER_WASM_TARGET/server binary" &&
+   "$3" == --wasm && "$4" == "$JOBS_CONSUMER_WASM_TARGET/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" ]]
+printf 'queue\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+QUEUE
+chmod +x "$JOBS_CONSUMER_CLI" "$fixture/.tools/rust/common/bin/cargo" "$JOBS_CONSUMER_WASM_TARGET/debug/examples/queue"
+for command in demo test-demo test-demo-cli; do
+    : > "$fixture/events"
+    make --no-print-directory -j2 -C "$fixture" "$command" > "$fixture/$command.log" 2>&1
+    {
+        printf 'admission\nserver check\ncargo +1.91.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline\n'
+        if [[ "$command" == test-demo ]]; then
+            printf 'cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline --no-run\n'
+        else
+            printf 'cargo +1.91.0 build -p jobs-canister-tests --example queue --locked --offline\n'
+        fi
+        printf 'admission\ncargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline\n'
+        case "$command" in
+            demo) printf 'server check\nqueue\n' ;;
+            test-demo) printf 'server run --ttl 900 -- cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline -- --ignored --nocapture --test-threads=1\n' ;;
+            test-demo-cli) printf 'server check\ncargo +1.91.0 test -p jobs-canister-tests --test queue_cli --locked --offline -- --ignored --nocapture\n' ;;
+        esac
+    } > "$fixture/expected-events"
+    cmp "$fixture/events" "$fixture/expected-events"
+    : > "$fixture/events"
+    status=0
+    (cd "$fixture" && PATH="$fixture/.tools/rust/common/bin:$PATH" JOBS_CONSUMER_ADMISSION_FAILURE=1 \
+        "$BASH" scripts/dev/queue-command.sh "$command") > "$fixture/$command-refused.log" 2>&1 || status=$?
+    [[ "$status" == 37 && "$(cat "$fixture/events")" == admission ]] || exit 1
+done
+echo 'Demo commands preserve build/admission order, arguments and separate server lifetimes (actual Make/launcher; substitute Cargo/server/client)'
 )
 
 phase_input_admission() (
@@ -398,11 +471,12 @@ CARGO
 chmod +x "$fixture/.tools/rust/common/bin/cargo"
 # Shared's pinned test-validation-target-runner.sh owns input mutation/deletion,
 # observation failures, checkpoint files and timing format. Retain this actual
-# Jobs Make/CI wiring proof: either the selected lock or its consumer-owned CLI
-# selection changes during admission, stopping checks before product Cargo effects.
-for input in Cargo.lock scripts/dev/testkit-tool.sh; do
+# Jobs Make/CI wiring proof: changing the lock, CLI selection or demo launcher
+# during admission stops checks before product Cargo effects.
+for input in Cargo.lock scripts/dev/testkit-tool.sh scripts/dev/queue-command.sh; do
     cp "$root/Cargo.lock" "$fixture/Cargo.lock"
     cp "$root/scripts/dev/testkit-tool.sh" "$fixture/scripts/dev/testkit-tool.sh"
+    cp "$root/scripts/dev/queue-command.sh" "$fixture/scripts/dev/queue-command.sh"
     : > "$fixture/events"
     status=0
     JOBS_CONSUMER_MUTATION_INPUT="$input" VALIDATION_LOG_DIR="$fixture/drift-logs-${input##*/}" \
@@ -411,12 +485,13 @@ for input in Cargo.lock scripts/dev/testkit-tool.sh; do
     [[ "$status" == 2 && "$(cat "$fixture/events")" == admission ]] || exit 1
     grep -F "validation input changed: $input" "$fixture/ci-drift-${input##*/}.log" > /dev/null
 done
-echo 'Changed lock or CLI selection stops Jobs CI after admission (actual Make route; substitute tool effects; no product validation)'
+echo 'Changed lock, CLI selection or demo launcher stops Jobs CI after admission (actual Make route; substitute tool effects; no product validation)'
 )
 
 phase_cli_admission
 phase_server_commands
 phase_workflow_selection
+phase_demo_commands
 phase_input_admission
 phase_artifact_capture
 phase_ci_admission

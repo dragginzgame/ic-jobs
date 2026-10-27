@@ -28,8 +28,6 @@ unset TOOLING_FETCH_FAILURE
 unset TOOLING_INSTALL_FAILURE TOOLING_CHECK_FAILURE TOOLING_BUILD_EVENTS
 unset TOOLING_COMMON_CHECK_FAILURE
 unset TOOLING_CLIPPY_FAILURE TOOLING_CLIPPY_MUTATION
-export TOOLING_EDITOR="${CARGO_RELEASE_METADATA_EDITOR:?select the admitted fixture editor}"
-unset CARGO_RELEASE_METADATA_EDITOR CARGO_RELEASE_METADATA_MAX_BYTES TOOLING_EDITOR_FAILURE
 export RUSTUP_AUTO_INSTALL=0
 
 if [[ "$group" == all || "$group" == retention ]]; then
@@ -61,6 +59,16 @@ for relative in scripts/release/test-tooling.sh scripts/release/test-publication
 done
 
 fi
+
+# Retention probes exercise only fixture admission/EXIT boundaries. They need
+# neither a metadata editor nor the Cargo/repository setup used by other groups.
+if [[ "$group" == retention ]]; then
+    printf 'Release tooling group retention passed (fixture retention only)\n'
+    fixture_complete=true
+    exit 0
+fi
+export TOOLING_EDITOR="${CARGO_RELEASE_METADATA_EDITOR:?select the admitted fixture editor}"
+unset CARGO_RELEASE_METADATA_EDITOR CARGO_RELEASE_METADATA_MAX_BYTES TOOLING_EDITOR_FAILURE
 
 export TOOLING_REAL_CARGO
 TOOLING_REAL_CARGO="$(command -v cargo)"

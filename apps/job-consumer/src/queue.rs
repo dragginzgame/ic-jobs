@@ -104,6 +104,13 @@ pub(crate) struct Committed<T> {
     pub(crate) next_due_ns: Option<u64>,
 }
 
+/// One bounded dispatch batch; work counts attempts, not confirmed effects.
+#[derive(Debug, Eq, PartialEq)]
+pub(crate) struct DispatchBatch {
+    pub(crate) deliveries: Vec<Delivery>,
+    pub(crate) work: u64,
+}
+
 impl Snapshot<Job> {
     fn next_due_ns(&self) -> Option<u64> {
         next_due_ns(self.jobs.iter().map(|entry| &entry.job))
@@ -158,18 +165,15 @@ impl Entry<Job> {
         Ok((attempt, payload))
     }
 
-    fn delivery(&self) -> Result<(Attempt, Delivery), Error> {
+    fn delivery(&self) -> Result<Delivery, Error> {
         let (attempt, payload) = self.delivery_parts()?;
-        Ok((
-            attempt,
-            Delivery {
-                // The admitted entry and its active attempt retain the same bounded ID.
-                job: attempt.execution.job.0 as u64,
-                occurrence: attempt.execution.occurrence,
-                sequence: attempt.sequence,
-                payload: payload.clone(),
-            },
-        ))
+        Ok(Delivery {
+            // The admitted entry and its active attempt retain the same bounded ID.
+            job: attempt.execution.job.0 as u64,
+            occurrence: attempt.execution.occurrence,
+            sequence: attempt.sequence,
+            payload: payload.clone(),
+        })
     }
 }
 
@@ -395,7 +399,7 @@ impl<M: Memory> Queue<M> {
 
     // No await: the complete bounded batch commits local effects and outstanding
     // external intent before any caller is given a delivery envelope.
-    pub(crate) fn dispatch(&mut self, now: u64) -> Result<Committed<(Vec<Delivery>, u64)>, Error> {
+    pub(crate) fn dispatch(&mut self, now: u64) -> Result<Committed<DispatchBatch>, Error> {
         let mut snapshot = self.load()?;
         let mut deliveries = vec![];
         let mut work = 0;
@@ -422,23 +426,23 @@ impl<M: Memory> Queue<M> {
                         .finish(attempt, now, outcome)
                         .map_err(job_error)?;
                 }
-                Task::Deliver(_) => deliveries.push(snapshot.jobs[index].delivery()?.1),
+                Task::Deliver(_) => deliveries.push(snapshot.jobs[index].delivery()?),
             }
         }
         if work > 0 {
             // Commit the complete batch before delivery envelopes escape.
-            self.commit(snapshot, (deliveries, work))
+            self.commit(snapshot, DispatchBatch { deliveries, work })
         } else {
             // Idle batches project existing durable state without writing it.
             Ok(Committed {
-                value: (deliveries, work),
+                value: DispatchBatch { deliveries, work },
                 next_due_ns: snapshot.next_due_ns(),
             })
         }
     }
 
     pub(crate) fn outstanding(&self, id: u64) -> Result<Delivery, Error> {
-        Ok(self.load()?.take_entry(id)?.delivery()?.1)
+        self.load()?.take_entry(id)?.delivery()
     }
 
     pub(crate) fn finish(

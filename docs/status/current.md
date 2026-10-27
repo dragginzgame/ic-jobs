@@ -2,83 +2,67 @@
 
 ## Accepted scope
 
-Released baseline and local HEAD: `577ebe4a61c08528e1a85d47eca49ebdff73c780`
-(Jobs 0.17.31). The next compatible changelog draft is 0.17.32; own package
-versions remain 0.17.31. The second ranked complexity batch's ten changes are
-implemented locally. Staging, commits, release execution and publication remain
+Released baseline and local HEAD: `4223530b60eefa8653c05e132b1528ebf0f5b2d1`
+(Jobs 0.17.32). All ten items from the third complexity review are implemented
+locally and uncommitted. The compatible changelog draft is 0.17.33; package
+versions remain 0.17.32. Staging, commits, releases and publication remain
 maintainer-owned.
 
-Consumer-tooling qualification has six named phases, each with its own directory
-and subshell environment; the outer fixture owns completion and retention.
-Receipt refusal cases use named mutations with the same state/error matrix.
-Native notification evidence carries `Outcome` directly, with missing evidence
-still granting no retry permission. Owned and borrowed delivery projections
-share eligibility checks, while full envelope comparison remains exhaustive.
-Outbound delivery calls share concrete transport handling and reuse the existing
-Wire decoder; callers still own receipt equality, absence and uncertainty.
+The consumer returns named dispatch results and only the delivery envelope
+needed by its callers. Native fixtures share committed-byte reconstruction and
+inspection-reply projection. Admission/management cases are named rather than
+selected by numeric or array positions. Capture tests reuse the shared cleanup
+guard, which preserves fixture evidence on panic.
 
-Make and the live wrapper use one Jobs-local Testkit selection helper. Shared
-Tooling retains installer, executable-store and offline-admission ownership.
-The helper is checkpointed alongside the lock and other selected inputs; fixture
-checks prove either changing during admission stops subsequent validation.
-CLI shutdown scenarios are typed, identical prompt error branches converge,
-and native executable-script/publication fixture creation use existing helpers.
+The three demo commands delegate launch plumbing to one local helper. Make
+still owns compilation and initial server admission; Testkit owns server
+lifetimes. The launcher is a checkpointed validation input. Retention fixtures
+now run without metadata-editor or formatter setup. Deadline display shares a
+pure formatter, and the watch banner precedes its loop.
 
 ## Maintained selections and contracts
 
-Build/Host/Testkit remain 0.68.9, Memory/Storage 0.51.5, Timers 0.31.5,
-Platform/macros 0.6.19, Wire/derive 0.7.18 and transitive Metrics 0.16.3.
-The lockfile and manifests are unchanged. Shared Tooling remains 0.26.21 at
-`66c91c4412856baa147482e648fc80428db8b179`. Tool pins, development Rust 1.99.1,
-separate core/consumer Rust 1.91 floors and optimizer-only IC selection remain.
+Core source, manifests, dependencies and lockfile are unchanged. Build/Host/
+Testkit remain 0.68.9, Memory/Storage 0.51.5, Timers 0.31.5, Platform/macros
+0.6.19, Wire/derive 0.7.18 and transitive Metrics 0.16.3. Shared Tooling remains
+0.26.21 at `66c91c4412856baa147482e648fc80428db8b179`. Development Rust is
+1.99.1; core and consumer-owned Timers integration retain separate 1.91 floors.
 
-The published core is unchanged and Serde-only. Every decoded Job crosses
-`Job::restore`; Running/Uncertain work remains blocked until explicit disposition.
-Storage, payloads, authentication, lifecycle, timer integration and effect policy
-stay consumer-owned. No production dependency, registry or timer provider.
-RPC/storage formats, receipt identity/payload comparisons and error precedence
-are unchanged. No client regeneration or retained-data migration is required.
-Watch interruption still precedes advancing IC time. The bounded 32-job lookup
-remains linear pending a measured need. No browser/BLAKE3/stable Metrics adapter.
-Normal releases start fresh; only explicit `release-resume` selects saved intent.
+The published core remains Serde-only. Every decoded Job enters through
+`Job::restore`; Running/Uncertain work stays blocked until explicit disposition.
+Storage, payloads, authentication, lifecycle, timers and effect policy stay
+consumer-owned. RPC/storage formats, receipt comparisons, error precedence and
+commit-before-delivery ordering are unchanged. No migration or client
+regeneration is required. Watch interruption still precedes advancing IC time.
+The 32-job lookup remains linear pending a measured need. Normal releases start
+fresh; only explicit `release-resume` selects saved intent.
 
 ## Qualification and evidence
 
-`/tmp/ic-jobs-complexity-2.uetcef2y/` retains incoming source at the released base,
-focused logs, candidate/retained Wasm and the final patch. Native consumer tests
-pass (29 library, 2 codec, 19 composition); harness/CLI cases compile and their
-non-live cases pass. Native Clippy and consumer Wasm Clippy pass. Rust 1.91 native
-consumer tests and its release Wasm build qualify the affected integration;
-unchanged core qualification remains attributable to the preceding batch.
-Shell syntax, ShellCheck 0.11.0 with sourced helpers, formatting, documentation
-links and release-command routing pass. Offline Testkit/server admission passes.
+`/tmp/ic-jobs-complexity-3.FqDuU7u5/` retains the incoming source archive, final
+patch, input/tool identities and focused logs. Rust 1.91 consumer tests pass
+(29 library, 2 codec, 19 composition). Capture tests pass (4), along with the
+non-live queue example and recovery harness tests; live scenarios remain ignored.
+Native and consumer Wasm Clippy pass with both Rust 1.91 and development Rust.
+Unchanged core-floor qualification remains separate in the preceding evidence.
 
-The actual Make/wrapper consumer-tooling fixture passes all six isolated phases,
-including lock/selector mutation refusal, workflow path/diagnostic separation,
-invalid file admission, frozen original/optimized artifact custody and retained
-capture failures. Release-fixture retention probes and publication ordering/
-real-Git eligibility pass. All effects remain in disposable fixtures with
-substitute server, optimizer and registry/upload effects; no live server launched.
+Shell syntax, ShellCheck, formatting, documentation links and release-command
+routing pass. The actual retention Make target passes with the metadata-editor
+environment unset; the metadata group also passes through its prepared-tool path.
+The consumer-tooling fixture passes seven isolated phases, including actual
+Make/demo-launcher routing with paths containing spaces, admission refusal,
+frozen-artifact custody and validation stopping if the lock, Testkit selector or
+demo launcher changes. Cargo/server/optimizer effects are substituted there.
 
-Isolation initially exposed executable permissions inherited from an earlier
-phase; each phase now prepares its own Cargo stub permissions. The original
-failure is retained at `/tmp/jobs-consumer-tooling.JRQWoP/`. Initial type-complexity,
-phase-local export diagnostics and transport API compilation attempts are retained
-in this batch's logs; corrected focused checks pass.
+An initial direct script invocation omitted the capture-binary build prerequisite
+and stopped in artifact capture. Its evidence remains at
+`/tmp/jobs-consumer-tooling.Y8SQaD/`. The supported Make route built that
+prerequisite and passed; the final fixture rerun also passed.
 
-With the same lock, Rust 1.91 and release settings, raw qualification Wasm changes
-from 942,971 to 943,224 bytes (+253); code section changes from 698,794 to 698,938
-(+144). This is a small footprint cost, not a runtime speed claim. The generic
-transport candidate is retained separately; the final helper uses Platform's
-concrete Response/CallFailed types.
-
-Earlier cleanup evidence remains at `/tmp/ic-jobs-simplify.c9lx1yg4/`; its
-handoff is preserved in this batch's `incoming/docs/status/current.md`. Earlier
-Linux live observations in `/tmp/ic-jobs-tooling-wire-shared.1SRGqz/` remain tied
-to Tooling 0.68.6, Timers 0.31.2, Platform 0.6.17 and Wire 0.7.15, not this source.
-Full CI, fresh live/optimized recovery and fresh macOS qualification were not
-selected. Native execution and Wasm compilation do not establish IC recovery.
-
-The last recorded three-host live recovery run qualified Jobs 0.17.14 at
-`7d1f808de0bc14d823bd1d3f04a5a62f06ad7a52` with Tooling 0.63.2:
+No full CI, fresh live/optimized recovery or native macOS qualification was
+selected. Native tests and Wasm compilation do not establish IC recovery.
+Earlier batch evidence remains at `/tmp/ic-jobs-complexity-2.uetcef2y/` and
+`/tmp/ic-jobs-simplify.c9lx1yg4/`. Earlier Linux live evidence at
+`/tmp/ic-jobs-tooling-wire-shared.1SRGqz/` uses older dependencies, not this source.
+The last recorded three-host live run qualified Jobs 0.17.14 with Tooling 0.63.2:
 [108 successful scenario executions](https://github.com/dragginzgame/ic-jobs/actions/runs/39618054793).

@@ -12,7 +12,7 @@ TESTKIT_TOOL = bash scripts/dev/testkit-tool.sh
 RELEASE_METADATA_LOCKFILE ?= $(CURDIR)/Cargo.lock
 RELEASE_METADATA_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-build --lockfile "$(RELEASE_METADATA_LOCKFILE)" --bin ic-build-release-metadata --profile debug --features cli
 VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
-	--input .shared-tooling.snapshot --input Makefile --input scripts/dev/testkit-tool.sh --input ci/tool-versions.env \
+	--input .shared-tooling.snapshot --input Makefile --input scripts/dev/testkit-tool.sh --input scripts/dev/queue-command.sh --input ci/tool-versions.env \
 	--input ci/ic-tools.tsv --input ci/release-delivery.txt --input ci/cargo-dependency-boundaries.json \
 	--input crates/ic-jobs/Cargo.toml --input apps/job-consumer/Cargo.toml \
 	--input crates/jobs-canister-tests/Cargo.toml
@@ -82,31 +82,18 @@ test-canister test-canister-optimized: consumer-server-check
 demo: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
 	+cargo +1.91.0 build -p jobs-canister-tests --example queue --locked --offline
-	+@cli="$$( $(TESTKIT_TOOL) --check )" && \
-		target="$$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)" && \
-		server="$$( "$$cli" check )" && \
-		"$$target/debug/examples/queue" --server "$$server" \
-		--wasm "$$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
+	+bash scripts/dev/queue-command.sh demo
 
 test-demo: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
 	+cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline --no-run
-	+@cli="$$( $(TESTKIT_TOOL) --check )" && \
-		target="$$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)" && \
-		IC_JOBS_CONSUMER_WASM="$$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" \
-		"$$cli" run --ttl 900 -- cargo +1.91.0 test -p jobs-canister-tests \
-		--example queue --locked --offline -- --ignored --nocapture --test-threads=1
+	+bash scripts/dev/queue-command.sh test-demo
 
 # Spawn-mode process tests intentionally do not borrow the batch runner's server.
 test-demo-cli: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
 	+cargo +1.91.0 build -p jobs-canister-tests --example queue --locked --offline
-	+@cli="$$( $(TESTKIT_TOOL) --check )" && \
-		target="$$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)" && \
-		IC_JOBS_QUEUE_SERVER="$$( "$$cli" check )" \
-		IC_JOBS_QUEUE_BIN="$$target/debug/examples/queue" \
-		IC_JOBS_CONSUMER_WASM="$$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" \
-		cargo +1.91.0 test -p jobs-canister-tests --test queue_cli --locked --offline -- --ignored --nocapture
+	+bash scripts/dev/queue-command.sh test-demo-cli
 
 check-msrv:
 	+cargo +1.91.0 check -p ic-jobs --lib --locked --offline
@@ -178,8 +165,11 @@ test-release-tooling: format-tools-check
 		bash scripts/release/test-tooling.sh
 	+bash scripts/release/test-publication.sh
 
-RELEASE_TOOLING_GROUPS := retention delivery recovery metadata publication
-.PHONY: $(addprefix test-release-tooling-,$(RELEASE_TOOLING_GROUPS))
+RELEASE_TOOLING_GROUPS := delivery recovery metadata publication
+.PHONY: test-release-tooling-retention $(addprefix test-release-tooling-,$(RELEASE_TOOLING_GROUPS))
+test-release-tooling-retention:
+	+bash scripts/release/test-tooling.sh retention
+
 $(addprefix test-release-tooling-,$(RELEASE_TOOLING_GROUPS)): format-tools-check
 	+@editor="$$( $(RELEASE_METADATA_TOOL) --check )" && \
 		CARGO_RELEASE_METADATA_EDITOR="$$editor" CARGO_RELEASE_METADATA_MAX_BYTES=1048576 \

@@ -151,6 +151,14 @@ fn span(nanos: u64) -> String {
     }
 }
 
+fn deadline(due_ns: u64, now_ns: u64, overdue: &str) -> String {
+    if due_ns <= now_ns {
+        overdue.into()
+    } else {
+        format!("in {}", span(due_ns - now_ns))
+    }
+}
+
 struct Demo {
     pic: PocketIcInstance<PocketIc>,
     canister: ExternalPrincipal,
@@ -315,14 +323,7 @@ impl Demo {
         for view in views {
             let (name, schedule) = &self.labels[&view.id];
             let (state, next) = match view.status {
-                Status::Pending { due_ns } => (
-                    "pending",
-                    if due_ns <= now {
-                        "due now".into()
-                    } else {
-                        format!("in {}", span(due_ns - now))
-                    },
-                ),
+                Status::Pending { due_ns } => ("pending", deadline(due_ns, now, "due now")),
                 Status::Paused => ("paused", "—".into()),
                 Status::Running => ("running", "—".into()),
                 Status::Uncertain => ("uncertain", "—".into()),
@@ -338,11 +339,11 @@ impl Demo {
         let next = summary.next_due_ns.map_or_else(
             || "none".into(),
             |due| {
-                if due <= now {
-                    "due now (more rounds/time may be needed for catch-up)".into()
-                } else {
-                    format!("in {}", span(due - now))
-                }
+                deadline(
+                    due,
+                    now,
+                    "due now (more rounds/time may be needed for catch-up)",
+                )
             },
         );
         println!("Next wakeup: {next}\n");
@@ -417,10 +418,8 @@ impl Demo {
             QueueCommand::Watch { duration } => {
                 let mut remaining = *duration;
                 let mut before = None;
+                println!("Watching; press Ctrl+C to stop.");
                 while !remaining.is_zero() && !INTERRUPTED.load(Ordering::Relaxed) {
-                    if remaining == *duration {
-                        println!("Watching; press Ctrl+C to stop.");
-                    }
                     let step = remaining.min(Duration::from_secs(1));
                     std::thread::sleep(step);
                     if INTERRUPTED.load(Ordering::Relaxed) {

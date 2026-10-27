@@ -74,6 +74,14 @@ impl fmt::Display for ManagementError {
 impl Error for ManagementError {}
 
 impl Notifications {
+    // Reconstruction resets only volatile fault injection. Reads still admit
+    // the committed snapshot and every JobRecord through load/Job::restore.
+    pub(crate) fn from_bytes(bytes: Vec<u8>) -> Self {
+        Self {
+            store: Store::from_bytes(bytes),
+        }
+    }
+
     fn index(jobs: &[NotificationSnapshot<Job>], id: JobId) -> Option<usize> {
         jobs.iter().position(|entry| entry.job.record().id == id)
     }
@@ -131,16 +139,24 @@ impl Notifications {
 
     fn commit_entry(
         &mut self,
-        mut jobs: Vec<NotificationSnapshot<Job>>,
+        jobs: Vec<NotificationSnapshot<Job>>,
         index: usize,
     ) -> Result<ManagementReply<NotificationSnapshot>> {
         self.commit(&jobs)?;
-        // Persist ordering and project the full queue before extracting the reply.
+        Ok(Self::entry_reply(jobs, index))
+    }
+
+    fn entry_reply(
+        mut jobs: Vec<NotificationSnapshot<Job>>,
+        index: usize,
+    ) -> ManagementReply<NotificationSnapshot> {
+        // Project the full queue before extracting the reply. Mutating callers
+        // commit the original ordering before reaching this projection.
         let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
-        Ok(ManagementReply {
+        ManagementReply {
             value: jobs.swap_remove(index).into_stored(),
             next_due_ns: due,
-        })
+        }
     }
 
     fn authorize(caller: &str) -> Result<()> {
@@ -179,13 +195,9 @@ impl Notifications {
         id: JobId,
     ) -> Result<ManagementReply<NotificationSnapshot>> {
         Self::authorize(caller)?;
-        let mut jobs = self.load()?;
+        let jobs = self.load()?;
         let index = Self::index(&jobs, id).ok_or(ManagementError::UnknownJob)?;
-        let due = next_due_ns(jobs.iter().map(|entry| &entry.job));
-        Ok(ManagementReply {
-            value: jobs.swap_remove(index).into_stored(),
-            next_due_ns: due,
-        })
+        Ok(Self::entry_reply(jobs, index))
     }
 
     pub(crate) fn page(
