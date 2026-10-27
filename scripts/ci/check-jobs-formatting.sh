@@ -21,5 +21,6 @@ bash "$root/scripts/ci/check-formatting-hooks.sh" "$root" \
     --rust-sources \
     crates/ic-jobs/Cargo.toml apps/job-consumer/Cargo.toml crates/jobs-canister-tests/Cargo.toml \
     Cargo.lock make/consumer.mk make/tools.mk make/rust-format.mk make/release.mk make/execution.mk \
-    ci/tool-versions.env scripts/ci/check-format-tools.sh scripts/ci/run-formatting.sh
+    ci/tool-versions.env scripts/ci/check-format-tools.sh scripts/ci/run-formatting.sh \
+    scripts/ci/run-rust-formatting.pl
 fixture_complete=true

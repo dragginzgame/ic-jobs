@@ -201,6 +201,12 @@ This target exercises Jobs' actual manifests, Make recipes, hook refresh and
 preservation behavior. Shared Tooling owns the general hook/frontend test matrix;
 this repository has no frontend formatter integration.
 
+Standard formatting reports each manifest/Rustfmt pass and its elapsed time.
+Eligible unchanged inputs can reuse a successful result after tool admission;
+`make fmt-check FORMAT_RUST_ARGS=--no-cache` explicitly runs every pass. Shared
+eligibility rules keep unsupported source layouts and staged hook worktrees
+uncached, with failed formatter logs retained for diagnosis.
+
 The unpublished harness uses the [selected Testkit dependency](Cargo.toml) and
 its separately admitted CLI: run `make install-testkit-tools` and
 `make testkit-tools-check` when updating that selection. PocketIC setup/check and

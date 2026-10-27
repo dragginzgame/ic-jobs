@@ -52,11 +52,12 @@ PATH="$fixture/bin:$PATH" TMPDIR="$gate_temp" bash "$fixture/gate.sh" \
 attempts=("$gate_temp/"*)
 [[ ${#attempts[@]} == 1 && -f "${attempts[0]}/failure.log" ]] || exit 1
 
-# Shared test-make-format.sh owns standalone wrapper presentation/status proof.
+# Shared owns generic driver/reuse and standalone wrapper proofs.
 # Jobs retains actual workflow, Make and collector integration below.
 
 # Exercise Jobs' actual Makefile and selected includes, substituting only Cargo
 # in this disposable checkout. A sorter failure must stop the later rustfmt call.
+# Force every pass for this caller/evidence proof; metadata/reuse cases stay Shared-owned.
 consumer="$fixture/jobs"
 mkdir -p "$consumer/.tools/rust/common/bin"
 bash "$root/scripts/ci/prepare-script-fixture.sh" "$root" "$consumer" make/consumer.mk
@@ -95,25 +96,27 @@ status=0
 parallel=(-j2)
 if make --help | grep -q -- --jobserver-style; then parallel+=(--jobserver-style=pipe); fi
 RUNNER_TEMP="$fixture/temp" FORMAT_EVIDENCE_FAIL=sort \
-    make --no-print-directory "${parallel[@]}" -C "$consumer" fmt-check FORMAT_CARGO=formatting-fixture-cargo \
+    make --no-print-directory "${parallel[@]}" -C "$consumer" fmt-check FORMAT_CARGO=formatting-fixture-cargo FORMAT_RUST_ARGS=--no-cache \
     > "$fixture/make-failure" 2>&1 || status=$?
 [[ "$status" == 2 ]] || exit 1
 printf 'sort --workspace --grouped --check\n' > "$fixture/expected-events"
 cmp "$fixture/expected-events" "$FORMAT_EVIDENCE_EVENTS"
-grep -Fx 'Checking formatting... FAILED (exit 23)' "$fixture/make-failure" > /dev/null
+grep -E '^Manifest sorting \[\.\]\.\.\. FAILED \(exit 23, [0-9]+[.][0-9]+s\)$' "$fixture/make-failure" > /dev/null
 logs=("$fixture/temp"/formatting.*)
 [[ ${#logs[@]} == 1 ]] || exit 1
 grep -Flx sorter-error "${logs[@]}" > "$fixture/sorter-logs"
 [[ "$(wc -l < "$fixture/sorter-logs" | tr -d ' ')" == 1 ]] || exit 1
 sorter_log="$(cat "$fixture/sorter-logs")"
+grep -Fx "Details: $sorter_log" "$fixture/make-failure" > /dev/null
 grep -Fx retained-sorter-diff "$sorter_log" > /dev/null
 : > "$FORMAT_EVIDENCE_EVENTS"
 RUNNER_TEMP="$fixture/temp" make --no-print-directory "${parallel[@]}" -C "$consumer" \
-    fmt-check FORMAT_CARGO=formatting-fixture-cargo > "$fixture/make-success"
+    fmt-check FORMAT_CARGO=formatting-fixture-cargo FORMAT_RUST_ARGS=--no-cache > "$fixture/make-success"
 printf 'sort --workspace --grouped --check\nfmt --all -- --check\n' > "$fixture/expected-events"
 cmp "$fixture/expected-events" "$FORMAT_EVIDENCE_EVENTS"
-printf 'Checking formatting... ok\n' > "$fixture/expected"
-cmp "$fixture/expected" "$fixture/make-success"
+printf 'Manifest sorting [.]... ok\nRust formatting [.]... ok\n' > "$fixture/expected"
+sed -E 's/ \([0-9]+[.][0-9]+s\)$//' "$fixture/make-success" > "$fixture/normalized-success"
+cmp "$fixture/expected" "$fixture/normalized-success"
 
 bash "$root/scripts/ci/extract-workflow-step.sh" "$fixture/collector-steps.json" archive \
     > "$fixture/collect.sh"

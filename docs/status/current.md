@@ -2,72 +2,73 @@
 
 ## Accepted scope
 
-Released baseline: `d2c1164fa8e31675e47f6d96419962f438b5b7e4` (Jobs 0.17.34).
-The dependency/Shared Tooling adoption remains local and uncommitted. The latest
-request adds published IC Tooling 0.69.0 and completes the Platform 0.7 migration.
-The compatible changelog draft remains 0.17.35; package versions remain 0.17.34.
-Staging, commits, releases and publication remain maintainer-owned.
+Released baseline: `5be954b1704a45c9fd98d9ab6822bd92ff68970c` (Jobs 0.17.35).
+Shared Tooling 0.26.25 is adopted locally and uncommitted. The compatible
+changelog draft remains 0.17.36; package versions remain 0.17.35. Staging,
+commits, releases and publication remain maintainer-owned.
 
-Build/Host/Testkit now select 0.69.0. Workspace minimums also require the incoming
-coordinated Memory/Storage 0.51.9 and Timers 0.31.9 selections. The user's direct
-Platform 0.7 requirement is preserved; the lock selects Platform/macros 0.7.0.
-The former Platform 0.6 identity has been removed from the lock and all graph
-policies pass without relaxation. The prior Platform singleton blocker is resolved.
-Wire/derive remain 0.7.18 and transitive Metrics remains 0.16.3. No application
-Rust code or feature selection changed. Documentation now describes Platform 0.7.
+The reviewed source is `6b6bbd9c9e5798f0ecf6105637392a7a55cd450e`. Canonical
+preview/refresh retained the same entrypoints and 121-file payload closure.
+The final export used a clean pinned temporary clone because the sibling had
+unrelated edits in progress. No sibling working files or snapshot-owned payloads
+were edited locally. The earlier description review remains applicable to Jobs'
+unchanged purpose; its observation is retained with the preceding adoption.
 
-The prior reviewed Shared Tooling 0.26.22 adoption remains intact at
-`5fc904a935d82ad31f0fba14434b71ccb8c10345`, with the same 120-file selection.
-Its governance clarifies Candid boundaries, native errors and strict native input/
-output handling; adoption does not itself add executable enforcement. The prior
-GitHub-description review remains valid because Jobs' scope has not changed.
+The shared hook accepts opaque gitlinks while preserving regular-file selection,
+partial-stage refusal and child-checkout custody. The formatter supports optional
+explicit standalone files/editions, without caching those selections. Jobs has no
+standalone adapter or runtime-scanner caller to migrate, so no additional source
+roster, Clap dependency, Node setup or generic upstream test suite was introduced.
+The Node guide was already selected; its new companion declaration is now retained.
 
-## Maintained contracts
+Earlier uncommitted 0.26.23 caller migration remains intact: standard formatting
+reports per-pass progress/timings; the local hook fixture includes the driver;
+formatting-evidence assertions retain exact failing status, complete diagnostic
+logs and archive comparisons. Jobs' explicit module paths conservatively disable
+cache reuse. The real fmt-check still executes manifest sorting and Rustfmt.
+The evidence fixture forces all passes with FORMAT_RUST_ARGS=--no-cache. Staged
+hooks stay uncached, and grouped manifest/member coverage is unchanged.
 
-The published core remains Serde-only. Tooling's upstream minor change affects
-Platform-owned Principal identities in host registry APIs; Jobs selects Platform
-0.7 consistently and does not expose those types through the published library.
-Core and consumer-owned Timers integration retain separate Rust 1.91 qualification.
-Every decoded Job crosses Job::restore; Running/Uncertain effects stay blocked
-until explicit disposition. Storage, payloads, authentication, lifecycle, timers
-and effect policy remain consumer-owned. Wire/storage bytes, receipt checks,
-error precedence and commit-before-delivery ordering are unchanged. No protocol
-regeneration or retained-data migration is required. The bounded queue remains
-linear; normal releases start fresh and only release-resume selects saved intent.
+## Maintained contracts and incoming work
+
+No application Rust source, manifests, feature selections, tool pins or CI
+workflow definitions changed. The core remains Serde-only with separate Rust 1.91
+core/consumer qualification. Job::restore, blocked uncertainty, exact receipts,
+error ordering and consumer-owned storage/timers/lifecycle remain unchanged.
+No client regeneration or retained-data migration is needed. Normal releases
+start fresh; only release-resume selects saved intent. The queue remains bounded.
+
+Incoming Memory/Storage 0.51.10 lockfile changes are preserved byte for byte and
+were not given fresh native/Wasm qualification here. Workspace minimums remain
+0.51.9. Build/Host/Testkit remain 0.69.0, Timers 0.31.9, Platform/macros 0.7.0,
+Wire/derive 0.7.18 and Metrics 0.16.3. The Platform singleton blocker is resolved.
 
 ## Qualification and evidence
 
-`/tmp/ic-jobs-tooling-069.LLBQDe8r/` retains the incoming dirty patch and lock,
-full metadata, scoped lock delta, graph/lint logs, selected CLI receipts, incoming
-and qualified Wasm, final patch and tool/artifact identities. Incoming Memory/
-Storage/Timers/Platform selections were preserved. The scoped Tooling update
-replaced the 0.68 family with 0.69 and removed the obsolete Platform 0.6 identity.
-Registry publication of Tooling 0.69.0, Memory 0.51.9 and Timers 0.31.9 was checked.
+`/tmp/ic-jobs-shared-02625.5rE0846k/` retains incoming changes, source review,
+initial/corrected previews and refreshes, focused logs, final patch and identities.
+The initial source commit 16efc62 was labelled 0.26.25 but still advertised
+VERSION 0.26.24. Upstream corrected only VERSION in 6b6bbd9; all selected payload
+bytes stayed identical. Passing hook/formatter checks remain applicable to those
+unchanged bytes. The final 0.26.25 snapshot was refreshed and verified separately.
 
-Full locked metadata and all existing native/Wasm dependency, pin and snapshot
-policies pass. Development-toolchain Clippy passes for both affected native
-packages and consumer Wasm. Core Rust 1.91 native/Wasm checks pass separately;
-Rust 1.91 consumer tests pass (29 library, 2 codec, 19 composition). Capture tests
-and non-live harness/example cases pass. The qualification consumer's release
-Wasm builds on Rust 1.91 with the newly admitted graph. No footprint or runtime
-performance improvement is claimed.
+All 121 payloads verify. Bash syntax, ShellCheck and Perl syntax pass. Actual
+Jobs formatting/hook qualification passes in disposable repositories, preserving
+Rust/manifest repair, staged refresh, partial-stage refusal, failed-formatter
+preservation and installer assertions. The default fmt-check passes with prepared
+tools and its conservative uncached fallback. Formatting evidence checks preserve
+parallel jobserver/offline behavior, sorter failure before Rustfmt, full retained
+logs and actual CI collector archive contents with substitute tool effects.
+Release-command routing and documentation checks pass. No formatting write ran
+on this checkout; no Rust build/tests, full CI, live PocketIC or native macOS
+qualification was selected for this formatting/governance change.
 
-The canonical setup/check targets prepare and admit Testkit and release-editor
-CLIs at 0.69.0, preserving earlier immutable installations. PocketIC 16.1.0 bundle
-admission passes without server startup. The actual consumer-tooling fixture
-passes seven phases with substitute tool/server effects, including input drift
-refusal, demo routes and frozen/failed artifact capture. The metadata release
-fixture passes with the selected editor and real local Git. Formatting and
-local documentation checks pass. Full CI, live/optimized recovery and native
-macOS qualification were not selected; native/Wasm checks do not establish IC
-recovery. Old live evidence does not qualify this source/dependency graph.
-
-The superseded compatible-only adoption and rejected Platform candidate remain
-at `/tmp/ic-jobs-dependency-adoption.HHZ153GK/`. That directory retains its own
-inputs and limitations; its failure is not the result of the final 0.69 graph.
-Earlier cleanup evidence remains at `/tmp/ic-jobs-complexity-4.EAgwljAf/`,
-`/tmp/ic-jobs-complexity-3.FqDuU7u5/`, `/tmp/ic-jobs-complexity-2.uetcef2y/` and
-`/tmp/ic-jobs-simplify.c9lx1yg4/`. Earlier Linux live evidence at
-`/tmp/ic-jobs-tooling-wire-shared.1SRGqz/` uses older dependencies. The last recorded
+The earlier 0.26.23 adoption and its release-fixture evidence remain at
+`/tmp/ic-jobs-shared-02623.HqRXdvzH/`. Runtime qualification at
+`/tmp/ic-jobs-tooling-069.LLBQDe8r/` covers Tooling 0.69, Platform 0.7,
+Memory/Storage 0.51.9 and Timers 0.31.9, not the incoming 0.51.10 graph or installed
+IC recovery. Earlier evidence remains at `/tmp/ic-jobs-dependency-adoption.HHZ153GK/`
+and the cleanup paths recorded in released handoffs. Linux live evidence at
+`/tmp/ic-jobs-tooling-wire-shared.1SRGqz/` uses older inputs. The last recorded
 three-host live run qualified Jobs 0.17.14 with Tooling 0.63.2:
 [108 successful scenario executions](https://github.com/dragginzgame/ic-jobs/actions/runs/39618054793).

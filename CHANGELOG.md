@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.17.36]
+
+### 🔧 Changed
+
+- Adopt Shared Tooling 0.26.25. Standard formatting reports progress and elapsed
+  time per pass, with prepared-tool checks retained and result reuse limited to
+  eligible unchanged inputs. Jobs keeps its existing workspace and manifest policy.
+
+### 🧪 Testing
+
+- Qualify formatting failure logs, CI evidence collection and staged hooks with
+  the shared driver. Preserve sorter-before-Rustfmt ordering and failed-log custody.
+- Refresh the shared hook's opaque-submodule handling and optional standalone
+  Rustfmt support without changing Jobs' selected source coverage.
+
 ## [0.17.35] - 2026-10-27
 
 ### 📦 Dependencies
