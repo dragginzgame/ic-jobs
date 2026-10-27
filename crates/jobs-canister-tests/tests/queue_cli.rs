@@ -4,12 +4,21 @@
 use std::{
     fs,
     io::Write,
-    os::unix::fs::PermissionsExt,
     path::PathBuf,
     process::{Child, Command, Stdio},
     thread,
     time::{Duration, Instant},
 };
+
+use ic_host_process::testing::write_executable_script;
+
+#[derive(Clone, Copy, Debug)]
+enum Shutdown {
+    Quit,
+    Eof,
+    Interrupt,
+    WatchInterrupt,
+}
 
 struct Session {
     child: Child,
@@ -51,15 +60,19 @@ fn quit_eof_and_idle_interrupt_release_owned_server() {
     let binary = std::env::var_os("IC_JOBS_QUEUE_BIN").expect("queue binary");
     let server = std::env::var_os("IC_JOBS_QUEUE_SERVER").expect("admitted server binary");
     let wasm = std::env::var_os("IC_JOBS_CONSUMER_WASM").expect("consumer Wasm");
-    for mode in ["quit", "eof", "interrupt", "watch-interrupt"] {
+    for mode in [
+        Shutdown::Quit,
+        Shutdown::Eof,
+        Shutdown::Interrupt,
+        Shutdown::WatchInterrupt,
+    ] {
         let fixture =
             ic_host_fs::testing::FixtureDirectory::new(&std::env::temp_dir(), "jobs-queue-cli")
                 .unwrap();
         let root = fixture.path();
         let wrapper = root.join("server");
         // exec preserves the PID while leaving all server arguments untouched.
-        fs::write(&wrapper, "#!/bin/sh\nprintf '%s\\n' \"$$\" > \"$JOBS_SERVER_PID\"\nexec \"$JOBS_REAL_SERVER\" \"$@\"\n").unwrap();
-        fs::set_permissions(&wrapper, fs::Permissions::from_mode(0o700)).unwrap();
+        write_executable_script(&wrapper, "#!/bin/sh\nprintf '%s\\n' \"$$\" > \"$JOBS_SERVER_PID\"\nexec \"$JOBS_REAL_SERVER\" \"$@\"\n").unwrap();
         let log_path = root.join("terminal.log");
         let log = fs::File::create(&log_path).unwrap();
         let server_pid = root.join("server.pid");
@@ -83,7 +96,7 @@ fn quit_eof_and_idle_interrupt_release_owned_server() {
                 let output = fs::read_to_string(&log_path).unwrap();
                 assert!(
                     session.child.try_wait().unwrap().is_none(),
-                    "{mode}: {output}"
+                    "{mode:?}: {output}"
                 );
                 output.contains("Next wakeup:")
             },
@@ -92,10 +105,10 @@ fn quit_eof_and_idle_interrupt_release_owned_server() {
         let pid = fs::read_to_string(&session.server_pid).unwrap();
         assert!(signal(pid.trim(), "-0"), "server must be running");
         match mode {
-            "quit" => writeln!(stdin, "quit").unwrap(),
-            "eof" => drop(stdin),
-            "interrupt" => assert!(signal(&session.child.id().to_string(), "-INT")),
-            "watch-interrupt" => {
+            Shutdown::Quit => writeln!(stdin, "quit").unwrap(),
+            Shutdown::Eof => drop(stdin),
+            Shutdown::Interrupt => assert!(signal(&session.child.id().to_string(), "-INT")),
+            Shutdown::WatchInterrupt => {
                 writeln!(stdin, "add after-stop --after 1s\nwatch 1w").unwrap();
                 until(
                     || fs::read_to_string(&log_path).unwrap().contains("Watching;"),
@@ -103,7 +116,6 @@ fn quit_eof_and_idle_interrupt_release_owned_server() {
                 );
                 assert!(signal(&session.child.id().to_string(), "-INT"));
             }
-            _ => unreachable!(),
         }
         until(
             || session.child.try_wait().unwrap().is_some(),
@@ -111,11 +123,11 @@ fn quit_eof_and_idle_interrupt_release_owned_server() {
         );
         assert!(
             session.child.wait().unwrap().success(),
-            "{mode}: {}",
+            "{mode:?}: {}",
             fs::read_to_string(&log_path).unwrap()
         );
         until(|| !signal(pid.trim(), "-0"), "owned server exit");
-        if mode == "watch-interrupt" {
+        if matches!(mode, Shutdown::WatchInterrupt) {
             assert!(
                 !fs::read_to_string(&log_path).unwrap().contains("RAN #"),
                 "watch dispatched work after Ctrl+C"

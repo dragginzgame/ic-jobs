@@ -484,6 +484,8 @@ fn running_and_uncertain_survive_reopen_and_require_exact_receipts() {
 
 #[test]
 fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
+    type Mutation = fn(&mut Delivery);
+
     let destination = Principal::self_authenticating(b"receiver");
     for task in [
         Task::Increment(1),
@@ -533,59 +535,43 @@ fn completion_refusals_preserve_input_receipt_and_clock_precedence() {
             } else {
                 Error::InvalidInput
             };
-            for (candidate, expected) in [
+            let mutations: [(&str, Mutation, Error); 6] = [
                 (
-                    Delivery {
-                        occurrence: delivery.occurrence + 1,
-                        ..delivery.clone()
-                    },
+                    "occurrence",
+                    |value| value.occurrence += 1,
                     mismatch.clone(),
                 ),
+                ("sequence", |value| value.sequence += 1, mismatch.clone()),
                 (
-                    Delivery {
-                        sequence: delivery.sequence + 1,
-                        ..delivery.clone()
-                    },
+                    "destination",
+                    |value| value.payload.destination = Principal::anonymous(),
                     mismatch.clone(),
                 ),
+                ("job", |value| value.job += 1, Error::UnknownJob),
                 (
-                    Delivery {
-                        payload: DeliveryPayload {
-                            destination: Principal::anonymous(),
-                            ..delivery.payload.clone()
-                        },
-                        ..delivery.clone()
-                    },
-                    mismatch.clone(),
-                ),
-                (
-                    Delivery {
-                        job: id + 1,
-                        ..delivery.clone()
-                    },
-                    Error::UnknownJob,
-                ),
-                (
-                    Delivery {
-                        payload: DeliveryPayload {
-                            message: "changed".into(),
-                            ..delivery.payload.clone()
-                        },
-                        ..delivery.clone()
-                    },
+                    "message",
+                    |value| value.payload.message = "changed".into(),
                     mismatch,
                 ),
                 (
-                    delivery,
+                    "unchanged",
+                    |_| {},
                     if outstanding {
                         job_error(ic_jobs::JobError::TimeWentBackwards)
                     } else {
                         Error::InvalidInput
                     },
                 ),
-            ] {
-                assert_eq!(queue.finish(&candidate, 9, Outcome::Success), Err(expected));
-                assert_eq!(queue.cell.bytes(), before);
+            ];
+            for (name, mutate, expected) in mutations {
+                let mut candidate = delivery.clone();
+                mutate(&mut candidate);
+                assert_eq!(
+                    queue.finish(&candidate, 9, Outcome::Success),
+                    Err(expected),
+                    "{name}: {task:?}, {state:?}"
+                );
+                assert_eq!(queue.cell.bytes(), before, "{name}: stable bytes changed");
             }
         }
     }

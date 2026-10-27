@@ -4,11 +4,9 @@ root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
-fixture="$(mktemp -d "${TMPDIR:-/tmp}/publication-test.XXXXXX")"
-fixture="$(CDPATH="" cd -P -- "$fixture" && printf '%s/.' "$PWD")"
-fixture="${fixture%/.}"
 # shellcheck source=scripts/ci/fixture-lifecycle.sh
 source "$root/scripts/ci/fixture-lifecycle.sh"
+fixture="$(fixture_create "${TMPDIR:-/tmp}/publication-test.XXXXXX")"
 fixture_complete=false
 trap 'fixture_finish "$?" "$fixture" "Publication fixture retained"' EXIT
 mkdir -p "$fixture/snapshot/scripts/ci" "$fixture/snapshot/scripts/release" "$fixture/consumer" "$fixture/bin"

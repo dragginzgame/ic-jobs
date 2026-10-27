@@ -487,11 +487,9 @@ fn main() -> io::Result<()> {
         }
         let command = match Prompt::try_parse_from(line.split_whitespace()) {
             Ok(command) => command,
-            Err(error) if matches!(error.kind(), clap::error::ErrorKind::DisplayHelp) => {
-                error.print()?;
-                continue;
-            }
-            Err(error) if interactive => {
+            Err(error)
+                if interactive || matches!(error.kind(), clap::error::ErrorKind::DisplayHelp) =>
+            {
                 error.print()?;
                 continue;
             }

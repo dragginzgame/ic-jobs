@@ -215,12 +215,19 @@ fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error>
     Ok(())
 }
 
+async fn delivery_call(
+    delivery: &Delivery,
+    method: &'static str,
+    id: u64,
+) -> Result<cdk::call::Response, cdk::call::CallFailed> {
+    let bytes = required(native::encode_request(id, delivery, REQUEST_LIMITS));
+    cdk::call::Call::unbounded_wait(delivery.payload.destination, method)
+        .with_raw_args(&bytes)
+        .await
+}
+
 async fn delivery_confirmed(delivery: &Delivery) -> bool {
-    let bytes = required(native::encode_request(RECEIVE_ID, delivery, REQUEST_LIMITS));
-    let response =
-        cdk::call::Call::unbounded_wait(delivery.payload.destination, "receive_delivery")
-            .with_raw_args(&bytes)
-            .await;
+    let response = delivery_call(delivery, "receive_delivery", RECEIVE_ID).await;
     decode_reply::<Delivery, _>(RECEIVE_ID, response).is_some_and(|receipt| receipt == *delivery)
 }
 
@@ -316,15 +323,7 @@ fn delivery_receipt(delivery: Delivery) -> Result<Option<Delivery>, Error> {
 )]
 async fn reconcile_delivery(id: u64) -> Result<bool, Error> {
     let delivery = with_authorized_queue(|queue| queue.outstanding(id))?;
-    let bytes = required(native::encode_request(
-        RECEIPT_ID,
-        &delivery,
-        REQUEST_LIMITS,
-    ));
-    let response =
-        cdk::call::Call::unbounded_wait(delivery.payload.destination, "delivery_receipt")
-            .with_raw_args(&bytes)
-            .await;
+    let response = delivery_call(&delivery, "delivery_receipt", RECEIPT_ID).await;
     let receipt = decode_reply::<Option<Delivery>, _>(RECEIPT_ID, response).flatten();
     let Some(receipt) = receipt else {
         return Ok(false);

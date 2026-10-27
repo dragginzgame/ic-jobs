@@ -285,12 +285,9 @@ impl Notifications {
     ) -> Result<bool> {
         let mut jobs = self.load()?;
         let index = Self::index(&jobs, attempt.execution.job).ok_or(JobError::StaleAttempt)?;
-        let outcome = match destination.recorded_result(attempt, &jobs[index].payload) {
-            Some(true) => Outcome::Success,
-            // Exact destination evidence confirms this attempt had no effect.
-            Some(false) => Outcome::RetryableFailure,
+        let Some(outcome) = destination.recorded_result(attempt, &jobs[index].payload) else {
             // A missing receipt is not proof that delivery failed.
-            None => return Ok(false),
+            return Ok(false);
         };
         jobs[index].job.resolve(attempt, now_ns, outcome)?;
         self.commit(&jobs)?;
@@ -323,17 +320,18 @@ impl Destination {
 
     // Match the immutable payload, preferring a logical execution receipt over
     // an exact-attempt rejection. No recorded result grants no retry permission.
-    fn recorded_result(&self, attempt: Attempt, payload: &Notification) -> Option<bool> {
+    fn recorded_result(&self, attempt: Attempt, payload: &Notification) -> Option<Outcome> {
         if self
             .receipt_payloads(attempt.execution)
             .any(|recorded| recorded == payload)
         {
-            Some(true)
+            Some(Outcome::Success)
         } else if self
             .rejection_payloads(attempt)
             .any(|recorded| recorded == payload)
         {
-            Some(false)
+            // Exact destination evidence confirms this attempt had no effect.
+            Some(Outcome::RetryableFailure)
         } else {
             None
         }

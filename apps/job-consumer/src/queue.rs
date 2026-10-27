@@ -150,11 +150,16 @@ impl Entry<Job> {
         }
     }
 
-    fn delivery(&self) -> Result<(Attempt, Delivery), Error> {
+    fn delivery_parts(&self) -> Result<(Attempt, &DeliveryPayload), Error> {
         let attempt = self.job.active_attempt().ok_or(Error::InvalidInput)?;
         let Task::Deliver(payload) = &self.task else {
             return Err(Error::InvalidInput);
         };
+        Ok((attempt, payload))
+    }
+
+    fn delivery(&self) -> Result<(Attempt, Delivery), Error> {
+        let (attempt, payload) = self.delivery_parts()?;
         Ok((
             attempt,
             Delivery {
@@ -445,10 +450,7 @@ impl<M: Memory> Queue<M> {
         let mut snapshot = self.load()?;
         let index = snapshot.index(delivery.job)?;
         let entry = &snapshot.jobs[index];
-        let attempt = entry.job.active_attempt().ok_or(Error::InvalidInput)?;
-        let Task::Deliver(payload) = &entry.task else {
-            return Err(Error::InvalidInput);
-        };
+        let (attempt, payload) = entry.delivery_parts()?;
         // Exhaustive projection keeps every envelope field in the comparison
         // without allocating an owned copy of the expected payload.
         let Delivery {

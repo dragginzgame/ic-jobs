@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.17.32] - Unreleased
+
+### 🧹 Cleanup
+
+- Share delivery eligibility and outbound transport handling while preserving
+  authentication, exact receipt comparisons and uncertain-effect blocking.
+  Public APIs, endpoint codecs and stored formats remain unchanged.
+- Keep Testkit executable selection in one consumer helper, with unchanged
+  setup/admission boundaries and validation stopping if its inputs change.
+
+### 🧪 Testing
+
+- Isolate consumer-tooling phases and reuse canonical fixture setup utilities,
+  retaining refusal ordering, frozen-artifact custody and publication checks.
+- Name receipt mutation cases and CLI shutdown scenarios, and carry confirmed
+  notification outcomes directly without an intermediate boolean mapping.
+
 ## [0.17.31] - 2026-10-27
 
 ### 📝 Summary

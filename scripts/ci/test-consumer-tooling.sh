@@ -12,12 +12,54 @@ source "$root/scripts/ci/fixture-lifecycle.sh"
 fixture="$(fixture_create "${TMPDIR:-/tmp}/jobs-consumer-tooling.XXXXXX")"
 fixture_complete=false
 trap 'fixture_finish "$?" "$fixture" "Consumer tooling fixture retained"' EXIT
-mkdir -p "$fixture/scripts/dev" "$fixture/.tools/rust/common/bin"
-bash "$root/scripts/ci/prepare-script-fixture.sh" "$root" "$fixture" make/consumer.mk
-cp "$root/Makefile" "$fixture/"
-cp -R "$root/ci" "$fixture/"
-cp "$root/scripts/dev/"{install-rust-tools,tool-store,cargo-tool-build}.sh "$fixture/scripts/dev/"
-cp "$root/scripts/ci/"{verify-file-checksum,test-canister,fixture-lifecycle}.sh "$fixture/scripts/ci/"
+
+# Each phase owns its files and exported environment. Only this outer fixture
+# owns cleanup; a failed subshell retains the complete suite for inspection.
+suite="$fixture"
+prepare_phase() {
+    fixture="$suite/$1"
+    mkdir -p "$fixture/scripts/dev" "$fixture/.tools/rust/common/bin"
+    bash "$root/scripts/ci/prepare-script-fixture.sh" "$root" "$fixture" make/consumer.mk
+    cp "$root/Makefile" "$fixture/"
+    cp -R "$root/ci" "$fixture/"
+    cp "$root/scripts/dev/"{install-rust-tools,tool-store,cargo-tool-build,testkit-tool}.sh "$fixture/scripts/dev/"
+    cp "$root/scripts/ci/"{verify-file-checksum,test-canister,fixture-lifecycle}.sh "$fixture/scripts/ci/"
+    cp "$root/Cargo.lock" "$fixture/Cargo.lock"
+    export JOBS_CONSUMER_TOOLING_EVENTS="$fixture/events"
+    : > "$fixture/events"
+}
+
+stub_testkit_selection() {
+    export JOBS_CONSUMER_ADMISSION_FAILURE=0
+cat > "$fixture/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
+#!/usr/bin/env bash
+set -euo pipefail
+case "$*" in
+    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --features cli')
+        printf 'setup\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS" ;;
+    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --features cli --check')
+        printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+        echo 'selected CLI admission diagnostic' >&2
+        [[ "$JOBS_CONSUMER_ADMISSION_FAILURE" == 0 ]] || exit 37
+        printf '%s\n' "$JOBS_CONSUMER_CLI" ;;
+    *) exit 49 ;;
+esac
+INSTALLER
+}
+
+stub_target_directory() {
+cat > "$fixture/.tools/rust/common/bin/cargo" <<'CARGO'
+#!/usr/bin/env bash
+printf 'metadata\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+printf '{"target_directory":"%s"}\n' "$JOBS_CONSUMER_WASM_TARGET"
+CARGO
+chmod +x "$fixture/.tools/rust/common/bin/cargo"
+}
+
+phase_cli_admission() (
+local fixture
+trap - EXIT
+prepare_phase cli-admission
 # Substitute only compiler identity probes. Any Cargo effect remains forbidden;
 # the real installer/parser must refuse the isolated, unprepared source cache.
 mkdir -p "$fixture/compiler/bin"
@@ -41,8 +83,6 @@ exit 49
 CARGO
 chmod +x "$fixture/.tools/rust/common/bin/"{cargo,rustc}
 cp "$fixture/.tools/rust/common/bin/"{cargo,rustc} "$fixture/compiler/bin/"
-export JOBS_CONSUMER_TOOLING_EVENTS="$fixture/events"
-: > "$fixture/events"
 
 # Use the real TOML reader, shared installer and actual Jobs Makefile/wrapper.
 # Both selections are deliberately unprepared; neither may fall back to a pin
@@ -82,24 +122,15 @@ LOCK
     done
 done
 echo 'Lock-selected consumer CLI refusal precedes Cargo/PocketIC effects (real caller/parser; substitute compiler identity; no installation)'
+)
 
-# Each server command must admit its selected CLI exactly once, and a refusal
-# must prevent server dispatch. Substitute both executables; no server is run.
-export JOBS_CONSUMER_CLI="$fixture/server" JOBS_CONSUMER_ADMISSION_FAILURE=0
-cat > "$fixture/scripts/dev/install-rust-tools.sh" <<'INSTALLER'
-#!/usr/bin/env bash
-set -euo pipefail
-case "$*" in
-    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --features cli')
-        printf 'setup\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS" ;;
-    '--package ic-testkit --lockfile Cargo.lock --bin ic-testkit-server --profile release --features cli --check')
-        printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
-        echo 'selected CLI admission diagnostic' >&2
-        [[ "$JOBS_CONSUMER_ADMISSION_FAILURE" == 0 ]] || exit 37
-        printf '%s\n' "$JOBS_CONSUMER_CLI" ;;
-    *) exit 49 ;;
-esac
-INSTALLER
+phase_server_commands() (
+local fixture
+trap - EXIT
+prepare_phase server-commands
+stub_testkit_selection
+# shellcheck disable=SC2030,SC2031 # Stub inputs intentionally stay inside this phase.
+local -x JOBS_CONSUMER_CLI="$fixture/server"
 cat > "$fixture/server" <<'SERVER'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -121,13 +152,20 @@ for command in setup check; do
     [[ "$status" == 2 && "$(cat "$fixture/events")" == admission ]] || exit 1
 done
 echo 'Server commands admit the selected CLI once and refuse before server effects (substitute installer/server)'
+)
 
+phase_workflow_selection() (
+local fixture
+trap - EXIT
+prepare_phase workflow-selection
+stub_testkit_selection
 # Execute the hosted selection step against the actual Make adapter. Its checked
 # stdout is the executable path; diagnostics must stay out of that selection.
 yq -o json '.jobs.recovery.steps' "$root/.github/workflows/recovery.yml" > "$fixture/recovery-steps.json"
 bash "$root/scripts/ci/extract-workflow-step.sh" "$fixture/recovery-steps.json" testkit \
     > "$fixture/testkit-step.sh"
-export JOBS_CONSUMER_CLI="$fixture/testkit selected/bin/ic-testkit-server"
+# shellcheck disable=SC2030,SC2031 # Stub inputs intentionally stay inside this phase.
+local -x JOBS_CONSUMER_CLI="$fixture/testkit selected/bin/ic-testkit-server"
 mkdir -p "${JOBS_CONSUMER_CLI%/bin/*}/bin"
 printf '{"selected":"fixture"}\n' > "${JOBS_CONSUMER_CLI%/bin/*}/selection.json"
 for outcome in accepted refused; do
@@ -154,17 +192,20 @@ for outcome in accepted refused; do
     fi
 done
 echo 'Hosted CLI selection admits once, retains diagnostics and refuses before receipt copying (actual workflow/Make; substitute installer)'
+)
 
+phase_input_admission() (
+local fixture
+trap - EXIT
+prepare_phase input-admission
+stub_testkit_selection
 # Isolate both file-admission stages after CLI admission. Substitute only the
 # selected CLI and Cargo metadata; invalid inputs must create no attempt or
 # start a server. Capture admission requires the preceding Wasm input to be valid.
 mkdir -p "$fixture/evidence" "$fixture/wasm/wasm32-unknown-unknown/release" "$fixture/wasm/debug"
-cat > "$fixture/.tools/rust/common/bin/cargo" <<'CARGO'
-#!/usr/bin/env bash
-printf 'metadata\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
-printf '{"target_directory":"%s"}\n' "$JOBS_CONSUMER_WASM_TARGET"
-CARGO
-export JOBS_CONSUMER_CLI="$fixture/server" JOBS_CONSUMER_WASM_TARGET="$fixture/wasm"
+stub_target_directory
+# shellcheck disable=SC2030,SC2031 # Stub inputs intentionally stay inside this phase.
+local -x JOBS_CONSUMER_CLI="$fixture/server" JOBS_CONSUMER_WASM_TARGET="$fixture/wasm"
 cat > "$fixture/server" <<'SERVER'
 #!/usr/bin/env bash
 printf 'unexpected server dispatch\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
@@ -195,17 +236,31 @@ for stage in wasm capture; do
     done
 done
 echo 'Invalid Wasm/capture inputs refuse before attempt/server dispatch (real wrapper; substitute metadata/CLI)'
+)
 
+phase_artifact_capture() (
+local fixture
+trap - EXIT
+prepare_phase artifact-capture
+stub_testkit_selection
+mkdir -p "$fixture/wasm/wasm32-unknown-unknown/release" "$fixture/wasm/debug"
+input="$fixture/wasm/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
+capture="$fixture/wasm/debug/jobs-capture-artifact"
+printf 'retained Wasm input\n' > "$fixture/input"
+# shellcheck disable=SC2030,SC2031 # Stub inputs intentionally stay inside this phase.
+local -x JOBS_CONSUMER_WASM_TARGET="$fixture/wasm"
+target="$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
+cp "$target/debug/jobs-capture-artifact" "$capture"
+stub_target_directory
 # The real recovery wrapper must consume one frozen original even if the live
 # producer is replaced during qualification. Only transforms/server effects are
 # substituted; flags, paths, hashes, logs and all dispatch plumbing are real.
 mkdir -p "$fixture/selected/bin" "$fixture/ic-bin" "$fixture/.tools/ic"
-target="$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
-cp "$target/debug/jobs-capture-artifact" "$fixture/wasm/debug/"
 cp "$root/.tools/ic/"{pins.tsv,files.sha256} "$fixture/.tools/ic/"
 cp "$root/.shared-tooling.snapshot" "$fixture/"
 printf '{}\n' > "$fixture/selected/selection.json"
-export JOBS_CONSUMER_CLI="$fixture/selected/bin/ic-testkit-server"
+# shellcheck disable=SC2030,SC2031 # Stub inputs intentionally stay inside this phase.
+local -x JOBS_CONSUMER_CLI="$fixture/selected/bin/ic-testkit-server"
 export JOBS_CONSUMER_IC_BIN="$fixture/ic-bin" JOBS_CONSUMER_FROZEN="$fixture/input"
 export JOBS_CONSUMER_PRODUCER="$input" JOBS_CONSUMER_CAPTURED="$fixture/consumed"
 cat > "$fixture/scripts/dev/install-ic-tools.sh" <<'INSTALLER'
@@ -296,10 +351,13 @@ evidence=("$fixture/failed-capture-evidence/"*)
 cmp "$fixture/input" "${evidence[0]}/jobs_test_consumer.wasm"
 { cat "$fixture/input"; printf '%s\n' '-O3'; } > "$fixture/expected.wasm"
 cmp "$fixture/expected.wasm" "${evidence[0]}/O3/producer.wasm"
-mv "$fixture/real-capture" "$capture"
-rm "$fixture/.tools/rust/common/bin/git"
 echo 'Recovery consumes one frozen original with preserved variants/hashes/logs after producer replacement (substitute optimizer/server; no live gate)'
+)
 
+phase_ci_admission() (
+local fixture
+trap - EXIT
+prepare_phase ci-admission
 # Run Jobs' actual CI route only through its first admission stage. Substitute
 # tool effects and mutate a selected input there; the logger must block all
 # subsequent product checks without compilation, installation or server effects.
@@ -321,7 +379,7 @@ set -euo pipefail
 case "${0##*/}" in
     install-host-tools.sh)
         printf 'admission\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
-        printf '\n# concurrent selected graph edit\n' >> "$PWD/Cargo.lock" ;;
+        printf '\n# concurrent selected tool input edit\n' >> "$PWD/$JOBS_CONSUMER_MUTATION_INPUT" ;;
 
 esac
 ADMISSION
@@ -337,16 +395,29 @@ case "$*" in
     *) printf 'unexpected Cargo effect\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"; exit 49 ;;
 esac
 CARGO
+chmod +x "$fixture/.tools/rust/common/bin/cargo"
 # Shared's pinned test-validation-target-runner.sh owns input mutation/deletion,
 # observation failures, checkpoint files and timing format. Retain this actual
-# Jobs Make/CI wiring proof: its selected lock changes during the first admission,
-# which must stop later checks before any product Cargo effect.
-cp "$root/Cargo.lock" "$fixture/Cargo.lock"
-: > "$fixture/events"
-status=0
-VALIDATION_LOG_DIR="$fixture/drift-logs" make --no-print-directory -j2 -C "$fixture" ci \
-    > "$fixture/ci-drift.log" 2>&1 || status=$?
-[[ "$status" == 2 && "$(cat "$fixture/events")" == admission ]] || exit 1
-grep -F 'validation input changed: Cargo.lock' "$fixture/ci-drift.log" > /dev/null
-echo 'Changed selected lock stops Jobs CI after admission (actual Make route; substitute tool effects; no product validation)'
+# Jobs Make/CI wiring proof: either the selected lock or its consumer-owned CLI
+# selection changes during admission, stopping checks before product Cargo effects.
+for input in Cargo.lock scripts/dev/testkit-tool.sh; do
+    cp "$root/Cargo.lock" "$fixture/Cargo.lock"
+    cp "$root/scripts/dev/testkit-tool.sh" "$fixture/scripts/dev/testkit-tool.sh"
+    : > "$fixture/events"
+    status=0
+    JOBS_CONSUMER_MUTATION_INPUT="$input" VALIDATION_LOG_DIR="$fixture/drift-logs-${input##*/}" \
+        make --no-print-directory -j2 -C "$fixture" ci \
+        > "$fixture/ci-drift-${input##*/}.log" 2>&1 || status=$?
+    [[ "$status" == 2 && "$(cat "$fixture/events")" == admission ]] || exit 1
+    grep -F "validation input changed: $input" "$fixture/ci-drift-${input##*/}.log" > /dev/null
+done
+echo 'Changed lock or CLI selection stops Jobs CI after admission (actual Make route; substitute tool effects; no product validation)'
+)
+
+phase_cli_admission
+phase_server_commands
+phase_workflow_selection
+phase_input_admission
+phase_artifact_capture
+phase_ci_admission
 fixture_complete=true

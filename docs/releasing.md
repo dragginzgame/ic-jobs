@@ -85,7 +85,8 @@ gate retains core all-target/all-feature, native consumer/harness all-target,
 and Wasm consumer linting with warnings denied. `make test-release-tooling` admits its formatter
 prerequisites before starting the fixture. The validation gate remains
 offline. CI and release validation checkpoint all workspace manifests, the lock,
-toolchain, snapshot, Makefile and selected tool catalogs. A changed, missing or
+toolchain, snapshot, Makefile, Jobs' Testkit selection helper and selected tool
+catalogs. A changed, missing or
 unreadable input stops later stages and retains input identities and logs. Nested
 validation in this checkout keeps the original checkpoint. Prepare the current
 inputs and restart the complete gate after a refusal; prior validation cannot be

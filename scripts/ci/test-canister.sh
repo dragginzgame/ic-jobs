@@ -12,8 +12,7 @@ trap 'status=$?; fixture_completion_status "$status" "$complete" || status=$?; e
 
 # Caller explicitly selects this live gate. The canonical Cargo-tool checker and
 # Testkit own executable selection and PocketIC admission/lifecycle respectively.
-cli="$(bash scripts/dev/install-rust-tools.sh --package ic-testkit \
-    --lockfile Cargo.lock --bin ic-testkit-server --profile release --features cli --check)"
+cli="$(bash scripts/dev/testkit-tool.sh --check)"
 target="$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
 input="$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
 [[ -f "$input" && ! -L "$input" ]] || exit 1
