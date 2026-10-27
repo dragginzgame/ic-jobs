@@ -129,7 +129,7 @@ CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-
 	ic-testkit-candid ic-testkit-native jobs-test-consumer pocket-ic serde_json serde_test
 QUALIFICATION_GRAPH_FORBIDDEN := clap ctrlc ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native pocket-ic tokio
-# Timers and the fixture share Platform 0.6. Keep one wrapper, executor,
+# Timers and the fixture share Platform 0.7. Keep one wrapper, executor,
 # raw-system provider and entrypoint generator in the deployed graph.
 .PHONY: check-dependency-graphs
 check-dependency-graphs:

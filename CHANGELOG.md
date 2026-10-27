@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.17.35]
+
+### 📦 Dependencies
+
+- Adopt Build/Host/Testkit 0.69.0, Memory/Storage 0.51.9, Timers 0.31.9 and
+  Platform/macros 0.7.0. Keep one Platform identity across the qualification
+  canister and native harness. The published Jobs API, Wire payloads and stored
+  formats remain unchanged. Prepare contributor CLIs
+  with `make install-testkit-tools install-release-tools`.
+
+### 🥾 Governance
+
+- Adopt Shared Tooling 0.26.22, clarifying owned-type Candid restrictions and
+  native input/error-handling guidance. This updates the reviewed rules without
+  adding executable enforcement or new core dependencies.
+
 ## [0.17.34] - 2026-10-27
 
 ### 🧹 Cleanup
