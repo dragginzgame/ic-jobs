@@ -105,6 +105,10 @@ pub(crate) struct Committed<T> {
 }
 
 impl Snapshot<Job> {
+    fn next_due_ns(&self) -> Option<u64> {
+        next_due_ns(self.jobs.iter().map(|entry| &entry.job))
+    }
+
     fn index(&self, id: u64) -> Result<usize, Error> {
         self.jobs
             .iter()
@@ -258,7 +262,7 @@ impl<M: Memory> Queue<M> {
             .map_err(memory_error)?;
         }
         let snapshot = decode(cell.bytes())?;
-        let next_due_ns = next_due_ns(snapshot.jobs.iter().map(|entry| &entry.job));
+        let next_due_ns = snapshot.next_due_ns();
         Ok((
             Self {
                 cell,
@@ -284,7 +288,7 @@ impl<M: Memory> Queue<M> {
     }
 
     fn commit<T>(&mut self, snapshot: Snapshot<Job>, value: T) -> Result<Committed<T>, Error> {
-        let next_due_ns = next_due_ns(snapshot.jobs.iter().map(|entry| &entry.job));
+        let next_due_ns = snapshot.next_due_ns();
         let bytes = serde_json::to_vec(&snapshot).map_err(|_| Error::InvalidStorage)?;
         if bytes.len() > MAX_BYTES {
             return Err(Error::Capacity);
@@ -380,7 +384,7 @@ impl<M: Memory> Queue<M> {
         let snapshot = self.load()?;
         Ok(Committed {
             value: (snapshot.counter, snapshot.receipts.len() as u64),
-            next_due_ns: next_due_ns(snapshot.jobs.iter().map(|entry| &entry.job)),
+            next_due_ns: snapshot.next_due_ns(),
         })
     }
 
@@ -423,7 +427,7 @@ impl<M: Memory> Queue<M> {
             // Idle batches project existing durable state without writing it.
             Ok(Committed {
                 value: (deliveries, work),
-                next_due_ns: next_due_ns(snapshot.jobs.iter().map(|entry| &entry.job)),
+                next_due_ns: snapshot.next_due_ns(),
             })
         }
     }
@@ -441,8 +445,26 @@ impl<M: Memory> Queue<M> {
         let mut snapshot = self.load()?;
         let index = snapshot.index(delivery.job)?;
         let entry = &snapshot.jobs[index];
-        let (attempt, expected) = entry.delivery()?;
-        if *delivery != expected {
+        let attempt = entry.job.active_attempt().ok_or(Error::InvalidInput)?;
+        let Task::Deliver(payload) = &entry.task else {
+            return Err(Error::InvalidInput);
+        };
+        // Exhaustive projection keeps every envelope field in the comparison
+        // without allocating an owned copy of the expected payload.
+        let Delivery {
+            job,
+            occurrence,
+            sequence,
+            payload: supplied_payload,
+        } = delivery;
+        if (*job, *occurrence, *sequence, supplied_payload)
+            != (
+                attempt.execution.job.0 as u64,
+                attempt.execution.occurrence,
+                attempt.sequence,
+                payload,
+            )
+        {
             return Err(Error::ReceiptMismatch);
         }
         let job = &mut snapshot.jobs[index].job;

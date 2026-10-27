@@ -27,10 +27,58 @@ struct Fixture {
     wasm: Vec<u8>,
     manager: ExternalPrincipal,
     sender: ExternalPrincipal,
-    receiver: ExternalPrincipal,
 }
 
 impl Fixture {
+    fn install(
+        pic: &PocketIc,
+        wasm: &[u8],
+        manager: ExternalPrincipal,
+        delivery_sender: Option<ExternalPrincipal>,
+    ) -> ExternalPrincipal {
+        pic.try_create_and_install(InstallSpec {
+            wasm: wasm.to_vec(),
+            init_bytes: native::encode_request(
+                Method::Init as u64,
+                &Init {
+                    manager: manager.into(),
+                    delivery_sender: delivery_sender.map(Into::into),
+                },
+                control::REQUEST_LIMITS,
+            )
+            .unwrap(),
+            cycles: 10_000_000_000_000,
+            install_sender: None,
+            label: Some("jobs-test-consumer".into()),
+        })
+        .unwrap_or_else(|error| {
+            if let CanisterInstallError::InstallCode { canister_id, .. } = &error {
+                // Diagnostics are subordinate to the original install failure,
+                // including a failed stderr write or collection panic.
+                let _ = pic.write_canister_diagnostics(
+                    CanisterDiagnosticsRequest {
+                        canister_id: *canister_id,
+                        status_sender: ExternalPrincipal::anonymous(),
+                        log_sender: ExternalPrincipal::anonymous(),
+                        log_limits: CanisterLogRenderLimits::default(),
+                    },
+                    "install Jobs consumer",
+                    &mut std::io::stderr().lock(),
+                );
+            }
+            panic!("install Jobs consumer: {error:?}");
+        })
+    }
+
+    fn install_receiver(&self) -> ExternalPrincipal {
+        Self::install(
+            self.pic.instance(),
+            &self.wasm,
+            self.manager,
+            Some(self.sender),
+        )
+    }
+
     fn new() -> Self {
         let path = PathBuf::from(
             std::env::var_os("IC_JOBS_CONSUMER_WASM")
@@ -43,49 +91,12 @@ impl Fixture {
             .build_instance(PocketIcBuilder::new().with_application_subnet())
             .expect("bounded PocketIC startup");
         let manager = ExternalPrincipal::self_authenticating(b"jobs-manager");
-        let install = |delivery_sender: Option<ExternalPrincipal>| {
-            pic.instance()
-                .try_create_and_install(InstallSpec {
-                    wasm: wasm.clone(),
-                    init_bytes: native::encode_request(
-                        Method::Init as u64,
-                        &Init {
-                            manager: manager.into(),
-                            delivery_sender: delivery_sender.map(Into::into),
-                        },
-                        control::REQUEST_LIMITS,
-                    )
-                    .unwrap(),
-                    cycles: 10_000_000_000_000,
-                    install_sender: None,
-                    label: Some("jobs-test-consumer".into()),
-                })
-                .unwrap_or_else(|error| {
-                    if let CanisterInstallError::InstallCode { canister_id, .. } = &error {
-                        // Diagnostics are subordinate to the original install failure,
-                        // including a failed stderr write or collection panic.
-                        let _ = pic.instance().write_canister_diagnostics(
-                            CanisterDiagnosticsRequest {
-                                canister_id: *canister_id,
-                                status_sender: ExternalPrincipal::anonymous(),
-                                log_sender: ExternalPrincipal::anonymous(),
-                                log_limits: CanisterLogRenderLimits::default(),
-                            },
-                            "install Jobs consumer",
-                            &mut std::io::stderr().lock(),
-                        );
-                    }
-                    panic!("install Jobs consumer: {error:?}");
-                })
-        };
-        let sender = install(None);
-        let receiver = install(Some(sender));
+        let sender = Self::install(pic.instance(), &wasm, manager, None);
         Self {
             pic,
             wasm,
             manager,
             sender,
-            receiver,
         }
     }
 
@@ -270,12 +281,13 @@ fn management_wire_refuses_retired_and_invalid_unit_requests() {
 #[ignore = "explicit PocketIC qualification; run make test-canister"]
 fn delivery_wire_endpoints_refuse_candid_and_preserve_authorized_receipts() {
     let fixture = Fixture::new();
+    let receiver = fixture.install_receiver();
     let delivery = Delivery {
         job: 99,
         occurrence: 0,
         sequence: 1,
         payload: DeliveryPayload {
-            destination: fixture.receiver.into(),
+            destination: receiver.into(),
             message: "x".repeat(256),
         },
     };
@@ -292,30 +304,30 @@ fn delivery_wire_endpoints_refuse_candid_and_preserve_authorized_receipts() {
             let error = fixture
                 .pic
                 .instance()
-                .update_call(fixture.receiver, fixture.sender, method, bytes)
+                .update_call(receiver, fixture.sender, method, bytes)
                 .unwrap_err();
             assert_eq!(error.error_code, ErrorCode::CanisterCalledTrap);
-            assert_eq!(fixture.summary(fixture.receiver).receipts, 0);
+            assert_eq!(fixture.summary(receiver).receipts, 0);
         }
         let error = fixture
             .pic
             .instance()
             .update_call(
-                fixture.receiver,
+                receiver,
                 fixture.sender,
                 method,
                 vec![0; REQUEST_LIMITS.bytes + 1],
             )
             .unwrap_err();
         assert_eq!(error.error_code, ErrorCode::CanisterRejectedMessage);
-        assert_eq!(fixture.summary(fixture.receiver).receipts, 0);
+        assert_eq!(fixture.summary(receiver).receipts, 0);
     }
     let request = native::encode_request(RECEIVE_ID, &delivery, REQUEST_LIMITS).unwrap();
     let bytes = fixture
         .pic
         .instance()
         .update_call(
-            fixture.receiver,
+            receiver,
             ExternalPrincipal::anonymous(),
             "receive_delivery",
             request.clone(),
@@ -326,13 +338,13 @@ fn delivery_wire_endpoints_refuse_candid_and_preserve_authorized_receipts() {
             .unwrap(),
         Err(Error::Unauthorized)
     );
-    assert_eq!(fixture.summary(fixture.receiver).receipts, 0);
+    assert_eq!(fixture.summary(receiver).receipts, 0);
     for _ in 0..2 {
         let bytes = fixture
             .pic
             .instance()
             .update_call(
-                fixture.receiver,
+                receiver,
                 fixture.sender,
                 "receive_delivery",
                 request.clone(),
@@ -343,19 +355,14 @@ fn delivery_wire_endpoints_refuse_candid_and_preserve_authorized_receipts() {
                 .unwrap(),
             Ok(delivery.clone())
         );
-        assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
+        assert_eq!(fixture.summary(receiver).receipts, 1);
     }
-    fixture.upgrade(fixture.receiver).unwrap();
+    fixture.upgrade(receiver).unwrap();
     let request = native::encode_request(RECEIPT_ID, &delivery, REQUEST_LIMITS).unwrap();
     let bytes = fixture
         .pic
         .instance()
-        .update_call(
-            fixture.receiver,
-            fixture.sender,
-            "delivery_receipt",
-            request,
-        )
+        .update_call(receiver, fixture.sender, "delivery_receipt", request)
         .unwrap();
     assert_eq!(
         native::decode_response::<Result<Option<Delivery>, Error>>(
@@ -366,13 +373,14 @@ fn delivery_wire_endpoints_refuse_candid_and_preserve_authorized_receipts() {
         .unwrap(),
         Ok(Some(delivery))
     );
-    assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
+    assert_eq!(fixture.summary(receiver).receipts, 1);
 }
 
 #[test]
 #[ignore = "explicit PocketIC qualification; run make test-canister"]
 fn management_upgrade_and_real_watchdog_delivery() {
     let fixture = Fixture::new();
+    let receiver = fixture.install_receiver();
     let now = fixture
         .pic
         .instance()
@@ -427,7 +435,7 @@ fn management_upgrade_and_real_watchdog_delivery() {
                         + 10_000_000_000,
                 ),
                 task: Task::Deliver(DeliveryPayload {
-                    destination: fixture.receiver.into(),
+                    destination: receiver.into(),
                     message: "timer delivery".into(),
                 }),
             },),
@@ -436,11 +444,11 @@ fn management_upgrade_and_real_watchdog_delivery() {
     fixture.upgrade(fixture.sender).unwrap();
     fixture.pic.instance().advance_time(Duration::from_secs(15));
     fixture.until(|| fixture.view(third).status == Status::Completed);
-    assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
+    assert_eq!(fixture.summary(receiver).receipts, 1);
     fixture.upgrade(fixture.sender).unwrap();
-    fixture.upgrade(fixture.receiver).unwrap();
+    fixture.upgrade(receiver).unwrap();
     advance_and_tick(fixture.pic.instance(), Duration::ZERO, 3);
-    assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
+    assert_eq!(fixture.summary(receiver).receipts, 1);
 }
 
 #[test]
@@ -582,10 +590,11 @@ fn watchdog_batch_trap_rolls_back_then_recovers_without_repeating_local_effects(
 #[ignore = "explicit PocketIC qualification; run make test-canister"]
 fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() {
     let fixture = Fixture::new();
+    let receiver = fixture.install_receiver();
     let input = Create {
         timing: Timing::Once(0),
         task: Task::Deliver(DeliveryPayload {
-            destination: fixture.receiver.into(),
+            destination: receiver.into(),
             message: "retained external effect".into(),
         }),
     };
@@ -600,9 +609,9 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
         .unwrap();
     let id = page[0].id;
     assert_eq!(page[0].status, Status::Running);
-    assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
+    assert_eq!(fixture.summary(receiver).receipts, 1);
     fixture.upgrade(fixture.sender).unwrap();
-    fixture.upgrade(fixture.receiver).unwrap();
+    fixture.upgrade(receiver).unwrap();
     fixture.update::<(), _>(Method::DispatchDue, ()).unwrap();
     assert_eq!(fixture.view(id).status, Status::Running);
     fixture
@@ -617,14 +626,14 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
     );
     assert_eq!(fixture.view(id).status, Status::Completed);
     fixture.update::<(), _>(Method::DispatchDue, ()).unwrap();
-    assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
+    assert_eq!(fixture.summary(receiver).receipts, 1);
     let absent: u64 = fixture
         .update(
             Method::CreateBlocked,
             (Create {
                 timing: Timing::Once(0),
                 task: Task::Deliver(DeliveryPayload {
-                    destination: fixture.receiver.into(),
+                    destination: receiver.into(),
                     message: "never sent".into(),
                 }),
             },),
@@ -668,7 +677,7 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
         );
         assert_eq!(fixture.view(absent), before);
     }
-    assert_eq!(fixture.summary(fixture.receiver).receipts, 1);
+    assert_eq!(fixture.summary(receiver).receipts, 1);
 }
 
 #[test]

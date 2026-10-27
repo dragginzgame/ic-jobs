@@ -1,8 +1,8 @@
 # Shared Tooling snapshot v1
-# version	0.26.20
+# version	0.26.21
 format	1
 source	https://github.com/dragginzgame/shared-tooling
-revision	a7f85d45d4212d4c39225f58597580560a333550
+revision	66c91c4412856baa147482e648fc80428db8b179
 # entrypoint	DRAGGINZGAME.md
 # entrypoint	rules/contributions.md
 # entrypoint	rules/changelogs.md
@@ -99,9 +99,9 @@ revision	a7f85d45d4212d4c39225f58597580560a333550
 # entrypoint	scripts/ci/check-cargo-graph.pl
 # entrypoint	audits/ci-release-integrity.md
 # entrypoint	docs/node-tools.md
-file	6cfb92f17d07c051fbd2f2f000176b7eede69f412596943fd3616285f724bb09	-	DRAGGINZGAME.md
+file	6bbddc6caf450fbc987dcef66c8756eee1d7571e74b49529ff05708aaff206bf	-	DRAGGINZGAME.md
 file	a662981d8f9e6da91314d06ba6ae6272f1cd48f7e98b0bbd258abf614367a118	-	rules/contributions.md
-file	3c88853136d4ad9962b8c01caacd9607192164c2d4aeb901e36b4e3da81fdf99	-	rules/changelogs.md
+file	f5b493200ef3aaa2f08b27b4a644345005d5e86431dc4cb33fd27844056f5ff0	-	rules/changelogs.md
 file	2f30364bf420a76ba27579b3942cb6657fc456695ccd5d0fb47c97600963c07b	-	rules/cargo-dependencies.md
 file	3208b97cc151df9e098abfbf6b1f8d4cf63b51ee5dfa4d940377ccf2b7170498	-	rules/rust-workspaces.md
 file	74fe8a45d5235ca4126b2ba9f7db1082d4f3414d0294ad8d5f3ddaf279d2f9c0	-	rules/dependency-pinning.md

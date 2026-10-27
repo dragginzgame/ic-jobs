@@ -26,6 +26,7 @@ help:
 	@echo "Local canister queue: demo (interactive); test-demo (live scenario); test-demo-cli (process shutdown)"
 	@echo "Metadata: shared-tooling-check, check-doc-links, check-pins, check-dependency-boundaries, check-dependency-graphs, check-release-commands"
 	@echo "Tooling fixtures: version, test-release-tooling, test-formatting-evidence, test-consumer-tooling"
+	@echo "Release fixture groups: test-release-tooling-{retention,delivery,recovery,metadata,publication}"
 	@echo "Hook qualification: formatting-hook-check (disposable Git copies; prepared formatters required)"
 	@echo "Registry preparation: package (offline), publish-check (registry dry run; no upload)"
 	@echo "Explicit setup: install-tools, tools-check, install-hooks"
@@ -176,6 +177,13 @@ test-release-tooling: format-tools-check
 		CARGO_RELEASE_METADATA_EDITOR="$$editor" CARGO_RELEASE_METADATA_MAX_BYTES=1048576 \
 		bash scripts/release/test-tooling.sh
 	+bash scripts/release/test-publication.sh
+
+RELEASE_TOOLING_GROUPS := retention delivery recovery metadata publication
+.PHONY: $(addprefix test-release-tooling-,$(RELEASE_TOOLING_GROUPS))
+$(addprefix test-release-tooling-,$(RELEASE_TOOLING_GROUPS)): format-tools-check
+	+@editor="$$( $(RELEASE_METADATA_TOOL) --check )" && \
+		CARGO_RELEASE_METADATA_EDITOR="$$editor" CARGO_RELEASE_METADATA_MAX_BYTES=1048576 \
+		bash scripts/release/test-tooling.sh $(@:test-release-tooling-%=%)
 
 .PHONY: install-release-tools release-tools-check
 install-release-tools:

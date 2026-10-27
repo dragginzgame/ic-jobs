@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+group="${1:-all}"
+case "$group" in all|retention|delivery|recovery|metadata|publication) ;; *)
+    echo 'usage: test-tooling.sh [all|retention|delivery|recovery|metadata|publication]' >&2; exit 2 ;;
+esac
+[[ $# -le 1 ]] || exit 2
+
 # Real Git fixtures; the complete release gate and crates.io effects are replaced.
 # Dependencies: Bash 3.2, Git, Make, Cargo/cargo-sort, jq/yq and Perl.
 root="${BASH_SOURCE[0]}"
@@ -26,6 +32,7 @@ export TOOLING_EDITOR="${CARGO_RELEASE_METADATA_EDITOR:?select the admitted fixt
 unset CARGO_RELEASE_METADATA_EDITOR CARGO_RELEASE_METADATA_MAX_BYTES TOOLING_EDITOR_FAILURE
 export RUSTUP_AUTO_INSTALL=0
 
+if [[ "$group" == all || "$group" == retention ]]; then
 # Shared owns exit injection and retained-evidence assertions. Jobs selects its
 # actual fixture roster; archive round trips and command assertions stay local.
 # shellcheck source=scripts/ci/fixture-retention-probes.sh
@@ -52,6 +59,8 @@ for relative in scripts/release/test-tooling.sh scripts/release/test-publication
     fixture_probe_assertion "$root/$relative" "$fixture" "$root" "${relative##*/}" \
         --selected "$root/$relative" "$assertion" 'status=97' || exit 1
 done
+
+fi
 
 export TOOLING_REAL_CARGO
 TOOLING_REAL_CARGO="$(command -v cargo)"
@@ -238,6 +247,7 @@ refuse() {
     fi
 }
 
+if [[ "$group" == all || "$group" == delivery ]]; then
 # Exercise actual metadata preparation, commits, annotated tags and local atomic
 # pushes for every increment, without running the consumer's complete gate.
 for kind in patch minor major; do
@@ -534,6 +544,9 @@ MAKE
     [[ -z "$(git status --porcelain)" ]] || exit 1
 done
 
+fi
+
+if [[ "$group" == all || "$group" == recovery ]]; then
 # A clean manually committed candidate can be the next release's base. Preserve
 # its undelivered intent and require fresh validation without replaying delivery.
 new_repository committed-undelivered
@@ -607,6 +620,9 @@ cmp .git/tool-events "$fixture/recovery-tools"
 cmp "$TOOLING_FETCH_EVENTS" "$fixture/recovery-fetch"
 [[ "$(grep -c '^install$' .git/editor-events)" == "$(grep -c '^install$' "$fixture/recovery-editor")" ]] || exit 1
 
+fi
+
+if [[ "$group" == all || "$group" == metadata ]]; then
 # The adapter checks the same grouped manifests as fmt-check, including when
 # release reconciliation selects a commit instead of the working tree.
 new_repository manifest-order
@@ -633,6 +649,9 @@ refuse unsorted-selected-commit env RELEASE_VERSION="$base_version" RELEASE_DATE
     RELEASE_COMMIT="$unsorted_commit" bash scripts/release/metadata.sh check
 cmp .git/sorted-manifest Cargo.toml
 
+fi
+
+if [[ "$group" == all || "$group" == publication ]]; then
 # The actual publication adapter and shared helpers use real local Git. Only
 # Cargo's upload and curl's registry observation are substituted.
 new_repository publication
@@ -728,9 +747,11 @@ refuse failed-upload env TOOLING_UPLOAD_RESULT=42 bash scripts/release/publish.s
 refuse uncertain-upload-now-present env TOOLING_REGISTRY_HTTP=200 bash scripts/release/publish.sh origin
 [[ "$(wc -l < "$TOOLING_UPLOAD_EVENTS" | tr -d ' ')" == 1 ]] || exit 1
 [[ -z "$(git status --porcelain)" ]] || exit 1
+fi
+
 if grep -E 'warning: (overriding recipe|ignoring old recipe)' "$fixture/"*.log; then
     echo 'release fixture emitted unexpected recipe warnings' >&2
     exit 1
 fi
-echo 'Release and publication fixtures passed (real local Git; substitute gate and registry/upload effects)'
+printf 'Release tooling group %s passed (real local Git; substitute gate and registry/upload effects)\n' "$group"
 fixture_complete=true

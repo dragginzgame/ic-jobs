@@ -29,16 +29,16 @@ use std::{
 mod wire;
 
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
+const DURATION_UNITS: [(char, u64); 5] = [
+    ('s', 1),
+    ('m', 60),
+    ('h', 3600),
+    ('d', 86400),
+    ('w', 604800),
+];
 
 fn duration(value: &str) -> Result<Duration, String> {
-    let units = [
-        ('s', 1),
-        ('m', 60),
-        ('h', 3600),
-        ('d', 86400),
-        ('w', 604800),
-    ];
-    let (unit, factor) = units
+    let (unit, factor) = DURATION_UNITS
         .into_iter()
         .find(|(unit, _)| value.ends_with(*unit))
         .ok_or("use a whole duration such as 5s, 2m, 3h, 4d or 1w")?;
@@ -137,13 +137,7 @@ fn failure(error: impl std::fmt::Debug) -> io::Error {
 fn span(nanos: u64) -> String {
     let mut seconds = nanos.div_ceil(1_000_000_000);
     let mut parts = vec![];
-    for (unit, factor) in [
-        ('w', 604800),
-        ('d', 86400),
-        ('h', 3600),
-        ('m', 60),
-        ('s', 1),
-    ] {
+    for (unit, factor) in DURATION_UNITS.into_iter().rev() {
         let count = seconds / factor;
         if count != 0 {
             parts.push(format!("{count}{unit}"));
@@ -209,29 +203,26 @@ impl Demo {
         self.pic.instance().get_time().as_nanos_since_unix_epoch()
     }
 
-    fn call<T: DeserializeOwned>(
-        &self,
-        method: Method,
-        args: &impl Serialize,
-        query: bool,
-    ) -> io::Result<T> {
-        let reply: Result<T, ApiError> = if query {
-            query_wire(
-                self.pic.instance(),
-                self.canister,
-                self.manager,
-                wire::control(method),
-                args,
-            )
-        } else {
-            update_wire(
-                self.pic.instance(),
-                self.canister,
-                self.manager,
-                wire::control(method),
-                args,
-            )
-        }
+    fn query<T: DeserializeOwned>(&self, method: Method, args: &impl Serialize) -> io::Result<T> {
+        let reply: Result<T, ApiError> = query_wire(
+            self.pic.instance(),
+            self.canister,
+            self.manager,
+            wire::control(method),
+            args,
+        )
+        .map_err(failure)?;
+        reply.map_err(failure)
+    }
+
+    fn update<T: DeserializeOwned>(&self, method: Method, args: &impl Serialize) -> io::Result<T> {
+        let reply: Result<T, ApiError> = update_wire(
+            self.pic.instance(),
+            self.canister,
+            self.manager,
+            wire::control(method),
+            args,
+        )
         .map_err(failure)?;
         reply.map_err(failure)
     }
@@ -240,7 +231,7 @@ impl Demo {
         let mut views = vec![];
         let mut after = None;
         loop {
-            let page: Vec<View> = self.call(Method::List, &(after, 8_u8), true)?;
+            let page: Vec<View> = self.query(Method::List, &(after, 8_u8))?;
             let complete = page.len() < 8;
             after = page.last().map(|view| view.id);
             views.extend(page);
@@ -270,13 +261,12 @@ impl Demo {
         } else {
             Timing::Once(first_ns)
         };
-        let id: u64 = self.call(
+        let id: u64 = self.update(
             Method::Create,
             &(Create {
                 timing,
                 task: Task::Increment(1),
             },),
-            false,
         )?;
         let schedule = every.map_or_else(
             || "once".into(),
@@ -297,11 +287,11 @@ impl Demo {
     }
 
     fn show(&self) -> io::Result<()> {
-        self.show_views(self.views()?)
+        self.show_views(&mut self.views()?)
     }
 
-    fn show_views(&self, mut views: Vec<View>) -> io::Result<()> {
-        let summary: Summary = self.call(Method::Summary, &(), true)?;
+    fn show_views(&self, views: &mut [View]) -> io::Result<()> {
+        let summary: Summary = self.query(Method::Summary, &())?;
         let now = self.now();
         println!(
             "\nIC clock +{} | counter={} | watchdog={}",
@@ -359,15 +349,20 @@ impl Demo {
         Ok(())
     }
 
-    fn advance(&self, advance: Duration) -> io::Result<()> {
+    fn advance(&self, advance: Duration, before: Option<Vec<View>>) -> io::Result<Vec<View>> {
         self.now()
             .checked_add(u64::try_from(advance.as_nanos()).map_err(failure)?)
             .ok_or_else(|| io::Error::other("clock exceeds the canister timestamp range"))?;
-        let before = self.views()?;
+        // Watch carries only the previous step's result; other commands start
+        // with a fresh read. Clock admission still precedes any RPC.
+        let before = match before {
+            Some(views) => views,
+            None => self.views()?,
+        };
         // Drive real timer callbacks; never invoke dispatch_due from the host.
         // Fixed rounds keep a large CatchUp backlog from blocking the terminal.
         advance_and_tick(self.pic.instance(), advance, 32);
-        let after = self.views()?;
+        let mut after = self.views()?;
         for view in &after {
             let previous = before
                 .iter()
@@ -383,11 +378,12 @@ impl Demo {
                 );
             }
         }
-        self.show_views(after)
+        self.show_views(&mut after)?;
+        Ok(after)
     }
 
     fn manage(&self, method: Method, id: u64) -> io::Result<()> {
-        self.call::<()>(method, &(id,), false)?;
+        self.update::<()>(method, &(id,))?;
         self.show()
     }
 
@@ -415,9 +411,12 @@ impl Demo {
                 self.show()?;
             }
             QueueCommand::List => self.show()?,
-            QueueCommand::Advance { duration } => self.advance(*duration)?,
+            QueueCommand::Advance { duration } => {
+                self.advance(*duration, None)?;
+            }
             QueueCommand::Watch { duration } => {
                 let mut remaining = *duration;
+                let mut before = None;
                 while !remaining.is_zero() && !INTERRUPTED.load(Ordering::Relaxed) {
                     if remaining == *duration {
                         println!("Watching; press Ctrl+C to stop.");
@@ -427,7 +426,7 @@ impl Demo {
                     if INTERRUPTED.load(Ordering::Relaxed) {
                         break;
                     }
-                    self.advance(step)?;
+                    before = Some(self.advance(step, before)?);
                     remaining -= step;
                 }
             }
@@ -522,7 +521,14 @@ mod tests {
             ("2w", 1209600),
         ] {
             assert_eq!(duration(input).unwrap(), Duration::from_secs(seconds));
+            assert_eq!(span(seconds * 1_000_000_000), input);
         }
+        assert_eq!(span(0), "0s");
+        assert_eq!(span(1), "1s");
+        assert_eq!(
+            span((604800 + 86400 + 3600 + 60 + 1) * 1_000_000_000),
+            "1w 1d 1h 1m 1s"
+        );
         for input in ["", "5", "1.5m", "-1s", "1m30s", "999999999999999999w"] {
             assert!(duration(input).is_err());
         }
@@ -575,7 +581,9 @@ mod tests {
                 .iter()
                 .all(|view| matches!(view.status, Status::Pending { .. }))
         );
-        run(&mut demo, "advance 5s");
+        // Two watch steps exercise carrying the previous display's views.
+        run(&mut demo, "watch 2s");
+        run(&mut demo, "advance 3s");
         assert_eq!(demo.views().unwrap()[0].status, Status::Completed);
         assert!(matches!(
             demo.views().unwrap()[1].status,
@@ -595,7 +603,7 @@ mod tests {
         run(&mut demo, "cancel 3");
         run(&mut demo, "advance 1w");
         assert_eq!(demo.views().unwrap()[2].status, Status::Cancelled);
-        let summary: Summary = demo.call(Method::Summary, &(), true).unwrap();
+        let summary: Summary = demo.query(Method::Summary, &()).unwrap();
         assert_eq!(summary.counter, 4);
         assert!(!summary.armed);
     }

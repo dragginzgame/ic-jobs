@@ -162,7 +162,9 @@ selection and source-bound qualification.
 The nine live recovery scenarios retain their explicit gate. Native tests and
 cross-compilation do not establish installed callback/trap/upgrade behavior.
 
-The receiver uses the same fixture Wasm with `delivery_sender` configured to the
+Live recovery scenarios install only the sender by default; delivery scenarios
+explicitly add a receiver. The receiver uses the same fixture Wasm with
+`delivery_sender` configured to the
 sender canister's principal. It authenticates this caller and retains each
 logical job/occurrence receipt with its exact attempt and payload. Repetition of
 the same envelope returns its existing receipt; conflicting payload/attempt

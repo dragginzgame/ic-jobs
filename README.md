@@ -163,6 +163,12 @@ when runtime integration changes.
 targets aggregate several checks. `make ci` runs the full release suite and
 requires an explicit request or release authorization for local execution.
 
+Release-adapter fixtures can be selected independently with
+`make test-release-tooling-retention`, `make test-release-tooling-delivery`,
+`make test-release-tooling-recovery`, `make test-release-tooling-metadata`, or
+`make test-release-tooling-publication`. The existing `test-release-tooling`
+aggregate still runs every group and the publication eligibility fixture.
+
 The package and its direct Timers qualification consumer require Rust 1.91. Compiler
 selections are recorded in [rust-toolchain.toml](rust-toolchain.toml) and
 [the local tool catalog](ci/tool-versions.env). Linux and macOS Intel/Apple Silicon

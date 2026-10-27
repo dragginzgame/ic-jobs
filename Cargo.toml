@@ -23,17 +23,17 @@ serde = "1.0"
 # Tests and tooling only
 clap = { version = "4.6", default-features = false }
 ctrlc = "3.5"
-ic-build = "0.68.7"
-ic-host-fs = { version = "0.68.7", default-features = false }
-ic-host-process = { version = "0.68.7", default-features = false }
+ic-build = "0.68.9"
+ic-host-fs = { version = "0.68.9", default-features = false }
+ic-host-process = { version = "0.68.9", default-features = false }
 ic-jobs = { path = "crates/ic-jobs" }
-ic-memory = "0.51.3"
-ic-platform = { version = "0.6.18", default-features = false }
-ic-storage = "0.51.3"
-ic-testkit = "0.68.7"
-ic-testkit-native = "0.68.7"
-ic-timers = "0.31.4"
-ic-wire = "0.7.16"
+ic-memory = "0.51.5"
+ic-platform = { version = "0.6.19", default-features = false }
+ic-storage = "0.51.5"
+ic-testkit = "0.68.9"
+ic-testkit-native = "0.68.9"
+ic-timers = "0.31.5"
+ic-wire = "0.7.18"
 jobs-test-consumer = { path = "apps/job-consumer" }
 serde_json = "1.0"
 serde_test = "1.0"

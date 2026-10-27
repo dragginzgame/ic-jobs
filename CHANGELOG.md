@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.17.31] - Unreleased
+
+### 📝 Summary
+
+- Adopt Tooling/Testkit 0.68.9, Memory/Storage 0.51.5, Timers 0.31.5,
+  Platform/macros 0.6.19 and Wire/derive 0.7.18, preserving the incoming lockfile.
+  Jobs' public APIs, endpoint codecs and stored formats are unchanged; no client
+  regeneration or retained-data migration is required.
+- Adopt Shared Tooling 0.26.21 and its emoji section format for current and future
+  root release notes. Existing release text and historical entries are preserved.
+
+### 🧹 Cleanup
+
+- Separate retained-job validation into ordered phases and compare delivery
+  receipts without copying their payloads. Existing restore admission, error
+  precedence, endpoint codecs and stored formats are preserved.
+- Reuse the previous display's queue views within CLI watch sessions, retaining
+  interruption checks before advancing IC time and fresh reads for other commands.
+
+### 🧪 Testing
+
+- Install receiver canisters only for delivery scenarios and avoid repeating
+  codec checks for equivalent retained states in transition-history exploration.
+- Offer independently runnable retention, delivery, recovery, metadata and
+  publication release-fixture groups. The existing aggregate retains all groups
+  and the publication eligibility fixture.
+
 ## [0.17.30] - 2026-10-26
 
 ### 📝 Summary

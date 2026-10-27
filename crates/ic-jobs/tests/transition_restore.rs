@@ -104,6 +104,11 @@ fn public_transition_histories_remain_restorable_and_failures_preserve_records()
                         continue;
                     }
                     let bytes = serde_json::to_vec(&job).unwrap();
+                    // Equivalent retained records have the same codec/restore
+                    // contract; keep every transition and refusal assertion above.
+                    if visited.contains(&bytes) {
+                        continue;
+                    }
                     assert_eq!(bytes, serde_json::to_vec(&job.record()).unwrap());
                     let decoded: JobRecord = serde_json::from_slice(&bytes).unwrap();
                     let restored = Job::restore(decoded).unwrap_or_else(|error| {
@@ -113,9 +118,8 @@ fn public_transition_histories_remain_restorable_and_failures_preserve_records()
                     assert_eq!(restored.next_due_ns(), job.next_due_ns());
                     assert_eq!(restored.active_attempt(), job.active_attempt());
                     states.insert(discriminant(&restored.record().state));
-                    if visited.insert(bytes) {
-                        next.push(restored.record());
-                    }
+                    visited.insert(bytes);
+                    next.push(restored.record());
                 }
             }
         }
