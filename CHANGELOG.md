@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.39]
+
+### 📦 Dependencies
+
+- Adopt Memory/Storage 0.53.0 and Platform 0.7.3, retaining stored formats and
+  the published Jobs API. Memory validates manager metadata at construction,
+  initial bootstrap, lease opening and growth; ordinary IO trusts exclusive
+  backing custody. Duplicate-owner refusal and sticky poisoning remain enforced.
+- Preserve the incoming Tooling/Testkit 0.69.6 selection and prepare its
+  contributor CLIs with `make install-testkit-tools install-release-tools`.
+  Timers and Wire selections remain unchanged.
+
 ## [0.17.38] - 2026-10-28
 
 ### 📦 Dependencies

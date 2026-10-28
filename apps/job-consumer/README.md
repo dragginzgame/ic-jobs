@@ -82,11 +82,14 @@ incompatible-ledger cases separately retain their zero-write proof.
 Memory supplies the backing interfaces and bounded fixture cell. Native fixtures
 use IC Storage's governed `adapter::StableCell` for collection
 setup and reopening, with Memory allocation leases consumed rather than cloned.
-Memory 0.52 requires `MemoryBacking` identity at queue opening. The native
+Memory 0.53 requires `MemoryBacking` identity at queue opening. The native
 metering wrapper delegates identity to its underlying VectorMemory; independent
 wrappers cannot create overlapping runtimes. Reopening releases the old owner
-and every detached handle first. Memory verifies 34,848 bytes of manager metadata
-on valid stable IO; this additional IO has no consumer IC cost qualification yet.
+and every detached handle first. Full manager validation occurs at construction,
+initial bootstrap, lease opening and growth. Ordinary size/read/write operations
+trust exclusive custody and retain bounds and poisoning checks. Raw backing edits
+during a live lease are prohibited and need not be detected until a full validation
+boundary. Consumer IC cost measurements remain separate qualification.
 The oversized-payload fixture raises only its Memory writer ceiling, retaining
 exact header/payload refusal checks against the consumer's normal limit. No
 storage format changes are required. Direct `ic-stable-structures`
