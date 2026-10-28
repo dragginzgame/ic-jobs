@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.17.37]
+
+### 📦 Dependencies
+
+- Adopt Build/Host/Testkit 0.69.3, Memory/Storage 0.51.13, Platform 0.7.1 and
+  Timers 0.31.11, retaining Wire 0.7.18. The published Jobs API, stored formats,
+  receipt checks and uncertainty handling remain unchanged.
+- Prepare the lock-selected contributor CLIs with
+  `make install-testkit-tools install-release-tools` after updating dependencies.
+
 ## [0.17.36] - 2026-10-27
 
 ### 🔧 Changed
