@@ -1,7 +1,60 @@
 use super::*;
-use ic_memory::{VectorMemory, testing::memory_from_sparse_hex};
-use ic_storage::adapter::StableCell;
+use ic_memory::{BackingIdentity, VectorMemory, testing::memory_from_sparse_hex};
 use ic_testkit_native::memory::MeteredMemory;
+
+// The test host supplies physical identity; Tooling still owns IO accounting.
+#[derive(Clone)]
+struct MeteredBacking(MeteredMemory);
+
+impl MeteredBacking {
+    fn new(backing: VectorMemory) -> Self {
+        Self(MeteredMemory::new(backing))
+    }
+}
+
+impl std::ops::Deref for MeteredBacking {
+    type Target = MeteredMemory;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Memory for MeteredBacking {
+    fn size(&self) -> u64 {
+        self.0.size()
+    }
+
+    fn grow(&self, pages: u64) -> i64 {
+        self.0.grow(pages)
+    }
+
+    fn read(&self, offset: u64, bytes: &mut [u8]) {
+        self.0.read(offset, bytes);
+    }
+
+    fn write(&self, offset: u64, bytes: &[u8]) {
+        self.0.write(offset, bytes);
+    }
+}
+
+impl MemoryBacking for MeteredBacking {
+    fn backing_identity(&self) -> BackingIdentity {
+        self.backing().backing_identity()
+    }
+}
+
+fn retained_cell(backing: VectorMemory, maximum: usize) -> FixtureCell<VectorMemory> {
+    FixtureCell::open_bounded(
+        backing,
+        "test.jobs",
+        "test.jobs.",
+        KEY,
+        MemoryManagerConfig::new(1).unwrap(),
+        maximum,
+    )
+    .unwrap()
+}
 
 fn manager() -> Principal {
     Principal::self_authenticating(b"manager")
@@ -17,6 +70,32 @@ fn increment(at: u64) -> Create {
         timing: Timing::Once(at),
         task: Task::Increment(1),
     }
+}
+
+#[test]
+fn aliased_backing_refuses_reopen_until_the_final_handle_drops() {
+    let backing = VectorMemory::default();
+    let mut queue = Queue::open(MeteredBacking::new(backing.clone()), Some(config()))
+        .unwrap()
+        .0;
+    let id = queue.create(increment(100)).unwrap().value;
+    let before = queue.cell.bytes().to_vec();
+    // Independent metering wrappers must identify the same physical backing.
+    let alias = MeteredBacking::new(backing);
+    let refused = || {
+        assert!(matches!(
+            Queue::open(alias.clone(), None),
+            Err(Error::Memory(_))
+        ));
+        assert_eq!(alias.counts(), Default::default());
+    };
+    refused();
+    let handle = queue.cell.into_memory();
+    refused();
+    drop(handle);
+    let reopened = Queue::open(alias, None).unwrap().0;
+    assert_eq!(reopened.cell.bytes(), before);
+    assert_eq!(reopened.inspect(id).unwrap().id, id);
 }
 
 // These fixtures start with a fresh Once job. Build only valid states through
@@ -240,6 +319,7 @@ fn retained_queue_restores_payloads_deadlines_cancellation_and_id_authority() {
     assert_eq!(restored.page(Some(first), 1).unwrap()[0].id, second);
     assert_eq!(restored.page(None, 0), Err(Error::InvalidInput));
     assert_eq!(restored.create(increment(300)).unwrap().value, 3);
+    drop(restored);
     assert!(Queue::open(memory, Some(config())).is_err());
 }
 
@@ -686,9 +766,9 @@ fn assert_invalid_record_blocks_queue(
     assert_eq!(queue.summary(), Err(expected.clone()));
     assert_eq!(queue.inspect(healthy), Err(expected.clone()));
     assert_eq!(queue.cell.bytes(), bytes);
-    let memory = queue.cell.into_memory();
-    assert!(matches!(Queue::open(backing, None), Err(error) if error == expected));
-    assert_eq!(StableCell::init(memory, Vec::<u8>::new()).get(), &bytes);
+    drop(queue);
+    assert!(matches!(Queue::open(backing.clone(), None), Err(error) if error == expected));
+    assert_eq!(retained_cell(backing, MAX_BYTES).bytes(), bytes);
 }
 
 #[test]
@@ -1041,16 +1121,13 @@ fn retired_snapshot_is_refused_without_replacing_the_cell() {
         let backing = VectorMemory::default();
         let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
         queue.cell.try_set(bytes.clone()).unwrap();
-        let memory = queue.cell.into_memory();
+        drop(queue);
         for initial in [None, Some(config())] {
             assert!(matches!(
                 Queue::open(backing.clone(), initial),
                 Err(Error::InvalidStorage)
             ));
-            assert_eq!(
-                ic_memory::decode_stable_cell_payload(&memory).unwrap(),
-                bytes
-            );
+            assert_eq!(retained_cell(backing.clone(), MAX_BYTES).bytes(), bytes);
         }
     }
 }
@@ -1136,7 +1213,7 @@ fn prior_memory_ledgers_are_refused_without_writes_or_reset() {
         // Memory owns sparse-image expansion; Jobs owns provenance and the
         // three-page ceiling of these frozen installation fixtures.
         let backing = memory_from_sparse_hex(frozen.pages, &frozen.runs, 3).unwrap();
-        let memory = MeteredMemory::new(backing);
+        let memory = MeteredBacking::new(backing);
         let before = memory.backing().borrow().clone();
         for initial in [None, Some(config())] {
             assert!(matches!(
@@ -1161,7 +1238,7 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
         Some((JobState::Uncertain { started_ns: 100 }, 100)),
         Some((JobState::Completed, 100)),
     ] {
-        let memory = MeteredMemory::new(VectorMemory::default());
+        let memory = MeteredBacking::new(VectorMemory::default());
         let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
         let id = state.map(|_| queue.create(increment(100)).unwrap().value);
         let mut loaded = queue.load().unwrap();
@@ -1197,7 +1274,7 @@ fn idle_dispatch_validates_the_complete_snapshot_without_stable_writes() {
         }
     }
     // Real due work still writes its metadata and local effect together.
-    let memory = MeteredMemory::new(VectorMemory::default());
+    let memory = MeteredBacking::new(VectorMemory::default());
     let mut queue = Queue::open(memory.clone(), Some(config())).unwrap().0;
     queue.create(increment(100)).unwrap();
     memory.reset();
@@ -1304,7 +1381,7 @@ fn mutation_replies_return_the_fresh_committed_deadline() {
 
 #[test]
 fn receipt_extraction_and_duplicate_acknowledgement_leave_storage_unchanged() {
-    let memory = MeteredMemory::new(VectorMemory::default());
+    let memory = MeteredBacking::new(VectorMemory::default());
     let mut queue = Queue::open(
         memory.clone(),
         Some(Init {
@@ -1386,24 +1463,18 @@ fn oversized_retained_cell_is_refused_without_replacing_its_payload() {
     drop(queue);
     // Deliberately raise only the corruption fixture's write ceiling. The
     // consumer's normal limit must still refuse the retained oversized payload.
-    let mut oversized = FixtureCell::open_bounded(
-        backing.clone(),
-        "test.jobs",
-        "test.jobs.",
-        KEY,
-        MemoryManagerConfig::new(1).unwrap(),
-        MAX_BYTES + 1,
-    )
-    .unwrap();
+    let mut oversized = retained_cell(backing.clone(), MAX_BYTES + 1);
     oversized.try_set(vec![b'x'; MAX_BYTES + 1]).unwrap();
     let memory = oversized.into_memory();
     let mut before = vec![0; ic_memory::STABLE_CELL_HEADER_SIZE + MAX_BYTES + 1];
     memory.read(0, &mut before);
+    drop(memory);
     for initial in [None, Some(config())] {
         assert!(matches!(
             Queue::open(backing.clone(), initial),
             Err(Error::InvalidStorage)
         ));
+        let memory = retained_cell(backing.clone(), MAX_BYTES + 1).into_memory();
         let mut after = vec![0; before.len()];
         memory.read(0, &mut after);
         // Bootstrap may update allocation metadata. The refused cell's header

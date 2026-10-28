@@ -5,7 +5,7 @@ use ic_jobs::{
     next_due_ns, start_next,
 };
 use ic_memory::{
-    Memory, MemoryManagerConfig,
+    Memory, MemoryBacking, MemoryManagerConfig,
     testing::{FixtureCell, FixtureCellError},
 };
 use ic_platform::Principal;
@@ -252,7 +252,10 @@ fn decode(bytes: &[u8]) -> Result<Snapshot<Job>, Error> {
 }
 
 impl<M: Memory> Queue<M> {
-    pub(crate) fn open(memory: M, initial: Option<Init>) -> Result<(Self, Option<u64>), Error> {
+    pub(crate) fn open(memory: M, initial: Option<Init>) -> Result<(Self, Option<u64>), Error>
+    where
+        M: MemoryBacking,
+    {
         let config = MemoryManagerConfig::new(1).map_err(memory_error)?;
         let mut cell = if initial.is_some() {
             FixtureCell::create_bounded(memory, "test.jobs", "test.jobs.", KEY, config, MAX_BYTES)

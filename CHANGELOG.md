@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.38]
+
+### 📦 Dependencies
+
+- Adopt Memory/Storage 0.52.0, Build/Host/Testkit 0.69.5, Platform 0.7.2,
+  Timers 0.31.15 and Wire 0.7.19. The published Jobs API, retained formats,
+  receipt validation and uncertainty handling remain unchanged.
+- The qualification consumer supplies Memory's backing identity and releases
+  old owners before reopening retained cells. Duplicate owners are refused;
+  Memory now validates manager metadata during stable IO.
+- Prepare selected contributor CLIs with
+  `make install-testkit-tools install-release-tools` after updating dependencies.
+
 ## [0.17.37] - 2026-10-28
 
 ### 📦 Dependencies

@@ -82,9 +82,14 @@ incompatible-ledger cases separately retain their zero-write proof.
 Memory supplies the backing interfaces and bounded fixture cell. Native fixtures
 use IC Storage's governed `adapter::StableCell` for collection
 setup and reopening, with Memory allocation leases consumed rather than cloned.
+Memory 0.52 requires `MemoryBacking` identity at queue opening. The native
+metering wrapper delegates identity to its underlying VectorMemory; independent
+wrappers cannot create overlapping runtimes. Reopening releases the old owner
+and every detached handle first. Memory verifies 34,848 bytes of manager metadata
+on valid stable IO; this additional IO has no consumer IC cost qualification yet.
 The oversized-payload fixture raises only its Memory writer ceiling, retaining
 exact header/payload refusal checks against the consumer's normal limit. No
-storage format or deployed dependency changes. Direct `ic-stable-structures`
+storage format changes are required. Direct `ic-stable-structures`
 dependencies are forbidden; the substrate remains transitive through its owners.
 
 **0.16 hard cut:** Construct `Task::Deliver(DeliveryPayload { destination,
@@ -153,7 +158,7 @@ Candid, process or server dependency.
 On Wasm, Platform 0.7's `cdk` feature supplies explicit-codec entrypoints, raw calls,
 system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
-2.0.0 and ic0 1.2.0 remain shared with Timers 0.31.11 through one Platform 0.7
+2.0.0 and ic0 1.2.0 remain shared with Timers 0.31.15 through one Platform 0.7
 identity, enforced by the consumer's Wasm dependency graph check.
 Native DTOs and recovery tests explicitly select Platform 0.7's `principal`
 feature. The application uses its owned Principal; PocketIC calls retain the
