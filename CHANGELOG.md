@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.17.41]
+
+### 📦 Dependencies
+
+- Adopt Build/Host/Testkit 0.69.9 and its lock-selected contributor CLIs with
+  `make install-testkit-tools install-release-tools`. Testkit restores cached
+  baseline timer and low-memory-hook state coherently with heap snapshots.
+  Jobs uses fresh instances and needs no custom baseline-recipe migration;
+  library APIs, retained formats and uncertainty handling remain unchanged.
+- Adopt Timers 0.32.0 and its Metrics 0.17 measurement types. The qualification
+  consumer needs no caller migration; Metrics transport now includes Serde and
+  native Wire metadata, while the Wasm timer subtree stays Wire/Candid-free.
+  Heap recording stays disabled and published Jobs remains Serde-only.
+- Adopt Memory/Storage 0.54.0. Its Metrics Stable type-identity change needs no
+  Jobs caller migration because Jobs does not use that adapter. Backing custody,
+  allocation, retained formats and restore checks remain unchanged.
+
 ## [0.17.40] - 2026-10-29
 
 ### 📚 Documentation

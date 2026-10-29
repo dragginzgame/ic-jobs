@@ -2,85 +2,81 @@
 
 ## Accepted scope
 
-Released baseline: `6d4f167133741a822a016d394c7bd27b03e87c21` (Jobs 0.17.39).
-The accepted batch includes the preceding upstream adoption/Metrics review and
-now a packaged adapter reference, integration contract and acceptance checklist.
-The compatible changelog draft remains 0.17.40; package versions stay 0.17.39.
-Changes are uncommitted. Staging, commits, releases and publication remain
-maintainer-owned. No implementation blocker remains. Siblings stayed read-only.
+Released baseline: `b51be73` (Jobs 0.17.40). The accepted uncommitted batch adopts
+Tooling/Testkit 0.69.9, Timers 0.32.0 with Metrics 0.17.0, and now Memory/Storage
+0.54.0. The compatible draft remains 0.17.41; package versions stay 0.17.40.
+Staging, commits, releases and publication remain maintainer-owned. No blocker remains.
 
-## Adapter reference
+The latest bounded update changes only Memory/Storage 0.53.1 to 0.54.0 in the
+incoming lockfile. Other pending selections are preserved: Build/Host/Testkit
+0.69.9, Platform/macros 0.7.4, Timers 0.32.0, Metrics 0.17.0 and Wire/derive
+0.7.21. No explicit feature list or Jobs Rust source changed.
 
-Extend the existing packaged `crates/ic-jobs/examples/persisted_job.rs` instead
-of adding a second example or new public abstraction. A consumer-owned bounded
-snapshot retains one canonical JobRecord and immutable payload. Every load uses
-Job::restore. Failed commits discard tentative jobs and preserve committed bytes.
-The example selects work, publishes intent after commit, projects its deadline,
-simulates an effect, rejects a failed result commit, reconstructs the active
-attempt from retained authority, blocks redelivery and resolves an exact receipt.
-It also refuses a stale receipt without replacing unresolved state.
+## Memory/Storage adoption
 
-Atomic byte replacement, the 4 KiB ceiling, counted destination and receipt are
-native example policy/substitutes. They do not establish real storage transactions,
-authentication, IC rollback, watchdog delivery or installed upgrade recovery.
-Canic retains those boundaries and its own adapter implementation.
+Reviewed released persistence revision `9ca2e8e`. The breaking 0.54 boundary
+moves Metrics Stable's exposed arithmetic types to Metrics 0.17. Jobs does not
+use ic-metrics-stable or exchange direct Metrics values with that adapter;
+Timers already selects Metrics 0.17. No caller migration or direct Metrics
+selection is required. Memory and Storage library source trees are unchanged
+from 0.53.1. Allocation custody, stable formats and Rust requirements are retained.
+The consumer guide now describes MemoryBacking without an obsolete package line.
 
-The package README includes a self-contained adapter integration contract:
-owner responsibilities, bounded restoration, commit/index ordering, discarded
-tentative state, post-await reload, exact identities, explicit uncertainty
-resolution, host runtime/lifecycle composition and wakeup reconciliation.
-`docs/test-consumers.md` links nine native acceptance scenarios plus installed
-upgrade/rollback/receipt cases. Root README links the example, contract and checklist.
-No library API, storage trait, database dependency, handler registry, endpoint,
-lifecycle export or timer provider was introduced. No dependency files changed
-in this adapter-reference slice; incoming manifests and lock are preserved.
+Truthful backing identity, duplicate-owner refusal and custody through detached
+handles remain required. Earlier owners and all handles drop before reopening.
+Full manager validation occurs at construction, bootstrap, lease opening and
+growth; ordinary IO trusts exclusive custody while checking bounds/poisoning.
+Prohibited raw changes need not be detected before ordinary IO. Jobs IC costs
+remain unmeasured. No reset or retained-data migration is needed.
 
-## Upstream adoption retained
+## Maintained runtime and integration contracts
 
-Root minimums select Memory/Storage 0.53.1, Build/Host/Testkit 0.69.8, Platform
-0.7.4, Timers 0.31.16 and Wire 0.7.21. The incoming lock already selected these
-and transitive Metrics 0.16.5, including aws-lc-rs 1.19.0 / aws-lc-sys 0.47.0;
-its bytes remain unchanged. No feature selections changed.
+Consumer storage, metadata, lifecycle, timer registration and effect authority
+remain consumer-owned. Every restore crosses Job::restore; uncertain effects stay
+blocked until explicit disposition, preserving exact receipts and error ordering.
+Scheduling, retry, pause/resume, rescheduling, reconciliation and stored/Wire
+formats remain unchanged. Core and consumer integration retain Rust 1.91 support
+with separate qualification. The published Jobs library remains Serde-only.
+The packaged adapter example, integration contract and acceptance checklist remain
+intact; native substitutes do not establish actual Canic or installed IC behavior.
 
-Published Jobs remains Serde-only. Metrics reaches the qualification Wasm through
-Timers' unchanged counter/summary arithmetic; the resolved feature set is only
-`default`, without `recording`. New measurement windows are unused. No Metrics
-API/storage migration or automatic recording/endpoint is needed.
+Prior Timers adoption reviewed `8f2fdfd` and Metrics `c45bb5a`. Timers' runtime
+source is unchanged; its exposed measurement types use Metrics 0.17. Required
+Serde transport and native Wire metadata do not add Wire/Candid to the Wasm timer
+subtree. Recording stays disabled; no measurement windows or Metrics endpoint
+are added. Application-owned Wire codecs retain their current contracts.
 
-Memory 0.53.1 fixes backing-claim teardown ordering. Truthful backing identity,
-duplicate-owner refusal and custody through detached handles remain required.
-Full manager checks occur at construction, bootstrap, lease opening and growth;
-ordinary IO trusts exclusive custody while checking bounds and poisoning.
-Prohibited raw edits need not be detected before ordinary IO. Jobs IC costs remain
-unmeasured. Every restore crosses Job::restore and uncertain effects stay blocked;
-exact receipts, error ordering, scheduling/retry/management behavior and retained
-formats remain unchanged. Rust support remains 1.91 for core and integration.
-Shared Tooling remains reviewed 0.26.25 at
-`6b6bbd9c9e5798f0ecf6105637392a7a55cd450e` (121 payloads). Selected Tooling 0.69.8
-CLIs and PocketIC 16.1.0 were prepared/admitted; earlier installations are retained.
+Prior Tooling adoption reviewed `ce660e30`. Complete cached snapshots restore
+matching timer/low-memory-hook state. Jobs creates fresh instances and uses no
+cached baseline recipe requiring lifecycle migration. Tooling 0.69.9 CLIs and
+PocketIC 16.1.0 remain prepared/admitted; no installation changes are needed here.
+Siblings stayed read-only. Shared Tooling remains reviewed 0.26.25 at
+`6b6bbd9c9e5798f0ecf6105637392a7a55cd450e` (121 verified payloads).
 
 ## Qualification and evidence
 
-`/tmp/ic-jobs-adapter-reference.rbwXpr7F/` retains incoming edits/example,
-format/lint/docs logs, both package attempts, unmodified unpacked archives,
-Rust 1.91 example execution, commands, identities and final patch. The first
-isolated run refused a copied workspace manifest in the evidence parent before
-compilation. That snapshot was renamed to incoming-Cargo.toml; the final archive
-and its example run pass without modifying packaged sources or manifests.
+`/tmp/ic-jobs-memory054.sqjjQkAo/` retains incoming patch/manifests/lock/handoff,
+released base, producer review, empty library-source diff, bounded lock delta,
+metadata, focused command/log evidence, Wasm artifacts, identities and final patch.
 
-The final packaged example passes its assertions on Rust 1.91. The extracted
-example and README match working files byte for byte. Archive verification,
-strict example Clippy, doctests, strict rustdoc, formatting, links and diff checks
-pass. This is native package/example qualification, not Canic integration.
+Fresh checks pass: snapshot/pins/dependency boundaries and all five graph
+selections; consumer native/Wasm Clippy; formatting/documentation; and 51 consumer
+unit, codec and composition tests on Rust 1.91, including allocation reopening,
+blocked attempts, invalid-state refusal and retained-byte preservation. The release
+consumer Wasm builds on Rust 1.91. No new tests or runtime APIs were introduced.
 
-Prior full metadata/graph/lint and focused runtime evidence remains at
-`/tmp/ic-jobs-upstream-metrics.BHriS83n/`: all five graphs, 51 consumer tests,
-focused harness tests, Rust 1.91 consumer Wasm and tooling fixtures pass. Those
-consumer sources/dependencies remain unchanged. Core Wasm floor evidence at
-`/tmp/ic-jobs-upstream-adoption.0jRpTmuM/` remains applicable to unchanged runtime
-source/Serde dependencies. No full `make ci`, live PocketIC or native macOS
-qualification was selected for this slice.
+Prior harness/MSRV and Wire/Candid-free Timers subtree evidence remains at
+`/tmp/ic-jobs-timers032.nwmIAoxY/`; that harness's native DTO/capture dependencies
+and the Timers subtree are unchanged by the Memory/Storage update. Existing
+Tooling fixture evidence at `/tmp/ic-jobs-tooling0699.ejTpALZM/` remains applicable
+to unchanged scripts, capture dependencies and selected CLI bytes. Substitute
+server/optimizer/registry/upload effects establish native preparation/caller
+wiring, not installed recovery. Full `make ci`, live PocketIC and native macOS
+qualification were not selected for this slice.
 
+Core Rust 1.91 native/Wasm evidence at `/tmp/ic-jobs-upstream-adoption.0jRpTmuM/`
+remains applicable to unchanged runtime source/features/Serde dependencies.
+Packaged adapter evidence is at `/tmp/ic-jobs-adapter-reference.rbwXpr7F/`.
 Prior Shared hook/formatter evidence is at `/tmp/ic-jobs-shared-02625.5rE0846k/`.
 Linux live evidence at `/tmp/ic-jobs-tooling-wire-shared.1SRGqz/` uses older inputs.
 The last recorded three-host live run qualified Jobs 0.17.14 with Tooling 0.63.2:

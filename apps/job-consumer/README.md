@@ -82,7 +82,7 @@ incompatible-ledger cases separately retain their zero-write proof.
 Memory supplies the backing interfaces and bounded fixture cell. Native fixtures
 use IC Storage's governed `adapter::StableCell` for collection
 setup and reopening, with Memory allocation leases consumed rather than cloned.
-Memory 0.53 requires `MemoryBacking` identity at queue opening. The native
+Memory requires `MemoryBacking` identity at queue opening. The native
 metering wrapper delegates identity to its underlying VectorMemory; independent
 wrappers cannot create overlapping runtimes. Reopening releases the old owner
 and every detached handle first. Full manager validation occurs at construction,
@@ -161,12 +161,15 @@ Candid, process or server dependency.
 On Wasm, Platform 0.7's `cdk` feature supplies explicit-codec entrypoints, raw calls,
 system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
-2.0.0 and ic0 1.2.0 remain shared with Timers 0.31.16 through one Platform 0.7
+2.0.0 and ic0 1.2.0 remain shared with Timers 0.32 through one Platform 0.7
 identity, enforced by the consumer's Wasm dependency graph check.
-Metrics 0.16.5 reaches the Wasm only through Timers' existing counters and
-summaries. Its optional `recording` feature is not selected, and the consumer
-does not use measurement windows. No heap recording, persistence or Metrics
-endpoint is added. Published `ic-jobs` remains independent of Metrics.
+Metrics 0.17 reaches the Wasm only through Timers' existing counters and summaries.
+Serde transport is required and native builds include Metrics-owned Wire metadata;
+the Wasm timer subtree contains neither Wire nor Candid. The consumer's own Wire
+dependency still supplies its endpoint codecs. Metrics has no optional `wire`
+feature, and its optional `recording` feature is not selected. No measurement
+windows, heap recorder, persistence or Metrics endpoint is added. Published
+`ic-jobs` remains independent of Metrics.
 Native DTOs and recovery tests explicitly select Platform 0.7's `principal`
 feature. The application uses its owned Principal; PocketIC calls retain the
 external Principal and convert explicitly when constructing application DTOs.
