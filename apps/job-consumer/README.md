@@ -95,8 +95,22 @@ during a live lease are prohibited and need not be detected until a full validat
 boundary. Consumer IC cost measurements remain separate qualification.
 The oversized-payload fixture raises only its Memory writer ceiling, retaining
 exact header/payload refusal checks against the consumer's normal limit. No
-storage format changes are required. Direct `ic-stable-structures`
+queue JSON changes are required by that fixture. Direct `ic-stable-structures`
 dependencies are forbidden; the substrate remains transitive through its owners.
+
+**Memory 0.56 installation boundary:** the allocation ledger and its enclosing
+Cell value now use bounded Wire (`ICML`/`ICMWIRE1`) instead of CBOR. Jobs' queue
+JSON, RPC bytes and application collection/substrate headers are unchanged.
+An installation retaining an earlier Memory ledger cannot be upgraded in place
+with this reader: both recovery and fresh creation refuse those bytes without
+resetting or overwriting them. Use a fresh qualification canister, or qualify an
+explicit consumer-owned transition before installing over retained data. Keep
+the old binaries, backups, exact outstanding attempts and receipts until the
+owner resolves their disposition. Reinstalling discards application data and
+requires its owner's authorization; never clear only the allocation ledger while
+leaving collections behind. This dependency update resets no existing data and
+adds no migration engine or compatibility reader. Same-format reconstruction
+continues to restore Running/Uncertain jobs as blocked.
 
 **0.16 hard cut:** Construct `Task::Deliver(DeliveryPayload { destination,
 message })`; delivery and receipt envelopes contain `payload` beside their
@@ -114,12 +128,15 @@ Current-format Running/Uncertain jobs still restore as blocked. Frozen previous
 record, snapshot and Candid bytes are negative inputs only; their prior reader
 qualification and provenance are recorded with the stored-record fixtures.
 
-
-The frozen 0.7.5 and Memory 0.40 physical images are also refused during both
-recovery and installation, before payload admission and with zero stable writes,
+The frozen 0.7.5, Memory 0.40 and Memory 0.55.2 physical images are refused during
+both recovery and installation, before payload admission and with zero stable writes,
 unchanged pages and identical backing bytes. Jobs' JSON codec and Memory's outer
 ledger are independent admission boundaries. The stable key identifies the
 consumer allocation; it does not make incompatible payload formats readable.
+The Memory 0.55.2 image has valid current queue JSON with Running intent: that
+payload still crosses Job::restore as blocked, even though the outer ledger is
+incompatible. Its producer/hash is recorded with the
+[stored-record fixtures](../../crates/ic-jobs/tests/fixtures/README.md).
 
 `Increment` performs a local counter effect and completes its job in one stable
 replacement. A counter overflow has no effect and permanently fails that job,

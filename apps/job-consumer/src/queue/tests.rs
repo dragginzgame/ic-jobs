@@ -1181,17 +1181,34 @@ fn raw_invalid_intervals_preserve_storage_and_unknown_job_precedence() {
     assert_eq!(queue.cell.bytes(), before);
 }
 
+// Sparse nonzero runs retain the complete backing, including manager/Cell headers.
+#[derive(Deserialize)]
+struct FrozenMemory {
+    producer: String,
+    pages: u64,
+    runs: Vec<(u64, String)>,
+    snapshot: String,
+}
+
+fn assert_frozen_memory_refused(frozen: &FrozenMemory) {
+    // Memory owns expansion; Jobs owns provenance and the three-page ceiling.
+    let backing = memory_from_sparse_hex(frozen.pages, &frozen.runs, 3).unwrap();
+    let memory = MeteredBacking::new(backing);
+    let before = memory.backing().borrow().clone();
+    for initial in [None, Some(config())] {
+        assert!(matches!(
+            Queue::open(memory.clone(), initial),
+            Err(Error::Memory(_))
+        ));
+        assert!(!memory.counts().overflowed);
+        assert_eq!(memory.counts().writes, 0);
+        assert_eq!(memory.size(), frozen.pages);
+        assert_eq!(*memory.backing().borrow(), before);
+    }
+}
+
 #[test]
 fn prior_memory_ledgers_are_refused_without_writes_or_reset() {
-    // Sparse nonzero runs are a lossless fixture representation of the old
-    // producer's complete VectorMemory, including allocator and cell headers.
-    #[derive(Deserialize)]
-    struct FrozenMemory {
-        producer: String,
-        pages: u64,
-        runs: Vec<(u64, String)>,
-        snapshot: String,
-    }
     for (encoded, producer) in [
         (
             include_str!("fixtures/stable-image-075.json"),
@@ -1210,22 +1227,25 @@ fn prior_memory_ledgers_are_refused_without_writes_or_reset() {
             decode(frozen.snapshot.as_bytes()),
             Err(Error::InvalidStorage)
         ));
-        // Memory owns sparse-image expansion; Jobs owns provenance and the
-        // three-page ceiling of these frozen installation fixtures.
-        let backing = memory_from_sparse_hex(frozen.pages, &frozen.runs, 3).unwrap();
-        let memory = MeteredBacking::new(backing);
-        let before = memory.backing().borrow().clone();
-        for initial in [None, Some(config())] {
-            assert!(matches!(
-                Queue::open(memory.clone(), initial),
-                Err(Error::Memory(_))
-            ));
-            assert!(!memory.counts().overflowed);
-            assert_eq!(memory.counts().writes, 0);
-            assert_eq!(memory.size(), frozen.pages);
-            assert_eq!(*memory.backing().borrow(), before);
-        }
+        assert_frozen_memory_refused(&frozen);
     }
+}
+
+#[test]
+fn memory_wire_cut_refuses_cbor_without_releasing_blocked_work() {
+    let frozen: FrozenMemory =
+        serde_json::from_str(include_str!("fixtures/stable-image-memory0552.json")).unwrap();
+    assert_eq!(
+        frozen.producer,
+        "cdb48cc9d1c3281e2b898bcfe4a19e2a673b4560 / ic-memory 0.55.2"
+    );
+    // The Job/queue JSON is still valid, independently of the retired ledger.
+    // Admission goes through Job::restore and never grants effect replay.
+    let snapshot = decode(frozen.snapshot.as_bytes()).unwrap();
+    assert_eq!(snapshot.jobs.len(), 1);
+    assert_eq!(snapshot.jobs[0].job.record().state, JobState::Running);
+    assert_eq!(snapshot.next_due_ns(), None);
+    assert_frozen_memory_refused(&frozen);
 }
 
 #[test]

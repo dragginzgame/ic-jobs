@@ -15,6 +15,26 @@ proof. Their zero bytes are implicit; nonzero runs and producer bytes remain exa
 These are negative inputs, not compatibility readers or an upgrade path.
 Native fixture checks do not establish live IC upgrades or message rollback.
 
+## Memory 0.56 allocation-ledger cut
+
+The consumer's `stable-image-memory0552.json` freezes a complete three-page
+Memory 0.55.2 installation from Jobs 0.17.47 at
+`cdb48cc9d1c3281e2b898bcfe4a19e2a673b4560`, produced on Rust 1.91. It contains
+one valid Running delivery intent. After dropping all earlier handles, the old
+producer reconstructed the exact physical image, reopened it, recovered the
+same delivery and refused redispatch of the blocked job.
+
+The fixture retains ten nonzero runs and the unchanged Jobs JSON payload. Memory
+0.56 refuses its retired CBOR ledger during recovery and fresh creation with
+zero writes, unchanged pages and identical bytes. Independently decoding the
+queue payload still uses Job::restore and leaves the job Running/blocked. This
+separates the infrastructure format cut from unchanged job/effect authority;
+it supplies neither a converter nor permission to discard retained work.
+The fixture SHA-256 is
+`780ffd07de7ccc8d47398fce67d223e62e6d3c37b2618af502fa299eeaa0c7a7`.
+Generation inputs and old-producer qualification remain at
+`/tmp/ic-jobs-tooling0702-memory056.8W4xazfe/old-producer/`.
+
 ## 0.16 refusal inputs
 
 `running-record-015.json` freezes the previous timestamp-bearing Running record.

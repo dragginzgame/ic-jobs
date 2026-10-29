@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.17.48]
+
+### 📦 Dependencies
+
+- Adopt Build/Host/Testkit 0.70.2 and prepare the matching contributor CLIs with
+  `make install-testkit-tools install-release-tools`. Retain existing process,
+  artifact-capture and PocketIC lifecycle policies.
+- Adopt Memory/Storage 0.56.0. Published Jobs APIs and JobRecord/queue JSON are
+  unchanged; the qualification consumer now uses Memory's bounded Wire ledger.
+
+### 🧭 Migration Notes
+
+- **Qualification canister:** earlier CBOR allocation ledgers are incompatible.
+  Use a fresh test installation or complete an explicitly owned transition before
+  upgrading retained state. Keep old binaries/backups and blocked-effect evidence;
+  never clear only the allocation ledger or reset automatically after refusal.
+  No existing canister data is reset by this source update.
+
+### 🧪 Testing
+
+- Freeze a valid Memory 0.55.2 installation with Running intent and verify that
+  recovery and fresh creation refuse it without writes while its Jobs payload
+  still restores as blocked through Job::restore.
+
 ## [0.17.47] - 2026-10-29
 
 ### 📦 Dependencies

@@ -219,8 +219,10 @@ does not qualify it. See [#20](https://github.com/dragginzgame/ic-jobs/issues/20
 
 The current [configuration tests](../crates/ic-jobs/tests/configuration.rs)
 round-trip current records and retain unresolved dispatch as blocked. Frozen
-pre-cut JSON, physical images and Candid replies are negative inputs: their
-presence is refusal evidence, not a compatibility promise. IC Memory's selected
+retired JSON and Candid replies are negative inputs. Earlier physical images are
+ledger-refusal evidence, not a compatibility promise. The frozen Memory 0.55.2
+installation still contains valid current queue JSON whose Running job restores
+as blocked; its outer CBOR ledger refuses without any reset. IC Memory's selected
 `testing::memory_from_sparse_hex` expands the old physical images; Jobs owns their
 producer/schema assertions and three-page fixture ceiling. Both retained opening
 and fresh creation refuse those ledgers with zero writes and identical backing
