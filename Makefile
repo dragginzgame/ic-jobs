@@ -125,7 +125,7 @@ check-dependency-boundaries:
 # Jobs owns these concrete exclusions; Shared owns observation and matching.
 CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-cdk-macros \
 	ic-cdk-executor ic-cdk-timers ic-platform ic-platform-macros ic0 ic-memory ic-stable-structures ic-storage \
-	ic-timers ic-metrics ic-wire ic-wire-derive postcard ic-build ic-host-fs ic-host-process ic-testkit \
+	ic-timers ic-metrics ic-logging ic-wire ic-wire-derive postcard ic-build ic-host-fs ic-host-process ic-testkit \
 	ic-testkit-candid ic-testkit-native jobs-test-consumer pocket-ic serde_json serde_test
 QUALIFICATION_GRAPH_FORBIDDEN := clap ctrlc ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native pocket-ic tokio
@@ -148,7 +148,7 @@ check-dependency-graphs:
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \
 		--forbid ic-cdk --forbid ic-platform-macros --forbid-feature ic-platform/cdk \
 		--forbid ic-jobs --forbid ic-memory --forbid ic-timers --forbid serde_json \
-		--forbid ic-stable-structures --forbid ic-cdk-executor --forbid ic0 --forbid ic-metrics \
+		--forbid ic-stable-structures --forbid ic-cdk-executor --forbid ic0 --forbid ic-metrics --forbid ic-logging \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-canister-tests \
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \

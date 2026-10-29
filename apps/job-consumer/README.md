@@ -11,6 +11,9 @@ Wasm builds and native tests, so the recovery harness can share the DTOs without
 pulling in the consumer's storage or timer implementation. The existing native
 normal/build graph check enforces this boundary.
 
+IC Logging is likewise selected only for consumer Wasm and native tests. The
+published Jobs library and normal native DTO/codec graph do not depend on it.
+
 Native notification snapshots serialize validated jobs directly. Maintenance
 keeps its validated job, cache entries and effect counter in one snapshot,
 committing after each completed occurrence. Both readers decode records and
@@ -180,7 +183,7 @@ dependencies. The [workspace catalog](../../Cargo.toml),
 [lockfile](../../Cargo.lock) and [handoff](../../docs/status/current.md) own
 selection and source-bound qualification.
 
-The ten live recovery scenarios retain their explicit gate. Native tests and
+The live recovery scenarios retain their explicit gate. Native tests and
 cross-compilation do not establish installed callback/trap/upgrade behavior.
 
 Live recovery scenarios install only the sender by default; delivery scenarios
@@ -228,7 +231,7 @@ make install-consumer-server
 make test-canister
 ```
 
-To qualify the selected Binaryen optimizer against the same ten live recovery
+To qualify the selected Binaryen optimizer against the same live recovery
 scenarios, explicitly prepare it with `make install-ic-tools`, then run
 `make test-canister-optimized`. This tests the original Wasm and its `-O3`, `-Os`
 and `-Oz` outputs using the input's declared Wasm features. The Rust capture tool
@@ -332,3 +335,43 @@ version is a conservative continuity label. Only reset or reconstruction clears 
 Native fixtures prove commit/refusal ordering and report encoding, with zero
 stable payload changes on failed commits/reset. New IC instruction/cycle costs and
 actual trap rollback of metrics have not been measured or installed-qualified.
+
+## Committed transition logs
+
+The consumer uses IC Logging 0.17.1 for a heap-only history of the most recent
+128 events. Each retained message is at most 192 UTF-8 bytes and labels are at
+most 32 bytes. Count eviction bounds history; there is no age-retention timer.
+Queue reconstruction starts an empty history and zero omitted count, without
+backfilling durable jobs. `reset_job_metrics` does not clear history or reuse its
+sequence IDs. A sequence belongs only to this heap instance; never carry a cursor
+across reconstruction or use canister version alone as a durable log generation.
+
+After a successful stable commit, dispatch records its job, occurrence, attempt
+and retry classification. Local and remote outcomes record their admitted
+classification, distinguishing explicit reconciliation from ordinary completion.
+An uncertain result stays uncertain. Messages contain neither delivery payloads
+nor caller/destination principals. Idle work, stale/mismatched completions and
+failed stable writes add no events. A diagnostic append refusal increments a
+wide, overflow-aware omitted counter without changing committed work or retry
+authority. Count eviction is not an append refusal. The host converts its
+explicit transition timestamp from nanoseconds to whole seconds.
+
+Manager-only `job_logs` takes `JobLogRequest { before, min_level, limit }` through
+the existing management Wire budgets. Limits from one through eight are admitted;
+every query scans at most 32 rows, newest first. Follow `next_before` even when a
+filtered page has no matches, keeping the same filter. `scanned` is work examined,
+not a matching total. Queries copy bounded DTOs and do not mutate history.
+Canister version accompanies the response as host context. This history is
+diagnostic evidence only; durable jobs and exact receipts own effect/retry state.
+Heap observations share IC message rollback; installed trap/upgrade behaviour
+requires the explicitly selected live qualification.
+
+The local queue demo exposes the same protected reader:
+
+```bash
+logs
+logs --before 8
+```
+
+Use the cursor returned by the preceding page. The demo reports eight rows per
+page and leaves severity filtering available through the typed Wire request.

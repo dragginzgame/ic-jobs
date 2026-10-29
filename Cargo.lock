@@ -908,6 +908,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ic-logging"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4fbc28227f168b78913328b3c848361127fdafea5e83119e512b0ba4a80ba0b"
+
+[[package]]
 name = "ic-management-canister-types"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1298,6 +1304,7 @@ name = "jobs-test-consumer"
 version = "0.17.42"
 dependencies = [
  "ic-jobs",
+ "ic-logging",
  "ic-memory",
  "ic-metrics",
  "ic-platform",
