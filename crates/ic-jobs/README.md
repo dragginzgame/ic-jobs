@@ -187,6 +187,68 @@ initial state succeeds. A failed first reconciliation leaves the consumer slot
 empty and releases the new callback; retry can install the callback supplied
 by that retry. Later failures retain existing authority.
 
+## Adapter integration contract
+
+A framework adapter composes the public Jobs API with its host's persistence,
+authorization, lifecycle and effect execution. The packaged
+`examples/persisted_job.rs` is a runnable reference:
+
+```text
+cargo run -p ic-jobs --locked --example persisted_job
+```
+
+It retains one job and its immutable payload in a bounded JSON snapshot. Atomic
+byte replacement and a counted destination substitute for storage and transport;
+the example does not establish IC rollback, timer delivery or a production codec.
+Its assertions cover rejected intent commits, failed completion commits, cold
+restoration of Running intent, blocked uncertainty and exact receipt resolution
+without another effect. The example's 4 KiB ceiling is consumer policy.
+
+| Owner | Responsibility |
+| --- | --- |
+| IC Jobs | Validate JobRecord history, transition attempts and select due work |
+| Host/adapter | Storage transactions, identity allocation, authorization, budgets, lifecycle and wakeups |
+| Application/destination | Immutable payload meaning, effects, receipt authentication and retry-safety evidence |
+
+An adapter follows this ordering:
+
+1. Obtain trusted caller/time context. Decode within consumer byte/work limits,
+   check collection identities and bounds, and restore every candidate through
+   `Job::restore`, including future and blocked records. Never initialize or
+   replace retained state merely because decoding or restoration fails.
+2. Apply `start_next` to a bounded tentative candidate set. Atomically commit
+   the Running record, immutable payload and any due-index changes **before**
+   exposing a delivery intent. A failed write discards tentative jobs and leaves
+   committed bytes, indexes and published in-memory authority unchanged.
+3. Reconcile the host's wakeup from committed global demand. A deadline from a
+   partial candidate batch is not the whole queue's next deadline. On IC, failure
+   to rearm must trap/rollback the same message segment before effects escape.
+4. Execute the effect through an explicit application handler. Watchdog callbacks
+   remain synchronous and bounded; asynchronous calls use consumer-owned
+   continuations. Durable `ExecutionId` identifies the logical effect across
+   retries; the iterator index is temporary and `Attempt` identifies one dispatch.
+5. After a reply or await, reload current committed authority. Check the exact
+   attempt and immutable payload, classify the result, then commit the transition
+   before publishing success or reconciling the next wakeup. A failed result
+   commit may leave Running intent even though the destination performed an effect.
+
+On reconstruction, open the host's committed storage and validate retained
+records before reconstructing the volatile watchdog and invoking downstream hooks.
+Memory/Timers integrations share the host's selected runtime identities and keep
+allocation bootstrap and lifecycle ownership at the host composition point.
+
+Running and Uncertain records remain blocked. Missing replies, timeouts and
+transport rejection alone establish neither success nor permission to repeat.
+Use `finish(..., Outcome::Uncertain)` for a restored Running attempt when its
+result cannot be established, then `resolve` only with explicit result or
+retry-safety evidence. Authenticate receipt sources outside Jobs; an `Attempt`
+is correlation data, not an authorization credential. Never reuse a job ID or
+change an occurrence's payload under the same effect identity.
+
+No storage trait, global handler registry, lifecycle export or timer provider is
+required from this library. Framework-specific endpoint models, management
+authorization, metrics attribution and reset policy remain with their consumers.
+
 ## 0.14 API cut
 
 The two batch functions accept finite iterators of job references. Existing direct

@@ -161,8 +161,12 @@ Candid, process or server dependency.
 On Wasm, Platform 0.7's `cdk` feature supplies explicit-codec entrypoints, raw calls,
 system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
-2.0.0 and ic0 1.2.0 remain shared with Timers 0.31.15 through one Platform 0.7
+2.0.0 and ic0 1.2.0 remain shared with Timers 0.31.16 through one Platform 0.7
 identity, enforced by the consumer's Wasm dependency graph check.
+Metrics 0.16.5 reaches the Wasm only through Timers' existing counters and
+summaries. Its optional `recording` feature is not selected, and the consumer
+does not use measurement windows. No heap recording, persistence or Metrics
+endpoint is added. Published `ic-jobs` remains independent of Metrics.
 Native DTOs and recovery tests explicitly select Platform 0.7's `principal`
 feature. The application uses its owned Principal; PocketIC calls retain the
 external Principal and convert explicitly when constructing application DTOs.

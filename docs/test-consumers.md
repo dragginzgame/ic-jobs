@@ -1,5 +1,38 @@
 # Test consumers
 
+## Adapter acceptance checklist
+
+Use this checklist when adopting Jobs through a host adapter such as Canic.
+The packaged [persisted-job example](../crates/ic-jobs/examples/persisted_job.rs)
+and [adapter contract](../crates/ic-jobs/README.md#adapter-integration-contract)
+describe the commit and recovery sequence. Adapter implementations qualify their
+own persistence and transport boundaries using equivalent scenarios.
+
+| Required observation | Existing native reference |
+| --- | --- |
+| Failed intent commit exposes no delivery and preserves committed state | [notification_commit_failure_never_exposes_delivery](../apps/job-consumer/tests/composition.rs) |
+| Failed result commit and a lost reply reconcile without repeating the effect | [lost_reply_and_failed_result_commit_reconcile_without_redelivery](../apps/job-consumer/tests/composition.rs) |
+| Restored intent remains blocked even if the effect was never submitted | [interruption_before_delivery_keeps_committed_intent_blocked](../apps/job-consumer/tests/composition.rs) |
+| A known safe retry keeps its payload and rejects old replies | [known_rejection_retries_same_payload_and_rejects_old_reply](../apps/job-consumer/tests/composition.rs) |
+| Reconciliation requires exact payload/effect evidence | [reconciliation_requires_matching_payload_and_prefers_success_evidence](../apps/job-consumer/tests/composition.rs) |
+| Invalid records refuse before effects, including records not currently due | [management_validates_future_records_before_reads_or_mutation](../apps/job-consumer/tests/composition.rs) |
+| Authorization precedes private storage access | [management_refuses_unauthorized_calls_before_decoding_or_writing](../apps/job-consumer/tests/composition.rs) |
+| Failed management commits preserve the previous queue deadline | [management_commit_failures_preserve_queue_and_derived_wakeup](../apps/job-consumer/tests/composition.rs) |
+| Retained allocation bindings and blocked effects survive cold reopening | [host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects](../apps/job-consumer/tests/composition.rs) |
+
+Native tests establish composition and refusal behavior. Installed acceptance
+must separately cover upgrade reconstruction, same-message rollback of storage
+and timer changes, and lost replies followed by receipt recovery. Existing
+[canister recovery cases](../crates/jobs-canister-tests/tests/recovery.rs) include
+`management_upgrade_and_real_watchdog_delivery`,
+`synchronous_trap_rolls_back_storage_identity_and_timer_changes`,
+`invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot`, and
+`lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver`.
+They qualify this repository's fixture on its recorded graph; a Canic adapter
+needs its own installed evidence for its actual storage, endpoints and lifecycle.
+
+## Existing consumer qualification
+
 Run `make test-consumers` for two small application-owned consumers in
 [the integration fixture](../apps/job-consumer/tests/composition.rs). The target tests
 the public scheduling API and direct Timers composition on Rust 1.91, using the

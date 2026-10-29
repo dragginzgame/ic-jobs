@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.17.40]
+
+### 📚 Documentation
+
+- Extend the packaged persisted-job example into an adapter reference with
+  commit-failure injection, blocked reconstruction and exact receipt recovery.
+  Document the host integration contract and link existing native/installed
+  recovery scenarios as an adapter acceptance checklist. No public API changes.
+
+### 📦 Dependencies
+
+- Adopt Memory/Storage 0.53.1, Build/Host/Testkit 0.69.8, Platform 0.7.4,
+  Timers 0.31.16 and Wire 0.7.21. Memory fixes backing-claim teardown ordering;
+  Jobs APIs, restore checks, stored formats and uncertainty handling remain unchanged.
+- Qualify transitive Metrics 0.16.5 through Timers. Optional heap recording stays
+  disabled; Jobs remains Serde-only and needs no Metrics API or storage migration.
+- Prepare selected contributor CLIs with
+  `make install-testkit-tools install-release-tools` after updating dependencies.
+
 ## [0.17.39] - 2026-10-28
 
 ### 📦 Dependencies

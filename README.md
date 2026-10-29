@@ -11,8 +11,11 @@ contains usage examples, checked configuration, batch scheduling, timer
 integration and migration requirements. The packaged guide remains self-contained.
 See [SAFETY.md](SAFETY.md) for persistence and recovery obligations.
 
-Run `cargo run -p ic-jobs --locked --example persisted_job` for a runnable
-reconstruction example. The unpublished [canister consumer](apps/job-consumer/README.md)
+Run `cargo run -p ic-jobs --locked --example persisted_job` for the packaged
+[adapter example](crates/ic-jobs/examples/persisted_job.rs), including failed
+commits and receipt reconciliation. The [adapter contract](crates/ic-jobs/README.md#adapter-integration-contract)
+and [acceptance checklist](docs/test-consumers.md#adapter-acceptance-checklist)
+describe the host obligations. The unpublished [canister consumer](apps/job-consumer/README.md)
 demonstrates application-owned storage, management and lifecycle integration.
 Its PocketIC harness is compiled by CI; live qualification is explicitly selected.
 
