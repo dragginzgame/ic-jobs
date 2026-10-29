@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.17.45]
+
+### 📦 Dependencies
+
+- Adopt Metrics/Logging 0.17.2, preserving counter and heap-history behavior.
+  Logging's new checkpoint APIs do not change this consumer's heap-only policy
+  or require a data migration.
+- Adopt Memory/Storage 0.55.0, preserving allocation custody and collection
+  formats. The upstream Metrics Stable format cut does not affect Jobs, which
+  does not use that adapter; no retained-data reset or caller migration is needed.
+- Adopt Build/Host/Testkit 0.69.13 and its lock-selected contributor CLIs through
+  `make install-testkit-tools install-release-tools`. Preserve command admission,
+  artifact retention, PocketIC selection and published Jobs APIs.
+
 ## [0.17.44] - 2026-10-29
 
 ### ➕ Added

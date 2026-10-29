@@ -166,7 +166,7 @@ system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
 2.0.0 and ic0 1.2.0 remain shared with Timers 0.32 through one Platform 0.7
 identity, enforced by the consumer's Wasm dependency graph check.
-The consumer and Timers share Metrics 0.17.1. The consumer selects its arithmetic
+The consumer and Timers share Metrics 0.17.2. The consumer selects its arithmetic
 and reset-window bookkeeping only on Wasm and in tests; native DTOs remain
 independent of Metrics. The Wasm timer subtree contains neither Wire nor Candid.
 The consumer's own Wire dependency supplies its endpoint codecs. Metrics has no
@@ -342,7 +342,7 @@ actual trap rollback of metrics have not been measured or installed-qualified.
 
 ## Committed transition logs
 
-The consumer uses IC Logging 0.17.1 for a heap-only history of the most recent
+The consumer uses IC Logging 0.17.2 for a heap-only history of the most recent
 128 events. Each retained message is at most 192 UTF-8 bytes and labels are at
 most 32 bytes. Count eviction bounds history; there is no age-retention timer.
 Queue reconstruction starts an empty history and zero omitted count, without
