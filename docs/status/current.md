@@ -2,88 +2,85 @@
 
 ## Accepted scope and inputs
 
-Released baseline: `f8fc7325af316fa5ca84b26a701e5e57059006f0` (Jobs 0.17.41).
-The accepted uncommitted batch implements consumer-owned job-outcome metrics and
-repairs the macOS demo tooling fixture. The compatible draft is 0.17.42: published
-Jobs APIs, runtime dependencies, stored records and existing Wire replies remain
-unchanged. Package versions remain 0.17.41. Staging, commits, pushes, release and
-publication remain maintainer-owned.
+Released baseline: `f38aef08584a7ad632961eb4c3dcc4e01f4509a3` (Jobs 0.17.42).
+The accepted batch adopts Metrics 0.17.1 and Platform/macros 0.7.6. These versions
+were already selected in the incoming dirty lockfile; root requirements now match.
+Targeted registry resolution selected no further packages. Other selections remain
+Build/Host/Testkit 0.69.11, Memory/Storage 0.54.0, Timers 0.32.0 and Wire/derive
+0.7.21. Existing feature lists are unchanged. Siblings remain read-only.
 
-Concurrent lock selections were preserved, not chosen by this task: Build/Host/
-Testkit 0.69.11 and Platform/macros 0.7.5. The qualified graph also contains
-Memory/Storage 0.54.0, Timers 0.32.0, Metrics 0.17.0 and Wire/derive 0.7.21.
-The only task-owned lock change adds Metrics to the unpublished consumer's edges.
+The compatible draft is 0.17.43: the published Jobs contract, Serde-only runtime,
+stored formats and supported Rust floor are unchanged. No consumer migration or
+retained-data reset is required. Package versions remain 0.17.42. Staging,
+commits, pushes, release and publication remain maintainer-owned.
 Shared Tooling remains reviewed 0.26.25 at
 `6b6bbd9c9e5798f0ecf6105637392a7a55cd450e` (121 verified payloads).
-Sibling repositories stayed read-only; snapshot payloads are unchanged.
 
-## Delivered behavior
+## Producer review and adoption
 
-The consumer composes fixed shared MeasurementCounters and a MeasurementWindow
-for committed dispatch, retry dispatch, success, retryable failure, permanent
-failure, uncertainty and explicit reconciliation. Observations publish only after
-Cell commits succeed; stale/refused operations, idle turns and failed writes add
-nothing. Retry exhaustion does not reclassify an admitted outcome. Repeated
-still-uncertain resolution counts reconciliation/uncertainty, never success.
+Metrics release `53eb4ee9599c8585cf83f5e7f43031f7671b8543` moves the repository
+to IC Observability and gives the existing published crate its package README.
+Arithmetic, counters, windows, overflow quality and dependency/feature boundaries
+are unchanged; the sole Metrics source difference is a transport doc comment.
+The new unpublished Logging crate and dirty producer edits are not adopted.
 
-Manager-only `job_metrics` and `reset_job_metrics` use distinct unit-request Wire
-identities and existing budgets. The demo exposes `metrics` and `reset-metrics`.
-Reports preserve u128 totals, sticky actual-overflow flags, trusted IC canister
-version and the shared nonwrapping reset sequence. Reset touches neither stable
-bytes nor timers. Reconstruction starts an empty window; observations do not
-backfill durable records. Compare only within the same canister/version and
-available reset sequence. Settings changes can advance version without resetting
-counts. No dynamic labels or histogram are needed by this reporting requirement.
+Platform release `8871f672dfbff7cbafb3e542508fdb97ae7bd376` shares endpoint
+planning with typed external adapters and centralizes bounded reply decoding.
+Explicit guard/decode/encode paths, caller-selected arity and nesting admission
+remain intact. Jobs keeps its existing Wire endpoints, raw unbounded call path,
+Principal conversions and caller-owned outcome handling. No generic wrapper,
+physical retry, transport ownership change or new policy is needed.
 
-Metrics is selected directly only for consumer Wasm/tests. Native DTOs remain
-independent primitive projections; published Jobs remains Serde-only. The
-[consumer guide](../../apps/job-consumer/README.md#committed-job-outcome-diagnostics)
-owns the report semantics and limitations. Owning scope:
-[#76 — Add bounded job-outcome Metrics at committed consumer transitions](https://github.com/dragginzgame/ic-jobs/issues/76).
-
-Both macOS jobs in [CI run 40845742688](https://github.com/dragginzgame/ic-jobs/actions/runs/40845742688)
-failed in the demo-command fixture: direct recipe Cargo escaped its stub PATH
-and ran outside a Cargo workspace. The fixture now binds stub PATH before
-launching Make, covering direct and recursive recipes, and prints its retained
-failure log while preserving exit status. Linux legacy-tool probes alone did not
-reproduce the native executable-lookup behavior; native macOS rerun remains due.
-
-## Maintained contracts
+## Maintained runtime and diagnostics
 
 Consumer storage, metadata, lifecycle, effect and timer authority remain local.
 Every restore crosses Job::restore; uncertain effects remain blocked until explicit
 exact-receipt disposition. Error ordering, retries, task/scheduling policy and
-stable/Wire formats remain unchanged. Metrics reset cannot unblock work.
-Backing identity, exclusive allocation custody and dropping all handles before
-reopening remain required. Native VectorMemory tests do not establish IC recovery.
+stable/Wire formats remain unchanged. Backing identity and exclusive allocation
+custody remain required; all handles drop before reopening.
+
+Released 0.17.42 metrics observe only successful consumer commits. Fixed shared
+counters distinguish dispatch/retry, admitted outcomes and explicit resolution;
+stale callbacks, refused operations, idle turns and failed writes add nothing.
+Manager-only job_metrics/reset_job_metrics and CLI metrics/reset-metrics preserve
+u128 totals, actual-overflow flags, trusted IC version and nonwrapping reset
+sequence. Reset changes neither durable bytes, retry authority nor timers.
+Reopening starts empty observations; compare only within the same canister/version
+and available reset sequence. IC settings may advance version without clearing
+counts. Native DTOs stay independent; keyed recording remains disabled.
+The [consumer guide](../../apps/job-consumer/README.md#committed-job-outcome-diagnostics)
+owns these report semantics and limitations.
 
 ## Qualification and remaining work
 
-Evidence: `/tmp/ic-jobs-metrics-macos.dHKxquDK/` retains the base, incoming handoff,
-qualified lock/metadata, macOS failure artifact, command logs, tools/inputs,
-consumer Wasm and final patch. Failed legacy-tool bootstrap attempts are retained
-alongside the successful clean Bash 3.2.57 build and fixture run.
+Current evidence: `/tmp/ic-jobs-metrics-platform.kiF7mYHj/` retains the incoming
+lock/patch/handoff and released base, reviewed producer deltas and VCS identities,
+registry resolution, qualified metadata/lock, command logs, Wasm and final patch.
 
-Fresh checks pass: snapshot/pins/boundaries and all five dependency graphs;
-strict native consumer/harness and consumer Wasm Clippy; 57 Rust 1.91 consumer
-unit/Wire/composition tests; focused native capture/parser/reply-budget tests;
-Rust 1.91 release consumer Wasm; ShellCheck with sourced helpers; formatting,
-document links and diff checks. The seven-phase consumer tooling fixture passes
-with current Linux tools and Linux-built GNU Make 3.81/Bash 3.2.57. Substitute
-compiler/server/optimizer effects prove caller wiring, not installed recovery.
+Fresh checks pass: snapshot/pins/boundaries and all five dependency graphs,
+strict native consumer/harness and consumer Wasm Clippy, 57 Rust 1.91 consumer
+unit/Wire/composition tests, six native capture/parser/reply-budget tests and the
+Rust 1.91 release consumer Wasm. Formatting, documentation links and diff
+consistency pass. Results are bound to the source, graph and compiler identities.
+Core Rust 1.91 native/Wasm evidence remains applicable to unchanged runtime
+source/features/Serde at `/tmp/ic-jobs-upstream-adoption.0jRpTmuM/`.
 
-The new ignored live metrics authorization/reset/upgrade case is compiled but
-not executed. The harness now has ten explicitly gated live cases. Native macOS
-Intel/Apple Silicon CI and current-graph PocketIC acceptance remain outstanding;
-full make ci and live qualification were not selected. No new instruction/cycle
-cost or actual IC metrics trap-rollback claim is made. Platform call ownership
-and current installed qualification remain separate in
+Prior consumer metrics/macOS fixture evidence is retained at
+`/tmp/ic-jobs-metrics-macos.dHKxquDK/`: 57 native consumer tests and current/legacy
+Linux tooling fixtures passed. The fixture binds stub PATH before Make starts and
+prints retained failures. Its scripts and Tooling selections are unchanged by
+this adoption, so their current-tool and Make 3.81/Bash 3.2.57 caller evidence is
+reused; Linux does not establish native macOS executable lookup or recovery.
+
+The ten explicitly gated live recovery cases compile but were not executed for
+this graph. Native macOS Intel/Apple Silicon and current-graph PocketIC acceptance
+remain outstanding; full make ci and live qualification were not selected. No new
+IC instruction/cycle cost or metrics trap-rollback claim is made. Direct Platform
+call ownership and installed recovery remain separate in
 [#75 — Keep job-consumer ICC execution under Platform ownership](https://github.com/dragginzgame/ic-jobs/issues/75).
 
-Core Rust 1.91 native/Wasm evidence remains applicable to unchanged runtime
-source/features/Serde at `/tmp/ic-jobs-upstream-adoption.0jRpTmuM/`. Prior adapter
-reference evidence remains at `/tmp/ic-jobs-adapter-reference.rbwXpr7F/` and
-Memory adoption evidence at `/tmp/ic-jobs-memory054.sqjjQkAo/`; their older graphs
+Prior adapter evidence remains at `/tmp/ic-jobs-adapter-reference.rbwXpr7F/` and
+Memory adoption evidence at `/tmp/ic-jobs-memory054.sqjjQkAo/`. Their older graphs
 do not establish current installed acceptance. The last recorded three-host live
 qualification used Jobs 0.17.14/Tooling 0.63.2:
 [108 successful executions](https://github.com/dragginzgame/ic-jobs/actions/runs/39618054793).

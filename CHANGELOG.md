@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.17.43]
+
+### 📦 Dependencies
+
+- Adopt Metrics 0.17.1 and Platform/macros 0.7.6 in the qualification consumer
+  and native harness. Metrics retains its arithmetic and published crate identity
+  after the IC Observability repository move; Platform retains explicit endpoint
+  codecs and bounded decoding. Jobs APIs, stored formats and retry authority are
+  unchanged; no consumer migration is required.
+
 ## [0.17.42] - 2026-10-29
 
 ### ➕ Added

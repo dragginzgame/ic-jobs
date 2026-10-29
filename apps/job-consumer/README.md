@@ -163,12 +163,16 @@ system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
 2.0.0 and ic0 1.2.0 remain shared with Timers 0.32 through one Platform 0.7
 identity, enforced by the consumer's Wasm dependency graph check.
-The consumer and Timers share Metrics 0.17. The consumer selects its arithmetic
+The consumer and Timers share Metrics 0.17.1. The consumer selects its arithmetic
 and reset-window bookkeeping only on Wasm and in tests; native DTOs remain
 independent of Metrics. The Wasm timer subtree contains neither Wire nor Candid.
 The consumer's own Wire dependency supplies its endpoint codecs. Metrics has no
 optional `wire` feature; its optional keyed heap `recording` feature stays disabled.
 Published `ic-jobs` remains independent of Metrics.
+Metrics now lives in the IC Observability repository with the same published
+crate identity and arithmetic. Platform 0.7.6 retains the explicit endpoint codecs
+and bounded external decoding used by this consumer and its host harness; no
+application or retained-data migration is required.
 Native DTOs and recovery tests explicitly select Platform 0.7's `principal`
 feature. The application uses its owned Principal; PocketIC calls retain the
 external Principal and convert explicitly when constructing application DTOs.
