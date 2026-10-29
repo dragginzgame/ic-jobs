@@ -1,86 +1,93 @@
 # Current handoff
 
-## Accepted scope and inputs
+## Accepted scope and merge state
 
-Released baseline: `f38aef08584a7ad632961eb4c3dcc4e01f4509a3` (Jobs 0.17.42).
-The accepted batch adopts Metrics 0.17.1 and Platform/macros 0.7.6. These versions
-were already selected in the incoming dirty lockfile; root requirements now match.
-Targeted registry resolution selected no further packages. Other selections remain
-Build/Host/Testkit 0.69.11, Memory/Storage 0.54.0, Timers 0.32.0 and Wire/derive
-0.7.21. Existing feature lists are unchanged. Siblings remain read-only.
+Released local baseline: `f06b09fbf6f38c9a0644a95a47732ccff46e43b5` (Jobs 0.17.43).
+The current local merge brings in `9552abb0adb05b5e0f9add6955fde7bb6efcaa50`,
+the remote merge of [PR #77 — Add bounded transition logs to the Jobs consumer](https://github.com/dragginzgame/ic-jobs/pull/77).
+The user requested conflict resolution. The two conflicts are CHANGELOG.md and
+this handoff; retain the automatically merged implementation and dependency graph.
+The merge is ready for the maintainer's commit after resolution is staged.
+No release, publication or push is part of this conflict repair.
 
-The compatible draft is 0.17.43: the published Jobs contract, Serde-only runtime,
-stored formats and supported Rust floor are unchanged. No consumer migration or
-retained-data reset is required. Package versions remain 0.17.42. Staging,
-commits, pushes, release and publication remain maintainer-owned.
-Shared Tooling remains reviewed 0.26.25 at
-`6b6bbd9c9e5798f0ecf6105637392a7a55cd450e` (121 verified payloads).
+The released 0.17.43 dependency notes remain intact. Pending compatible Logging
+notes move to 0.17.44; package versions remain 0.17.43. Published Jobs APIs,
+Serde-only runtime, stored formats and Rust 1.91 floor are unchanged. No migration
+or retained-data reset is needed. Existing staging outside the two conflicts is
+preserved. Sibling repositories remain read-only.
 
-## Producer review and adoption
+## Combined selections and producer review
 
-Metrics release `53eb4ee9599c8585cf83f5e7f43031f7671b8543` moves the repository
-to IC Observability and gives the existing published crate its package README.
-Arithmetic, counters, windows, overflow quality and dependency/feature boundaries
-are unchanged; the sole Metrics source difference is a transport doc comment.
-The new unpublished Logging crate and dirty producer edits are not adopted.
+The merged graph retains Metrics 0.17.1, Platform/macros 0.7.6 and adds registry
+Logging 0.17.1 only for the unpublished consumer's Wasm/test edges. Native DTOs do
+not depend on Logging or Metrics. Build/Host/Testkit 0.69.11, Memory/Storage
+0.54.0, Timers 0.32.0 and Wire/derive 0.7.21 remain selected; no other dependency
+update is required by conflict resolution. Shared Tooling remains reviewed 0.26.25
+at `6b6bbd9c9e5798f0ecf6105637392a7a55cd450e` (121 payloads).
 
-Platform release `8871f672dfbff7cbafb3e542508fdb97ae7bd376` shares endpoint
-planning with typed external adapters and centralizes bounded reply decoding.
-Explicit guard/decode/encode paths, caller-selected arity and nesting admission
-remain intact. Jobs keeps its existing Wire endpoints, raw unbounded call path,
-Principal conversions and caller-owned outcome handling. No generic wrapper,
-physical retry, transport ownership change or new policy is needed.
+Metrics producer `53eb4ee9599c8585cf83f5e7f43031f7671b8543` moved the repository
+to IC Observability without changing arithmetic, counter/window semantics or
+feature boundaries. Platform producer `8871f672dfbff7cbafb3e542508fdb97ae7bd376`
+shares endpoint planning and bounded decoder internals while preserving explicit
+codecs, caller-selected arity and nesting admission. Jobs retains its raw
+unbounded call path and caller-owned outcome handling, without physical retry.
 
-## Maintained runtime and diagnostics
+## Diagnostics and runtime contracts
+
+Metrics observes successful committed transitions only, distinguishing dispatch,
+retry, admitted outcomes and explicit uncertain-effect reconciliation. Refused
+operations, stale callbacks, idle turns and failed writes add nothing. Reports
+preserve u128 totals, actual-overflow flags, trusted IC version and nonwrapping
+reset sequence. Manager-only reset changes neither durable bytes nor timers.
+Reopening starts empty; compare within one canister/version and available reset
+sequence. Settings changes may advance version without clearing counters.
+
+Logging owns bounded heap retention and cursor scans. The consumer records
+redacted dispatch/outcome/reconciliation context after successful commits:
+128 events, 192-byte messages and 32-byte labels. Manager-only job_logs returns
+at most eight matches after scanning at most 32 rows; empty filtered pages may
+carry a continuation cursor. Append refusal increments an overflow-aware omitted
+counter without changing committed work. Reconstruction starts empty; metrics
+reset preserves logs. Cursors belong to one heap instance. There is no age timer,
+stable log store or log reset. The demo exposes logs [--before SEQUENCE].
+The [consumer guide](../../apps/job-consumer/README.md#committed-transition-logs)
+owns logging semantics; its metrics section retains the outcome report contract.
 
 Consumer storage, metadata, lifecycle, effect and timer authority remain local.
-Every restore crosses Job::restore; uncertain effects remain blocked until explicit
-exact-receipt disposition. Error ordering, retries, task/scheduling policy and
-stable/Wire formats remain unchanged. Backing identity and exclusive allocation
-custody remain required; all handles drop before reopening.
+Every restore crosses Job::restore. Uncertain effects remain blocked until explicit
+exact-receipt disposition; diagnostics never authorize retry or imply success.
+Error ordering, task/scheduling policy and stable/Wire formats are unchanged.
+Backing identity, exclusive custody and dropping all handles before reopening
+remain required. Core Jobs stays independent of storage, Logging and Metrics.
 
-Released 0.17.42 metrics observe only successful consumer commits. Fixed shared
-counters distinguish dispatch/retry, admitted outcomes and explicit resolution;
-stale callbacks, refused operations, idle turns and failed writes add nothing.
-Manager-only job_metrics/reset_job_metrics and CLI metrics/reset-metrics preserve
-u128 totals, actual-overflow flags, trusted IC version and nonwrapping reset
-sequence. Reset changes neither durable bytes, retry authority nor timers.
-Reopening starts empty observations; compare only within the same canister/version
-and available reset sequence. IC settings may advance version without clearing
-counts. Native DTOs stay independent; keyed recording remains disabled.
-The [consumer guide](../../apps/job-consumer/README.md#committed-job-outcome-diagnostics)
-owns these report semantics and limitations.
+## Qualification and evidence
 
-## Qualification and remaining work
+Conflict inputs, original index/staged patch and final resolution evidence are
+retained at `/tmp/ic-jobs-conflicts.GFrtQa01/`. Conflict repair changes only these
+two documents. Focused checks cover local links, formatting, diff consistency,
+locked metadata, snapshot integrity and dependency boundaries/graphs. Existing
+implementation files and lock selection are preserved; no runtime suite is
+repeated for the documentation resolution.
 
-Current evidence: `/tmp/ic-jobs-metrics-platform.kiF7mYHj/` retains the incoming
-lock/patch/handoff and released base, reviewed producer deltas and VCS identities,
-registry resolution, qualified metadata/lock, command logs, Wasm and final patch.
+PR head `8c6f1f5ced01cd59141651c2fc26bfba90cdf241` passed ordinary CI on Linux,
+Apple Silicon macOS and Intel macOS in
+[run 40861537940](https://github.com/dragginzgame/ic-jobs/actions/runs/40861537940).
+That graph used Metrics 0.17.0/Platform 0.7.5; it establishes native macOS caller
+qualification for that PR, including the earlier Make fixture repair. Review and
+merge evidence is `/tmp/ic-jobs-pr77.wuvimOgp/`; original Logging checks are
+`/tmp/ic-jobs-logging-*.log` and its isolated checkout `/tmp/ic-jobs-logging-20261029`.
 
-Fresh checks pass: snapshot/pins/boundaries and all five dependency graphs,
-strict native consumer/harness and consumer Wasm Clippy, 57 Rust 1.91 consumer
-unit/Wire/composition tests, six native capture/parser/reply-budget tests and the
-Rust 1.91 release consumer Wasm. Formatting, documentation links and diff
-consistency pass. Results are bound to the source, graph and compiler identities.
-Core Rust 1.91 native/Wasm evidence remains applicable to unchanged runtime
-source/features/Serde at `/tmp/ic-jobs-upstream-adoption.0jRpTmuM/`.
-
-Prior consumer metrics/macOS fixture evidence is retained at
-`/tmp/ic-jobs-metrics-macos.dHKxquDK/`: 57 native consumer tests and current/legacy
-Linux tooling fixtures passed. The fixture binds stub PATH before Make starts and
-prints retained failures. Its scripts and Tooling selections are unchanged by
-this adoption, so their current-tool and Make 3.81/Bash 3.2.57 caller evidence is
-reused; Linux does not establish native macOS executable lookup or recovery.
-
-The ten explicitly gated live recovery cases compile but were not executed for
-this graph. Native macOS Intel/Apple Silicon and current-graph PocketIC acceptance
-remain outstanding; full make ci and live qualification were not selected. No new
-IC instruction/cycle cost or metrics trap-rollback claim is made. Direct Platform
-call ownership and installed recovery remain separate in
+Dependency-adoption evidence at `/tmp/ic-jobs-metrics-platform.kiF7mYHj/` passed
+57 Rust 1.91 consumer tests, six native harness tests, strict native/Wasm Clippy,
+release consumer Wasm and dependency/document checks before Logging was combined.
+Those separate graph results do not establish current combined installed recovery.
+The eleven gated live recovery cases remain separately selected; no combined
+live PocketIC, native macOS matrix or IC cost claim is made by conflict repair.
+Platform call ownership and current installed qualification remain tracked in
 [#75 — Keep job-consumer ICC execution under Platform ownership](https://github.com/dragginzgame/ic-jobs/issues/75).
 
-Prior adapter evidence remains at `/tmp/ic-jobs-adapter-reference.rbwXpr7F/` and
-Memory adoption evidence at `/tmp/ic-jobs-memory054.sqjjQkAo/`. Their older graphs
-do not establish current installed acceptance. The last recorded three-host live
+Earlier evidence remains at `/tmp/ic-jobs-metrics-macos.dHKxquDK/`,
+`/tmp/ic-jobs-upstream-adoption.0jRpTmuM/`, `/tmp/ic-jobs-memory054.sqjjQkAo/` and
+`/tmp/ic-jobs-adapter-reference.rbwXpr7F/`. The last recorded three-host live
 qualification used Jobs 0.17.14/Tooling 0.63.2:
 [108 successful executions](https://github.com/dragginzgame/ic-jobs/actions/runs/39618054793).

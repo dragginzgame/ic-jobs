@@ -12,6 +12,7 @@ use ic_platform::Principal;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Create, Delivery, DeliveryPayload, Error, Init, Status, Task, Timing, View};
+use crate::logging::{Event, JobLogs};
 use crate::metrics::{Counts, JobWindow};
 
 const MAX_JOBS: usize = 32;
@@ -201,6 +202,7 @@ pub(crate) struct Queue<M: Memory> {
     cell: FixtureCell<M>,
     init: Init,
     metrics: JobWindow,
+    logs: JobLogs,
 }
 
 fn job_error(error: ic_jobs::JobError) -> Error {
@@ -289,6 +291,7 @@ impl<M: Memory> Queue<M> {
                 cell,
                 init: snapshot.init,
                 metrics: JobWindow::new(Counts::EMPTY),
+                logs: JobLogs::new(),
             },
             next_due_ns,
         ))
@@ -321,6 +324,16 @@ impl<M: Memory> Queue<M> {
         self.authorize(caller)?;
         self.metrics.reset(Counts::EMPTY);
         self.job_metrics(caller, version)
+    }
+
+    pub(crate) fn job_logs(
+        &self,
+        caller: Principal,
+        request: crate::api::JobLogRequest,
+        version: u64,
+    ) -> Result<crate::api::JobLogPage, Error> {
+        self.authorize(caller)?;
+        self.logs.page(request, version)
     }
 
     fn load(&self) -> Result<Snapshot<Job>, Error> {
@@ -442,6 +455,7 @@ impl<M: Memory> Queue<M> {
         let mut deliveries = vec![];
         let mut work = 0;
         let mut observations = Counts::EMPTY;
+        let mut events = Vec::with_capacity(BATCH * 2);
         for _ in 0..BATCH {
             let Some((index, attempt)) =
                 start_next(snapshot.jobs.iter_mut().map(|entry| &mut entry.job), now)
@@ -450,7 +464,9 @@ impl<M: Memory> Queue<M> {
                 break;
             };
             work += 1;
-            observations.dispatch(snapshot.jobs[index].job.record().attempts > 1);
+            let retry = snapshot.jobs[index].job.record().attempts > 1;
+            observations.dispatch(retry);
+            events.push(Event::Dispatch { attempt, retry });
             match &snapshot.jobs[index].task {
                 Task::Increment(amount) => {
                     // Known local failure has no effect; dispose of this job
@@ -466,6 +482,11 @@ impl<M: Memory> Queue<M> {
                         .finish(attempt, now, outcome)
                         .map_err(job_error)?;
                     observations.outcome(outcome, false);
+                    events.push(Event::Outcome {
+                        attempt,
+                        outcome,
+                        reconciled: false,
+                    });
                 }
                 Task::Deliver(_) => deliveries.push(snapshot.jobs[index].delivery()?),
             }
@@ -474,6 +495,9 @@ impl<M: Memory> Queue<M> {
             // Commit the complete batch before delivery envelopes escape.
             let committed = self.commit(snapshot, DispatchBatch { deliveries, work })?;
             self.metrics.state_mut().merge(observations);
+            for event in events {
+                self.logs.record(now, event);
+            }
             Ok(committed)
         } else {
             // Idle batches project existing durable state without writing it.
@@ -525,6 +549,14 @@ impl<M: Memory> Queue<M> {
         }
         let committed = self.commit(snapshot, ())?;
         self.metrics.state_mut().outcome(outcome, reconciled);
+        self.logs.record(
+            now,
+            Event::Outcome {
+                attempt,
+                outcome,
+                reconciled,
+            },
+        );
         Ok(committed)
     }
 
