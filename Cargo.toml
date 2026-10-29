@@ -29,12 +29,12 @@ ic-host-process = { version = "0.70.0", default-features = false }
 ic-jobs = { path = "crates/ic-jobs" }
 ic-logging = { version = "0.17.2", default-features = false }
 ic-memory = "0.55.0"
-ic-metrics = { version = "0.17.2", default-features = false }
+ic-metrics = { version = "0.17.4", default-features = false }
 ic-platform = { version = "0.8.1", default-features = false }
 ic-storage = "0.55.0"
 ic-testkit = "0.70.0"
 ic-testkit-native = "0.70.0"
-ic-timers = "0.32.0"
+ic-timers = "0.32.1"
 ic-wire = "0.7.22"
 jobs-test-consumer = { path = "apps/job-consumer" }
 serde_json = "1.0"

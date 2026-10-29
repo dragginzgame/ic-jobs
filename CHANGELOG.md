@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.17.47]
+
+### 📦 Dependencies
+
+- Adopt Timers 0.32.1 and Metrics 0.17.4, preserving timer APIs, counter
+  arithmetic, stored records and uncertainty handling. The consumer, Memory and
+  Timers now share Platform 0.8; restore the single-facade graph requirement.
+  Qualify the retained Wire/derive 0.7.23 selection without codec/protocol changes.
+
+### 🧪 Testing
+
+- Extend installed watchdog recovery coverage to verify that dispatch, success
+  and permanent-failure counters roll back with a trapped message.
+  [#76 — Add bounded job-outcome Metrics at committed consumer transitions](https://github.com/dragginzgame/ic-jobs/issues/76).
+
+### 📚 Documentation
+
+- Specify the consumer's single-attempt Platform transport and exact-receipt
+  recovery boundary, keeping retry authority with durable Jobs state.
+  [#75 — Keep job-consumer ICC execution under Platform ownership](https://github.com/dragginzgame/ic-jobs/issues/75).
+
 ## [0.17.46] - 2026-10-29
 
 ### 📦 Dependencies

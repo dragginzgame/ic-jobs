@@ -562,6 +562,12 @@ fn watchdog_batch_trap_rolls_back_then_recovers_without_repeating_local_effects(
         )
         .unwrap();
     assert!(logs.entries.is_empty());
+    let metrics: jobs_test_consumer::api::JobMetrics = fixture
+        .query(fixture.sender, Method::JobMetrics, ())
+        .unwrap();
+    assert_eq!(metrics.dispatched.total, 0);
+    assert_eq!(metrics.succeeded.total, 0);
+    assert_eq!(metrics.permanent_failures.total, 0);
     assert_eq!(rolled_back.next_due_ns, Some(due));
     assert!(rolled_back.armed);
 

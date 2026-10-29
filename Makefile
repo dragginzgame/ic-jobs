@@ -129,7 +129,7 @@ CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-
 	ic-testkit-candid ic-testkit-native jobs-test-consumer pocket-ic serde_json serde_test
 QUALIFICATION_GRAPH_FORBIDDEN := clap ctrlc ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native pocket-ic tokio
-# The fixture and Memory use Platform 0.8; published Timers retains 0.7 re-exports.
+# The fixture, Memory and Timers share Platform 0.8.
 # Keep one executor, raw-system provider and entrypoint generator, without
 # application Principal conversion or hashing in the deployed graph.
 .PHONY: check-dependency-graphs
@@ -143,7 +143,7 @@ check-dependency-graphs:
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target wasm32-unknown-unknown --all-features \
 		--require ic-timers=1 --require ic-cdk-executor=1 --require ic0=1 \
-		--max-count ic-platform=2 --require ic-platform-macros=1 \
+		--require ic-platform=1 --require ic-platform-macros=1 \
 		--forbid sha2 --forbid-feature ic-platform/principal-external \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \

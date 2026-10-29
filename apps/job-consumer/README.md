@@ -36,8 +36,8 @@ signatures must retain the original immutable frame bytes.
 
 Native codec tests retain Jobs' envelope shapes, method selection, resource
 limits and refusal/uncertainty behavior. Exhaustive prefix truncation and generic
-integer canonicality proofs stay with the selected Wire 0.7.22
-[native tests](https://github.com/dragginzgame/ic-wire/blob/ac08fdc1757b7d3f1483caecadd7ac1c817a30d8/crates/ic-wire/tests/native/mod.rs).
+integer canonicality proofs stay with the selected Wire 0.7.23
+[native tests](https://github.com/dragginzgame/ic-wire/blob/e90aed4f7dc0cd7ee31a9bcfb211044220ab0cec/crates/ic-wire/tests/native/mod.rs).
 Jobs keeps representative truncated payloads and malformed replies at its own
 request/reply boundaries, alongside the separately selected live endpoint tests.
 
@@ -164,13 +164,11 @@ Candid, process or server dependency.
 On Wasm, Platform 0.8's `cdk` feature supplies explicit-codec entrypoints, raw calls,
 system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
-2.0.0 and ic0 1.2.0 remain shared with Timers 0.32. Published Timers retains
-Platform 0.7 for narrow executor/IC0 re-exports; Memory uses Platform 0.8. The Wasm graph
-admits these two facade identities, with one executor, IC0 provider and Platform
-0.8 entrypoint generator. It excludes application principal conversion and SHA-2,
-keeping the older facade's principal/runtime capabilities out of the deployed
-selection. Stable-structures retains its own external Principal dependency.
-The consumer and Timers share Metrics 0.17.2. The consumer selects its arithmetic
+2.0.0 and ic0 1.2.0 remain shared with Timers 0.32.1 and Memory through one
+Platform 0.8 identity. The Wasm graph requires one executor, IC0 provider and
+entrypoint generator and excludes application principal conversion and SHA-2.
+Stable-structures retains its own external Principal dependency.
+The consumer and Timers share Metrics 0.17.4. The consumer selects its arithmetic
 and reset-window bookkeeping only on Wasm and in tests; native DTOs remain
 independent of Metrics. The Wasm timer subtree contains neither Wire nor Candid.
 The consumer's own Wire dependency supplies its endpoint codecs. Metrics has no
@@ -207,6 +205,16 @@ the same envelope returns its existing receipt; conflicting payload/attempt
 evidence is refused. `reconcile_delivery` reads a retained receipt and finishes
 the exact blocked attempt. Missing evidence leaves the job blocked. Management
 authentication and receiver authentication are independent of correlation IDs.
+
+Each submission goes directly through Platform's `Call::unbounded_wait` once,
+with the application-owned Wire frame encoded before the call. Running intent
+commits before delivery escapes. Transport rejection or invalid reply bytes leave
+the effect uncertain; the transport performs no physical retry or fallback.
+Reopening, upgrading or losing a call future cannot authorize redispatch.
+Reconciliation requires the exact retained receiver receipt. Fixed borrowed
+method names fit the supported raw Platform route; no `ic-call` adapter is needed.
+The [Platform ownership issue](https://github.com/dragginzgame/ic-jobs/issues/75)
+records the source-bound installed qualification.
 
 `init` creates state. `post_upgrade` bootstraps/open-validates retained memory,
 restores the complete bounded queue, initializes Timers and reconstructs the
@@ -345,8 +353,11 @@ Settings changes can advance the IC version without clearing heap counters; the
 version is a conservative continuity label. Only reset or reconstruction clears counts.
 
 Native fixtures prove commit/refusal ordering and report encoding, with zero
-stable payload changes on failed commits/reset. New IC instruction/cycle costs and
-actual trap rollback of metrics have not been measured or installed-qualified.
+stable payload changes on failed commits/reset. Linux live recovery also checks
+that dispatch, success and permanent-failure observations roll back with a trapped
+watchdog message. The [handoff](../../docs/status/current.md) binds that observation
+to its source/graph and original/optimized Wasm. IC instruction/cycle costs remain
+unmeasured; other hosts retain their own qualification.
 
 ## Committed transition logs
 

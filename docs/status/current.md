@@ -2,98 +2,95 @@
 
 ## Accepted scope and inputs
 
-Released baseline: `23ae2c813bfd60ca20ec377f6745045235e33b41` (Jobs 0.17.45).
-The accepted pending batch adopts Platform/macros 0.8.1, now extended with
-Build/Host/Testkit 0.70.0 and Wire/derive 0.7.22. Root requirements match the new
-Tooling/Wire selections; existing feature lists and frozen vectors are retained.
-Concurrent lock updates are preserved: Memory/Storage 0.55.2 and Metrics 0.17.3.
-Logging stays 0.17.2 and Timers 0.32.0. Sibling repositories stay read-only.
+Released baseline: `878e93c752ff5777ad5b11ba2e44611b3c0c319e` (Jobs 0.17.46).
+The user authorized completing outstanding issues, current CI inspection and
+qualification of incoming Timers 0.32.1/Metrics 0.17.4 lock selections. Root
+requirements now match those releases. The retained Wire/derive 0.7.23 selection
+is also qualified. Build/Host/Testkit 0.70.0, Platform/macros 0.8.1, Memory/Storage
+0.55.2 and Logging 0.17.2 remain selected. Siblings stayed read-only.
 
-The compatible draft remains 0.17.46; package versions remain 0.17.45. Published
-Jobs APIs, Serde-only runtime, Rust 1.91 floor, stored formats and principal bytes
-are unchanged. No data reset or published-library migration is needed. Staging,
-commits, pushes, releases and publication remain maintainer-owned.
+The compatible draft is 0.17.47; package versions remain 0.17.46. Public Jobs
+APIs, Serde-only runtime, stored formats, principal bytes and Rust 1.91 floor
+are unchanged. No data reset, physical retry or new lifecycle/storage policy is
+introduced. Staging, commits, pushes and release/publication remain user-owned.
 Shared Tooling stays reviewed 0.26.25 at
 `6b6bbd9c9e5798f0ecf6105637392a7a55cd450e` (121 verified payloads).
 
-## Tooling and Wire adoption
+## Dependency and ownership review
 
-Tooling release `ecc8d61d19f0b711788f7e10e5dd728d0db6ff60` adopts Platform 0.8.1.
-Ledger values and owned Registry principals now have that Platform identity;
-Jobs uses neither interface and needs no such caller migration. Testkit explicitly
-selects principal-external and preserves its existing external Principal API.
-Build/Host and the selected Testkit runtime sources are unchanged from 0.69.14.
-The matching CLIs use existing make install-testkit-tools/install-release-tools
-setup and offline admission; PocketIC remains the 16.1.0 client/server pair.
+Timers release `a1dc2856a515ae5bbb8d48bf8e6e49fbc6d881a9` leaves runtime source
+unchanged from 0.32.0 and adopts Platform 0.8.1. All selected consumers now share
+one Platform facade, executor 2.0.0, IC0 1.2.0 and entrypoint generator. The graph
+again requires exactly one Platform identity; the two-facade allowance is removed.
+Wasm excludes application principal conversion and SHA-2, and native DTOs exclude
+ic_principal and SHA-2. Stable-structures retains its independent Principal use.
 
-Wire release `ac08fdc1757b7d3f1483caecadd7ac1c817a30d8` changes producer
-qualification dependencies/comparison coverage only. Wire/derive runtime sources
-and member manifests are unchanged from 0.7.21. Jobs retains method identities,
-Wire/JSON bytes, decode/reply/node/depth/allocation budgets and admission behavior.
-The frozen principal-platform076.json vectors are preserved, never regenerated
-with the new codec. Their old producer and hash remain in the
-[fixture guide](../../apps/job-consumer/tests/fixtures/README.md#principal-transport-continuity).
+Metrics 0.17.4 only refactors histogram restoration relative to 0.17.3; counter,
+window and transport behavior are unchanged. Wire 0.7.23 leaves runtime sources
+and member manifests unchanged from 0.7.22. Existing fields, budgets, frame IDs,
+encoded principal values and the independent frozen vectors remain unchanged.
+The consumer uses neither stable diagnostics adapter; their format cuts do not
+require map retirement, reset epochs or data migration here.
 
-## Platform selections and runtime contract
+The application submits each owned Wire envelope directly through Platform's
+Call::unbounded_wait once. It commits Running intent before dispatch, preserves
+exact job/occurrence/attempt/payload/receipt identities, and blocks uncertain
+work until explicit disposition. Rejects/invalid replies are not no-effect proof.
+Reopening, upgrade, timeout or abandoned futures never authorize redispatch.
+Platform explicitly supports this raw borrowed-method route; no ic-call adapter,
+generic call layer, fallback or mandatory Relay dependency is needed.
+The [consumer guide](../../apps/job-consumer/README.md) records this boundary.
 
-Platform 0.8.1 producer `10c2610511d6a5525816185c999b25fd159c1d89` retains owned
-principal bytes/Serde and CDK runtime behavior. Conversion/hashing are explicit.
-Normal native DTOs select principal; consumer tests select principal-self-authenticating.
-The harness selects pocket-ic plus hashing, with external conversions implied
-by PocketIC. The deployed app selects principal/cdk without hashing/conversion.
-ICRC DTOs and native profiler source-profile requirements are outside Jobs' features.
+Every decoded job still crosses Job::restore. Metadata, allocation, stable state,
+clock, timer, lifecycle and effect authority stay consumer-owned. Error ordering,
+retry/scheduling policy, allocation custody and existing stable/Wire formats stay
+intact. All handles drop before reopening a backing.
 
-Memory/Storage 0.55.2 and native Testkit now share Platform 0.8.1. Published
-Timers 0.32.0 still uses Platform 0.7.6 solely for executor/ic0 re-exports. The
-graph admits at most two facade identities while requiring one Timers, executor
-2.0.0, IC0 1.2.0 and Platform-macros 0.8.1. Wasm excludes principal-external and
-SHA-2; native DTOs exclude ic_principal and SHA-2. Stable-structures independently
-retains ic_principal. Candid/full CDK exclusions remain intact. There is no sibling
-override or compatibility facade. The [graph guide](../../README.md#dependency-exposure)
-and [consumer guide](../../apps/job-consumer/README.md) own these selections.
+Metrics observes committed transitions with wide totals, actual-overflow flags
+and nonwrapping reset sequence; reset changes no job or timer authority. Logs
+remain bounded, redacted and heap-only, independent of metrics reset. Diagnostics
+never establish effect completion or permit retry. Reconstruction starts empty;
+heap window/cursor identity cannot promise durable continuity.
 
-Consumer metadata, storage, lifecycle, timer and effect authority remain local.
-Every restore crosses Job::restore; uncertain effects stay blocked until explicit
-exact-receipt disposition. Error ordering, retry/scheduling policy and stored
-records are unchanged. Exclusive custody and dropping all handles before reopening
-remain required. Jobs uses neither Metrics Stable nor Logging Stable.
+## Local qualification
 
-Metrics records successful committed transitions only, retaining u128 totals,
-overflow quality, trusted IC version and nonwrapping reset sequence. Reset cannot
-change durable records or timers. Reopen starts empty; compare within one
-canister/version and available reset sequence. Logging retains 128 redacted heap
-events with 192-byte messages and 32-byte labels. Its protected reader scans at
-most 32 rows and returns eight matches; filtered empty pages may continue.
-Refused appends increment an overflow-aware omitted counter without refusing
-committed work. Reopen clears logs; metrics reset preserves them. Heap cursors
-are never durable identity. No stable log store, age timer or log reset is added.
+Evidence: `/tmp/ic-jobs-issue-qualification.qMGHSSmz/` retains incoming inputs,
+producer reviews, qualified metadata/lock, ownership review, command logs and
+final patch. Local source is released HEAD plus the saved working-tree changes.
+Fresh passes include snapshot/pins/boundaries/all five graphs, strict native
+consumer/harness and Wasm Clippy, 61 Rust 1.91 consumer tests, six native harness
+tests, and the Rust 1.91 release Wasm built by the live gate. Server/optimizer
+and both selected Tooling CLI bytes are prepared/admitted. Links/format/diff checks
+cover the maintained documents. Full make ci was not selected locally.
 
-## Qualification and remaining work
+Actual Linux PocketIC 16.1.0 evidence is retained at
+`/tmp/ic-jobs-issue-qualification.qMGHSSmz/live/jobs-recovery.Tdw2kS/`.
+All eleven recovery cases pass on original/O3/Os/Oz Wasm: 44 installed executions.
+The existing watchdog trap case now additionally checks zero dispatch/success/
+permanent-failure metrics after rollback. This new assertion is uncommitted and
+qualified on Linux; hosted tag runs do not contain it. No instruction/cycle cost
+claim is made. Source, lock, optimizer, Wasm hashes and server logs are retained.
 
-Current evidence: `/tmp/ic-jobs-tooling070-wire0722.q0s4pZzw/` retains incoming
-pending patch/lock/handoff/frozen vectors/Wasm, producer review and VCS identities,
-empty Wire runtime diff, qualified graph, command logs and final artifacts.
-An initial offline metadata attempt lacked already-selected Wire source; explicit
-locked preparation completed before qualification. Passing evidence is graph-bound.
+## Delivered acceptance and hosted work
 
-Fresh passes: all five graphs and snapshot/declaration checks; strict native
-consumer/harness and Wasm Clippy; 61 Rust 1.91 consumer tests, six native harness
-tests and release consumer Wasm; both selected CLI setup/admission, all seven
-consumer tooling phases, release-metadata fixtures, formatting, links and diff.
-Exact outcomes and identities are in the
-evidence directory. Core 1.91 native/Wasm evidence remains applicable to unchanged
-source/features/Serde at `/tmp/ic-jobs-upstream-adoption.0jRpTmuM/`.
+Latest delivered [0.17.46 CI](https://github.com/dragginzgame/ic-jobs/actions/runs/40905859960)
+passes Linux, Apple Silicon macOS and Intel macOS. Issue
+[#76 — Add bounded job-outcome Metrics at committed consumer transitions](https://github.com/dragginzgame/ic-jobs/issues/76)
+is closed with implementation/current-CI acceptance evidence. No histogram is
+needed by the selected fixed-counter reporting requirement.
 
-Full make ci, native macOS and live PocketIC are not selected. Eleven live
-recovery cases remain explicitly gated; compilation/native fixtures establish
-neither IC recovery nor instruction/cycle/rollback costs. Current installed
-recovery and Platform call ownership remain tracked in
-[#75 — Keep job-consumer ICC execution under Platform ownership](https://github.com/dragginzgame/ic-jobs/issues/75).
+[#75 — Keep job-consumer ICC execution under Platform ownership](https://github.com/dragginzgame/ic-jobs/issues/75)
+remains open while [hosted recovery 40909177479](https://github.com/dragginzgame/ic-jobs/actions/runs/40909177479)
+finishes. It was explicitly dispatched on immutable v0.17.46/878e93c: eleven cases
+x original/O3/Os/Oz x Linux/Apple Silicon/Intel. Linux and Apple Silicon passed;
+Intel is preparing Testkit. Its result must be observed before full acceptance or closing
+that issue. Its delivered graph uses Timers 0.32.0/Metrics 0.17.3/Wire 0.7.22;
+it is distinct from the local newer-dependency qualification above.
 
-Prior evidence remains at `/tmp/ic-jobs-platform08.IrOFhP58/`,
-`/tmp/ic-jobs-memory055.HcVkLZC1/`, `/tmp/ic-jobs-upstream.LcvPwy08/`,
-`/tmp/ic-jobs-pr77.wuvimOgp/` and `/tmp/ic-jobs-adapter-reference.rbwXpr7F/`.
-[PR #77 CI](https://github.com/dragginzgame/ic-jobs/actions/runs/40861537940) passed
-Linux and both macOS hosts on its older graph. The last recorded three-host live
-run used Jobs 0.17.14:
-[108 successful executions](https://github.com/dragginzgame/ic-jobs/actions/runs/39618054793).
+Prior evidence remains at `/tmp/ic-jobs-tooling070-wire0722.q0s4pZzw/`,
+`/tmp/ic-jobs-platform08.IrOFhP58/`, `/tmp/ic-jobs-memory055.HcVkLZC1/`,
+`/tmp/ic-jobs-upstream.LcvPwy08/` and `/tmp/ic-jobs-adapter-reference.rbwXpr7F/`.
+Core floor evidence remains applicable to unchanged source/features/Serde at
+`/tmp/ic-jobs-upstream-adoption.0jRpTmuM/`. Older hosted three-host live evidence
+used Jobs 0.17.14; it is retained historically and is superseded only when the
+new source-bound run completes successfully.

@@ -124,11 +124,9 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
 host-only packages, Candid and full CDK. It requires one Timers, executor,
-raw-system and Platform-macro identity. The app uses Platform 0.8; published
-Timers retains Platform 0.7 only for executor and IC0
-re-exports. The graph admits at most two facade identities while excluding
-principal conversion and SHA-2; this keeps the older facade's principal/runtime
-capabilities out of the Wasm. Executor, IC0 and entrypoint generation stay single.
+raw-system, Platform and Platform-macro identity. The app, Memory and Timers share
+Platform 0.8. The graph excludes application principal conversion and SHA-2;
+executor, IC0 and entrypoint generation stay single.
 A fourth context excludes Jobs, Memory, Timers, JSON and the IC runtime from
 ordinary native consumer builds, including the
 Platform `cdk` feature.
