@@ -13,6 +13,7 @@ publish = false
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 ic-jobs.workspace = true
 ic-memory = { workspace = true, features = ["test-support"] }
+ic-metrics.workspace = true
 ic-platform = { workspace = true, features = ["cdk"] }
 ic-timers.workspace = true
 serde_json.workspace = true
@@ -31,6 +32,7 @@ serde = { workspace = true, features = ["derive"] }
 [dev-dependencies]
 ic-jobs.workspace = true
 ic-memory = { workspace = true, features = ["test-support"] }
+ic-metrics.workspace = true
 ic-storage.workspace = true
 ic-testkit-native = { workspace = true, features = ["stable-memory"] }
 ic-timers.workspace = true

@@ -12,6 +12,7 @@ use ic_platform::Principal;
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Create, Delivery, DeliveryPayload, Error, Init, Status, Task, Timing, View};
+use crate::metrics::{Counts, JobWindow};
 
 const MAX_JOBS: usize = 32;
 const MAX_BYTES: usize = 24 * 1024;
@@ -199,6 +200,7 @@ fn receipt_key(delivery: &Delivery) -> (u64, u64) {
 pub(crate) struct Queue<M: Memory> {
     cell: FixtureCell<M>,
     init: Init,
+    metrics: JobWindow,
 }
 
 fn job_error(error: ic_jobs::JobError) -> Error {
@@ -286,6 +288,7 @@ impl<M: Memory> Queue<M> {
             Self {
                 cell,
                 init: snapshot.init,
+                metrics: JobWindow::new(Counts::EMPTY),
             },
             next_due_ns,
         ))
@@ -296,6 +299,28 @@ impl<M: Memory> Queue<M> {
             return Err(Error::Unauthorized);
         }
         Ok(())
+    }
+
+    pub(crate) fn job_metrics(
+        &self,
+        caller: Principal,
+        version: u64,
+    ) -> Result<crate::api::JobMetrics, Error> {
+        self.authorize(caller)?;
+        Ok(self
+            .metrics
+            .state()
+            .snapshot(self.metrics.sequence(), version))
+    }
+
+    pub(crate) fn reset_job_metrics(
+        &mut self,
+        caller: Principal,
+        version: u64,
+    ) -> Result<crate::api::JobMetrics, Error> {
+        self.authorize(caller)?;
+        self.metrics.reset(Counts::EMPTY);
+        self.job_metrics(caller, version)
     }
 
     fn load(&self) -> Result<Snapshot<Job>, Error> {
@@ -416,6 +441,7 @@ impl<M: Memory> Queue<M> {
         let mut snapshot = self.load()?;
         let mut deliveries = vec![];
         let mut work = 0;
+        let mut observations = Counts::EMPTY;
         for _ in 0..BATCH {
             let Some((index, attempt)) =
                 start_next(snapshot.jobs.iter_mut().map(|entry| &mut entry.job), now)
@@ -424,6 +450,7 @@ impl<M: Memory> Queue<M> {
                 break;
             };
             work += 1;
+            observations.dispatch(snapshot.jobs[index].job.record().attempts > 1);
             match &snapshot.jobs[index].task {
                 Task::Increment(amount) => {
                     // Known local failure has no effect; dispose of this job
@@ -438,13 +465,16 @@ impl<M: Memory> Queue<M> {
                         .job
                         .finish(attempt, now, outcome)
                         .map_err(job_error)?;
+                    observations.outcome(outcome, false);
                 }
                 Task::Deliver(_) => deliveries.push(snapshot.jobs[index].delivery()?),
             }
         }
         if work > 0 {
             // Commit the complete batch before delivery envelopes escape.
-            self.commit(snapshot, DispatchBatch { deliveries, work })
+            let committed = self.commit(snapshot, DispatchBatch { deliveries, work })?;
+            self.metrics.state_mut().merge(observations);
+            Ok(committed)
         } else {
             // Idle batches project existing durable state without writing it.
             Ok(Committed {
@@ -487,12 +517,15 @@ impl<M: Memory> Queue<M> {
             return Err(Error::ReceiptMismatch);
         }
         let job = &mut snapshot.jobs[index].job;
-        if matches!(job.record().state, JobState::Uncertain { .. }) {
+        let reconciled = matches!(job.record().state, JobState::Uncertain { .. });
+        if reconciled {
             job.resolve(attempt, now, outcome).map_err(job_error)?;
         } else {
             job.finish(attempt, now, outcome).map_err(job_error)?;
         }
-        self.commit(snapshot, ())
+        let committed = self.commit(snapshot, ())?;
+        self.metrics.state_mut().outcome(outcome, reconciled);
+        Ok(committed)
     }
 
     fn authorize_delivery_sender(&self, caller: Principal) -> Result<(), Error> {

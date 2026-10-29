@@ -137,3 +137,51 @@ fn management_contract_admits_current_requests_and_refuses_retired_candid() {
             .is_err()
     );
 }
+
+#[test]
+fn job_metrics_wire_keeps_wide_totals_quality_and_distinct_reset_identity() {
+    use jobs_test_consumer::api::{CounterMetric, Error, JobMetrics};
+    let exact = CounterMetric {
+        total: u128::MAX,
+        overflowed: false,
+    };
+    let clipped = CounterMetric {
+        total: u128::MAX,
+        overflowed: true,
+    };
+    let report = JobMetrics {
+        canister_version: 7,
+        reset_sequence: None,
+        dispatched: exact,
+        retry_dispatches: clipped,
+        succeeded: exact,
+        retryable_failures: exact,
+        permanent_failures: exact,
+        uncertain: exact,
+        reconciliations: exact,
+    };
+    let frame = native::encode_response(
+        Method::JobMetrics as u64,
+        &Ok::<_, Error>(report),
+        RESPONSE_LIMITS,
+    )
+    .unwrap();
+    assert_eq!(
+        native::decode_response::<Result<JobMetrics, Error>>(
+            Method::JobMetrics as u64,
+            &frame,
+            RESPONSE_LIMITS
+        )
+        .unwrap(),
+        Ok(report)
+    );
+    let reset =
+        native::encode_request(Method::ResetJobMetrics as u64, &(), REQUEST_LIMITS).unwrap();
+    assert!(
+        native::decode_request::<()>(Method::ResetJobMetrics as u64, &reset, REQUEST_LIMITS)
+            .is_ok()
+    );
+    assert!(
+        native::decode_request::<()>(Method::JobMetrics as u64, &reset, REQUEST_LIMITS).is_err()
+    );
+}

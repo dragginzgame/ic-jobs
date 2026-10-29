@@ -45,6 +45,10 @@ pub enum Method {
     DispatchTrapResult = 0x4a4f42534d470012,
     /// Allocate intent without delivery.
     CreateBlocked = 0x4a4f42534d470013,
+    /// Inspect consumer-owned heap job observations.
+    JobMetrics = 0x4a4f42534d470014,
+    /// Reset diagnostics without changing durable job state.
+    ResetJobMetrics = 0x4a4f42534d470015,
 }
 
 impl Method {
@@ -71,6 +75,8 @@ impl Method {
             Self::MarkUncertain => "fixture_mark_uncertain",
             Self::DispatchTrapResult => "fixture_dispatch_trap_result",
             Self::CreateBlocked => "fixture_create_blocked",
+            Self::JobMetrics => "job_metrics",
+            Self::ResetJobMetrics => "reset_job_metrics",
         }
     }
 }

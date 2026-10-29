@@ -89,6 +89,10 @@ enum QueueCommand {
     },
     /// Read the current schedule and execution counts
     List,
+    /// Read committed job-outcome observations for this canister/version/window
+    Metrics,
+    /// Clear diagnostic counters without changing jobs or retry state
+    ResetMetrics,
     /// Fast-forward IC time once, then deliver 32 canister rounds
     Advance {
         #[arg(value_parser = duration, value_name = "duration")]
@@ -406,6 +410,16 @@ impl Demo {
                 self.show()?;
             }
             QueueCommand::List => self.show()?,
+            QueueCommand::Metrics => {
+                let metrics: jobs_test_consumer::api::JobMetrics =
+                    self.query(Method::JobMetrics, &())?;
+                println!("{metrics:#?}");
+            }
+            QueueCommand::ResetMetrics => {
+                let metrics: jobs_test_consumer::api::JobMetrics =
+                    self.update(Method::ResetJobMetrics, &())?;
+                println!("{metrics:#?}");
+            }
             QueueCommand::Advance { duration } => {
                 self.advance(*duration, None)?;
             }
@@ -504,6 +518,14 @@ mod tests {
 
     #[test]
     fn durations_and_commands_reject_invalid_or_unbounded_input() {
+        assert!(matches!(
+            Prompt::try_parse_from(["metrics"]).unwrap().command,
+            QueueCommand::Metrics
+        ));
+        assert!(matches!(
+            Prompt::try_parse_from(["reset-metrics"]).unwrap().command,
+            QueueCommand::ResetMetrics
+        ));
         for (input, seconds) in [
             ("5s", 5),
             ("2m", 120),

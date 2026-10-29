@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.17.42]
+
+### ➕ Added
+
+- Add consumer-owned job-outcome diagnostics using IC Metrics counters at
+  committed dispatch, completion and reconciliation boundaries. Manager-only
+  `job_metrics` and `reset_job_metrics` Wire methods, and `metrics`/`reset-metrics`
+  demo commands, expose wide totals and overflow quality scoped to the canister
+  version and heap reset window. Stored Jobs state and retry authority are unchanged.
+  [#76 — Add bounded job-outcome Metrics at committed consumer transitions](https://github.com/dragginzgame/ic-jobs/issues/76).
+
+### 🩹 Fixed
+
+- Bind demo fixture Cargo stubs before launching Make, preserving direct and
+  recursive command isolation on macOS's GNU Make 3.81. Print the retained demo
+  log on failure while preserving its exit status.
+
 ## [0.17.41] - 2026-10-29
 
 ### 📦 Dependencies

@@ -33,6 +33,22 @@ needs its own installed evidence for its actual storage, endpoints and lifecycle
 
 ## Existing consumer qualification
 
+The canister consumer's fixed job-outcome counters are updated after successful
+queue commits, independently of Timers' callback observations. Native queue tests
+cover committed local success/permanent failure, retry dispatch, uncertainty,
+explicit reconciliation, stale/mismatched receipts, rejected Cell writes,
+authorization, reset nonmutation and empty windows after reconstruction. The
+Wire test preserves u128 totals, actual-overflow flags and distinct inspection/reset
+method identities. These tests do not establish actual IC trap rollback or costs.
+The ignored live case `job_metrics_are_authorized_resettable_and_restart_on_upgrade`
+checks manager access, reset nonmutation and empty observations after upgrade;
+it has been compiled but has not yet been executed against PocketIC.
+
+The tooling fixture binds its Cargo stubs in Make's incoming PATH, including
+direct and recursive demo recipes on macOS GNU Make 3.81. Failed demo commands
+print their retained log and preserve the original exit status. The existing
+recorded-command cases still verify build/admission order and refused effects.
+
 Run `make test-consumers` for two small application-owned consumers in
 [the integration fixture](../apps/job-consumer/tests/composition.rs). The target tests
 the public scheduling API and direct Timers composition on Rust 1.91, using the
@@ -182,7 +198,7 @@ includes these checks without launching a server. Explicit Testkit CLI/server
 preparation and `make test-canister` select the live upgrade, rollback, watchdog
 and lost-result scenarios. Durable management now covers pause/resume,
 unstarted-occurrence rescheduling, wakeup reconstruction and real management trap
-rollback. The current eight-case harness also checks Wire endpoint refusal,
+rollback. The current ten-case live harness also checks Wire endpoint refusal,
 authorization and receipt persistence. It needs source-bound live qualification;
 historical receipts do not establish that its current graph passes. See
 [#23](https://github.com/dragginzgame/ic-jobs/issues/23). Completed

@@ -911,3 +911,49 @@ fn durable_management_reconstructs_wakeups_and_traps_roll_back_changes() {
     assert_eq!(fixture.view(id).sequence, 1);
     assert!(!fixture.summary(fixture.sender).armed);
 }
+
+#[test]
+#[ignore = "explicit local canister qualification: make test-canister"]
+fn job_metrics_are_authorized_resettable_and_restart_on_upgrade() {
+    use jobs_test_consumer::api::JobMetrics;
+    let fixture = Fixture::new();
+    let initial: JobMetrics = fixture
+        .query(fixture.sender, Method::JobMetrics, ())
+        .unwrap();
+    assert_eq!(initial.dispatched.total, 0);
+    assert_eq!(initial.reset_sequence, Some(0));
+    let unauthorized: Result<JobMetrics, Error> = query_wire(
+        fixture.pic.instance(),
+        fixture.sender,
+        ExternalPrincipal::anonymous(),
+        wire::control(Method::JobMetrics),
+        &(),
+    )
+    .unwrap();
+    assert_eq!(unauthorized, Err(Error::Unauthorized));
+    let unauthorized: Result<JobMetrics, Error> = fixture
+        .update_as(ExternalPrincipal::anonymous(), Method::ResetJobMetrics, ())
+        .unwrap();
+    assert_eq!(unauthorized, Err(Error::Unauthorized));
+    let id: u64 = fixture.update(Method::Create, (increment(0, 1),)).unwrap();
+    fixture.update::<(), _>(Method::DispatchDue, ()).unwrap();
+    let completed: JobMetrics = fixture
+        .query(fixture.sender, Method::JobMetrics, ())
+        .unwrap();
+    assert_eq!(completed.dispatched.total, 1);
+    assert_eq!(completed.succeeded.total, 1);
+    let job = fixture.view(id);
+    let reset: JobMetrics = fixture.update(Method::ResetJobMetrics, ()).unwrap();
+    assert_eq!(reset.dispatched.total, 0);
+    assert_eq!(reset.reset_sequence, Some(1));
+    assert_eq!(reset.canister_version, completed.canister_version);
+    assert_eq!(fixture.view(id), job);
+    fixture.upgrade(fixture.sender).unwrap();
+    let reopened: JobMetrics = fixture
+        .query(fixture.sender, Method::JobMetrics, ())
+        .unwrap();
+    assert!(reopened.canister_version > completed.canister_version);
+    assert_eq!(reopened.dispatched.total, 0);
+    assert_eq!(reopened.reset_sequence, Some(0));
+    assert_eq!(fixture.view(id), job);
+}

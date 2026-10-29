@@ -242,7 +242,15 @@ QUEUE
 chmod +x "$JOBS_CONSUMER_CLI" "$fixture/.tools/rust/common/bin/cargo" "$JOBS_CONSUMER_WASM_TARGET/debug/examples/queue"
 for command in demo test-demo test-demo-cli; do
     : > "$fixture/events"
-    make --no-print-directory -j2 -C "$fixture" "$command" > "$fixture/$command.log" 2>&1
+    # Bind stubs in Make's incoming environment as well as its recipe exports.
+    # This isolates direct and recursive recipes on macOS GNU Make 3.81 too.
+    status=0
+    PATH="$fixture/.tools/rust/common/bin:$PATH" \
+        make --no-print-directory -j2 -C "$fixture" "$command" > "$fixture/$command.log" 2>&1 || status=$?
+    if [[ "$status" != 0 ]]; then
+        cat "$fixture/$command.log" >&2
+        exit "$status"
+    fi
     {
         printf 'admission\nserver check\ncargo +1.91.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline\n'
         if [[ "$command" == test-demo ]]; then

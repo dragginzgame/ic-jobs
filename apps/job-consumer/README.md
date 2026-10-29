@@ -163,13 +163,12 @@ system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
 2.0.0 and ic0 1.2.0 remain shared with Timers 0.32 through one Platform 0.7
 identity, enforced by the consumer's Wasm dependency graph check.
-Metrics 0.17 reaches the Wasm only through Timers' existing counters and summaries.
-Serde transport is required and native builds include Metrics-owned Wire metadata;
-the Wasm timer subtree contains neither Wire nor Candid. The consumer's own Wire
-dependency still supplies its endpoint codecs. Metrics has no optional `wire`
-feature, and its optional `recording` feature is not selected. No measurement
-windows, heap recorder, persistence or Metrics endpoint is added. Published
-`ic-jobs` remains independent of Metrics.
+The consumer and Timers share Metrics 0.17. The consumer selects its arithmetic
+and reset-window bookkeeping only on Wasm and in tests; native DTOs remain
+independent of Metrics. The Wasm timer subtree contains neither Wire nor Candid.
+The consumer's own Wire dependency supplies its endpoint codecs. Metrics has no
+optional `wire` feature; its optional keyed heap `recording` feature stays disabled.
+Published `ic-jobs` remains independent of Metrics.
 Native DTOs and recovery tests explicitly select Platform 0.7's `principal`
 feature. The application uses its owned Principal; PocketIC calls retain the
 external Principal and convert explicitly when constructing application DTOs.
@@ -181,7 +180,7 @@ dependencies. The [workspace catalog](../../Cargo.toml),
 [lockfile](../../Cargo.lock) and [handoff](../../docs/status/current.md) own
 selection and source-bound qualification.
 
-The nine live recovery scenarios retain their explicit gate. Native tests and
+The ten live recovery scenarios retain their explicit gate. Native tests and
 cross-compilation do not establish installed callback/trap/upgrade behavior.
 
 Live recovery scenarios install only the sender by default; delivery scenarios
@@ -229,7 +228,7 @@ make install-consumer-server
 make test-canister
 ```
 
-To qualify the selected Binaryen optimizer against the same nine live recovery
+To qualify the selected Binaryen optimizer against the same ten live recovery
 scenarios, explicitly prepare it with `make install-ic-tools`, then run
 `make test-canister-optimized`. This tests the original Wasm and its `-O3`, `-Os`
 and `-Oz` outputs using the input's declared Wasm features. The Rust capture tool
@@ -262,7 +261,7 @@ remain outside the canister and public Jobs normal Wasm dependency graphs.
 
 Select [the recovery workflow](../../.github/workflows/recovery.yml) through
 **Actions → Canister recovery → Run workflow** and choose the
-tag or branch to qualify. This manual trigger runs all nine tests on the original and
+tag or branch to qualify. This manual trigger runs all ten tests on the original and
 three optimized variants on Linux, Apple Silicon and Intel macOS.
 Ordinary push/PR CI still compiles the harness without starting
 PocketIC. See [GitHub's manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
@@ -292,3 +291,44 @@ five-scenario v0.5.6 harness; completed [#20](https://github.com/dragginzgame/ic
 acceptance covers the six-case v0.5.9 harness. Current management/storage inputs
 require their own live evidence in [#23](https://github.com/dragginzgame/ic-jobs/issues/23). Harness
 compilation alone does not establish that acceptance.
+
+## Committed job-outcome diagnostics
+
+The manager can query `job_metrics` or call `reset_job_metrics`; both use distinct
+unit-request Wire identities and the existing request/reply limits. The interactive
+queue client exposes `metrics` and `reset-metrics`. Existing summary/job replies
+and retained snapshots are unchanged. Reset performs no stable write or timer
+reconciliation and cannot change an attempt, retry budget or blocked effect.
+
+The recorder is a fixed heap-local `MeasurementWindow` of `MeasurementCounter`
+values, with no job-ID/payload labels or dynamic table. It observes admitted Jobs
+operations after the owning queue commit succeeds:
+
+| Counter | Unit and admission |
+| --- | --- |
+| dispatched | Committed attempts, including local effects and remote intent |
+| retry_dispatches | Dispatches after the first attempt of an occurrence |
+| succeeded | Committed success, including exact receipt-confirmed resolution |
+| retryable_failures | Committed retry-safe failures; budget exhaustion does not reclassify the outcome |
+| permanent_failures | Committed permanent-failure classifications |
+| uncertain | Committed uncertain results, including repeated unresolved resolutions |
+| reconciliations | Successful committed `Job::resolve` operations, including still-uncertain dispositions |
+
+Refused operations, stale/mismatched callbacks, idle turns and failed writes do
+not increment these counters. Timer callback success is not job success. A
+transport rejection classified as uncertain counts only after that outcome commits.
+Each report preserves u128 totals and sticky actual-overflow flags; an exact
+u128::MAX remains distinct from lost observations. No distribution is collected.
+
+Compare deltas only for the same canister ID, IC canister version and available
+reset sequence. The version is read from Platform at the endpoint, never supplied
+by the request. The shared window advances its local sequence on reset and reports
+None permanently after sequence exhaustion. Upgrades/reopening start empty heap
+observations; they do not backfill history from durable JobRecords or promise
+cross-upgrade continuity. Production query/reset paths retain manager authorization.
+Settings changes can advance the IC version without clearing heap counters; the
+version is a conservative continuity label. Only reset or reconstruction clears counts.
+
+Native fixtures prove commit/refusal ordering and report encoding, with zero
+stable payload changes on failed commits/reset. New IC instruction/cycle costs and
+actual trap rollback of metrics have not been measured or installed-qualified.

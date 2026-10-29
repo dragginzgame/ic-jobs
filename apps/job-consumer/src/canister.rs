@@ -218,6 +218,26 @@ fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error>
     Ok(())
 }
 
+#[cdk::query(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::JobMetrics as u64 }>",
+    encode_with = "encode_control::<_, { Method::JobMetrics as u64 }>"
+)]
+fn job_metrics() -> Result<crate::api::JobMetrics, Error> {
+    with_queue(|queue| queue.job_metrics(cdk::api::msg_caller(), cdk::api::canister_version()))
+}
+
+#[cdk::update(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::ResetJobMetrics as u64 }>",
+    encode_with = "encode_control::<_, { Method::ResetJobMetrics as u64 }>"
+)]
+fn reset_job_metrics() -> Result<crate::api::JobMetrics, Error> {
+    with_queue(|queue| {
+        queue.reset_job_metrics(cdk::api::msg_caller(), cdk::api::canister_version())
+    })
+}
+
 async fn delivery_call(
     delivery: &Delivery,
     method: DeliveryMethod,

@@ -128,6 +128,38 @@ pub struct Summary {
     pub armed: bool,
 }
 
+/// One wide diagnostic counter, including actual-overflow quality.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub struct CounterMetric {
+    /// Total observations; a saturated value is exact only while overflowed is false.
+    pub total: u128,
+    /// At least one observation was lost to actual numeric overflow.
+    pub overflowed: bool,
+}
+
+/// Consumer-owned heap diagnostics; never durable scheduling or retry authority.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub struct JobMetrics {
+    /// Host-supplied IC version; compare only within the same canister/version.
+    pub canister_version: u64,
+    /// Heap-local reset sequence, unavailable after exhaustion; not a durable epoch.
+    pub reset_sequence: Option<u64>,
+    /// Successfully committed dispatch attempts, including local work and retries.
+    pub dispatched: CounterMetric,
+    /// Dispatches after the first attempt of the same occurrence.
+    pub retry_dispatches: CounterMetric,
+    /// Committed success outcomes, including receipt-confirmed success.
+    pub succeeded: CounterMetric,
+    /// Committed outcomes whose owner explicitly established retry safety.
+    pub retryable_failures: CounterMetric,
+    /// Committed permanent-failure outcomes.
+    pub permanent_failures: CounterMetric,
+    /// Committed uncertain outcomes, including unresolved reconciliation observations.
+    pub uncertain: CounterMetric,
+    /// Committed explicit resolutions of previously uncertain effects.
+    pub reconciliations: CounterMetric,
+}
+
 /// Refused management, storage or execution boundary.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Error {
