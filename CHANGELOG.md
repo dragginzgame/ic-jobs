@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.17.46]
+
+### 📦 Dependencies
+
+- Adopt Platform/macros 0.8.1, keeping owned application principals independent
+  of external conversion and hashing. Native tests explicitly select principal
+  hashing and the harness selects PocketIC conversions. Published Timers
+  retains its narrow Platform 0.7 re-exports while sharing one executor, IC0
+  provider and entrypoint generator with the consumer. Jobs APIs, principal bytes,
+  stored formats and retry authority remain unchanged.
+- Adopt Build/Host/Testkit 0.70.0 and Wire/derive 0.7.22. Testkit now shares the
+  consumer's Platform 0.8 types; Jobs needs no ledger or Registry type migration.
+  Prepare the matching contributor CLIs with
+  `make install-testkit-tools install-release-tools`. Wire bytes, codec budgets
+  and stored records remain unchanged.
+
 ## [0.17.45] - 2026-10-29
 
 ### 📦 Dependencies

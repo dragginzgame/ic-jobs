@@ -67,7 +67,7 @@ application's selected target graph and source rather than counting manifests.
 For example, inspect the qualification Wasm's paths with:
 
 ```sh
-cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.7 --locked --offline
+cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.8.1 --locked --offline
 cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-cdk-executor --locked --offline
 ```
 
@@ -78,9 +78,14 @@ selected adoption and its source-bound evidence.
 The qualification app selects Platform's `cdk` feature only on Wasm. Native
 consumer builds explicitly select Platform's `principal` feature for Serde DTOs
 and Wire contracts. Jobs, Memory, Timers and JSON remain Wasm/test dependencies. Parser, Agent,
-certification and crypto features are not selected. Platform 0.7 owns the reviewed
+certification and crypto features are not selected. Platform 0.8 owns the reviewed
 runtime adapters and generator; registry executor 2.0.0 and ic0 1.2.0 remain shared
 with Timers. The qualification Wasm selects neither Candid nor full `ic-cdk`.
+Owned native DTO principals exclude external Principal and SHA-2 dependencies.
+The Wasm application selects neither principal conversion nor SHA-2 hashing;
+stable-structures retains its own external Principal dependency.
+Native tests select `principal-self-authenticating` explicitly;
+the harness's `pocket-ic` feature supplies external conversions.
 
 Installation, management, fixture controls and delivery use IC Wire native Serde
 frames. Consumer-owned method identities and request/reply budgets live in
@@ -96,8 +101,8 @@ harness together. Existing delivery identities and stored JSON do not change;
 Running/Uncertain effects still require explicit disposition and exact evidence.
 The [consumer guide](apps/job-consumer/README.md) describes the boundaries, and the
 [handoff](docs/status/current.md) records qualification by source. Native Testkit
-uses Platform 0.7 for external simulator interfaces. The harness keeps the
-upstream Principal for PocketIC calls and converts explicitly to Platform 0.7's
+shares Platform 0.8 with the harness for external simulator interfaces. The
+harness keeps the upstream Principal for PocketIC calls and converts to its
 owned Principal when constructing application DTOs. No decoder or transport is replaced.
 
 For the production library, locked normal/build graphs on native Linux and Wasm,
@@ -119,8 +124,11 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
 host-only packages, Candid and full CDK. It requires one Timers, executor,
-raw-system, Platform and Platform-macro identity. The fixture and Timers share
-Platform 0.7.
+raw-system and Platform-macro identity. The app uses Platform 0.8; published
+Timers retains Platform 0.7 only for executor and IC0
+re-exports. The graph admits at most two facade identities while excluding
+principal conversion and SHA-2; this keeps the older facade's principal/runtime
+capabilities out of the Wasm. Executor, IC0 and entrypoint generation stay single.
 A fourth context excludes Jobs, Memory, Timers, JSON and the IC runtime from
 ordinary native consumer builds, including the
 Platform `cdk` feature.

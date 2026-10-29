@@ -36,8 +36,8 @@ signatures must retain the original immutable frame bytes.
 
 Native codec tests retain Jobs' envelope shapes, method selection, resource
 limits and refusal/uncertainty behavior. Exhaustive prefix truncation and generic
-integer canonicality proofs stay with the selected Wire 0.7.18
-[native tests](https://github.com/dragginzgame/ic-wire/blob/c748379325266d7fa614fefee9d745eb4a88acca/crates/ic-wire/tests/native/mod.rs).
+integer canonicality proofs stay with the selected Wire 0.7.22
+[native tests](https://github.com/dragginzgame/ic-wire/blob/ac08fdc1757b7d3f1483caecadd7ac1c817a30d8/crates/ic-wire/tests/native/mod.rs).
 Jobs keeps representative truncated payloads and malformed replies at its own
 request/reply boundaries, alongside the separately selected live endpoint tests.
 
@@ -161,11 +161,15 @@ JSON remain unchanged. Earlier Candid files are frozen negative inputs, with no
 compatibility decoder. The native consumer DTO/codec graph has no PocketIC,
 Candid, process or server dependency.
 
-On Wasm, Platform 0.7's `cdk` feature supplies explicit-codec entrypoints, raw calls,
+On Wasm, Platform 0.8's `cdk` feature supplies explicit-codec entrypoints, raw calls,
 system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
-2.0.0 and ic0 1.2.0 remain shared with Timers 0.32 through one Platform 0.7
-identity, enforced by the consumer's Wasm dependency graph check.
+2.0.0 and ic0 1.2.0 remain shared with Timers 0.32. Published Timers retains
+Platform 0.7 for narrow executor/IC0 re-exports; Memory uses Platform 0.8. The Wasm graph
+admits these two facade identities, with one executor, IC0 provider and Platform
+0.8 entrypoint generator. It excludes application principal conversion and SHA-2,
+keeping the older facade's principal/runtime capabilities out of the deployed
+selection. Stable-structures retains its own external Principal dependency.
 The consumer and Timers share Metrics 0.17.2. The consumer selects its arithmetic
 and reset-window bookkeeping only on Wasm and in tests; native DTOs remain
 independent of Metrics. The Wasm timer subtree contains neither Wire nor Candid.
@@ -173,15 +177,19 @@ The consumer's own Wire dependency supplies its endpoint codecs. Metrics has no
 optional `wire` feature; its optional keyed heap `recording` feature stays disabled.
 Published `ic-jobs` remains independent of Metrics.
 Metrics now lives in the IC Observability repository with the same published
-crate identity and arithmetic. Platform 0.7.6 retains the explicit endpoint codecs
+crate identity and arithmetic. Platform 0.8.1 retains the explicit endpoint codecs
 and bounded external decoding used by this consumer and its host harness; no
 application or retained-data migration is required.
-Native DTOs and recovery tests explicitly select Platform 0.7's `principal`
-feature. The application uses its owned Principal; PocketIC calls retain the
-external Principal and convert explicitly when constructing application DTOs.
+Native DTOs select Platform 0.8's owned `principal` feature. Native tests explicitly
+select `principal-self-authenticating`; the recovery harness selects `pocket-ic`
+and hashing for its fixture identities. The application uses its owned Principal;
+PocketIC calls retain the external Principal and convert explicitly when
+constructing application DTOs. Native DTO normal/build graphs exclude external
+Principal and hashing dependencies; Wasm excludes the application conversion
+feature and SHA-2. Principal bytes are unchanged.
 Wire frames and stored JSON preserve their existing bytes; no timer, task or
 storage owner is replaced by this adoption.
-Native Testkit shares Platform 0.7 for external simulator interfaces without
+Native Testkit shares Platform 0.8 for external simulator interfaces without
 enabling its Candid adapter. PocketIC retains its required transitive Candid
 dependencies. The [workspace catalog](../../Cargo.toml),
 [lockfile](../../Cargo.lock) and [handoff](../../docs/status/current.md) own

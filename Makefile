@@ -129,8 +129,9 @@ CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-
 	ic-testkit-candid ic-testkit-native jobs-test-consumer pocket-ic serde_json serde_test
 QUALIFICATION_GRAPH_FORBIDDEN := clap ctrlc ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native pocket-ic tokio
-# Timers and the fixture share Platform 0.7. Keep one wrapper, executor,
-# raw-system provider and entrypoint generator in the deployed graph.
+# The fixture and Memory use Platform 0.8; published Timers retains 0.7 re-exports.
+# Keep one executor, raw-system provider and entrypoint generator, without
+# application Principal conversion or hashing in the deployed graph.
 .PHONY: check-dependency-graphs
 check-dependency-graphs:
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package ic-jobs \
@@ -142,13 +143,15 @@ check-dependency-graphs:
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target wasm32-unknown-unknown --all-features \
 		--require ic-timers=1 --require ic-cdk-executor=1 --require ic0=1 \
-		--require ic-platform=1 --require ic-platform-macros=1 \
+		--max-count ic-platform=2 --require ic-platform-macros=1 \
+		--forbid sha2 --forbid-feature ic-platform/principal-external \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \
 		--forbid ic-cdk --forbid ic-platform-macros --forbid-feature ic-platform/cdk \
 		--forbid ic-jobs --forbid ic-memory --forbid ic-timers --forbid serde_json \
 		--forbid ic-stable-structures --forbid ic-cdk-executor --forbid ic0 --forbid ic-metrics --forbid ic-logging \
+		--forbid ic_principal --forbid sha2 \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-canister-tests \
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \

@@ -1,5 +1,5 @@
 //! Current management Wire contract and refusal of frozen pre-cut Candid bytes.
-use ic_platform::{Principal, principal::ExternalPrincipal};
+use ic_platform::Principal;
 use ic_wire::native;
 use jobs_test_consumer::{
     api::{Create, Delivery, DeliveryPayload, Init, Task, Timing},
@@ -9,32 +9,42 @@ use jobs_test_consumer::{
 
 #[test]
 fn principal_adoption_preserves_wire_frames_and_stored_json() {
-    for length in 0..=29 {
-        let external = ExternalPrincipal::from_slice(&vec![2; length]);
-        let owned = Principal::from(external);
+    #[derive(serde::Deserialize)]
+    struct Fixture {
+        bytes: Vec<u8>,
+        init_frame: Vec<u8>,
+        init_json: serde_json::Value,
+        delivery_frame: Vec<u8>,
+        delivery_json: serde_json::Value,
+    }
+    // Frozen independent external-Principal producer; see fixtures/README.md.
+    let fixtures: [Fixture; 30] =
+        serde_json::from_slice(include_bytes!("fixtures/principal-platform076.json")).unwrap();
+    for (length, fixture) in fixtures.into_iter().enumerate() {
+        assert_eq!(fixture.bytes.len(), length);
+        let owned = Principal::from_slice(&fixture.bytes);
         let init = Init {
             manager: owned,
             delivery_sender: Some(owned),
         };
-        // The previous Init record has these two external-Principal fields.
-        // Native Serde records and tuples carry the same positional bytes.
-        let old = native::encode_request(
-            Method::Init as u64,
-            &(external, Some(external)),
-            REQUEST_LIMITS,
-        )
-        .unwrap();
         assert_eq!(
             native::encode_request(Method::Init as u64, &init, REQUEST_LIMITS).unwrap(),
-            old
+            fixture.init_frame
         );
         assert_eq!(
-            native::decode_request::<Init>(Method::Init as u64, &old, REQUEST_LIMITS).unwrap(),
+            native::decode_request::<Init>(
+                Method::Init as u64,
+                &fixture.init_frame,
+                REQUEST_LIMITS
+            )
+            .unwrap(),
             init
         );
-        let json = serde_json::json!({"manager": external, "delivery_sender": external});
-        assert_eq!(serde_json::from_value::<Init>(json.clone()).unwrap(), init);
-        assert_eq!(serde_json::to_value(&init).unwrap(), json);
+        assert_eq!(
+            serde_json::from_value::<Init>(fixture.init_json.clone()).unwrap(),
+            init
+        );
+        assert_eq!(serde_json::to_value(&init).unwrap(), fixture.init_json);
 
         let delivery = Delivery {
             job: u64::MAX,
@@ -45,17 +55,6 @@ fn principal_adoption_preserves_wire_frames_and_stored_json() {
                 message: "x".repeat(256),
             },
         };
-        let old = native::encode_request(
-            delivery_wire::RECEIVE_ID,
-            &(
-                delivery.job,
-                delivery.occurrence,
-                delivery.sequence,
-                (external, &delivery.payload.message),
-            ),
-            delivery_wire::REQUEST_LIMITS,
-        )
-        .unwrap();
         assert_eq!(
             native::encode_request(
                 delivery_wire::RECEIVE_ID,
@@ -63,20 +62,25 @@ fn principal_adoption_preserves_wire_frames_and_stored_json() {
                 delivery_wire::REQUEST_LIMITS,
             )
             .unwrap(),
-            old
+            fixture.delivery_frame
         );
         assert_eq!(
             native::decode_request::<Delivery>(
                 delivery_wire::RECEIVE_ID,
-                &old,
+                &fixture.delivery_frame,
                 delivery_wire::REQUEST_LIMITS,
             )
             .unwrap(),
             delivery
         );
-        let mut json = serde_json::to_value(&delivery).unwrap();
-        json["payload"]["destination"] = serde_json::to_value(external).unwrap();
-        assert_eq!(serde_json::from_value::<Delivery>(json).unwrap(), delivery);
+        assert_eq!(
+            serde_json::to_value(&delivery).unwrap(),
+            fixture.delivery_json
+        );
+        assert_eq!(
+            serde_json::from_value::<Delivery>(fixture.delivery_json.clone()).unwrap(),
+            delivery
+        );
     }
 }
 

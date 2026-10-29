@@ -35,6 +35,7 @@ ic-jobs.workspace = true
 ic-logging.workspace = true
 ic-memory = { workspace = true, features = ["test-support"] }
 ic-metrics.workspace = true
+ic-platform = { workspace = true, features = ["principal-self-authenticating"] }
 ic-storage.workspace = true
 ic-testkit-native = { workspace = true, features = ["stable-memory"] }
 ic-timers.workspace = true
