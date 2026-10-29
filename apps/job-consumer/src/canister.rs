@@ -212,6 +212,21 @@ fn summary() -> Result<Summary, Error> {
     })
 }
 
+#[cdk::query(
+    guard = "admit_control_input",
+    decode_with = "decode_control::<_, { Method::JobLogs as u64 }>",
+    encode_with = "encode_control::<_, { Method::JobLogs as u64 }>"
+)]
+fn job_logs(request: crate::api::JobLogRequest) -> Result<crate::api::JobLogPage, Error> {
+    with_queue(|queue| {
+        queue.job_logs(
+            cdk::api::msg_caller(),
+            request,
+            cdk::api::canister_version(),
+        )
+    })
+}
+
 fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error> {
     let committed = with_queue(|queue| queue.finish(delivery, cdk::api::time(), outcome))?;
     reconcile_committed(committed);

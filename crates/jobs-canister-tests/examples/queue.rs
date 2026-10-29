@@ -91,6 +91,11 @@ enum QueueCommand {
     List,
     /// Read committed job-outcome observations for this canister/version/window
     Metrics,
+    /// Read up to eight recent committed transitions; follow next_before for older events
+    Logs {
+        #[arg(long)]
+        before: Option<u64>,
+    },
     /// Clear diagnostic counters without changing jobs or retry state
     ResetMetrics,
     /// Fast-forward IC time once, then deliver 32 canister rounds
@@ -415,6 +420,17 @@ impl Demo {
                     self.query(Method::JobMetrics, &())?;
                 println!("{metrics:#?}");
             }
+            QueueCommand::Logs { before } => {
+                let page: jobs_test_consumer::api::JobLogPage = self.query(
+                    Method::JobLogs,
+                    &jobs_test_consumer::api::JobLogRequest {
+                        before: *before,
+                        min_level: None,
+                        limit: 8,
+                    },
+                )?;
+                println!("{page:#?}");
+            }
             QueueCommand::ResetMetrics => {
                 let metrics: jobs_test_consumer::api::JobMetrics =
                     self.update(Method::ResetJobMetrics, &())?;
@@ -518,6 +534,13 @@ mod tests {
 
     #[test]
     fn durations_and_commands_reject_invalid_or_unbounded_input() {
+        assert!(matches!(
+            Prompt::try_parse_from(["logs", "--before", "8"])
+                .unwrap()
+                .command,
+            QueueCommand::Logs { before: Some(8) }
+        ));
+        assert!(Prompt::try_parse_from(["logs", "--before", "-1"]).is_err());
         assert!(matches!(
             Prompt::try_parse_from(["metrics"]).unwrap().command,
             QueueCommand::Metrics

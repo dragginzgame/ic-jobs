@@ -27,6 +27,7 @@ ic-build = "0.69.9"
 ic-host-fs = { version = "0.69.9", default-features = false }
 ic-host-process = { version = "0.69.9", default-features = false }
 ic-jobs = { path = "crates/ic-jobs" }
+ic-logging = { version = "0.17.1", default-features = false }
 ic-memory = "0.54.0"
 ic-metrics = { version = "0.17.0", default-features = false }
 ic-platform = { version = "0.7.4", default-features = false }

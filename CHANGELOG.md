@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.17.43]
+
+### ➕ Added
+
+- Add bounded consumer transition history using IC Logging 0.17.1, recorded after
+  committed dispatch, outcome and reconciliation transitions. Manager-only
+  `job_logs` cursor pages and the demo's `logs [--before SEQUENCE]` command expose
+  recent redacted context with bounded scan work and explicit omitted counts.
+  History is heap-only; published Jobs APIs, durable state and retry authority
+  remain unchanged.
+
 ## [0.17.42] - 2026-10-29
 
 ### ➕ Added

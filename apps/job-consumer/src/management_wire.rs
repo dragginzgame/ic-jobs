@@ -49,6 +49,8 @@ pub enum Method {
     JobMetrics = 0x4a4f42534d470014,
     /// Reset diagnostics without changing durable job state.
     ResetJobMetrics = 0x4a4f42534d470015,
+    /// Scan consumer-owned heap transition history.
+    JobLogs = 0x4a4f42534d470016,
 }
 
 impl Method {
@@ -77,6 +79,7 @@ impl Method {
             Self::CreateBlocked => "fixture_create_blocked",
             Self::JobMetrics => "job_metrics",
             Self::ResetJobMetrics => "reset_job_metrics",
+            Self::JobLogs => "job_logs",
         }
     }
 }

@@ -550,6 +550,18 @@ fn watchdog_batch_trap_rolls_back_then_recovers_without_repeating_local_effects(
     assert_eq!(fixture.view(failed), failed_before);
     let rolled_back = fixture.summary(fixture.sender);
     assert_eq!(rolled_back.counter, 0);
+    let logs: jobs_test_consumer::api::JobLogPage = fixture
+        .query(
+            fixture.sender,
+            Method::JobLogs,
+            jobs_test_consumer::api::JobLogRequest {
+                before: None,
+                min_level: None,
+                limit: 8,
+            },
+        )
+        .unwrap();
+    assert!(logs.entries.is_empty());
     assert_eq!(rolled_back.next_due_ns, Some(due));
     assert!(rolled_back.armed);
 
@@ -955,5 +967,54 @@ fn job_metrics_are_authorized_resettable_and_restart_on_upgrade() {
     assert!(reopened.canister_version > completed.canister_version);
     assert_eq!(reopened.dispatched.total, 0);
     assert_eq!(reopened.reset_sequence, Some(0));
+    assert_eq!(fixture.view(id), job);
+}
+
+#[test]
+#[ignore = "explicit local canister qualification: make test-canister"]
+fn job_logs_are_manager_only_and_restart_without_changing_jobs() {
+    use jobs_test_consumer::api::{JobLogPage, JobLogRequest, JobMetrics};
+    let fixture = Fixture::new();
+    let request = JobLogRequest {
+        before: None,
+        min_level: None,
+        limit: 8,
+    };
+    let initial: JobLogPage = fixture
+        .query(fixture.sender, Method::JobLogs, request)
+        .unwrap();
+    assert!(initial.entries.is_empty());
+    let unauthorized: Result<JobLogPage, Error> = query_wire(
+        fixture.pic.instance(),
+        fixture.sender,
+        ExternalPrincipal::anonymous(),
+        wire::control(Method::JobLogs),
+        &request,
+    )
+    .unwrap();
+    assert_eq!(unauthorized, Err(Error::Unauthorized));
+    let id: u64 = fixture.update(Method::Create, (increment(0, 1),)).unwrap();
+    fixture.update::<(), _>(Method::DispatchDue, ()).unwrap();
+    let completed: JobLogPage = fixture
+        .query(fixture.sender, Method::JobLogs, request)
+        .unwrap();
+    assert_eq!(completed.entries.len(), 2);
+    assert_eq!(completed.entries[0].topic, "outcome");
+    assert_eq!(completed.entries[1].topic, "dispatch");
+    let job = fixture.view(id);
+    fixture
+        .update::<JobMetrics, _>(Method::ResetJobMetrics, ())
+        .unwrap();
+    let after_reset: JobLogPage = fixture
+        .query(fixture.sender, Method::JobLogs, request)
+        .unwrap();
+    assert_eq!(after_reset.entries, completed.entries);
+    fixture.upgrade(fixture.sender).unwrap();
+    let reopened: JobLogPage = fixture
+        .query(fixture.sender, Method::JobLogs, request)
+        .unwrap();
+    assert!(reopened.entries.is_empty());
+    assert_eq!(reopened.omitted.total, 0);
+    assert!(reopened.canister_version > completed.canister_version);
     assert_eq!(fixture.view(id), job);
 }
