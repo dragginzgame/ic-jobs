@@ -9,6 +9,11 @@
   metadata to 0.10. Coordinate runtime users on Platform 0.11. Report fields,
   Serde layouts and arithmetic remain unchanged.
 
+### 🩹 Fixed
+
+- Prepare Clippy for the declared minimum Rust toolchain in CI before running
+  Timer probe linting through the shared toolchain setup action.
+
 ### 📦 Workspace
 
 - Consolidate IC Jobs and IC Timers as IC Scheduling at the approved shared
