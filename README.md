@@ -98,7 +98,7 @@ application's selected target graph and source rather than counting manifests.
 For example, inspect the qualification Wasm's paths with:
 
 ```sh
-cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.9.1 --locked --offline
+cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.11.1 --locked --offline
 cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform-runtime-guard --locked --offline
 ```
 
@@ -110,7 +110,7 @@ The qualification app selects Platform's `cdk` feature only on Wasm. Native
 consumer builds explicitly select Platform's `principal` feature for Serde DTOs
 and Wire contracts. Jobs, Memory and Timers remain Wasm/test dependencies; JSON
 is limited to native fixtures and tooling. Parser, Agent,
-certification and crypto features are not selected. Platform 0.9 owns the reviewed
+certification and crypto features are not selected. Platform 0.11 owns the reviewed
 runtime adapters and generator; its embedded executor and IC0 are shared with Timers. The qualification Wasm selects neither Candid nor full `ic-cdk`.
 Owned native DTO principals exclude external Principal and SHA-2 dependencies.
 The Wasm application selects neither principal conversion nor SHA-2 hashing;
@@ -159,8 +159,8 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
 host-only packages, JSON, Candid and full CDK. It requires one Timers, Platform runtime guard and entrypoint generator; registry
-executor and IC0 packages are excluded. The application and Timers use Platform
-0.9.1. Memory retains Platform 0.8 only for the common stable-structures supplier.
+executor and IC0 packages are excluded. The application, Timers and Memory
+share Platform 0.11.1, including the common stable-structures supplier.
 The graph excludes application principal conversion and SHA-2.
 A fourth context excludes Jobs, Memory, Timers, JSON and the IC runtime from
 ordinary native consumer builds, including the

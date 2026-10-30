@@ -16,7 +16,7 @@ bash "$root/scripts/ci/prepare-script-fixture.sh" "$root" "$fixture" \
 RUSTUP_AUTO_INSTALL=0 cargo metadata --locked --offline --format-version 1 > "$fixture/workspace.json"
 platform_version="$(perl -MJSON::PP -0777 -e '
     my $metadata = decode_json(<>);
-    my @platform = grep { $_->{name} eq "ic-platform" && $_->{version} =~ /^0\.9\.[0-9]+$/ }
+    my @platform = grep { $_->{name} eq "ic-platform" && $_->{version} =~ /^0\.11\.[0-9]+$/ }
         @{$metadata->{packages}};
     @platform == 1 or die "expected one selected runtime Platform\n";
     print $platform[0]{version};
@@ -248,9 +248,13 @@ executor = []
 ic0 = []
 cdk = []
 pocket-ic = []
+candid = []
+management-canister-types = []
 principal = []
+principal-external = []
 principal-self-authenticating = []
 runtime = []
+stable-structures = []
 
 [workspace]
 EOF
@@ -265,7 +269,7 @@ if bash "$checker" > identity-failure.log 2>&1; then
     echo 'error: library admitted an unqualified Platform source at the same version' >&2
     exit 1
 fi
-grep -q 'expected one qualified registry ic-platform 0.9 runtime owner' identity-failure.log
+grep -q 'expected one qualified registry ic-platform 0.11 runtime owner' identity-failure.log
 reset_manifests
 
 # The feature-selected helper is also registry-owned and must match the facade.

@@ -1,6 +1,13 @@
 # Changelog
 
-## [0.33.0] - Unreleased
+## [0.33.1] - Unreleased
+
+### ⚠️ Breaking
+
+- Adopt Metrics 0.21.0 for Timers' public measurement types. Consumers exchanging
+  those types must align their Metrics dependency to 0.21 and native Wire
+  metadata to 0.10. Coordinate runtime users on Platform 0.11. Report fields,
+  Serde layouts and arithmetic remain unchanged.
 
 ### 📦 Workspace
 
@@ -8,18 +15,22 @@
   version 0.33.0, retaining separate published crates and consumer-owned durable
   state. Import the Timers runtime, native tests, probes, safety contract and
   historical evidence into one workspace and lockfile.
-- Adopt Platform 0.9.1 and Wire 0.8.0 with the local Timers source. Require the
+- Adopt Platform 0.11.1 and Wire 0.10.0 with the local Timers source. Require the
   embedded runtime guard and exclude registry executor/IC0 from deployed graphs.
 - Share formatting, setup, CI and two-package publication admission; preserve
   independent native, Wasm and installed recovery qualification.
 
 ### 📦 Dependencies
 
+- Adopt Tooling/Testkit 0.72.0 across Build, Host and Testkit dependencies,
+  aligning both native harnesses with Wire 0.10.0 and Platform 0.11.1.
+  This resolves the previous Testkit/Wire limits incompatibility.
 - Adopt Shared Tooling 0.27.11 at `62edfbd43087a718bf0283e9040676a49211976d`
-  through its exporter, and select Memory/Storage 0.56.4.
+  through its exporter, and select Memory/Storage 0.58.0, removing the older
+  Platform and Wire copies from the resolved graph.
   Preserve the existing queue/ledger formats, bounded RPC contracts and Rust 1.91
   floor.
-- Adopt Metrics and Logging 0.18.1, preserving report layouts, heap-only logging
+- Adopt Metrics and Logging 0.21.0, preserving report layouts, heap-only logging
   and retained-text limits.
 
 ### 🧹 Cleanup

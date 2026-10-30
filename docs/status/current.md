@@ -29,33 +29,51 @@ Shared Tooling is reviewed 0.27.11 at
 Earlier dirty shared adoption and the private `ic-jobs-canister-test-support`
 transport extraction remain included. Snapshot-owned files retain that adoption.
 
-## Dependency state and remaining blocker
+## Dependency state
 
-Active direct dependencies: Platform 0.9.1, Wire 0.8.0, Metrics/Logging 0.18.1,
-Memory/Storage 0.56.4 and local Timers 0.33.0. Platform's embedded executor has one
-matching registry runtime guard. Memory retains its older non-runtime facade;
-the deployed graph forbids the separate registry executor and IC0 provider.
+Active direct dependencies: Platform 0.11.1, Wire 0.10.0, Metrics/Logging 0.21.0,
+Tooling/Testkit 0.72.0, Memory/Storage 0.58.0 and local Timers 0.33.0.
+The coordinated Tooling release resolves the earlier Wire limits mismatch in
+both native harnesses. Platform owns one version-matched runtime guard; Memory
+and Storage now share Platform 0.11.1 and Wire 0.10 with the other consumers.
+The lockfile no longer contains the older Platform 0.10 or Wire 0.8 copies.
+The deployed graphs still exclude registry executor and IC0 providers.
 
-Tooling/Testkit remains lock-selected 0.70.5. Its Wire 0.7 `Limits` cannot accept
-the Wire 0.8 budgets in either host harness. The user confirmed 0.71 is being
-published, but the latest exact crates.io query still returned unavailable.
-Do not add aliases, transport copies, registry patches or a compatibility shim.
-Once published, adopt the compatible direct Tooling cohort, fetch the lock,
-rebuild/admit its CLI, then finish host lint, harness tests and installed recovery
-qualification against the final source and lock. Current host compile failure
-is known and prevents claiming that combined CI passes.
+Timers exposes Metrics types, so consumers exchanging them must select Metrics
+0.21 and native Wire metadata 0.10; runtime users coordinate on Platform 0.11.
+The user selected 0.33.1 for the pending changelog; package versions remain 0.33.0.
+The notes retain the public dependency identity changes and consumer actions. Queue
+and ledger bytes, validated restore, report fields and arithmetic are unchanged.
+Logging remains heap-only with the existing retained-text budget.
+
+Memory/Storage adoption evidence is in `/tmp/ic-scheduling-persistence-latest/`;
+the preceding coordinated adoption is in `/tmp/ic-scheduling-latest-adoption/`.
+Previous failed candidates and focused evidence remain in
+`/tmp/ic-scheduling-dependency-adoption/`,
+`/tmp/ic-scheduling-observability-019/` and
+`/tmp/ic-scheduling-adoption-071/`; they do not qualify the new graph.
 
 ## Validation and maintained gates
 
-Focused migration checks passed on Linux: 48 Jobs integration tests, 172 Timers
-unit tests, 9 Timers doctests, 45 consumer native tests and 4 protocol/probe tests.
-Rust 1.91 consumer Wasm strict lint and release build pass; Timers/runtime probe
-minimum-compiler Wasm checks pass. Both package archives compiled successfully.
-Provider confinement, nine Timers graph contexts, five Jobs graph contexts,
-direct dependency boundaries and pins pass. Formatting, documentation links,
-release metadata/formatting fixtures and two-package publication fixtures pass.
-Logs are retained under `/tmp/ic-scheduling-*.log` and copied to migration evidence.
-Failures and retries are retained alongside successful logs, not relabeled.
+Memory/Storage 0.58 adoption passes locked metadata, direct boundaries and all
+five Jobs graph contexts, Rust 1.91 strict native/Wasm Clippy, 71 consumer tests
+(library, API-wire, composition and stored-wire), and the release consumer Wasm
+build. The deployed graph now requires exactly one Platform identity. Evidence
+is in `/tmp/ic-scheduling-persistence-latest/`; no live recovery was run.
+
+The preceding coordinated Linux adoption passed full locked metadata, direct dependency boundaries,
+five Jobs and nine Timers graph contexts, Rust 1.91 strict native/Wasm Clippy,
+253 native tests, Timers harness compilation, and release Wasm builds for the
+Jobs consumer and Timers runtime probe. Selected Testkit 0.72 server and Build
+release-editor CLIs pass offline admission. Timer dependency-policy fixtures,
+consumer-tooling fixtures, dependency pins, documentation links and diff checks
+pass. Evidence is in `/tmp/ic-scheduling-latest-adoption/`; failed fixture
+attempts are retained separately from retries.
+
+Earlier consolidation evidence includes Jobs core tests, Timers doctests,
+provider confinement, package archives and release/publication fixtures under
+`/tmp/ic-scheduling-*.log` and the migration evidence directory. It remains
+historical evidence, not a fresh package or release qualification of this graph.
 
 The combined CI includes both products' native checks and probe gates. Explicit
 release verification additionally retains Timers watchdog and cohort live gates;
