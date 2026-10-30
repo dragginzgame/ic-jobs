@@ -621,18 +621,24 @@ fn lost_result_keeps_intent_blocked_and_receipt_resolution_does_not_redeliver() 
     let page: Vec<View> = fixture
         .query(fixture.sender, Method::List, (None::<u64>, 8_u8))
         .unwrap();
-    let id = page[0].id;
-    assert_eq!(page[0].status, Status::Running);
+    let intent = page.into_iter().next().unwrap();
+    let id = intent.id;
+    assert_eq!(intent.status, Status::Running);
     assert_eq!(fixture.summary(receiver).receipts, 1);
     fixture.upgrade(fixture.sender).unwrap();
     fixture.upgrade(receiver).unwrap();
     fixture.update::<(), _>(Method::DispatchDue, ()).unwrap();
-    assert_eq!(fixture.view(id).status, Status::Running);
+    // Both queues now retain Wire: same-contract upgrade must preserve the
+    // complete attempt identity and immutable payload, not just Running state.
+    assert_eq!(fixture.view(id), intent);
+    assert_eq!(fixture.summary(receiver).receipts, 1);
     fixture
         .update::<(), _>(Method::MarkUncertain, (id,))
         .unwrap();
+    let uncertain = fixture.view(id);
+    assert_eq!(uncertain.status, Status::Uncertain);
     fixture.upgrade(fixture.sender).unwrap();
-    assert_eq!(fixture.view(id).status, Status::Uncertain);
+    assert_eq!(fixture.view(id), uncertain);
     assert!(
         fixture
             .update::<bool, _>(Method::ReconcileDelivery, (id,))
@@ -731,6 +737,8 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
     fixture
         .update::<(), _>(Method::CorruptRecord, (id,))
         .unwrap();
+    // The fixture truncates a current-format Wire snapshot. Upgrade must refuse
+    // without replacing the independent controller snapshot used for recovery.
     assert!(matches!(
         fixture
             .query::<View, _>(fixture.sender, Method::Inspect, (id,))

@@ -27,13 +27,35 @@ same delivery and refused redispatch of the blocked job.
 The fixture retains ten nonzero runs and the unchanged Jobs JSON payload. Memory
 0.56 refuses its retired CBOR ledger during recovery and fresh creation with
 zero writes, unchanged pages and identical bytes. Independently decoding the
-queue payload still uses Job::restore and leaves the job Running/blocked. This
+frozen queue payload in tests still uses Job::restore and leaves the job Running/blocked. This
 separates the infrastructure format cut from unchanged job/effect authority;
 it supplies neither a converter nor permission to discard retained work.
 The fixture SHA-256 is
 `780ffd07de7ccc8d47398fce67d223e62e6d3c37b2618af502fa299eeaa0c7a7`.
 Generation inputs and old-producer qualification remain at
 `/tmp/ic-jobs-tooling0702-memory056.8W4xazfe/old-producer/`.
+
+## Qualification queue JSON retirement
+
+The consumer's `stable-image-json01749.json` freezes a complete Memory 0.56.0
+installation produced from Jobs release `26108182368b3ef9687f195feaf2ce6c38021dfc`
+with the incoming 2026-10-30 dependency lock and Rust 1.91. It retains one
+Uncertain and one Running delivery, with their immutable envelopes and two exact
+receipts. The old producer cold-opened the queue and refused overdue redispatch
+before capture. A test-only metadata read establishes these unresolved effects;
+the production reader never decodes retained JSON.
+
+Current Memory accepts this ledger, while queue recovery and fresh creation
+refuse the retired payload without replacing the Cell header or payload bytes.
+Bootstrap may update allocation bookkeeping. This proof is distinct from the
+zero-write refusal of incompatible Memory ledgers above. No existing installation
+is reset, converted or authorized to repeat an effect.
+
+Fixture SHA-256:
+`67a99afc6e2649e14dd8ef67d302116cd21df3205ee193f2c616ca762fa96ec9`.
+The original source archive, one-shot producer/test log, lockfile and old Wasm
+are retained at `/tmp/ic-jobs-78-upstream.Mso2Zod0/`; the current consumer guide
+owns the explicit retained-installation retirement procedure.
 
 ## 0.16 refusal inputs
 

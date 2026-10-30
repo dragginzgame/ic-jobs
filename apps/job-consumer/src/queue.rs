@@ -9,6 +9,7 @@ use ic_memory::{
     testing::{FixtureCell, FixtureCellError},
 };
 use ic_platform::Principal;
+use ic_wire::{Limits, native};
 use serde::{Deserialize, Serialize};
 
 use crate::api::{Create, Delivery, DeliveryPayload, Error, Init, Status, Task, Timing, View};
@@ -17,6 +18,14 @@ use crate::metrics::{Counts, JobWindow};
 
 const MAX_JOBS: usize = 32;
 const MAX_BYTES: usize = 24 * 1024;
+// This queue's identity is independent of Memory's allocation-ledger format.
+const FORMAT: &[u8; 4] = b"JQW\x01";
+const LIMITS: Limits = Limits {
+    bytes: MAX_BYTES - FORMAT.len(),
+    allocation: 1024 * 1024,
+    nodes: 8192,
+    depth: 32,
+};
 const MAX_MESSAGE: usize = 256;
 pub(crate) const BATCH: usize = 2;
 const KEY: &str = "test.jobs.consumer.management.v1";
@@ -250,9 +259,21 @@ fn decode(bytes: &[u8]) -> Result<Snapshot<Job>, Error> {
     if bytes.len() > MAX_BYTES {
         return Err(Error::InvalidStorage);
     }
-    let snapshot: Snapshot = serde_json::from_slice(bytes).map_err(|_| Error::InvalidStorage)?;
+    let payload = bytes.strip_prefix(FORMAT).ok_or(Error::InvalidStorage)?;
+    let snapshot: Snapshot = native::decode(payload, LIMITS).map_err(|_| Error::InvalidStorage)?;
     // Every decoded JobRecord enters through the validated restore boundary.
     snapshot.admit()
+}
+
+fn encode<J: Serialize>(snapshot: &Snapshot<J>) -> Result<Vec<u8>, Error> {
+    let payload = native::encode(snapshot, LIMITS).map_err(|error| match error {
+        ic_wire::Error::Limit => Error::Capacity,
+        _ => Error::InvalidStorage,
+    })?;
+    let mut bytes = Vec::with_capacity(FORMAT.len() + payload.len());
+    bytes.extend_from_slice(FORMAT);
+    bytes.extend_from_slice(&payload);
+    Ok(bytes)
 }
 
 impl<M: Memory> Queue<M> {
@@ -272,16 +293,13 @@ impl<M: Memory> Queue<M> {
         })?;
         if let Some(init) = initial {
             // Fresh admission cannot overwrite a retained allocation.
-            cell.try_set(
-                serde_json::to_vec(&Snapshot::<JobRecord> {
-                    init,
-                    next_id: 1,
-                    jobs: vec![],
-                    counter: 0,
-                    receipts: vec![],
-                })
-                .map_err(|_| Error::InvalidStorage)?,
-            )
+            cell.try_set(encode(&Snapshot::<JobRecord> {
+                init,
+                next_id: 1,
+                jobs: vec![],
+                counter: 0,
+                receipts: vec![],
+            })?)
             .map_err(memory_error)?;
         }
         let snapshot = decode(cell.bytes())?;
@@ -346,10 +364,7 @@ impl<M: Memory> Queue<M> {
 
     fn commit<T>(&mut self, snapshot: Snapshot<Job>, value: T) -> Result<Committed<T>, Error> {
         let next_due_ns = snapshot.next_due_ns();
-        let bytes = serde_json::to_vec(&snapshot).map_err(|_| Error::InvalidStorage)?;
-        if bytes.len() > MAX_BYTES {
-            return Err(Error::Capacity);
-        }
+        let bytes = encode(&snapshot)?;
         // Records came from validated Jobs and maintained public transitions.
         // Check collection invariants without serializing and restoring them again.
         snapshot.check_header()?;
@@ -605,16 +620,15 @@ impl<M: Memory> Queue<M> {
     }
 
     // Deliberate corruption endpoint in an unpublished qualification artifact.
-    // Normal readers, including post_upgrade, reject malformed configuration
-    // during bounded decoding before the aggregate Job::restore boundary.
+    // Validate the selected record first, then truncate the current Wire snapshot.
+    // Normal readers, including post_upgrade, reject it during bounded decoding
+    // before the aggregate Job::restore boundary. No retired codec is involved.
     pub(crate) fn corrupt_record(&mut self, id: u64) -> Result<(), Error> {
         let snapshot = self.load()?;
-        let index = snapshot.index(id)?;
-        let mut encoded = serde_json::to_value(snapshot).map_err(|_| Error::InvalidStorage)?;
-        encoded["jobs"][index]["job"]["retry"]["max_attempts"] = 0.into();
-        self.cell
-            .try_set(serde_json::to_vec(&encoded).map_err(|_| Error::InvalidStorage)?)
-            .map_err(memory_error)?;
+        snapshot.index(id)?;
+        let mut bytes = encode(&snapshot)?;
+        bytes.pop();
+        self.cell.try_set(bytes).map_err(memory_error)?;
         Ok(())
     }
 }

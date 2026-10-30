@@ -7,8 +7,9 @@ in `tests/composition.rs`, plus stored-record Wire checks in `tests/stored_wire.
 Timers integration dependencies belong here, outside the core package tests.
 
 Ordinary native library builds expose `api` DTOs and management/delivery identities/limits,
-and depend on Platform's Principal, Wire and Serde. Jobs, Memory, Timers and JSON are selected only for
-Wasm builds and native tests, so the recovery harness can share the DTOs without
+and depend on Platform's Principal, Wire and Serde. Jobs, Memory and Timers are
+selected only for Wasm builds and native tests; JSON is native-test-only. The
+recovery harness can share the DTOs without
 pulling in the consumer's storage or timer implementation. The existing native
 normal/build graph check enforces this boundary.
 
@@ -32,8 +33,9 @@ strings and Principals; receipt reconciliation compares every typed delivery
 field, rather than re-encoded bytes or a hash. Request/reply budgets remain
 explicit and apply independently to encoding and decoding. Nonminimal integers
 are refused as malformed. Rebuild the fixture and harness together; method IDs,
-emitted layouts and stored JSON are unchanged. Future exact-frame retries or
-signatures must retain the original immutable frame bytes.
+emitted RPC layouts are unchanged. The queue format cut below is separate.
+Future exact-frame retries or signatures must retain the original immutable
+frame bytes.
 
 Native codec tests retain Jobs' envelope shapes, method selection, resource
 limits and refusal/uncertainty behavior. Exhaustive prefix truncation and generic
@@ -56,17 +58,23 @@ Inspection/list replies carry pending time as `Status::Pending { due_ns }`;
 other status variants carry no dispatch deadline. The separate `View::due_ns`
 field is removed. Rebuild the qualification canister and harness together for
 this management-response cut. Stored jobs and delivery receipts keep their
-formats; this response change needs no storage reset or conversion.
+logical fields; this response change alone needs no storage reset or conversion.
 
 Memory's fixture-only `FixtureCell` bootstraps the `test.jobs.` namespace and
 opens the permanent `test.jobs.consumer.management.v1` key. Installation selects
 bounded fresh creation; recovery selects bounded retained opening, with Cell
-header and size admission before payload loading. One stable cell retains the JSON snapshot:
+header and size admission before payload loading. One stable cell retains a
+native Wire snapshot prefixed with the queue-owned identity `JQW\x01`:
 manager/receiver configuration, ID authority, JobRecords, immutable payloads,
 counter and receipts. The queue holds at most 32 jobs and 32 receipts, each
 delivery payload is at most 256 UTF-8 bytes, and serialized state is at most
-24 KiB. The complete bounded queue supplies the global earliest deadline, so no
-separate unbounded due index is needed. Every decoded record crosses
+24 KiB including its four-byte identity. Wire admits at most 24,572 payload bytes,
+1 MiB traversal allocation, 8,192 nodes and depth 32 in each direction. These
+are codec traversal allowances, not measured heap usage. The full-queue native
+case exercises 32 retained jobs and 32 receipts with 256-byte payloads, every
+state/schedule shape and wide identities; the byte ceiling remains independent
+of the collection limits. The complete bounded queue supplies the global
+earliest deadline, so no separate unbounded due index is needed. Every decoded record crosses
 `Job::restore`, including future work. Successful decoding retains validated jobs
 for the complete synchronous operation. Each in-memory entry keeps its job and
 payload together; the scheduler borrows only the jobs through an iterator. Commit
@@ -96,12 +104,13 @@ during a live lease are prohibited and need not be detected until a full validat
 boundary. Consumer IC cost measurements remain separate qualification.
 The oversized-payload fixture raises only its Memory writer ceiling, retaining
 exact header/payload refusal checks against the consumer's normal limit. No
-queue JSON changes are required by that fixture. Direct `ic-stable-structures`
+queue format changes are required by that fixture. Direct `ic-stable-structures`
 dependencies are forbidden; the substrate remains transitive through its owners.
 
 **Memory 0.56 installation boundary:** the allocation ledger and its enclosing
-Cell value now use bounded Wire (`ICML`/`ICMWIRE1`) instead of CBOR. Jobs' queue
-JSON, RPC bytes and application collection/substrate headers are unchanged.
+Cell value now use bounded Wire (`ICML`/`ICMWIRE1`) instead of CBOR. This is
+independent of the queue's own `JQW\x01` format; RPC bytes and application
+collection/substrate headers are unchanged by the ledger cut.
 An installation retaining an earlier Memory ledger cannot be upgraded in place
 with this reader: both recovery and fresh creation refuse those bytes without
 resetting or overwriting them. Use a fresh qualification canister, or qualify an
@@ -112,6 +121,29 @@ requires its owner's authorization; never clear only the allocation ledger while
 leaving collections behind. This dependency update resets no existing data and
 adds no migration engine or compatibility reader. Same-format reconstruction
 continues to restore Running/Uncertain jobs as blocked.
+
+**Queue JSON retirement:**
+[#78 — Replace job-consumer JSON queue persistence with bounded IC Wire payloads](https://github.com/dragginzgame/ic-jobs/issues/78).
+The current reader accepts only `JQW\x01`
+and bounded native Wire. Existing JSON queues are refused, including those
+with a current Memory ledger. There is no JSON fallback, converter, automatic
+reset or in-place upgrade path. No retained installation is reset by this update.
+For a local qualification run, create fresh test canisters. For any retained
+installation, quiesce management and dispatch, keep the exact old Wasm, lockfile,
+backups, immutable attempts and destination receipts, and use the old reader to
+reconcile Running/Uncertain work or record its explicit owner-approved disposition.
+An absent receipt, timeout or expired lease never authorizes redelivery.
+Retire that old installation only after its obligations are resolved; any
+destructive reinstall requires its owner's separate authorization. Do not clear
+only the queue or allocation ledger or reuse old effect identities. Preserve
+the old evidence after retirement. Sender and receiver queues both need this
+disposition; updating the host harness cannot make retained JSON readable.
+
+The frozen Memory 0.56.0 JSON installation retains both Running and Uncertain
+attempts plus exact receipts. Current retained opening and fresh creation refuse
+its payload while preserving the Cell header and bytes. Memory bootstrap may
+update allocation bookkeeping before that refusal, as with oversized Cells.
+Same-format Wire reopen/upgrade still restores blocked jobs without redispatch.
 
 **0.16 hard cut:** Construct `Task::Deliver(DeliveryPayload { destination,
 message })`; delivery and receipt envelopes contain `payload` beside their
@@ -131,12 +163,13 @@ qualification and provenance are recorded with the stored-record fixtures.
 
 The frozen 0.7.5, Memory 0.40 and Memory 0.55.2 physical images are refused during
 both recovery and installation, before payload admission and with zero stable writes,
-unchanged pages and identical backing bytes. Jobs' JSON codec and Memory's outer
+unchanged pages and identical backing bytes. The queue codec and Memory's outer
 ledger are independent admission boundaries. The stable key identifies the
 consumer allocation; it does not make incompatible payload formats readable.
-The Memory 0.55.2 image has valid current queue JSON with Running intent: that
-payload still crosses Job::restore as blocked, even though the outer ledger is
-incompatible. Its producer/hash is recorded with the
+The Memory 0.55.2 image retains historical queue JSON with Running intent. A
+test-only read of its frozen metadata crosses Job::restore as blocked; neither
+that payload nor its outer ledger has a current reader. Producer/hash details
+are recorded with the
 [stored-record fixtures](../../crates/ic-jobs/tests/fixtures/README.md).
 
 `Increment` performs a local counter effect and completes its job in one stable
@@ -165,7 +198,8 @@ failure traps with the receipt write; no Candid service is generated.
 There is one current protocol: quiesce delivery dispatch, finish or explicitly
 dispose of in-flight calls, and rebuild/upgrade sender and receiver together
 before resuming. There is no Candid fallback. Retained jobs/receipts keep their
-JSON format and need no reset; unresolved effects still require exact evidence.
+logical identities through the separate queue format cut above; unresolved
+effects still require exact evidence.
 Installation, management and fixture controls also use Wire. Their method
 identities are in `management_wire`; requests admit 4 KiB frames, 32 KiB allocation
 accounting, 256 nodes and depth 16. Replies admit 64 KiB frames, 256 KiB allocation
@@ -174,19 +208,19 @@ require a valid request frame. Init admits raw argument length before copying
 because lifecycle macros have no guard hook. Post-upgrade has no arguments.
 
 Rebuild the harness with this canister and dispose of old Candid management/init
-requests before resuming activity. Earlier delivery frame identities and stored
-JSON remain unchanged. Earlier Candid files are frozen negative inputs, with no
+requests before resuming activity. Earlier delivery frame identities remain
+unchanged. Earlier Candid files are frozen negative inputs, with no
 compatibility decoder. The native consumer DTO/codec graph has no PocketIC,
 Candid, process or server dependency.
 
 On Wasm, Platform 0.8's `cdk` feature supplies explicit-codec entrypoints, raw calls,
 system helpers and protected spawning. Full upstream `ic-cdk` is absent; its
 reviewed runtime adapters are owned by Platform. The selected registry executor
-2.0.0 and ic0 1.2.0 remain shared with Timers 0.32.1 and Memory through one
+2.0.0 and ic0 1.2.0 remain shared with Timers 0.32 and Memory through one
 Platform 0.8 identity. The Wasm graph requires one executor, IC0 provider and
 entrypoint generator and excludes application principal conversion and SHA-2.
 Stable-structures retains its own external Principal dependency.
-The consumer and Timers share Metrics 0.17.4. The consumer selects its arithmetic
+The consumer and Timers share Metrics 0.17.7. The consumer selects its arithmetic
 and reset-window bookkeeping only on Wasm and in tests; native DTOs remain
 independent of Metrics. The Wasm timer subtree contains neither Wire nor Candid.
 The consumer's own Wire dependency supplies its endpoint codecs. Metrics has no
@@ -203,8 +237,8 @@ PocketIC calls retain the external Principal and convert explicitly when
 constructing application DTOs. Native DTO normal/build graphs exclude external
 Principal and hashing dependencies; Wasm excludes the application conversion
 feature and SHA-2. Principal bytes are unchanged.
-Wire frames and stored JSON preserve their existing bytes; no timer, task or
-storage owner is replaced by this adoption.
+Upstream adoption preserves RPC frames and job semantics; the queue retirement
+above separately changes the codec. No timer, task or storage owner is replaced.
 Native Testkit shares Platform 0.8 for external simulator interfaces without
 enabling its Candid adapter. PocketIC retains its required transitive Candid
 dependencies. The [workspace catalog](../../Cargo.toml),
@@ -302,7 +336,7 @@ remain outside the canister and public Jobs normal Wasm dependency graphs.
 
 Select [the recovery workflow](../../.github/workflows/recovery.yml) through
 **Actions → Canister recovery → Run workflow** and choose the
-tag or branch to qualify. This manual trigger runs all ten tests on the original and
+tag or branch to qualify. This manual trigger runs all eleven tests on the original and
 three optimized variants on Linux, Apple Silicon and Intel macOS.
 Ordinary push/PR CI still compiles the harness without starting
 PocketIC. See [GitHub's manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).

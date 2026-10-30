@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.17.50]
+
+### 🧪 Testing
+
+- Replace the qualification canister's JSON queue with bounded native Wire and
+  an explicit format identity. Preserve validated restoration, immutable delivery
+  identities and blocked-effect recovery. Keep the published Jobs API Serde-only
+  ([#78 — Replace job-consumer JSON queue persistence with bounded IC Wire payloads](https://github.com/dragginzgame/ic-jobs/issues/78)).
+
+### 📦 Dependencies
+
+- Adopt Platform 0.8.3, Metrics/Logging 0.17.7, Wire 0.7.24, Timers 0.32.3,
+  Memory/Storage 0.56.1 and Build/Host/Testkit 0.70.4. Refresh the lock-selected
+  contributor tools with `make install-testkit-tools install-release-tools`.
+
+### 🧭 Migration Notes
+
+- **Qualification queue format cut:** retained JSON refuses without conversion
+  or reset. Use fresh local test canisters. Before retiring any retained
+  installation, keep its old binary/backups and resolve Running/Uncertain effects
+  with exact receipts or an explicit owner-approved disposition. Source adoption
+  grants no destructive reinstall or redispatch permission. Memory's allocation
+  ledger remains a separate format boundary; same-format Wire recovery is retained.
+
 ## [0.17.49] - 2026-10-30
 
 ### 🧪 Testing

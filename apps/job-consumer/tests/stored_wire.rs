@@ -1,4 +1,4 @@
-//! Consumer-owned Wire persistence, separate from the canister's JSON queue.
+//! Public record coverage, alongside the canister's bounded Wire queue tests.
 //!
 //! Canic's owned stable records use Wire. Exercise the public Jobs values with
 //! that codec here, without adding Wire or a storage contract to the core crate.

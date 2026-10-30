@@ -72,6 +72,14 @@ fn increment(at: u64) -> Create {
     }
 }
 
+// Inspect raw records for corruption fixtures without skipping production restore.
+fn stored_records(bytes: &[u8]) -> Result<Snapshot, ic_wire::Error> {
+    native::decode(
+        bytes.strip_prefix(FORMAT).ok_or(ic_wire::Error::Identity)?,
+        LIMITS,
+    )
+}
+
 #[test]
 fn aliased_backing_refuses_reopen_until_the_final_handle_drops() {
     let backing = VectorMemory::default();
@@ -796,17 +804,14 @@ fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
                 .finish(&deliveries[0], 101, Outcome::Uncertain)
                 .unwrap();
         }
-        let mut snapshot: Snapshot = serde_json::from_slice(queue.cell.bytes()).unwrap();
+        let mut snapshot: Snapshot = stored_records(queue.cell.bytes()).unwrap();
         let entry = snapshot
             .jobs
             .iter_mut()
             .find(|entry| entry.job.id == JobId(u128::from(corrupt)))
             .unwrap();
         entry.job.sequence += 1;
-        queue
-            .cell
-            .try_set(serde_json::to_vec(&snapshot).unwrap())
-            .unwrap();
+        queue.cell.try_set(encode(&snapshot).unwrap()).unwrap();
         assert_invalid_record_blocks_queue(queue, backing, 200, healthy);
     }
 }
@@ -857,12 +862,9 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
         let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
         let healthy = queue.create(increment(100)).unwrap().value;
         queue.create(increment(200)).unwrap();
-        let mut snapshot: Snapshot = serde_json::from_slice(queue.cell.bytes()).unwrap();
+        let mut snapshot: Snapshot = stored_records(queue.cell.bytes()).unwrap();
         snapshot.jobs[1].job = corrupt;
-        queue
-            .cell
-            .try_set(serde_json::to_vec(&snapshot).unwrap())
-            .unwrap();
+        queue.cell.try_set(encode(&snapshot).unwrap()).unwrap();
         assert_invalid_record_blocks_queue(queue, backing, 100, healthy);
     }
 }
@@ -922,10 +924,10 @@ fn snapshot_admission_preserves_restore_and_collection_error_order() {
         ),
     ];
     for (name, mutate, expected) in cases {
-        let mut snapshot: Snapshot = serde_json::from_slice(&bytes).unwrap();
+        let mut snapshot: Snapshot = stored_records(&bytes).unwrap();
         mutate(&mut snapshot);
         assert_eq!(
-            decode(&serde_json::to_vec(&snapshot).unwrap()).map(|_| ()),
+            decode(&encode(&snapshot).unwrap()).map(|_| ()),
             Err(expected),
             "{name}"
         );
@@ -949,24 +951,21 @@ fn view_projection_preserves_large_ids_and_refuses_unadmitted_identities() {
         .unwrap();
     let original = queue.cell.bytes().to_vec();
     let id = u64::MAX - 1;
-    let mut snapshot: Snapshot = serde_json::from_slice(&original).unwrap();
+    let mut snapshot: Snapshot = stored_records(&original).unwrap();
     snapshot.next_id = u64::MAX;
     snapshot.jobs[0].job.id = JobId(u128::from(id));
-    queue
-        .cell
-        .try_set(serde_json::to_vec(&snapshot).unwrap())
-        .unwrap();
+    queue.cell.try_set(encode(&snapshot).unwrap()).unwrap();
     assert_eq!(queue.inspect(id).unwrap().id, id);
     assert_eq!(queue.page(None, 8).unwrap()[0].id, id);
     let delivery = queue.dispatch(100).unwrap().value.deliveries.pop().unwrap();
     assert_eq!(delivery.job, id);
     assert_eq!(queue.outstanding(id).unwrap(), delivery);
     // Refused identities must never produce a view or delivery from retained intent.
-    let mut snapshot: Snapshot = serde_json::from_slice(queue.cell.bytes()).unwrap();
+    let mut snapshot: Snapshot = stored_records(queue.cell.bytes()).unwrap();
 
     for invalid_id in [u128::from(u64::MAX), u128::from(u64::MAX) + 1, u128::MAX] {
         snapshot.jobs[0].job.id = JobId(invalid_id);
-        let bytes = serde_json::to_vec(&snapshot).unwrap();
+        let bytes = encode(&snapshot).unwrap();
         queue.cell.try_set(bytes.clone()).unwrap();
         assert_eq!(queue.inspect(id), Err(Error::InvalidStorage));
         assert_eq!(queue.page(None, 8), Err(Error::InvalidStorage));
@@ -1004,8 +1003,8 @@ fn typed_commit_preserves_canonical_snapshot_bytes_and_metadata() {
     queue.pause(later, 102).unwrap();
     // The raw canonical writer and typed writer must retain the same metadata,
     // payloads, receipt and blocked/terminal/paused records byte for byte.
-    let stored: Snapshot = serde_json::from_slice(queue.cell.bytes()).unwrap();
-    let expected = serde_json::to_vec(&stored).unwrap();
+    let stored: Snapshot = stored_records(queue.cell.bytes()).unwrap();
+    let expected = encode(&stored).unwrap();
     let loaded = queue.load().unwrap();
     assert_eq!(queue.commit(loaded, ()).unwrap().next_due_ns, None);
     assert_eq!(queue.cell.bytes(), expected);
@@ -1239,13 +1238,210 @@ fn memory_wire_cut_refuses_cbor_without_releasing_blocked_work() {
         frozen.producer,
         "cdb48cc9d1c3281e2b898bcfe4a19e2a673b4560 / ic-memory 0.55.2"
     );
-    // The Job/queue JSON is still valid, independently of the retired ledger.
-    // Admission goes through Job::restore and never grants effect replay.
-    let snapshot = decode(frozen.snapshot.as_bytes()).unwrap();
+    // Frozen producer metadata still establishes the unresolved obligation.
+    // Neither retired JSON nor the outer CBOR ledger is a current reader path.
+    let snapshot = serde_json::from_str::<Snapshot>(&frozen.snapshot)
+        .unwrap()
+        .admit()
+        .unwrap();
     assert_eq!(snapshot.jobs.len(), 1);
     assert_eq!(snapshot.jobs[0].job.record().state, JobState::Running);
     assert_eq!(snapshot.next_due_ns(), None);
+    assert!(matches!(
+        decode(frozen.snapshot.as_bytes()),
+        Err(Error::InvalidStorage)
+    ));
     assert_frozen_memory_refused(&frozen);
+}
+
+#[test]
+fn json_queue_cut_preserves_current_ledger_and_outstanding_effect_evidence() {
+    let frozen: FrozenMemory =
+        serde_json::from_str(include_str!("fixtures/stable-image-json01749.json")).unwrap();
+    assert_eq!(
+        frozen.producer,
+        "26108182368b3ef9687f195feaf2ce6c38021dfc / ic-memory 0.56.0 / incoming 2026-10-30 lock"
+    );
+    // Only this frozen-fixture assertion reads the old format. The old producer
+    // cold-opened both outstanding attempts blocked before capturing these bytes.
+    let snapshot = serde_json::from_str::<Snapshot>(&frozen.snapshot)
+        .unwrap()
+        .admit()
+        .unwrap();
+    assert_eq!(
+        snapshot.jobs[0].job.record().state,
+        JobState::Uncertain { started_ns: 10 }
+    );
+    assert_eq!(snapshot.jobs[1].job.record().state, JobState::Running);
+    assert_eq!(snapshot.receipts.len(), 2);
+    for entry in &snapshot.jobs {
+        assert_eq!(
+            entry.delivery().unwrap(),
+            snapshot.receipts[entry.job.record().id.0 as usize - 1]
+        );
+    }
+    assert_eq!(snapshot.next_due_ns(), None);
+    assert!(matches!(
+        decode(frozen.snapshot.as_bytes()),
+        Err(Error::InvalidStorage)
+    ));
+
+    let backing = memory_from_sparse_hex(frozen.pages, &frozen.runs, 3).unwrap();
+    let cell_memory = retained_cell(backing.clone(), MAX_BYTES).into_memory();
+    let mut before = vec![0; ic_memory::STABLE_CELL_HEADER_SIZE + frozen.snapshot.len()];
+    cell_memory.read(0, &mut before);
+    drop(cell_memory);
+    let memory = MeteredBacking::new(backing.clone());
+    for initial in [None, Some(config())] {
+        assert!(matches!(
+            Queue::open(memory.clone(), initial),
+            Err(Error::InvalidStorage)
+        ));
+        assert!(!memory.counts().overflowed);
+        // Bootstrap may write allocation bookkeeping. The refused Cell header,
+        // payload, outstanding attempts and receipts must remain byte-identical.
+        let cell = retained_cell(backing.clone(), MAX_BYTES);
+        assert_eq!(cell.bytes(), frozen.snapshot.as_bytes());
+        let cell_memory = cell.into_memory();
+        let mut after = vec![0; before.len()];
+        cell_memory.read(0, &mut after);
+        assert_eq!(after, before);
+    }
+}
+
+#[test]
+fn bounded_wire_queue_preserves_full_history_payloads_receipts_and_schedule_shapes() {
+    let backing = VectorMemory::default();
+    let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
+    let mut snapshot = queue.load().unwrap();
+    snapshot.next_id = u64::MAX;
+    snapshot.counter = u64::MAX;
+    let states = [
+        JobState::Pending { due_ns: 100 },
+        JobState::Paused { due_ns: 100 },
+        JobState::Running,
+        JobState::Uncertain { started_ns: 100 },
+        JobState::Completed,
+        JobState::Failed,
+        JobState::Cancelled,
+    ];
+    for index in 0..MAX_JOBS {
+        let id = u64::MAX - MAX_JOBS as u64 + index as u64;
+        let schedule = if index < states.len() {
+            Schedule::Once { at_ns: 100 }
+        } else {
+            match index % 3 {
+                0 => Schedule::FixedRate {
+                    first_at_ns: 100,
+                    every_ns: NonZeroU64::new(10).unwrap(),
+                    missed: MissedRunPolicy::Skip,
+                },
+                1 => Schedule::FixedRate {
+                    first_at_ns: 100,
+                    every_ns: NonZeroU64::new(10).unwrap(),
+                    missed: MissedRunPolicy::CatchUp,
+                },
+                _ => Schedule::AfterCompletion {
+                    first_at_ns: 100,
+                    every_ns: NonZeroU64::new(10).unwrap(),
+                },
+            }
+        };
+        let mut job = Job::new(
+            JobId(u128::from(id)),
+            schedule,
+            RetryPolicy::new(3, 5, 20).unwrap(),
+        );
+        if let Some(state) = states.get(index) {
+            set_job_state(&mut job, *state, 100);
+        }
+        let payload = DeliveryPayload {
+            destination: manager(),
+            message: "x".repeat(MAX_MESSAGE),
+        };
+        snapshot.jobs.push(Entry {
+            job,
+            task: Task::Deliver(payload.clone()),
+        });
+        snapshot.receipts.push(Delivery {
+            job: id,
+            occurrence: u64::MAX,
+            sequence: u64::MAX,
+            payload,
+        });
+    }
+    let expected = encode(&snapshot).unwrap();
+    assert!(expected.len() <= MAX_BYTES);
+    stored_records(&expected).unwrap();
+    assert_eq!(queue.commit(snapshot, ()).unwrap().next_due_ns, Some(100));
+    assert_eq!(queue.cell.bytes(), expected);
+    assert_eq!(queue.create(increment(200)), Err(Error::Capacity));
+    drop(queue);
+    let (queue, due) = Queue::open(backing, None).unwrap();
+    assert_eq!(due, Some(100));
+    let loaded = queue.load().unwrap();
+    assert_eq!(loaded.jobs.len(), MAX_JOBS);
+    assert_eq!(loaded.receipts.len(), MAX_JOBS);
+    assert_eq!(loaded.counter, u64::MAX);
+    assert_eq!(encode(&loaded).unwrap(), expected);
+}
+
+#[test]
+fn wire_queue_refuses_wrong_identity_malformed_trailing_and_exhausted_budgets() {
+    let mut queue = Queue::open(VectorMemory::default(), Some(config()))
+        .unwrap()
+        .0;
+    queue.create(increment(100)).unwrap();
+    let original = queue.cell.bytes().to_vec();
+    let mut wrong_identity = original.clone();
+    wrong_identity[0] ^= 1;
+    let mut trailing = original.clone();
+    trailing.push(0);
+    for bytes in [
+        vec![],
+        wrong_identity,
+        original[..original.len() - 1].to_vec(),
+        trailing,
+        vec![0; MAX_BYTES + 1],
+    ] {
+        assert!(matches!(decode(&bytes), Err(Error::InvalidStorage)));
+        if bytes.len() <= MAX_BYTES {
+            let memory = VectorMemory::default();
+            let mut damaged = Queue::open(memory.clone(), Some(config())).unwrap().0;
+            damaged.cell.try_set(bytes.clone()).unwrap();
+            assert_eq!(damaged.dispatch(100), Err(Error::InvalidStorage));
+            assert_eq!(damaged.cell.bytes(), bytes);
+            drop(damaged);
+            assert!(matches!(
+                Queue::open(memory.clone(), None),
+                Err(Error::InvalidStorage)
+            ));
+            assert_eq!(retained_cell(memory, MAX_BYTES).bytes(), bytes);
+        }
+    }
+    let payload = original.strip_prefix(FORMAT).unwrap();
+    for limits in [
+        Limits {
+            bytes: payload.len() - 1,
+            ..LIMITS
+        },
+        Limits {
+            allocation: LIMITS.bytes - 1,
+            ..LIMITS
+        },
+        Limits { nodes: 1, ..LIMITS },
+        Limits { depth: 0, ..LIMITS },
+    ] {
+        assert!(matches!(
+            native::decode::<Snapshot>(payload, limits),
+            Err(ic_wire::Error::Limit)
+        ));
+        assert_eq!(
+            native::encode(&queue.load().unwrap(), limits),
+            Err(ic_wire::Error::Limit)
+        );
+    }
+    assert_eq!(queue.cell.bytes(), original);
 }
 
 #[test]

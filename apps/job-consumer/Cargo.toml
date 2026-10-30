@@ -17,7 +17,6 @@ ic-memory = { workspace = true, features = ["test-support"] }
 ic-metrics.workspace = true
 ic-platform = { workspace = true, features = ["cdk"] }
 ic-timers.workspace = true
-serde_json.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]

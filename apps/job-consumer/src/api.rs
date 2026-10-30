@@ -1,4 +1,4 @@
-//! Consumer-owned DTOs for Wire RPCs and retained JSON snapshots.
+//! Consumer-owned DTOs for Wire RPCs and bounded Wire snapshots.
 //! JobRecord remains an internal stored value.
 
 use ic_platform::Principal;

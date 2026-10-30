@@ -80,7 +80,8 @@ owns the resolved versions. The [handoff](docs/status/current.md) records the
 selected adoption and its source-bound evidence.
 The qualification app selects Platform's `cdk` feature only on Wasm. Native
 consumer builds explicitly select Platform's `principal` feature for Serde DTOs
-and Wire contracts. Jobs, Memory, Timers and JSON remain Wasm/test dependencies. Parser, Agent,
+and Wire contracts. Jobs, Memory and Timers remain Wasm/test dependencies; JSON
+is limited to native fixtures and tooling. Parser, Agent,
 certification and crypto features are not selected. Platform 0.8 owns the reviewed
 runtime adapters and generator; registry executor 2.0.0 and ic0 1.2.0 remain shared
 with Timers. The qualification Wasm selects neither Candid nor full `ic-cdk`.
@@ -100,8 +101,10 @@ bytes are negative fixtures only.
 
 This is an unpublished fixture protocol cut. Quiesce management/delivery activity,
 dispose of outstanding old management requests and rebuild the fixture and native
-harness together. Existing delivery identities and stored JSON do not change;
-Running/Uncertain effects still require explicit disposition and exact evidence.
+harness together. Delivery identities remain unchanged. The queue now stores
+bounded Wire under `JQW\x01`; retained JSON refuses without conversion or reset.
+Use fresh qualification state after explicitly retiring the old installation;
+resolve its Running/Uncertain effects with the old binary and exact evidence first.
 The [consumer guide](apps/job-consumer/README.md) describes the boundaries, and the
 [handoff](docs/status/current.md) records qualification by source. Native Testkit
 shares Platform 0.8 with the harness for external simulator interfaces. The
@@ -126,7 +129,7 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 `make check-dependency-graphs` adds locked, offline normal/build graph admission
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
-host-only packages, Candid and full CDK. It requires one Timers, executor,
+host-only packages, JSON, Candid and full CDK. It requires one Timers, executor,
 raw-system, Platform and Platform-macro identity. The app, Memory and Timers share
 Platform 0.8. The graph excludes application principal conversion and SHA-2;
 executor, IC0 and entrypoint generation stay single.

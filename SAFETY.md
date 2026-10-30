@@ -23,9 +23,12 @@ method-bound IC Wire native Serde frames. Candid input, wrong method/direction,
 malformed/noncanonical frames and resource-limit failures grant no result
 disposition. An unreadable reply never establishes absence or retry safety.
 Sender and receiver must adopt this protocol together after quiescing and
-disposing of in-flight calls. Retained JSON
-jobs and receipts are unchanged; their restoration and reconciliation obligations
-remain in force. External simulator/management protocols in the native harness
+disposing of in-flight calls. The qualification queue separately uses bounded
+Wire under `JQW\x01`; retained JSON queues refuse without reset or conversion.
+Retire old installations only after resolving their outstanding effects with
+the old reader and preserving their exact attempts, receipts and backups. See
+the [consumer's retirement procedure](apps/job-consumer/README.md).
+External simulator/management protocols in the native harness
 retain their required Candid encoding; owned fixture endpoints do not.
 
 Attempt correlation rejects old replies within one retained history. It does not
@@ -58,7 +61,7 @@ Recurring intervals cannot be zero in a `Schedule`. `RetryPolicy` construction
 and deserialization share the same positive-budget/delay and cap checks. These
 local configuration guarantees do not establish a valid `JobRecord` history:
 all decoded aggregates still require `Job::restore`. Malformed configuration
-fails at decoding. The 0.16 current JSON contract uses a unit Running state,
+fails at decoding. The current public Serde contract uses a unit Running state,
 whose start time is its transition timestamp. Entering Uncertain preserves that
 original dispatch time; later unresolved reconciliation must not replace it.
 Timestamp-bearing Running records are refused. The qualification consumer also
@@ -66,9 +69,10 @@ requires nested delivery payloads in receipts and wire replies; flat envelopes
 are refused. Frozen old inputs qualify refusal, not compatibility. Other codecs
 remain consumer-owned and require their own retained-byte qualification.
 
-The selected hard cut retires affected earlier installations without a conversion
-or fallback reader. Consumers own fresh installation/reset authority; source
-adoption executes none of those effects. Refused cells retain their bytes.
+Only the current consumer formats are readable, with no conversion or fallback
+reader. Retained installations require the owner's explicit disposition before
+retirement. Consumers own fresh installation/reset authority; source adoption
+executes none of those effects. Refused cells retain their bytes.
 IC Memory's physical ledger is an independent boundary: frozen incompatible
 images must also refuse without stable writes, including on installation.
 

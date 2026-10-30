@@ -128,7 +128,7 @@ CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-
 	ic-cdk-executor ic-cdk-timers ic-platform ic-platform-macros ic0 ic-memory ic-stable-structures ic-storage \
 	ic-timers ic-metrics ic-logging ic-wire ic-wire-derive postcard ic-build ic-host-fs ic-host-process ic-testkit \
 	ic-testkit-candid ic-testkit-native jobs-test-consumer pocket-ic serde_json serde_test
-QUALIFICATION_GRAPH_FORBIDDEN := clap ctrlc ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
+QUALIFICATION_GRAPH_FORBIDDEN := clap ctrlc serde_json ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native pocket-ic tokio
 # The fixture, Memory and Timers share Platform 0.8.
 # Keep one executor, raw-system provider and entrypoint generator, without
