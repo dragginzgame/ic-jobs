@@ -15,11 +15,13 @@ RELEASE_METADATA_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-buil
 VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
 	--input .shared-tooling.snapshot --input Makefile --input scripts/dev/testkit-tool.sh --input scripts/dev/queue-command.sh --input scripts/dev/minimum-rust.sh --input ci/tool-versions.env \
 	--input ci/ic-tools.tsv --input ci/release-delivery.txt --input ci/cargo-dependency-boundaries.json \
-	--input crates/ic-jobs/Cargo.toml --input apps/job-consumer/Cargo.toml \
-	--input crates/jobs-canister-tests/Cargo.toml
+	$(foreach manifest,$(wildcard crates/*/Cargo.toml apps/*/Cargo.toml),--input $(manifest))
 
 .PHONY: help version install-hooks check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling test-formatting-evidence package publish-check publish ci
 help:
+	@echo "IC Scheduling: ic-jobs and ic-timers share this workspace and release version"
+	@echo "Timers: test-timers, check-timer-provider, check-timer-dependencies, check-timer-probes"
+	@echo "Explicit Timers IC qualification: test-timer-watchdog, test-timer-cohorts"
 	@echo "Focused selections: see README (Consumer qualification) for package/test/target commands"
 	@echo "Aggregates: check, test-jobs, test-consumers, check-msrv, check-wasm, clippy, docs-check, fmt-check"
 	@echo "Consumer: check-consumer (native, Wasm, harness compilation); build-consumer (Wasm artifact)"
@@ -44,21 +46,21 @@ test-jobs:
 	+cargo test -p ic-jobs --tests --all-features --locked --offline
 
 test-consumers:
-	+$(MINIMUM_RUST) cargo test -p jobs-test-consumer --test composition --test stored_wire --locked --offline
+	+$(MINIMUM_RUST) cargo test -p ic-jobs-test-consumer --test composition --test stored_wire --locked --offline
 	+$(MINIMUM_RUST) cargo run -p ic-jobs --example persisted_job --locked --offline
 
 .PHONY: check-consumer build-consumer install-testkit-tools testkit-tools-check install-consumer-server consumer-server-check test-canister test-canister-optimized
 check-consumer:
-	+$(MINIMUM_RUST) cargo test -p jobs-test-consumer --lib --test api_wire --locked --offline
+	+$(MINIMUM_RUST) cargo test -p ic-jobs-test-consumer --lib --test api_wire --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
-	+$(MINIMUM_RUST) cargo test -p jobs-canister-tests --bin jobs-capture-artifact --example queue --test queue_cli --test recovery --locked --offline
+	+$(MINIMUM_RUST) cargo test -p ic-jobs-canister-tests --bin jobs-capture-artifact --example queue --test queue_cli --test recovery --locked --offline
 
 build-consumer:
-	+$(MINIMUM_RUST) cargo build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
+	+$(MINIMUM_RUST) cargo build -p ic-jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
 
 .PHONY: build-recovery-tools
 build-recovery-tools:
-	+$(MINIMUM_RUST) cargo build -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
+	+$(MINIMUM_RUST) cargo build -p ic-jobs-canister-tests --bin jobs-capture-artifact --locked --offline
 
 install-testkit-tools:
 	+$(TESTKIT_TOOL)
@@ -77,45 +79,45 @@ consumer-server-check:
 test-canister test-canister-optimized: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
 	+$(MAKE) --no-print-directory build-recovery-tools
-	+$(MINIMUM_RUST) cargo test -p jobs-canister-tests --test recovery --locked --offline --no-run
+	+$(MINIMUM_RUST) cargo test -p ic-jobs-canister-tests --test recovery --locked --offline --no-run
 	+bash scripts/ci/test-canister.sh $(if $(filter test-canister-optimized,$@),--optimized)
 
 .PHONY: demo test-demo test-demo-cli
 demo: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
-	+$(MINIMUM_RUST) cargo build -p jobs-canister-tests --example queue --locked --offline
+	+$(MINIMUM_RUST) cargo build -p ic-jobs-canister-tests --example queue --locked --offline
 	+bash scripts/dev/queue-command.sh demo
 
 test-demo: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
-	+$(MINIMUM_RUST) cargo test -p jobs-canister-tests --example queue --locked --offline --no-run
+	+$(MINIMUM_RUST) cargo test -p ic-jobs-canister-tests --example queue --locked --offline --no-run
 	+bash scripts/dev/queue-command.sh test-demo
 
 # Spawn-mode process tests intentionally do not borrow the batch runner's server.
 test-demo-cli: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
-	+$(MINIMUM_RUST) cargo build -p jobs-canister-tests --example queue --locked --offline
+	+$(MINIMUM_RUST) cargo build -p ic-jobs-canister-tests --example queue --locked --offline
 	+bash scripts/dev/queue-command.sh test-demo-cli
 
 check-msrv:
 	+$(MINIMUM_RUST) cargo check -p ic-jobs --lib --locked --offline
-	+$(MINIMUM_RUST) cargo check -p jobs-test-consumer --test composition --test stored_wire --locked --offline
+	+$(MINIMUM_RUST) cargo check -p ic-jobs-test-consumer --test composition --test stored_wire --locked --offline
 
 check-wasm:
 	+$(MINIMUM_RUST) cargo check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline
-	+$(MINIMUM_RUST) cargo check -p jobs-test-consumer --lib --target wasm32-unknown-unknown --locked --offline
+	+$(MINIMUM_RUST) cargo check -p ic-jobs-test-consumer --lib --target wasm32-unknown-unknown --locked --offline
 
 clippy:
 	+cargo clippy -p ic-jobs --all-targets --all-features --locked --offline -- -D warnings
-	+cargo clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
-	+cargo clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
+	+cargo clippy -p ic-jobs-test-consumer -p ic-jobs-canister-test-support -p ic-jobs-canister-tests -p ic-timers --all-targets --locked --offline -- -D warnings
+	+cargo clippy -p ic-jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
 
 docs-check:
-	+RUSTDOCFLAGS="-D warnings" cargo doc -p ic-jobs --all-features --locked --offline --no-deps
+	+RUSTDOCFLAGS="-D warnings" cargo doc -p ic-jobs -p ic-timers --all-features --locked --offline --no-deps
 	+cargo test -p ic-jobs --doc --all-features --locked --offline
 
 check-doc-links:
-	perl scripts/ci/check-documentation-links.pl --root . *.md docs/*.md docs/principles/*.md docs/status/*.md rules/*.md audits/*.md tasks/*.md $(wildcard apps/*/README.md apps/*/tests/fixtures/README.md crates/*/README.md crates/*/tests/fixtures/README.md)
+	perl scripts/ci/check-documentation-links.pl --root . *.md docs/*.md docs/principles/*.md docs/status/*.md rules/*.md audits/*.md tasks/*.md $(shell rg --files docs/timers -g '*.md') crates/ic-timers/SAFETY.md crates/ic-timers/CHANGELOG.md $(wildcard apps/*/README.md apps/*/tests/fixtures/README.md crates/*/README.md crates/*/tests/fixtures/README.md)
 
 check-pins:
 	+bash scripts/ci/check-dependency-pins.sh --cargo-inheritance
@@ -126,12 +128,12 @@ check-dependency-boundaries:
 
 # Jobs owns these concrete exclusions; Shared owns observation and matching.
 CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-cdk-macros \
-	ic-cdk-executor ic-cdk-timers ic-platform ic-platform-macros ic0 ic-memory ic-stable-structures ic-storage \
+	ic-cdk-executor ic-cdk-timers ic-platform ic-platform-macros ic-platform-runtime-guard ic0 ic-memory ic-stable-structures ic-storage \
 	ic-timers ic-metrics ic-logging ic-wire ic-wire-derive postcard ic-build ic-host-fs ic-host-process ic-testkit \
-	ic-testkit-candid ic-testkit-native jobs-test-consumer pocket-ic serde_json serde_test
-QUALIFICATION_GRAPH_FORBIDDEN := clap ctrlc serde_json ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
-	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native pocket-ic tokio
-# The fixture, Memory and Timers share Platform 0.8.
+	ic-testkit-candid ic-testkit-native ic-jobs-test-consumer ic-jobs-canister-test-support pocket-ic serde_json serde_test
+QUALIFICATION_GRAPH_FORBIDDEN := ic-cdk-executor ic0 clap ctrlc serde_json ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
+	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native ic-jobs-canister-test-support pocket-ic tokio
+# Jobs and Timers share Platform 0.9 runtime; Memory retains a non-runtime 0.8 facade.
 # Keep one executor, raw-system provider and entrypoint generator, without
 # application Principal conversion or hashing in the deployed graph.
 .PHONY: check-dependency-graphs
@@ -142,23 +144,23 @@ check-dependency-graphs:
 	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package ic-jobs \
 		--target wasm32-unknown-unknown --all-features \
 		$(foreach dependency,$(CORE_GRAPH_FORBIDDEN),--forbid $(dependency))
-	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
+	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package ic-jobs-test-consumer \
 		--target wasm32-unknown-unknown --all-features \
-		--require ic-timers=1 --require ic-cdk-executor=1 --require ic0=1 \
-		--require ic-platform=1 --require ic-platform-macros=1 \
+		--require ic-timers=1 --require ic-platform-runtime-guard=1 \
+		--require ic-platform=2 --require ic-platform-macros=1 \
 		--forbid sha2 --forbid-feature ic-platform/principal-external \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
-	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-test-consumer \
+	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package ic-jobs-test-consumer \
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \
-		--forbid ic-cdk --forbid ic-platform-macros --forbid-feature ic-platform/cdk \
+		--forbid ic-cdk --forbid ic-platform-macros --forbid ic-platform-runtime-guard --forbid-feature ic-platform/cdk \
 		--forbid ic-jobs --forbid ic-memory --forbid ic-timers --forbid serde_json \
 		--forbid ic-stable-structures --forbid ic-cdk-executor --forbid ic0 --forbid ic-metrics --forbid ic-logging \
 		--forbid ic_principal --forbid sha2 \
 		$(foreach dependency,$(QUALIFICATION_GRAPH_FORBIDDEN),--forbid $(dependency))
-	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package jobs-canister-tests \
+	+perl scripts/ci/check-cargo-graph.pl --consumer "$(CURDIR)" --package ic-jobs-canister-tests \
 		--target "$$(rustc -vV | sed -n 's/^host: //p')" --all-features \
 		--forbid candid --forbid candid_derive --forbid candid_parser \
-		--forbid pocket-ic --forbid ic-testkit --forbid ctrlc --forbid-feature ic-platform/candid \
+		--forbid pocket-ic --forbid ic-testkit --forbid ic-jobs-canister-test-support --forbid ctrlc --forbid-feature ic-platform/candid \
 		--forbid-feature ic-platform/pocket-ic
 
 check-release-commands:
@@ -199,11 +201,11 @@ formatting-hook-check: format-tools-check
 	+bash scripts/ci/check-jobs-formatting.sh
 
 package:
-	+cargo package -p ic-jobs --all-features --locked --offline --allow-dirty
+	+cargo package -p ic-jobs -p ic-timers --all-features --locked --offline --allow-dirty
 
 publish-check:
 	+$(MAKE) --no-print-directory clippy
-	+cargo publish -p ic-jobs --all-features --locked --registry crates-io --allow-dirty --dry-run
+	+cargo publish -p ic-jobs -p ic-timers --all-features --locked --registry crates-io --allow-dirty --dry-run
 
 publish:
 	+@bash scripts/release/publish.sh "$(RELEASE_REMOTE)"
@@ -214,8 +216,8 @@ validation-tools-check: tools-check format-tools-check
 # Ordered recursive calls preserve admission before dependent work under -j.
 ci: shared-tooling-check
 	+bash scripts/ci/run-validation-targets.sh --fail-fast $(VALIDATION_INPUTS) \
-		validation-tools-check clippy check-doc-links check-pins check-dependency-boundaries check-dependency-graphs check-release-commands \
-		test-release-tooling test-formatting-evidence test-consumer-tooling \
+		validation-tools-check clippy check-timer-provider check-timer-dependencies check-timer-probes check-doc-links check-pins check-dependency-boundaries check-dependency-graphs check-release-commands \
+		test-release-tooling test-formatting-evidence test-consumer-tooling test-timers test-timer-dependencies \
 		formatting-hook-check fmt-check check test-jobs test-consumers \
 		check-consumer check-msrv check-wasm docs-check package
 
@@ -227,7 +229,7 @@ release-preflight:
 	+@bash scripts/release/metadata.sh preflight
 
 release-verify:
-	+CARGO_NET_OFFLINE=true VALIDATION_FAILURE_LOG_DIR="$$(git rev-parse --git-path release-state)/validation-failures" bash scripts/ci/run-validation-targets.sh --fail-fast $(VALIDATION_INPUTS) ci
+	+CARGO_NET_OFFLINE=true VALIDATION_FAILURE_LOG_DIR="$$(git rev-parse --git-path release-state)/validation-failures" bash scripts/ci/run-validation-targets.sh --fail-fast $(VALIDATION_INPUTS) ci install-testkit-tools install-consumer-server test-timer-watchdog test-timer-cohorts
 
 release-prepare-version:
 	+@bash scripts/release/metadata.sh prepare
@@ -240,3 +242,29 @@ release-commit-check:
 
 release-files:
 	@printf '%s\0' Cargo.toml Cargo.lock CHANGELOG.md
+
+# Timers product checks share this workspace's lock, compilers and Testkit setup.
+.PHONY: test-timers check-timer-provider check-timer-dependencies check-timer-probes test-timer-watchdog test-timer-cohorts
+check-timer-provider:
+	bash scripts/ci/check-timer-provider.sh
+check-timer-dependencies:
+	+bash scripts/ci/check-timer-dependencies.sh
+.PHONY: test-timer-dependencies
+test-timer-dependencies:
+	+bash scripts/ci/test-timer-dependencies.sh
+test-timers:
+	+$(MINIMUM_RUST) cargo test -p ic-timers --all-targets --locked --offline
+	+$(MINIMUM_RUST) cargo test -p ic-timers --doc --locked --offline
+	+$(MINIMUM_RUST) cargo test -p ic-timers-test-protocol -p ic-timers-runtime-probe --lib --locked --offline
+check-timer-probes:
+	+$(MINIMUM_RUST) cargo clippy -p ic-timers-pocketic -p ic-timers-runtime-probe -p ic-timers-test-protocol --all-targets --locked --offline -- -D warnings
+	+$(MINIMUM_RUST) cargo check -p ic-timers -p ic-timers-runtime-probe --target wasm32-unknown-unknown --locked --offline
+	+@set -e; for selection in baseline once after-completion watchdog; do \
+		$(MINIMUM_RUST) cargo clippy -p ic-timers-size-probe --no-default-features --features "$$selection" --all-targets --locked --offline -- -D warnings; \
+	done
+test-timer-watchdog: consumer-server-check
+	+@cli="$$( $(TESTKIT_TOOL) --check )" && server="$$( "$$cli" check )" && \
+		POCKET_IC_BIN="$$server" $(MINIMUM_RUST) cargo run -p ic-timers-pocketic --locked --offline -- watchdog
+test-timer-cohorts: consumer-server-check
+	+@cli="$$( $(TESTKIT_TOOL) --check )" && server="$$( "$$cli" check )" && \
+		POCKET_IC_BIN="$$server" $(MINIMUM_RUST) cargo run -p ic-timers-pocketic --locked --offline -- cohorts

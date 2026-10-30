@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# IC Jobs read-only publication admission. Dependencies: Bash 3.2, Git, jq/yq,
+# IC Scheduling read-only publication admission. Dependencies: Bash 3.2, Git, jq/yq,
 # curl and the reviewed version/tag/registry/Make-execution helpers.
 # Effects: remote-tag/registry observations; no Cargo upload or Git writes.
 [[ $# == 1 && "$1" =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]] || {
     echo 'usage: check-publication.sh REMOTE' >&2; exit 2;
 }
-package=ic-jobs
+packages=(ic-jobs ic-timers)
 remote="$1"
 root="${BASH_SOURCE[0]}"
 case "$root$PWD" in *$'\n'*|*$'\r'*) echo 'publication directory contains CR/LF' >&2; exit 2 ;; esac
@@ -36,6 +36,7 @@ observed="$(git ls-remote --exit-code -- "$destination" "$tag")" || fail 'cannot
 
 # Unknown registry state cannot authorize a new upload. Duplicate versions are
 # immutable at crates.io; an interrupted upload is observed again on invocation.
+for package in "${packages[@]}"; do
 registry_status=0
 bash "$root/scripts/ci/check-crates-io-version.sh" "$package" "$version" || registry_status=$?
 case "$registry_status" in
@@ -43,6 +44,7 @@ case "$registry_status" in
     1) ;;
     *) fail 'crates.io version observation is unavailable; resolve it before retrying' ;;
 esac
+done
 
 # Recheck local source after network observations, before dispatching Cargo.
 current_commit="$(git rev-parse --verify HEAD)"

@@ -1,98 +1,93 @@
 # Current handoff
 
-## Source and accepted scope
+## Accepted scope and source
 
-Baseline: `796b68181b7820245d1785e869be82f2d46c420e` (Release 0.17.50).
-The ten-reduction cleanup, Metrics 0.18 adoption and subsequent Logging 0.18
-migration are prepared locally with pending 0.17.51 notes. Package versions and
-Git index/refs remain unchanged. No release, publication, deployment, data reset
-or conversion was performed. Published core runtime source/API remain Serde-only.
+IC Scheduling combines `ic-jobs` and `ic-timers` in one nine-member workspace.
+Both published libraries use the explicitly approved shared version 0.33.0.
+The user approved and GitHub completed the repository rename to
+`dragginzgame/ic-scheduling`; origin now points to that repository. The physical
+checkout remains `ic-jobs`; open `ic-scheduling.code-workspace` for the combined
+editor workspace. No commit, push, tag, publication or deployment was performed.
+Private Jobs packages and directories now use `ic-jobs-canister-tests`,
+`ic-jobs-canister-test-support` and `ic-jobs-test-consumer`. All seven support
+packages remain `publish = false`; their roles are documented in the root README.
+Rename checks pass: 45 consumer library tests, 4 API-wire tests, Rust 1.91 release
+Wasm build, capture build, consumer-tooling fixtures, five dependency graph
+contexts, formatting, documentation links and snapshot integrity. Evidence is
+retained at `/tmp/ic-scheduling-names-evidence/`; no live recovery ran.
 
-The cleanup uses one post-commit diagnostic event flow and one manager-authorized
-queue accessor. Host transport/error handling, controller snapshots, native
-corruption setup and typed capture arguments are simplified. Release-fixture
-phases run in isolated subshells. Cargo's declared Rust floor supplies Make,
-launchers and hosted setup through `scripts/dev/minimum-rust.sh`, without setup
-side effects; development Rust comes from `rust-toolchain.toml`. Rust stays 1.91.
-Shared Tooling stays reviewed 0.26.25 at
-`6b6bbd9c9e5798f0ecf6105637392a7a55cd450e`; its snapshot files are unchanged.
+Jobs baseline: `50fac19a55624c2110778e21ba5bb15ef8bf469a` (0.17.51).
+Timers was imported from the authorized dirty sibling working tree on
+`651efce370bd6aec6290b74118eb709488062d0a` (0.32.4), including its pending
+Platform/Metrics migration. The sibling remains untouched and is not a build
+input. Migration evidence and incoming patches are retained at
+`/tmp/ic-scheduling-merge.7PRSi3Nq/`. Imported historical Timers evidence retains
+its original source identities and does not qualify this workspace.
 
-Wire's published codec hooks are Wasm-only. **Keep the explicit Platform
-attributes and local guards:** automatic Wire attributes trap oversized RPC input,
-whereas this fixture rejects it. IDs, shapes, limits, rejection codes and
-synchronous reply-failure rollback remain; codec trap text comes from Wire.
+Shared Tooling is reviewed 0.27.11 at
+`62edfbd43087a718bf0283e9040676a49211976d`, adopted through its exporter.
+Earlier dirty shared adoption and the private `ic-jobs-canister-test-support`
+transport extraction remain included. Snapshot-owned files retain that adoption.
 
-## Logging and Metrics contracts
+## Dependency state and remaining blocker
 
-[#79 — Adopt ic-logging 0.18 in the job-consumer logging adapter](https://github.com/dragginzgame/ic-jobs/issues/79)
-is implemented locally with published Logging 0.18.0. The retained UTF-8 text
-ceiling is `128 * (192 + 2 * 32)` = 32 KiB, preserving the existing 128-row,
-192-byte message and 32-byte per-label capacity. It excludes metadata, spare
-capacity and transient buffers; it is not a full heap cap. Paging explicitly
-uses TopicMatch::Any without changing the request contract. Successful append
-receipts retain sequence/truncation on rows; normal eviction is not an omitted
-event. All typed append refusals, including TextBudgetExceeded, increment omitted
-observations without changing committed job outcomes or retry authority.
+Active direct dependencies: Platform 0.9.1, Wire 0.8.0, Metrics/Logging 0.18.1,
+Memory/Storage 0.56.4 and local Timers 0.33.0. Platform's embedded executor has one
+matching registry runtime guard. Memory retains its older non-runtime facade;
+the deployed graph forbids the separate registry executor and IC0 provider.
 
-Logs are heap-only. No Logging checkpoint is persisted, so the 0.18 checkpoint
-layout requires no retained-data transition here. Reconstruction still creates
-empty history/omissions; Metrics resets do not clear logs or reuse log IDs.
-The issue remains open pending delivery and source-matching acceptance.
+Tooling/Testkit remains lock-selected 0.70.5. Its Wire 0.7 `Limits` cannot accept
+the Wire 0.8 budgets in either host harness. The user confirmed 0.71 is being
+published, but the latest exact crates.io query still returned unavailable.
+Do not add aliases, transport copies, registry patches or a compatibility shim.
+Once published, adopt the compatible direct Tooling cohort, fetch the lock,
+rebuild/admit its CLI, then finish host lint, harness tests and installed recovery
+qualification against the final source and lock. Current host compile failure
+is known and prevents claiming that combined CI passes.
 
-The consumer selects Metrics 0.18.0 with unchanged counter/window arithmetic and
-numeric reports. Timers keeps its required Metrics 0.17.7; no Metrics values cross
-those Rust identities. Incoming Memory/Storage 0.56.2, Timers 0.32.4 and Tooling
-0.70.5 selections were preserved. Logging is the only package changed by this
-latest update. The lock-selected Testkit CLI was prepared through normal setup.
+## Validation and maintained gates
 
-## Latest qualification
+Focused migration checks passed on Linux: 48 Jobs integration tests, 172 Timers
+unit tests, 9 Timers doctests, 45 consumer native tests and 4 protocol/probe tests.
+Rust 1.91 consumer Wasm strict lint and release build pass; Timers/runtime probe
+minimum-compiler Wasm checks pass. Both package archives compiled successfully.
+Provider confinement, nine Timers graph contexts, five Jobs graph contexts,
+direct dependency boundaries and pins pass. Formatting, documentation links,
+release metadata/formatting fixtures and two-package publication fixtures pass.
+Logs are retained under `/tmp/ic-scheduling-*.log` and copied to migration evidence.
+Failures and retries are retained alongside successful logs, not relabeled.
 
-Evidence: `/tmp/ic-jobs-logging018.rB7SPK4d/`, including incoming inputs, final
-source/lock/graph, command logs, CLI setup/admission and actual tested Wasm.
-Use the retained dirty-source identities, not baseline HEAD alone, for this proof.
+The combined CI includes both products' native checks and probe gates. Explicit
+release verification additionally retains Timers watchdog and cohort live gates;
+ordinary CI does not launch PocketIC. The manually selected recovery workflow
+covers Jobs and Timers on Linux and macOS Intel/Apple Silicon. No combined-source
+live recovery, macOS matrix, full CI or release gate has yet passed. Earlier live
+receipts cannot establish recovery on this new graph.
 
-Six focused native tests pass on Rust 1.91: full UTF-8 row capacity with no early
-byte eviction, successful eviction/truncation versus omission, new typed text
-refusal with unchanged history, redaction, bounded/empty-filter pagination and
-refused diagnostics after committed work. Strict consumer native/Wasm lint,
-actual minimum-compiler Wasm build, pin/boundary/five graph checks, manifest order
-and documentation links pass. The Serde-only core/native DTO boundaries remain.
+Earlier evidence remains separate at
+`/tmp/ic-jobs-platform-observability.azJk5Hk6/` (11 native, 2 live tests) and
+`/tmp/ic-jobs-upstream-adoption.haqjWO7J/` (74 native, 11 live tests).
+The unpublished dependency candidate at
+`/tmp/ic-jobs-platform091-wire080.41ddtgBu/` is superseded by this consolidation.
 
-All eleven Linux PocketIC recovery tests pass on the original Wasm using
-Testkit 0.70.5/PocketIC 16.1.0. Evidence: `live/jobs-recovery.LeLCoF/` within that
-root. Wasm SHA-256:
-`5c09d3ce958cc9ef65f3d0d4785cecc4063b8e138c8147452970c0901188abad`.
-This includes manager-only log/metric queries, reconstruction with jobs retained,
-real watchdog trap rollback, exact receipt recovery and blocked unknown effects.
-No full CI, new macOS, optimized-variant, provider or deployment acceptance ran.
+## Retained authority and recovery constraints
 
-Earlier Metrics-only qualification (eight native checks, no live run) remains at
-`/tmp/ic-jobs-metrics018.1RGk9ddy/`. Cleanup qualification (74 native checks,
-release/consumer tooling fixtures, eleven live recovery cases and four terminal
-shutdown scenarios) remains at `/tmp/ic-jobs-complexity-cleanup.haF9H0W6/`.
-Keep those earlier source/graphs distinct; do not relabel their artifacts.
+Jobs remains Serde-only and platform-neutral. Timers owns its existing private
+volatile timer registry and IC dispatch; consumers own durable metadata, storage,
+lifecycle reconstruction and handler selection. Every restore uses `Job::restore`.
+Running/Uncertain effects remain blocked until explicit consumer disposition.
 
-## Retained state and earlier Canic work
+Queue bytes remain `JQW\x01` bounded Wire; no JSON fallback, reset or converter.
+Keep prior binaries/backups, attempts and receipts before retiring installations.
+Memory's ledger is separately owned: never clear only a queue or ledger. Follow
+the [consumer guide](../../apps/ic-jobs-test-consumer/README.md) and
+[fixture provenance](../../crates/ic-jobs/tests/fixtures/README.md).
+Logging remains heap-only, bounded to 32 KiB, and records after committed work;
+Metrics reset does not clear logs or reuse IDs. Keep explicit Platform attributes
+and local size guards to preserve rejection behavior.
 
-Release 0.17.50 contains
-[#78 — Replace job-consumer JSON queue persistence with bounded IC Wire payloads](https://github.com/dragginzgame/ic-jobs/issues/78).
-Current queue bytes remain `JQW\x01` bounded Wire. Retained JSON has no fallback,
-reset or converter. Preserve old binaries/backups, attempts and receipts and
-explicitly disposition Running/Uncertain work before retiring an installation;
-missing evidence never establishes retry safety. Memory's ledger is separately
-owned: never clear only a queue or ledger. Follow the
-[consumer guide](../../apps/job-consumer/README.md) and
-[fixture provenance](../../crates/ic-jobs/tests/fixtures/README.md). Prior JSON
-producer evidence remains at `/tmp/ic-jobs-78-upstream.Mso2Zod0/`.
-
-The private Canic contribution remains isolated at
+The private Canic contribution remains at
 `/tmp/canic-jobs-adapter.dPFVZ7FD/source`, branch `codex/jobs-application-adapter`,
-commit `fc14bbe1baa3c0fdc09b0550e25a1d3fdcd9d2d1` on base
-`d09d1692e29878221e53f5e5b71479025c09e7f2`, with its patch/evidence alongside.
-No sibling checkout was edited. Its release base was unpublished at that review;
-integrate onto published source and qualify that resulting graph before delivery.
-[Canic #502 — Assess one IC Jobs metadata boundary before adopting it](https://github.com/dragginzgame/canic/issues/502)
-records the placement lease/domain-operation assessment; leave its owner unchanged.
-The [integration guide](../canic-integration.md) does not advertise a shipped mount
-API. Historical all-host proofs remain in earlier handoffs/fixture guides; this
-Logging qualification does not qualify Canic or instruction/cycle costs.
+commit `fc14bbe1baa3c0fdc09b0550e25a1d3fdcd9d2d1`. Its source must be integrated
+and qualified separately before claiming Canic readiness; Jobs tests do not
+qualify Canic's storage-placement lease owner or imply a shipped mount API.

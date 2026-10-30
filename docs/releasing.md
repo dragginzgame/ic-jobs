@@ -1,12 +1,14 @@
-# IC Jobs release and publication
+# IC Scheduling release and publication
 
-IC Jobs uses the reviewed [Shared Tooling release contract](releases.md) with
+IC Scheduling uses the reviewed [Shared Tooling release contract](releases.md) with
 consumer-owned Cargo metadata and validation. The reviewed
 [common Make entrypoint](make-interface.md) owns setup, formatting, hooks,
 snapshot verification and release routing. IC Jobs selects direct release
 delivery only: remote `origin`, branch `main`, annotated tag `vX.Y.Z`. All three
 SemVer commands use the same runner and complete gate. They do not publish to
-crates.io.
+crates.io. Combined release verification runs CI first, then prepares the shared
+Testkit/server and runs the Timers watchdog and cohort qualifications. These live
+gates remain explicit and are not part of ordinary CI.
 
 ## Preparation
 
@@ -113,7 +115,7 @@ reported separately from a dirty checkout.
 | `make release-minor` | Validate and deliver the next minor version. |
 | `make release-major` | Validate and deliver the next major version. |
 | `make release-resume VERSION=X.Y.Z` | Reconcile only the specified retained release. |
-| `make publish` | Upload the clean, tagged `ic-jobs` package to crates.io. |
+| `make publish` | Upload the clean, tagged `ic-jobs` and `ic-timers` packages to crates.io. |
 
 Package and dry-run checks intentionally permit working edits. The real upload
 does not. Package verification is included in configured CI and the complete
@@ -159,12 +161,12 @@ do not force-push or recreate tags.
 
 Set up Cargo's crates.io credentials explicitly, using `cargo login` or the
 supported `CARGO_REGISTRY_TOKEN` environment variable. Credentials must have
-permission to publish `ic-jobs`; GitHub authentication alone is insufficient.
+permission to publish both `ic-jobs` and `ic-timers`; GitHub authentication alone is insufficient.
 
 `make publish` checks staged, unstaged and untracked source, requires the local
 workspace version's annotated tag to point to HEAD, and verifies that the same
 tag object exists at the sole push URL selected from `RELEASE_REMOTE` (default
-`origin`). It observes the exact version at crates.io: an existing version or
+`origin`). It observes each package's exact version at crates.io: an existing version or
 an unavailable observation blocks a new upload. Only a confirmed absent version
 permits Cargo's verified upload, with a locked graph and all features.
 
@@ -178,11 +180,11 @@ passes Clippy before its dry run. Missing offline dependencies require explicit
 An interrupted upload must be reconciled against crates.io before retrying.
 An existing version blocks repetition; crates.io versions are immutable. An
 unavailable registry response blocks publication. The command does not bump,
-commit, tag, push, publish another package or delete artifacts.
+commit, tag, push or delete artifacts.
 
 ## Qualification
 
-Jobs' publication wrapper invokes its local
+IC Scheduling's publication wrapper invokes its local
 `scripts/release/check-publication.sh`, which owns package and destination policy
 while using Shared's source, version, tag, registry and Make observers. It
 rechecks source and release identity after network observations. Failed or

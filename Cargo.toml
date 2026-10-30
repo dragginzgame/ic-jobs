@@ -1,42 +1,56 @@
 [workspace]
-# Production packages: crates/ic-jobs.
-# Tests and tooling packages: apps/job-consumer, crates/jobs-canister-tests.
-members = ["apps/job-consumer", "crates/ic-jobs", "crates/jobs-canister-tests"]
-default-members = ["crates/ic-jobs"]
+# Production packages: crates/ic-jobs, crates/ic-timers.
+# Remaining members are unpublished consumer, test and qualification packages.
+members = [
+    "apps/ic-jobs-test-consumer",
+    "crates/ic-jobs",
+    "crates/ic-jobs-canister-test-support",
+    "crates/ic-jobs-canister-tests",
+    "crates/ic-timers",
+    "crates/ic-timers-pocketic",
+    "crates/ic-timers-runtime-probe",
+    "crates/ic-timers-size-probe",
+    "crates/ic-timers-test-protocol",
+]
+default-members = ["crates/ic-jobs", "crates/ic-timers"]
 resolver = "3"
 
 [workspace.package]
-version = "0.17.51"
+version = "0.33.0"
 edition = "2024"
 rust-version = "1.91"
 license = "MIT"
 description = "Durable application job policies for Internet Computer canisters"
-repository = "https://github.com/dragginzgame/ic-jobs"
+repository = "https://github.com/dragginzgame/ic-scheduling"
 
 # Shared declarations are opt-in for each member, not dependencies of every crate.
-# The published library uses only Serde at runtime. The qualification Wasm uses
+# The Jobs library uses only Serde at runtime. The qualification Wasm uses
 # Wire; only native PocketIC tests transitively require Candid.
 [workspace.dependencies]
 # Production dependencies
-serde = "1.0"
+ic-metrics = { version = "0.18.1", default-features = false }
+ic-platform = { version = "0.9.1", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
 
 # Tests and tooling only
-clap = { version = "4.6", default-features = false }
+clap = { version = "4.6", default-features = false, features = ["std", "help", "usage", "error-context"] }
 ctrlc = "3.5"
-ic-build = "0.70.4"
+ic-build = "0.70.5"
+ic-host-artifacts = "0.70.5"
 ic-host-fs = { version = "0.70.4", default-features = false }
 ic-host-process = { version = "0.70.4", default-features = false }
 ic-jobs = { path = "crates/ic-jobs" }
-ic-logging = { version = "0.18.0", default-features = false }
-ic-memory = "0.56.1"
-ic-metrics = { version = "0.18.0", default-features = false }
-ic-platform = { version = "0.8.3", default-features = false }
-ic-storage = "0.56.1"
+ic-jobs-canister-test-support = { path = "crates/ic-jobs-canister-test-support" }
+ic-jobs-test-consumer = { path = "apps/ic-jobs-test-consumer" }
+ic-logging = { version = "0.18.1", default-features = false }
+ic-memory = "0.56.4"
+ic-storage = "0.56.4"
 ic-testkit = "0.70.4"
 ic-testkit-native = "0.70.4"
-ic-timers = "0.32.3"
-ic-wire = "0.7.24"
-jobs-test-consumer = { path = "apps/job-consumer" }
+ic-timers = { path = "crates/ic-timers", version = "0.33.0" }
+ic-timers-test-protocol = { path = "crates/ic-timers-test-protocol" }
+ic-wire = "0.8.0"
 serde_json = "1.0"
 serde_test = "1.0"
 
@@ -46,3 +60,11 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = "warn"
+
+# Preserve the Timers probes' qualified optimization profile.
+[profile.timer-probe]
+inherits = "release"
+lto = "thin"
+opt-level = "z"
+panic = "abort"
+strip = "symbols"

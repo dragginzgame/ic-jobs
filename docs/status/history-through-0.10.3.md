@@ -262,5 +262,5 @@ Last inspected live recovery remains Jobs 0.8.1 source
 It does not qualify the pending cut.
 
 See [frozen history](history-through-0.9.1.md), [architecture](../../README.md),
-[safety](../../SAFETY.md), [consumer qualification](../../apps/job-consumer/README.md),
+[safety](../../SAFETY.md), [consumer qualification](../../apps/ic-jobs-test-consumer/README.md),
 and [delivery procedure](../releasing.md).

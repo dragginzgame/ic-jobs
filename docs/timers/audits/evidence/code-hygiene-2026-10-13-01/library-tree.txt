@@ -1,0 +1,22 @@
+ic-timers v0.22.1 (/home/adam/projects/ic-timers/crates/ic-timers)
+├── ic-cdk-timers v1.0.0
+│   ├── ic-cdk-executor v2.0.0
+│   │   ├── ic0 v1.2.0
+│   │   ├── slotmap v1.1.1
+│   │   │   [build-dependencies]
+│   │   │   └── version_check v0.9.5
+│   │   └── smallvec v1.16.3
+│   ├── ic0 v1.2.0
+│   └── slotmap v1.1.1 (*)
+├── ic-metrics v0.9.1
+├── ic0 v1.2.0
+└── thiserror v2.0.18
+    └── thiserror-impl v2.0.18 (proc-macro)
+        ├── proc-macro2 v1.0.107
+        │   └── unicode-ident v1.0.27
+        ├── quote v1.0.47
+        │   └── proc-macro2 v1.0.107 (*)
+        └── syn v2.0.119
+            ├── proc-macro2 v1.0.107 (*)
+            ├── quote v1.0.47 (*)
+            └── unicode-ident v1.0.27

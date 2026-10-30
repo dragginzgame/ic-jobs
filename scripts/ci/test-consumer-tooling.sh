@@ -213,8 +213,8 @@ set -euo pipefail
 printf 'server %s\n' "$*" >> "$JOBS_CONSUMER_TOOLING_EVENTS"
 case "$*" in
     check) printf '%s\n' "$JOBS_CONSUMER_WASM_TARGET/server binary" ;;
-    'run --ttl 900 -- bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests --example queue --locked --offline -- --ignored --nocapture --test-threads=1')
-        [[ "$IC_JOBS_CONSUMER_WASM" == "$JOBS_CONSUMER_WASM_TARGET/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" ]] ;;
+    'run --ttl 900 -- bash scripts/dev/minimum-rust.sh cargo test -p ic-jobs-canister-tests --example queue --locked --offline -- --ignored --nocapture --test-threads=1')
+        [[ "$IC_JOBS_CONSUMER_WASM" == "$JOBS_CONSUMER_WASM_TARGET/wasm32-unknown-unknown/release/ic_jobs_test_consumer.wasm" ]] ;;
     *) exit 49 ;;
 esac
 SERVER
@@ -225,13 +225,13 @@ printf 'cargo %s\n' "$*" >> "$JOBS_CONSUMER_TOOLING_EVENTS"
 case "$*" in
     '+1.91.0 metadata --format-version 1 --no-deps --locked --offline')
         printf '{"target_directory":"%s"}\n' "$JOBS_CONSUMER_WASM_TARGET" ;;
-    '+1.91.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline'|\
-    '+1.91.0 build -p jobs-canister-tests --example queue --locked --offline'|\
-    '+1.91.0 test -p jobs-canister-tests --example queue --locked --offline --no-run') ;;
-    '+1.91.0 test -p jobs-canister-tests --test queue_cli --locked --offline -- --ignored --nocapture')
+    '+1.91.0 build -p ic-jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline'|\
+    '+1.91.0 build -p ic-jobs-canister-tests --example queue --locked --offline'|\
+    '+1.91.0 test -p ic-jobs-canister-tests --example queue --locked --offline --no-run') ;;
+    '+1.91.0 test -p ic-jobs-canister-tests --test queue_cli --locked --offline -- --ignored --nocapture')
         [[ "$IC_JOBS_QUEUE_SERVER" == "$JOBS_CONSUMER_WASM_TARGET/server binary" &&
            "$IC_JOBS_QUEUE_BIN" == "$JOBS_CONSUMER_WASM_TARGET/debug/examples/queue" &&
-           "$IC_JOBS_CONSUMER_WASM" == "$JOBS_CONSUMER_WASM_TARGET/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" ]] ;;
+           "$IC_JOBS_CONSUMER_WASM" == "$JOBS_CONSUMER_WASM_TARGET/wasm32-unknown-unknown/release/ic_jobs_test_consumer.wasm" ]] ;;
     *) exit 49 ;;
 esac
 CARGO
@@ -239,7 +239,7 @@ cat > "$JOBS_CONSUMER_WASM_TARGET/debug/examples/queue" <<'QUEUE'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ $# == 4 && "$1" == --server && "$2" == "$JOBS_CONSUMER_WASM_TARGET/server binary" &&
-   "$3" == --wasm && "$4" == "$JOBS_CONSUMER_WASM_TARGET/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" ]]
+   "$3" == --wasm && "$4" == "$JOBS_CONSUMER_WASM_TARGET/wasm32-unknown-unknown/release/ic_jobs_test_consumer.wasm" ]]
 printf 'queue\n' >> "$JOBS_CONSUMER_TOOLING_EVENTS"
 QUEUE
 chmod +x "$JOBS_CONSUMER_CLI" "$fixture/.tools/rust/common/bin/cargo" "$JOBS_CONSUMER_WASM_TARGET/debug/examples/queue"
@@ -255,17 +255,17 @@ for command in demo test-demo test-demo-cli; do
         exit "$status"
     fi
     {
-        printf 'admission\nserver check\ncargo +1.91.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline\n'
+        printf 'admission\nserver check\ncargo +1.91.0 build -p ic-jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline\n'
         if [[ "$command" == test-demo ]]; then
-            printf 'cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline --no-run\n'
+            printf 'cargo +1.91.0 test -p ic-jobs-canister-tests --example queue --locked --offline --no-run\n'
         else
-            printf 'cargo +1.91.0 build -p jobs-canister-tests --example queue --locked --offline\n'
+            printf 'cargo +1.91.0 build -p ic-jobs-canister-tests --example queue --locked --offline\n'
         fi
         printf 'admission\ncargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline\n'
         case "$command" in
             demo) printf 'server check\nqueue\n' ;;
-            test-demo) printf 'server run --ttl 900 -- bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests --example queue --locked --offline -- --ignored --nocapture --test-threads=1\n' ;;
-            test-demo-cli) printf 'server check\ncargo +1.91.0 test -p jobs-canister-tests --test queue_cli --locked --offline -- --ignored --nocapture\n' ;;
+            test-demo) printf 'server run --ttl 900 -- bash scripts/dev/minimum-rust.sh cargo test -p ic-jobs-canister-tests --example queue --locked --offline -- --ignored --nocapture --test-threads=1\n' ;;
+            test-demo-cli) printf 'server check\ncargo +1.91.0 test -p ic-jobs-canister-tests --test queue_cli --locked --offline -- --ignored --nocapture\n' ;;
         esac
     } > "$fixture/expected-events"
     cmp "$fixture/events" "$fixture/expected-events"
@@ -297,7 +297,7 @@ exit 49
 SERVER
 chmod +x "$fixture/server"
 printf 'retained Wasm input\n' > "$fixture/input"
-input="$fixture/wasm/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
+input="$fixture/wasm/wasm32-unknown-unknown/release/ic_jobs_test_consumer.wasm"
 capture="$fixture/wasm/debug/jobs-capture-artifact"
 for stage in wasm capture; do
     invalid_input="$input"; link_target="$fixture/input"
@@ -328,7 +328,7 @@ trap - EXIT
 prepare_phase artifact-capture
 stub_testkit_selection
 mkdir -p "$fixture/wasm/wasm32-unknown-unknown/release" "$fixture/wasm/debug"
-input="$fixture/wasm/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
+input="$fixture/wasm/wasm32-unknown-unknown/release/ic_jobs_test_consumer.wasm"
 capture="$fixture/wasm/debug/jobs-capture-artifact"
 printf 'retained Wasm input\n' > "$fixture/input"
 # shellcheck disable=SC2030,SC2031 # Stub inputs intentionally stay inside this phase.
@@ -379,7 +379,7 @@ variant="${5%/server.stdout}"; variant="${variant##*/}"
 printf 'server stdout\n' > "$5"
 printf 'server stderr\n' > "$7"
 shift 8
-[[ "$*" == 'bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture' ]] || exit 49
+[[ "$*" == 'bash scripts/dev/minimum-rust.sh cargo test -p ic-jobs-canister-tests --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture' ]] || exit 49
 printf '%s\n' "$IC_JOBS_CONSUMER_WASM" >> "$JOBS_CONSUMER_CAPTURED/paths"
 cp "$IC_JOBS_CONSUMER_WASM" "$JOBS_CONSUMER_CAPTURED/$variant.wasm"
 printf 'replaced mutable producer\n' > "$JOBS_CONSUMER_PRODUCER"
@@ -397,7 +397,7 @@ for mode in original optimized; do
   "$BASH" scripts/ci/test-canister.sh ${args[@]+"${args[@]}"}) > "$fixture/$mode-wrapper.log" 2>&1
  [[ "$(grep -c '^Retained capture: ' "$fixture/$mode-wrapper.log")" == "${#variants[@]}" ]] || exit 1
  evidence=("$fixture/$mode-evidence/"*)
- [[ ${#evidence[@]} == 1 && "$(head -n 1 "$JOBS_CONSUMER_CAPTURED/paths")" == "${evidence[0]}/jobs_test_consumer.wasm" ]] || exit 1
+ [[ ${#evidence[@]} == 1 && "$(head -n 1 "$JOBS_CONSUMER_CAPTURED/paths")" == "${evidence[0]}/ic_jobs_test_consumer.wasm" ]] || exit 1
  cmp "$fixture/input" "$JOBS_CONSUMER_CAPTURED/original.wasm"
  for variant in "${variants[@]}"; do
   if [[ "$variant" != original ]]; then
@@ -432,7 +432,7 @@ status=0
 [[ "$(grep -c '^Retained capture: ' "$fixture/failed-capture.log")" == 1 ]] || exit 1
 evidence=("$fixture/failed-capture-evidence/"*)
 [[ ${#evidence[@]} == 1 && -f "${evidence[0]}/O3/producer.wasm" && ! -e "${evidence[0]}/O3/server.stdout" ]] || exit 1
-cmp "$fixture/input" "${evidence[0]}/jobs_test_consumer.wasm"
+cmp "$fixture/input" "${evidence[0]}/ic_jobs_test_consumer.wasm"
 { cat "$fixture/input"; printf '%s\n' '-O3'; } > "$fixture/expected.wasm"
 cmp "$fixture/expected.wasm" "${evidence[0]}/O3/producer.wasm"
 echo 'Recovery consumes one frozen original with preserved variants/hashes/logs after producer replacement (substitute optimizer/server; no live gate)'
@@ -446,7 +446,7 @@ prepare_phase ci-admission
 # tool effects and mutate a selected input there; the logger must block all
 # subsequent product checks without compilation, installation or server effects.
 cp "$root/"{Cargo.toml,.shared-tooling.snapshot,rust-toolchain.toml} "$fixture/"
-for member in crates/ic-jobs apps/job-consumer crates/jobs-canister-tests; do
+for member in crates/ic-jobs apps/ic-jobs-test-consumer crates/ic-jobs-canister-test-support crates/ic-jobs-canister-tests crates/ic-timers crates/ic-timers-pocketic crates/ic-timers-runtime-probe crates/ic-timers-size-probe crates/ic-timers-test-protocol; do
     mkdir -p "$fixture/$member"
     cp "$root/$member/Cargo.toml" "$fixture/$member/"
 done
@@ -516,7 +516,7 @@ for selection in 1.92 1.92.3; do
     [[ "$expected" == *.*.* ]] || expected="$expected.0"
     : > "$fixture/events"
     make --no-print-directory -C "$fixture" build-consumer > "$fixture/$selection.log" 2>&1
-    printf '+%s build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline\n' \
+    printf '+%s build -p ic-jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline\n' \
         "$expected" > "$fixture/expected"
     cmp "$fixture/expected" "$fixture/events"
 done

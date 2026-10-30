@@ -17,7 +17,7 @@ qualification consumer. Package versions, the public Jobs API, wire/storage
 formats and installation authority are unchanged.
 The earlier 0.16 stored-record and 0.17 management-response cuts are delivered;
 see the [package guide](../../crates/ic-jobs/README.md) and
-[consumer guide](../../apps/job-consumer/README.md) for their required actions.
+[consumer guide](../../apps/ic-jobs-test-consumer/README.md) for their required actions.
 No storage reset, conversion, compatibility reader or deployment is added.
 
 ## Maintained ownership

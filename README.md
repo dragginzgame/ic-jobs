@@ -1,4 +1,15 @@
-# IC Jobs
+# IC Scheduling
+
+One Rust workspace for durable jobs and observable timer primitives on the
+Internet Computer. Both published crates share version 0.33.0, one dependency
+catalog, lockfile, toolchain and CI.
+
+- [`ic-jobs`](crates/ic-jobs/README.md): durable records and checked job policies.
+- [`ic-timers`](crates/ic-timers/README.md): volatile callbacks, wakeups and watchdogs.
+
+Open [ic-scheduling.code-workspace](ic-scheduling.code-workspace) for both libraries
+in one editor workspace. Timer-specific commands are in the
+[development guide](docs/timers/development.md).
 
 IC Jobs provides durable job metadata and scheduling policies for Internet
 Computer applications. Applications persist records, maintain their due-time
@@ -18,12 +29,12 @@ and [acceptance checklist](docs/test-consumers.md#adapter-acceptance-checklist)
 describe the host obligations. The [Canic integration guide](docs/canic-integration.md)
 maps those obligations to the proposed adapter; it does not advertise an existing
 Canic API. Jobs depends only on Serde, so Canic owns its integration dependency
-versions. The unpublished [canister consumer](apps/job-consumer/README.md)
+versions. The unpublished [canister consumer](apps/ic-jobs-test-consumer/README.md)
 demonstrates application-owned storage, management and lifecycle integration.
 Its PocketIC harness is compiled by CI; live qualification is explicitly selected.
 
 To queue jobs for seconds, minutes or weeks and see their current schedule, run
-the [local canister queue demo](crates/jobs-canister-tests/README.md). `make demo`
+the [local canister queue demo](crates/ic-jobs-canister-tests/README.md). `make demo`
 opens a terminal connected to the real fixture canister in local PocketIC;
 `watch` shows countdowns and `advance` fast-forwards IC time.
 
@@ -36,31 +47,48 @@ It supplies no global queue, database, lifecycle exports or exactly-once effects
 | Boundary | Owner and entry point |
 | --- | --- |
 | Validated records, attempts, transitions and due-time selection | Published `ic-jobs`: `Job::restore`, `Job` methods, `next_due_ns` and `start_next`; Serde is its only runtime dependency |
-| Payloads, authorization, stable queue and lifecycle endpoints | Consumer applications; the unpublished `apps/job-consumer` demonstrates this integration |
+| Payloads, authorization, stable queue and lifecycle endpoints | Consumer applications; the unpublished `apps/ic-jobs-test-consumer` demonstrates this integration |
 | Stable allocation and fixture Cell admission | IC Memory; IC Storage supplies governed native test cells |
 | Volatile wakeups and watchdog recovery | IC Timers, called directly by the consumer |
 | Principal and explicit-codec canister runtime | Published IC Platform; Jobs retains endpoints, schemas, limits and error policy |
 | Installation, management and delivery encoding and bounded decoding | Published IC Wire; Jobs retains method identities, limits and receipt policy |
 | PocketIC transport and startup | IC Testkit; Jobs supplies Wire frames and retains scenario policy |
+| Shared native management client | Private `ic-jobs-canister-test-support`, used only by the recovery harness and queue example |
 | Artifact retention and native filesystem/process mechanics | IC Build and IC Host; Jobs retains optimizer flags and evidence naming |
 | Common setup, formatting and release mechanics | Reviewed Shared Tooling snapshot; Jobs owns its gates, direct-delivery policy and package upload admission |
 
 ## Dependency exposure
+
+Only `ic-jobs` and `ic-timers` are publishable. All seven supporting packages
+set `publish = false`; their separation keeps host tooling out of Wasm and
+qualification dependencies out of the libraries.
+
+| Private package | Purpose |
+| --- | --- |
+| `ic-jobs-test-consumer` | Consumer-owned durable state, qualification canister and native composition tests |
+| `ic-jobs-canister-tests` | Native artifact capture, installed recovery tests and queue demo |
+| `ic-jobs-canister-test-support` | Management transport shared by recovery tests and the demo, excluded from the capture binary |
+| `ic-timers-pocketic` | Native runtime qualification and cohort runner |
+| `ic-timers-runtime-probe` | Wasm canister exercising timer runtime behavior |
+| `ic-timers-size-probe` | Separate minimal Wasm builds measuring each timer policy's size |
+| `ic-timers-test-protocol` | Wire types shared by the native runner and Wasm probes |
 
 Root `[workspace.dependencies]` entries select versions; each member opts into
 them. Their presence in the root catalog does not put them in every build.
 The catalog labels `Production dependencies` and `Tests and tooling only`
 describe use here, independently of registry publication. Serde is shared by
 production and tests, so it belongs to production. The qualification Wasm and
-capture/recovery harness are `Tests and tooling packages`; published `ic-jobs`
-is the sole production package. Paired grouped sort commands preserve these
+capture/recovery harness are `Tests and tooling packages`; `ic-jobs` and
+`ic-timers` are the production packages. Metrics, Platform and Thiserror are
+production dependencies of Timers. Paired grouped sort commands preserve these
 boundaries in `make fmt`, `make fmt-check` and the formatting hook. Release
 metadata checks use the same grouped policy for working and selected commits.
 
 | Built artifact | Candid exposure | CDK exposure |
 | --- | --- | --- |
 | Published `ic-jobs` library | None | None; normal dependencies contain only Serde |
-| Qualification `jobs_test_consumer.wasm` | None; all owned inputs/replies use Wire | Platform's Wasm-only `cdk` runtime supplies entrypoints; upstream `ic-cdk` is absent, and Timers shares its registry executor |
+| Published `ic-timers` library | None | Platform's embedded executor and IC0; no full CDK |
+| Qualification `ic_jobs_test_consumer.wasm` | None; all owned inputs/replies use Wire | Platform's Wasm-only `cdk` runtime supplies entrypoints; upstream `ic-cdk` is absent, and Timers shares its embedded executor |
 | Native recovery tests and queue demo | PocketIC requires Candid for external simulator/management protocols; Jobs RPCs use Wire | Platform's `cdk` feature is enabled only for the qualification Wasm |
 | `jobs-capture-artifact` host binary | No Candid dependency in its normal/build graph | No CDK dependency in its normal/build graph |
 
@@ -70,8 +98,8 @@ application's selected target graph and source rather than counting manifests.
 For example, inspect the qualification Wasm's paths with:
 
 ```sh
-cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform --locked --offline
-cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-cdk-executor --locked --offline
+cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.9.1 --locked --offline
+cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform-runtime-guard --locked --offline
 ```
 
 The selected published boundary is IC Platform, with defaults disabled.
@@ -82,9 +110,8 @@ The qualification app selects Platform's `cdk` feature only on Wasm. Native
 consumer builds explicitly select Platform's `principal` feature for Serde DTOs
 and Wire contracts. Jobs, Memory and Timers remain Wasm/test dependencies; JSON
 is limited to native fixtures and tooling. Parser, Agent,
-certification and crypto features are not selected. Platform 0.8 owns the reviewed
-runtime adapters and generator; registry executor 2.0.0 and ic0 1.2.0 remain shared
-with Timers. The qualification Wasm selects neither Candid nor full `ic-cdk`.
+certification and crypto features are not selected. Platform 0.9 owns the reviewed
+runtime adapters and generator; its embedded executor and IC0 are shared with Timers. The qualification Wasm selects neither Candid nor full `ic-cdk`.
 Owned native DTO principals exclude external Principal and SHA-2 dependencies.
 The Wasm application selects neither principal conversion nor SHA-2 hashing;
 stable-structures retains its own external Principal dependency.
@@ -107,9 +134,9 @@ harness together. Delivery identities remain unchanged. The queue now stores
 bounded Wire under `JQW\x01`; retained JSON refuses without conversion or reset.
 Use fresh qualification state after explicitly retiring the old installation;
 resolve its Running/Uncertain effects with the old binary and exact evidence first.
-The [consumer guide](apps/job-consumer/README.md) describes the boundaries, and the
+The [consumer guide](apps/ic-jobs-test-consumer/README.md) describes the boundaries, and the
 [handoff](docs/status/current.md) records qualification by source. Native Testkit
-shares Platform 0.8 with the harness for external simulator interfaces. The
+uses its published Platform facade for external simulator interfaces. The
 harness keeps the upstream Principal for PocketIC calls and converts to its
 owned Principal when constructing application DTOs. No decoder or transport is replaced.
 
@@ -131,10 +158,10 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 `make check-dependency-graphs` adds locked, offline normal/build graph admission
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
-host-only packages, JSON, Candid and full CDK. It requires one Timers, executor,
-raw-system, Platform and Platform-macro identity. The app, Memory and Timers share
-Platform 0.8. The graph excludes application principal conversion and SHA-2;
-executor, IC0 and entrypoint generation stay single.
+host-only packages, JSON, Candid and full CDK. It requires one Timers, Platform runtime guard and entrypoint generator; registry
+executor and IC0 packages are excluded. The application and Timers use Platform
+0.9.1. Memory retains Platform 0.8 only for the common stable-structures supplier.
+The graph excludes application principal conversion and SHA-2.
 A fourth context excludes Jobs, Memory, Timers, JSON and the IC runtime from
 ordinary native consumer builds, including the
 Platform `cdk` feature.
@@ -168,14 +195,14 @@ stable cells. See [test consumers](docs/test-consumers.md) for their storage and
 timer boundaries.
 
 Choose checks for the affected caller. For native consumer storage/timer
-composition, use `bash scripts/dev/minimum-rust.sh cargo test -p jobs-test-consumer --test composition
+composition, use `bash scripts/dev/minimum-rust.sh cargo test -p ic-jobs-test-consumer --test composition
 --locked --offline`; for persisted Wire records, select `--test stored_wire`;
 for endpoint codecs, select `--test api_wire`. Run the packaged adapter example
 with `bash scripts/dev/minimum-rust.sh cargo run -p ic-jobs --example persisted_job --locked --offline`.
 Qualify the core Rust floor separately with `bash scripts/dev/minimum-rust.sh cargo check -p ic-jobs
 --lib --locked --offline`. For the consumer's Wasm floor, use `bash scripts/dev/minimum-rust.sh cargo
-check -p jobs-test-consumer --lib --target wasm32-unknown-unknown --locked
---offline`. Lint the affected consumer with `cargo clippy -p jobs-test-consumer
+check -p ic-jobs-test-consumer --lib --target wasm32-unknown-unknown --locked
+--offline`. Lint the affected consumer with `cargo clippy -p ic-jobs-test-consumer
 --all-targets --locked --offline -- -D warnings`, or select the Wasm target
 when runtime integration changes.
 
@@ -235,7 +262,7 @@ uncached, with failed formatter logs retained for diagnosis.
 The unpublished harness uses the [selected Testkit dependency](Cargo.toml) and
 its separately admitted CLI: run `make install-testkit-tools` and
 `make testkit-tools-check` when updating that selection. PocketIC setup/check and
-live execution remain separate; see [consumer qualification](apps/job-consumer/README.md).
+live execution remain separate; see [consumer qualification](apps/ic-jobs-test-consumer/README.md).
 Common setup and ordinary CI do not launch PocketIC.
 
 Release metadata qualification additionally selects IC Build's published
@@ -246,7 +273,7 @@ parsing and preserves the original/optimized capture invocation forms.
 
 ## Delivery
 
-The public repository is [dragginzgame/ic-jobs](https://github.com/dragginzgame/ic-jobs).
+The public repository is [dragginzgame/ic-jobs](https://github.com/dragginzgame/ic-scheduling).
 `make version` inspects the local version. `make package` verifies the crate
 archive offline; `make publish-check` performs a publication dry run with registry
 access. Both permit working edits and upload nothing.

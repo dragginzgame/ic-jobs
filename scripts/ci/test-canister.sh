@@ -14,7 +14,7 @@ trap 'status=$?; fixture_completion_status "$status" "$complete" || status=$?; e
 # Testkit own executable selection and PocketIC admission/lifecycle respectively.
 cli="$(bash scripts/dev/testkit-tool.sh --check)"
 target="$(bash scripts/dev/minimum-rust.sh cargo metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
-input="$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
+input="$target/wasm32-unknown-unknown/release/ic_jobs_test_consumer.wasm"
 [[ -f "$input" && ! -L "$input" ]] || exit 1
 capture="$target/debug/jobs-capture-artifact"
 [[ -f "$capture" && ! -L "$capture" && -x "$capture" ]] || exit 1
@@ -25,7 +25,7 @@ if [[ $# == 1 ]]; then
 fi
 evidence="$(fixture_create "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/jobs-recovery.XXXXXX")"
 printf 'Live recovery evidence: %s\n' "$evidence"
-"$capture" "$input" "$evidence/jobs_test_consumer.wasm"
+"$capture" "$input" "$evidence/ic_jobs_test_consumer.wasm"
 cp Cargo.lock .shared-tooling.snapshot "$evidence/"
 cp "${cli%/bin/*}/selection.json" "$evidence/testkit-selection.json"
 {
@@ -43,12 +43,12 @@ fi
 for variant in "${variants[@]}"; do
     mkdir "$evidence/$variant"
     if [[ "$variant" == original ]]; then
-        export IC_JOBS_CONSUMER_WASM="$evidence/jobs_test_consumer.wasm"
+        export IC_JOBS_CONSUMER_WASM="$evidence/ic_jobs_test_consumer.wasm"
     else
-        export IC_JOBS_CONSUMER_WASM="$evidence/$variant/jobs_test_consumer.wasm"
+        export IC_JOBS_CONSUMER_WASM="$evidence/$variant/ic_jobs_test_consumer.wasm"
         # The Rust tool preserves the exact optimizer arguments, producer/log
         # custody and capture-before-cleanup order. It enables no extra features.
-        "$capture" "$evidence/jobs_test_consumer.wasm" "$IC_JOBS_CONSUMER_WASM" \
+        "$capture" "$evidence/ic_jobs_test_consumer.wasm" "$IC_JOBS_CONSUMER_WASM" \
             --optimize "$bin/wasm-opt" "-$variant"
     fi
     bash scripts/ci/verify-file-checksum.sh --print sha256 "$IC_JOBS_CONSUMER_WASM" \
@@ -57,7 +57,7 @@ for variant in "${variants[@]}"; do
     # Testkit's run command checks the prepared server bundle; it never downloads.
     "$cli" run --ttl 900 --server-stdout "$evidence/$variant/server.stdout" \
         --server-stderr "$evidence/$variant/server.stderr" \
-        -- bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests \
+        -- bash scripts/dev/minimum-rust.sh cargo test -p ic-jobs-canister-tests \
         --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture \
         2>&1 | tee "$evidence/$variant/test.log"
 done

@@ -1,0 +1,45 @@
+[package]
+name = "ic-timers"
+rust-version.workspace = true
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors = ["borovan <84897664+borovan@users.noreply.github.com>"]
+description = "Observable and recovery-aware timers for Internet Computer canisters"
+repository.workspace = true
+homepage = "https://github.com/dragginzgame/ic-scheduling"
+documentation = "https://docs.rs/ic-timers"
+keywords = ["internet-computer", "canister", "timer", "dfinity", "icp"]
+categories = ["asynchronous", "wasm"]
+readme = "README.md"
+publish = true
+links = "ic-timers-global-timer"
+
+[dependencies]
+ic-metrics.workspace = true
+ic-platform = { workspace = true, features = ["executor", "ic0"] }
+thiserror.workspace = true
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+missing_const_for_fn = "warn"
+missing_panics_doc = "warn"
+must_use_candidate = "warn"
+redundant_clone = "warn"
+semicolon_if_nothing_returned = "warn"
+uninlined_format_args = "warn"
+use_self = "warn"
+# Public prose uses conventional IC acronyms; keep that workspace-wide policy.
+doc_markdown = "allow"
+# Typed error owners document shared error families instead of repeating them
+# in an Errors section on every public Result-returning method.
+missing_errors_doc = "allow"
+# Facade re-exports retain meaningful names outside their implementation module.
+module_name_repetitions = "allow"
+

@@ -25,7 +25,7 @@ case "$name" in
  check-release-source.sh) [[ "${PUBLICATION_TEST_SOURCE:-clean}" == clean && ! -e "$PUBLICATION_TEST_CONSUMER/dirty" ]] ;;
  read-cargo-workspace-version.sh) echo 1.2.3; [[ "${PUBLICATION_TEST_FAILURE:-}" != version ]] || exit 43 ;;
  check-release-tag.sh) [[ "${PUBLICATION_TEST_TAG:-annotated}" == annotated ]] ;;
- check-crates-io-version.sh) [[ "$*" == 'ic-jobs 1.2.3' ]] || exit 48; [[ "${PUBLICATION_TEST_RACE:-}" != source ]] || touch "$PUBLICATION_TEST_CONSUMER/dirty"; exit "${PUBLICATION_TEST_REGISTRY:-1}" ;;
+ check-crates-io-version.sh) [[ "$*" == 'ic-jobs 1.2.3' || "$*" == 'ic-timers 1.2.3' ]] || exit 48; [[ "${PUBLICATION_TEST_RACE:-}" != source ]] || touch "$PUBLICATION_TEST_CONSUMER/dirty"; exit "${PUBLICATION_TEST_REGISTRY:-1}" ;;
  *) ;;
 esac
 HELPER
@@ -56,6 +56,9 @@ checker="$fixture/snapshot/scripts/release/check-publication.sh"
 : > "$PUBLICATION_TEST_TRACE"
 bash "$checker" origin
 [[ "$(grep -c '^check-release-source.sh' "$PUBLICATION_TEST_TRACE")" == 2 ]] || exit 1
+for package in ic-jobs ic-timers; do
+ grep -Fx "check-crates-io-version.sh $package 1.2.3" "$PUBLICATION_TEST_TRACE" > /dev/null || exit 1
+done
 for mode in dirty tag remote mismatch present unknown; do
  : > "$PUBLICATION_TEST_TRACE"
  status=0

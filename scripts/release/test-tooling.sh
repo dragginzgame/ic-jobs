@@ -92,7 +92,7 @@ if [[ "${1:-}" == clippy ]]; then
                 "$TOOLING_EDITOR" --max-input-bytes 1048576 \
                     manifest Cargo.toml "$version" 0.0.0 > .git/concurrent-manifest
                 "$TOOLING_EDITOR" --max-input-bytes 1048576 \
-                    lock Cargo.lock "$version" 0.0.0 ic-jobs jobs-test-consumer jobs-canister-tests > .git/concurrent-lock
+                    lock Cargo.lock "$version" 0.0.0 ic-jobs ic-jobs-test-consumer ic-jobs-canister-tests > .git/concurrent-lock
                 cp .git/concurrent-manifest Cargo.toml
                 cp .git/concurrent-lock Cargo.lock
                 git add -- Cargo.toml Cargo.lock
@@ -134,8 +134,8 @@ export PATH="$fixture/cache-bin:$PATH"
 base_version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable "$root/Cargo.toml")"
 cat > "$fixture/expected-clippy" <<'CLIPPY'
 clippy -p ic-jobs --all-targets --all-features --locked --offline -- -D warnings
-clippy -p jobs-test-consumer -p jobs-canister-tests --all-targets --locked --offline -- -D warnings
-clippy -p jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
+clippy -p ic-jobs-test-consumer -p ic-jobs-canister-test-support -p ic-jobs-canister-tests -p ic-timers --all-targets --locked --offline -- -D warnings
+clippy -p ic-jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
 CLIPPY
 
 new_repository() {
@@ -217,7 +217,7 @@ while [[ "${1:-}" == --input ]]; do
     [[ $# -ge 2 && -n "$2" ]] || exit 49
     shift 2
 done
-if [[ $# == 1 && "$1" == ci ]]; then
+if [[ "$*" == 'ci install-testkit-tools install-consumer-server test-timer-watchdog test-timer-cohorts' ]]; then
     [[ "${TOOLING_GATE_FAILURE:-0}" == 0 ]] || exit 1
     printf 'substitute gate\n' >> .git/gate-events
     exit 0
@@ -642,7 +642,7 @@ commit_source
 sorted_commit="$(git rev-parse HEAD)"
 cp Cargo.toml .git/sorted-manifest
 perl scripts/ci/prepare-cargo-formatting-fixture.pl \
-    Cargo.toml workspace.dependencies ic-build ic-host-fs > .git/unsorted-manifest
+    Cargo.toml workspace.dependencies ic-build ic-host-artifacts > .git/unsorted-manifest
 cp .git/unsorted-manifest Cargo.toml
 refuse unsorted-format-check make --no-print-directory fmt-check
 cmp .git/unsorted-manifest Cargo.toml
@@ -746,12 +746,12 @@ cmp .git/clippy-events "$fixture/expected-clippy"
 : > .git/clippy-events
 make -j4 --no-print-directory publish-check > "$fixture/publication-dry-run.log" 2>&1
 cmp .git/clippy-events "$fixture/expected-clippy"
-[[ "$(cat "$TOOLING_UPLOAD_EVENTS")" == 'publish -p ic-jobs --all-features --locked --registry crates-io --allow-dirty --dry-run' ]] || exit 1
+[[ "$(cat "$TOOLING_UPLOAD_EVENTS")" == 'publish -p ic-jobs -p ic-timers --all-features --locked --registry crates-io --allow-dirty --dry-run' ]] || exit 1
 : > "$TOOLING_UPLOAD_EVENTS"
 : > .git/clippy-events
 bash scripts/release/publish.sh origin > "$fixture/publication.log" 2>&1
 cmp .git/clippy-events "$fixture/expected-clippy"
-[[ "$(cat "$TOOLING_UPLOAD_EVENTS")" == 'publish -p ic-jobs --all-features --locked --registry crates-io' ]] || exit 1
+[[ "$(cat "$TOOLING_UPLOAD_EVENTS")" == 'publish -p ic-jobs -p ic-timers --all-features --locked --registry crates-io' ]] || exit 1
 : > "$TOOLING_UPLOAD_EVENTS"
 refuse failed-upload env TOOLING_UPLOAD_RESULT=42 bash scripts/release/publish.sh origin
 [[ "$refusal_status" == 42 ]] || exit 1

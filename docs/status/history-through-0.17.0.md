@@ -1155,5 +1155,5 @@ current acceptance.
 Earlier source-bound receipts and original tracker descriptions are preserved in
 [history through 0.13.0](history-through-0.13.0.md). See also the
 [package contract](../../crates/ic-jobs/README.md), [safety contract](../../SAFETY.md),
-[consumer qualification](../../apps/job-consumer/README.md) and
+[consumer qualification](../../apps/ic-jobs-test-consumer/README.md) and
 [delivery procedure](../releasing.md).

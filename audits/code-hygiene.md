@@ -10,13 +10,20 @@ where applicable; consumers supply other language conventions and commands.
 1. Inventory public APIs, trust-state transitions, source/test/generated roots,
    and tracked versus ignored artifacts. Separate raw, decoded, validated and
    authoritative data, including constructors and deserialization paths.
-   Apply the [no-symlink rule](../DRAGGINZGAME.md#repository-files-no-symlinks)
-   to Git mode `120000`, working-tree links and generated/package assets. Distinguish
-   admitted tool-store pointers and deliberate rejection fixtures from source aliases.
+   Apply the [self-contained file policy](../DRAGGINZGAME.md#repository-files-no-symlinks)
+   to relevant Git mode `120000`, working-tree links and package inventories.
+   Distinguish justified internal links, tool-store pointers and rejection
+   fixtures from external dependencies or unsafe filesystem traversal. A link's
+   presence alone is not a defect.
 2. Classify panic/unwrap/expect, unsafe code, unchecked conversions, broad lint
    suppressions and language escape hatches by reachability and consequence.
    Presence alone is not a defect. Invalid input and recoverable state need typed
    failures; public panic contracts and safety assumptions need documentation.
+   Review every lint `allow` against the
+   [expectation rule](../docs/principles/rust-code-hygiene.md#lint-suppressions):
+   identify conversions to scoped `expect` attributes, verify expectations across
+   the maintained configurations, and require a concrete limitation for any
+   retained allowance. Keep unfulfilled expectations visible to the owning gate.
 3. Inspect boundary validation and negative tests. Errors should retain actionable
    typed context through callers. Golden-path tests, rendered-string matching,
    and tests of private layout do not substitute for the maintained contract.
@@ -38,6 +45,10 @@ where applicable; consumers supply other language conventions and commands.
    Trace gzip fixture construction to the [canonical Tooling encoder](../rules/engineering-details.md#gzip-encoding);
    distinguish product settings and retained compressed-byte contracts from
    deliberate independent backend/interoperability controls.
+   Trace metrics and logging to the [canonical Observability crates](../rules/engineering-details.md#metrics-and-logging).
+   Identify competing engines and copies; distinguish necessary application
+   adapters and governed persistence integration. Route capability gaps to an
+   owning IC Observability issue rather than another local implementation.
 5. Inspect large files by responsibility and callers. Authored data volume,
    generated code and atomic recovery transitions are not defects merely because
    they are large. Route deletion/exposure investigations to

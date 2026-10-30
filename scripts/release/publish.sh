@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Consumer publication policy. Dependencies: Bash 3.2, Git, Make, Cargo/Clippy, jq/yq,
 # curl and the local publication-admission checker.
-# Effects: package verification and one ic-jobs upload to crates.io; no Git writes.
+# Effects: package verification and both published library uploads to crates.io; no Git writes.
 [[ $# == 1 && "$1" =~ ^[A-Za-z0-9._-]+$ ]] || {
     echo 'usage: publish.sh REMOTE' >&2; exit 2;
 }
@@ -31,4 +31,4 @@ current_tag="$(git rev-parse --verify "$tag")"
     exit 1
 }
 bash "$root/scripts/ci/check-release-source.sh"
-cargo publish -p ic-jobs --all-features --locked --registry crates-io
+cargo publish -p ic-jobs -p ic-timers --all-features --locked --registry crates-io

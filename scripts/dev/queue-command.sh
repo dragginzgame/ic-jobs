@@ -7,7 +7,7 @@ set -euo pipefail
 case "$1" in demo|test-demo|test-demo-cli) ;; *) echo 'unknown queue command' >&2; exit 2 ;; esac
 cli="$(bash scripts/dev/testkit-tool.sh --check)"
 target="$(bash scripts/dev/minimum-rust.sh cargo metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
-wasm="$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
+wasm="$target/wasm32-unknown-unknown/release/ic_jobs_test_consumer.wasm"
 binary="$target/debug/examples/queue"
 case "$1" in
     demo)
@@ -15,11 +15,11 @@ case "$1" in
         exec "$binary" --server "$server" --wasm "$wasm" ;;
     test-demo)
         export IC_JOBS_CONSUMER_WASM="$wasm"
-        exec "$cli" run --ttl 900 -- bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests \
+        exec "$cli" run --ttl 900 -- bash scripts/dev/minimum-rust.sh cargo test -p ic-jobs-canister-tests \
             --example queue --locked --offline -- --ignored --nocapture --test-threads=1 ;;
     test-demo-cli)
         IC_JOBS_QUEUE_SERVER="$("$cli" check)"
         export IC_JOBS_QUEUE_SERVER IC_JOBS_CONSUMER_WASM="$wasm" IC_JOBS_QUEUE_BIN="$binary"
-        exec bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests --test queue_cli \
+        exec bash scripts/dev/minimum-rust.sh cargo test -p ic-jobs-canister-tests --test queue_cli \
             --locked --offline -- --ignored --nocapture ;;
 esac

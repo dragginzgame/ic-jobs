@@ -1,0 +1,4 @@
+{
+  "folders": [{ "name": "IC Scheduling", "path": "." }],
+  "settings": { "rust-analyzer.linkedProjects": ["Cargo.toml"] }
+}

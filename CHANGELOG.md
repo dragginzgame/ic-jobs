@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.33.0] - Unreleased
+
+### 📦 Workspace
+
+- Consolidate IC Jobs and IC Timers as IC Scheduling at the approved shared
+  version 0.33.0, retaining separate published crates and consumer-owned durable
+  state. Import the Timers runtime, native tests, probes, safety contract and
+  historical evidence into one workspace and lockfile.
+- Adopt Platform 0.9.1 and Wire 0.8.0 with the local Timers source. Require the
+  embedded runtime guard and exclude registry executor/IC0 from deployed graphs.
+- Share formatting, setup, CI and two-package publication admission; preserve
+  independent native, Wasm and installed recovery qualification.
+
+### 📦 Dependencies
+
+- Adopt Shared Tooling 0.27.11 at `62edfbd43087a718bf0283e9040676a49211976d`
+  through its exporter, and select Memory/Storage 0.56.4.
+  Preserve the existing queue/ledger formats, bounded RPC contracts and Rust 1.91
+  floor.
+- Adopt Metrics and Logging 0.18.1, preserving report layouts, heap-only logging
+  and retained-text limits.
+
+### 🧹 Cleanup
+
+- Align the three private Jobs support package names and directories under
+  `ic-jobs-*`, including workspace references, artifact paths and tooling fixtures.
+  Retain all seven unpublished support packages and their dependency boundaries.
+- Replace path-based test module wiring with ordinary module discovery and a
+  private shared host-support crate. Keep that transport out of the published
+  Jobs library, qualification Wasm and capture binary's normal dependency graph.
+
 ## [0.17.51] - 2026-10-30
 
 ### 🧹 Cleanup

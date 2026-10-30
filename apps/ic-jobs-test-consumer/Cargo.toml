@@ -1,0 +1,45 @@
+# Tests and tooling packages: qualification application, including its Wasm.
+[package]
+name = "ic-jobs-test-consumer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+# Only the Wasm qualification canister enables Platform's CDK frontend.
+# It owns entrypoint generation and upstream calls, spawning and trap behavior;
+# native DTO/codec tests need only Principal and Serde.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+ic-jobs.workspace = true
+ic-logging.workspace = true
+ic-memory = { workspace = true, features = ["test-support"] }
+ic-metrics.workspace = true
+ic-platform = { workspace = true, features = ["cdk"] }
+ic-timers.workspace = true
+ic-wire = { workspace = true, features = ["endpoint"] }
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# This unpublished qualification app owns IC integration. Platform supplies the
+# Principal for native DTO consumers. Queue/runtime integration is Wasm or
+# test-only, matching the source module gates.
+[dependencies]
+ic-platform = { workspace = true, features = ["principal"] }
+ic-wire.workspace = true
+serde = { workspace = true, features = ["derive"] }
+
+[dev-dependencies]
+ic-jobs.workspace = true
+ic-logging.workspace = true
+ic-memory = { workspace = true, features = ["test-support"] }
+ic-metrics.workspace = true
+ic-platform = { workspace = true, features = ["principal-self-authenticating"] }
+ic-storage.workspace = true
+ic-testkit-native = { workspace = true, features = ["stable-memory"] }
+ic-timers.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

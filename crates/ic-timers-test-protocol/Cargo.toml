@@ -1,0 +1,14 @@
+[package]
+name = "ic-timers-test-protocol"
+rust-version.workspace = true
+edition.workspace = true
+version.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+ic-wire.workspace = true
+serde.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"
