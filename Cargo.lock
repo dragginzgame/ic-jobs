@@ -1295,6 +1295,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "jobs-canister-test-support"
+version = "0.17.51"
+dependencies = [
+ "ic-platform",
+ "ic-testkit",
+ "ic-wire",
+ "jobs-test-consumer",
+ "serde",
+]
+
+[[package]]
 name = "jobs-canister-tests"
 version = "0.17.51"
 dependencies = [
@@ -1306,6 +1317,7 @@ dependencies = [
  "ic-platform",
  "ic-testkit",
  "ic-wire",
+ "jobs-canister-test-support",
  "jobs-test-consumer",
  "serde",
 ]

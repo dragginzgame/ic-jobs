@@ -18,8 +18,7 @@ use jobs_test_consumer::{
 use serde::{Serialize, de::DeserializeOwned};
 use std::{convert::Infallible, path::PathBuf, task::Poll, time::Duration};
 
-#[path = "../support/wire.rs"]
-mod wire;
+use jobs_canister_test_support as wire;
 
 struct Fixture {
     pic: PocketIcInstance<PocketIc>,

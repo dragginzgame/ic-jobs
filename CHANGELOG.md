@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.52]
+
+### 🧹 Cleanup
+
+- Share native qualification calls through an unpublished dev-only support
+  crate, and use ordinary module discovery for restore tests. Published Jobs
+  dependencies and stored formats are unchanged.
+
 ## [0.17.51] - 2026-10-30
 
 ### 🧹 Cleanup

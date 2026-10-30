@@ -23,8 +23,7 @@ use std::{
     time::Duration,
 };
 
-#[path = "../support/wire.rs"]
-mod wire;
+use jobs_canister_test_support as wire;
 
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 const DURATION_UNITS: [(char, u64); 5] = [

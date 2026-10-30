@@ -10,14 +10,19 @@ use serde::{Serialize, de::DeserializeOwned};
 
 // Transport and the management contract converge here. Each caller still owns
 // application-error handling, test assertions and server/canister lifetimes.
-pub(super) struct Client<'a> {
-    pub(super) pic: &'a PocketIc,
-    pub(super) canister: ExternalPrincipal,
-    pub(super) caller: ExternalPrincipal,
+/// Native calls against one installed qualification consumer.
+pub struct Client<'a> {
+    /// PocketIC instance owned by the caller.
+    pub pic: &'a PocketIc,
+    /// Installed qualification canister.
+    pub canister: ExternalPrincipal,
+    /// Identity used for the management call.
+    pub caller: ExternalPrincipal,
 }
 
 impl Client<'_> {
-    pub(super) fn query<T: DeserializeOwned>(
+    /// Query a consumer-owned management endpoint.
+    pub fn query<T: DeserializeOwned>(
         &self,
         method: Method,
         args: &impl Serialize,
@@ -25,7 +30,8 @@ impl Client<'_> {
         query_wire(self.pic, self.canister, self.caller, control(method), args)
     }
 
-    pub(super) fn update<T: DeserializeOwned>(
+    /// Update a consumer-owned management endpoint.
+    pub fn update<T: DeserializeOwned>(
         &self,
         method: Method,
         args: &impl Serialize,
@@ -34,11 +40,13 @@ impl Client<'_> {
     }
 }
 
-pub(super) fn init_bytes(config: &Init) -> Result<Vec<u8>, ic_wire::Error> {
+/// Encode the consumer installation configuration.
+pub fn init_bytes(config: &Init) -> Result<Vec<u8>, ic_wire::Error> {
     ic_wire::native::encode_request(Method::Init as u64, config, REQUEST_LIMITS)
 }
 
-pub(super) const fn control(method: Method) -> WireCallSpec {
+/// Bounded Wire identity for one management endpoint.
+pub const fn control(method: Method) -> WireCallSpec {
     WireCallSpec {
         method: method.name(),
         method_id: method as u64,

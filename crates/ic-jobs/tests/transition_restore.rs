@@ -9,10 +9,13 @@ use ic_jobs::{
     Attempt, ExecutionId, Job, JobError, JobId, JobRecord, JobState, Outcome, RetryPolicy, Schedule,
 };
 
-#[path = "support/schedules.rs"]
-mod schedules;
+#[expect(
+    dead_code,
+    reason = "This suite uses shared schedules, not JSON roundtrips"
+)]
+mod support;
 
-use schedules::recurring_schedules;
+use support::recurring_schedules;
 
 #[derive(Clone, Copy, Debug)]
 enum Operation {
