@@ -491,10 +491,14 @@ for input in Cargo.lock scripts/dev/testkit-tool.sh scripts/dev/queue-command.sh
     : > "$fixture/events"
     status=0
     JOBS_CONSUMER_MUTATION_INPUT="$input" VALIDATION_LOG_DIR="$fixture/drift-logs-${input##*/}" \
+        VALIDATION_FAILURE_LOG_DIR="$fixture/drift-failures-${input##*/}" \
         make --no-print-directory -j2 -C "$fixture" ci \
         > "$fixture/ci-drift-${input##*/}.log" 2>&1 || status=$?
     [[ "$status" == 2 && "$(cat "$fixture/events")" == admission ]] || exit 1
-    grep -F "validation input changed: $input" "$fixture/ci-drift-${input##*/}.log" > /dev/null
+    # Nested release runners omit console failure details. The retained target
+    # log owns the diagnostic at every nesting depth; keep it inside the fixture.
+    grep -F "validation input changed: $input" \
+        "$fixture/drift-failures-${input##*/}/latest.log" > /dev/null
 done
 echo 'Changed lock, CLI selection or demo launcher stops Jobs CI after admission (actual Make route; substitute tool effects; no product validation)'
 )

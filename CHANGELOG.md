@@ -2,6 +2,11 @@
 
 ## [0.33.1] - Unreleased
 
+### 🩹 Fixed
+
+- Read retained input-drift diagnostics in the consumer-tooling fixture so it
+  also passes inside nested release validation, where console details are omitted.
+
 ### ⚠️ Breaking
 
 - Adopt Metrics 0.21.0 for Timers' public measurement types. Consumers exchanging

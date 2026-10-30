@@ -55,6 +55,13 @@ Previous failed candidates and focused evidence remain in
 
 ## Validation and maintained gates
 
+The attempted release stopped in `test-consumer-tooling`: its input-drift
+fixture searched console details omitted by nested validation. It now checks
+its own retained failure log. Both standalone and release-depth-2 focused
+runs pass; logs are in `/tmp/ic-scheduling-nested-fixture-fix/`. The original
+failure remains in `/tmp/jobs-consumer-tooling.QllqL7/` and release-state logs.
+The full release gate has not been rerun after this fix.
+
 Memory/Storage 0.58 adoption passes locked metadata, direct boundaries and all
 five Jobs graph contexts, Rust 1.91 strict native/Wasm Clippy, 71 consumer tests
 (library, API-wire, composition and stored-wire), and the release consumer Wasm
