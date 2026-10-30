@@ -6,7 +6,7 @@ set -euo pipefail
 [[ $# == 1 ]] || { echo 'usage: queue-command.sh demo|test-demo|test-demo-cli' >&2; exit 2; }
 case "$1" in demo|test-demo|test-demo-cli) ;; *) echo 'unknown queue command' >&2; exit 2 ;; esac
 cli="$(bash scripts/dev/testkit-tool.sh --check)"
-target="$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
+target="$(bash scripts/dev/minimum-rust.sh cargo metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
 wasm="$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
 binary="$target/debug/examples/queue"
 case "$1" in
@@ -15,11 +15,11 @@ case "$1" in
         exec "$binary" --server "$server" --wasm "$wasm" ;;
     test-demo)
         export IC_JOBS_CONSUMER_WASM="$wasm"
-        exec "$cli" run --ttl 900 -- cargo +1.91.0 test -p jobs-canister-tests \
+        exec "$cli" run --ttl 900 -- bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests \
             --example queue --locked --offline -- --ignored --nocapture --test-threads=1 ;;
     test-demo-cli)
         IC_JOBS_QUEUE_SERVER="$("$cli" check)"
         export IC_JOBS_QUEUE_SERVER IC_JOBS_CONSUMER_WASM="$wasm" IC_JOBS_QUEUE_BIN="$binary"
-        exec cargo +1.91.0 test -p jobs-canister-tests --test queue_cli \
+        exec bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests --test queue_cli \
             --locked --offline -- --ignored --nocapture ;;
 esac

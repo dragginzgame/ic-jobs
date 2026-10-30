@@ -62,7 +62,7 @@ recorded-command cases still verify build/admission order and refused effects.
 conformance and the packaged adapter example on Rust 1.91, using the selected
 locked graph. Select `--test composition` or `--test stored_wire` directly for
 focused consumer work; run the example separately with
-`cargo +1.91.0 run -p ic-jobs --example persisted_job --locked --offline`.
+`bash scripts/dev/minimum-rust.sh cargo run -p ic-jobs --example persisted_job --locked --offline`.
 Configured CI also runs this target on the three supported hosts. The harness
 and its support modules belong to the unpublished consumer package; the core
 package has no Memory or Timers development dependency. `check-consumer` selects
@@ -77,7 +77,7 @@ job state, scheduling policy, safe-retry identity, wide job IDs and active attem
 round-trips through `ic_wire::native`. It verifies that a decoded but inconsistent
 history still refuses at `Job::restore`, and rejects truncated/trailing input and
 byte-budget overflow. This is an additional native consumer codec proof. It
-changes neither the canister's JSON queue nor the packaged example's JSON store,
+changes neither the canister's bounded Wire queue nor the packaged example's JSON store,
 selects no Canic storage envelope and adds no Wire dependency to the core crate.
 
 These consumers exercise the public API without adding storage, payloads,

@@ -25,11 +25,20 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+      - name: Prepare host parsers for Rust policy selection
+        run: make install-host-tools
+      - name: Read the declared Rust toolchains
+        id: rust-policy
+        run: |
+          export PATH="$PWD/.tools/host/bin:$PATH"
+          minimum="$(bash scripts/dev/minimum-rust.sh --print)"
+          development="$(yq -p toml -o yaml -r '.toolchain.channel' rust-toolchain.toml)"
+          printf 'minimum=%s\ndevelopment=%s\n' "$minimum" "$development" >> "$GITHUB_OUTPUT"
       - name: Prepare development and minimum toolchains
         uses: ./.github/actions/prepare-rust-toolchains
         with:
-          development: '1.99.1'
-          minimum: '1.91.0'
+          development: ${{ steps.rust-policy.outputs.development }}
+          minimum: ${{ steps.rust-policy.outputs.minimum }}
           development-target: wasm32-unknown-unknown
           minimum-target: wasm32-unknown-unknown
       - name: Prepare the complete selected toolset

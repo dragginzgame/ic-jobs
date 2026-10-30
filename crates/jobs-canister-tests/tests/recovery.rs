@@ -8,7 +8,6 @@ use ic_testkit::pic::{
     CanisterDiagnosticsRequest, CanisterInstallError, CanisterInstallExt, CanisterLogRenderLimits,
     InstallSpec, PocketIcCallFailure, PocketIcDiagnosticsExt, PocketIcInstance,
     PocketIcStartupConfig, RetryPolicy, WireCallError, advance_and_tick, query_wire, tick_until,
-    update_wire,
 };
 use ic_wire::native;
 use jobs_test_consumer::{
@@ -110,13 +109,7 @@ impl Fixture {
         method: Method,
         args: A,
     ) -> Result<T, RejectResponse> {
-        match update_wire(
-            self.pic.instance(),
-            self.sender,
-            caller,
-            wire::control(method),
-            &args,
-        ) {
+        match self.client(self.sender, caller).update(method, &args) {
             Ok(value) => Ok(value),
             Err(WireCallError::Call { source, .. }) => match *source {
                 PocketIcCallFailure::Rejected(response) => Err(response),
@@ -131,14 +124,34 @@ impl Fixture {
         method: Method,
         args: A,
     ) -> Result<T, Error> {
-        query_wire(
-            self.pic.instance(),
-            id,
-            self.manager,
-            wire::control(method),
-            &args,
-        )
-        .expect("PocketIC Wire call")
+        self.client(id, self.manager)
+            .query(method, &args)
+            .expect("PocketIC Wire call")
+    }
+    fn client(&self, canister: ExternalPrincipal, caller: ExternalPrincipal) -> wire::Client<'_> {
+        wire::Client {
+            pic: self.pic.instance(),
+            canister,
+            caller,
+        }
+    }
+    fn stopped<T>(&self, canister: ExternalPrincipal, operation: impl FnOnce(&PocketIc) -> T) -> T {
+        let pic = self.pic.instance();
+        pic.stop_canister(canister, None).unwrap();
+        let result = operation(pic);
+        pic.start_canister(canister, None).unwrap();
+        result
+    }
+    fn snapshot(&self, canister: ExternalPrincipal) -> Vec<u8> {
+        self.stopped(canister, |pic| {
+            pic.take_canister_snapshot(canister, None, None).unwrap().id
+        })
+    }
+    fn restore_snapshot(&self, canister: ExternalPrincipal, snapshot: Vec<u8>) {
+        self.stopped(canister, |pic| {
+            pic.load_canister_snapshot(canister, None, snapshot)
+                .unwrap()
+        });
     }
     fn view(&self, id: u64) -> View {
         self.query(self.sender, Method::Inspect, (id,)).unwrap()
@@ -719,21 +732,7 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
         )
         .unwrap();
     // The controller's independent snapshot remains the explicit recovery owner.
-    fixture
-        .pic
-        .instance()
-        .stop_canister(fixture.sender, None)
-        .unwrap();
-    let backup = fixture
-        .pic
-        .instance()
-        .take_canister_snapshot(fixture.sender, None, None)
-        .unwrap();
-    fixture
-        .pic
-        .instance()
-        .start_canister(fixture.sender, None)
-        .unwrap();
+    let backup = fixture.snapshot(fixture.sender);
     fixture
         .update::<(), _>(Method::CorruptRecord, (id,))
         .unwrap();
@@ -747,21 +746,7 @@ fn invalid_restore_refuses_upgrade_and_preserves_the_controller_snapshot() {
     ));
     let rejected = fixture.upgrade(fixture.sender).unwrap_err();
     assert_eq!(rejected.error_code, ErrorCode::CanisterCalledTrap);
-    fixture
-        .pic
-        .instance()
-        .stop_canister(fixture.sender, None)
-        .unwrap();
-    fixture
-        .pic
-        .instance()
-        .load_canister_snapshot(fixture.sender, None, backup.id)
-        .unwrap();
-    fixture
-        .pic
-        .instance()
-        .start_canister(fixture.sender, None)
-        .unwrap();
+    fixture.restore_snapshot(fixture.sender, backup);
     // Snapshot loading consumes installation resources too. Testkit owns the
     // bounded rate-limit retry; every other rejection must fail immediately.
     // The job's one-hour deadline exceeds the maximum thirty-minute cooldown.

@@ -3,15 +3,21 @@
 use std::num::NonZeroUsize;
 
 use ic_jobs::{Attempt, Outcome};
-use ic_logging::{EntryInput, Filter, Level, Limits, Log, PageRequest};
+use ic_logging::{EntryInput, Filter, Level, Limits, Log, PageRequest, TopicMatch};
 use ic_metrics::MeasurementCounter;
 
 use crate::api::{CounterMetric, Error, JobLogEntry, JobLogLevel, JobLogPage, JobLogRequest};
 
+const MAX_ENTRIES: usize = 128;
+const MAX_MESSAGE_BYTES: usize = 192;
+const MAX_LABEL_BYTES: usize = 32;
 const LIMITS: Limits = Limits {
-    max_entries: NonZeroUsize::new(128).unwrap(),
-    max_message_bytes: 192,
-    max_label_bytes: 32,
+    max_entries: NonZeroUsize::new(MAX_ENTRIES).unwrap(),
+    max_message_bytes: MAX_MESSAGE_BYTES,
+    max_label_bytes: MAX_LABEL_BYTES,
+    // Preserve the previous worst-case retained text allowance. This adds no
+    // earlier byte eviction for rows already admitted by the individual bounds.
+    max_text_bytes: MAX_ENTRIES * (MAX_MESSAGE_BYTES + 2 * MAX_LABEL_BYTES),
 };
 const MAX_SCANNED: NonZeroUsize = NonZeroUsize::new(32).unwrap();
 
@@ -74,6 +80,9 @@ impl JobLogs {
             "job={} occurrence={} attempt={} {detail}",
             attempt.execution.job.0, attempt.execution.occurrence, attempt.sequence
         );
+        // The successful AppendReceipt's sequence/truncation are already on the
+        // retained row. Eviction is normal retention, not an omitted observation.
+        // Every typed refusal, including TextBudgetExceeded, follows one path.
         if self
             .history
             .append(EntryInput {
@@ -98,6 +107,7 @@ impl JobLogs {
         let page = self.history.page(
             Filter {
                 min_level: request.min_level.map(engine_level),
+                topic: TopicMatch::Any,
                 ..Filter::default()
             },
             PageRequest {
@@ -149,3 +159,6 @@ fn report_level(level: Level) -> JobLogLevel {
         Level::Error => JobLogLevel::Error,
     }
 }
+
+#[cfg(test)]
+mod tests;

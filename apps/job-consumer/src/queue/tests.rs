@@ -80,6 +80,14 @@ fn stored_records(bytes: &[u8]) -> Result<Snapshot, ic_wire::Error> {
     )
 }
 
+// Deliberately bypass Job::restore only while producing a corrupt current
+// snapshot. Assertions still exercise normal production readers and refusals.
+fn mutate_records(queue: &mut Queue<VectorMemory>, mutate: impl FnOnce(&mut Snapshot)) {
+    let mut snapshot = stored_records(queue.cell.bytes()).unwrap();
+    mutate(&mut snapshot);
+    queue.cell.try_set(encode(&snapshot).unwrap()).unwrap();
+}
+
 #[test]
 fn aliased_backing_refuses_reopen_until_the_final_handle_drops() {
     let backing = VectorMemory::default();
@@ -804,14 +812,14 @@ fn contradictory_dispatch_counts_block_the_complete_stable_queue() {
                 .finish(&deliveries[0], 101, Outcome::Uncertain)
                 .unwrap();
         }
-        let mut snapshot: Snapshot = stored_records(queue.cell.bytes()).unwrap();
-        let entry = snapshot
-            .jobs
-            .iter_mut()
-            .find(|entry| entry.job.id == JobId(u128::from(corrupt)))
-            .unwrap();
-        entry.job.sequence += 1;
-        queue.cell.try_set(encode(&snapshot).unwrap()).unwrap();
+        mutate_records(&mut queue, |snapshot| {
+            let entry = snapshot
+                .jobs
+                .iter_mut()
+                .find(|entry| entry.job.id == JobId(u128::from(corrupt)))
+                .unwrap();
+            entry.job.sequence += 1;
+        });
         assert_invalid_record_blocks_queue(queue, backing, 200, healthy);
     }
 }
@@ -862,9 +870,7 @@ fn retained_timing_corruption_blocks_the_complete_stable_queue() {
         let mut queue = Queue::open(backing.clone(), Some(config())).unwrap().0;
         let healthy = queue.create(increment(100)).unwrap().value;
         queue.create(increment(200)).unwrap();
-        let mut snapshot: Snapshot = stored_records(queue.cell.bytes()).unwrap();
-        snapshot.jobs[1].job = corrupt;
-        queue.cell.try_set(encode(&snapshot).unwrap()).unwrap();
+        mutate_records(&mut queue, |snapshot| snapshot.jobs[1].job = corrupt);
         assert_invalid_record_blocks_queue(queue, backing, 100, healthy);
     }
 }
@@ -949,12 +955,11 @@ fn view_projection_preserves_large_ids_and_refuses_unadmitted_identities() {
             }),
         })
         .unwrap();
-    let original = queue.cell.bytes().to_vec();
     let id = u64::MAX - 1;
-    let mut snapshot: Snapshot = stored_records(&original).unwrap();
-    snapshot.next_id = u64::MAX;
-    snapshot.jobs[0].job.id = JobId(u128::from(id));
-    queue.cell.try_set(encode(&snapshot).unwrap()).unwrap();
+    mutate_records(&mut queue, |snapshot| {
+        snapshot.next_id = u64::MAX;
+        snapshot.jobs[0].job.id = JobId(u128::from(id));
+    });
     assert_eq!(queue.inspect(id).unwrap().id, id);
     assert_eq!(queue.page(None, 8).unwrap()[0].id, id);
     let delivery = queue.dispatch(100).unwrap().value.deliveries.pop().unwrap();
@@ -1735,7 +1740,7 @@ fn job_metrics_count_committed_local_success_and_permanent_failure() {
             .unwrap();
     }
     queue.dispatch(100).unwrap();
-    let observed = queue.job_metrics(manager(), 7).unwrap();
+    let observed = queue.job_metrics(7);
     assert_eq!(observed.dispatched.total, 2);
     assert_eq!(observed.succeeded.total, 1);
     assert_eq!(observed.permanent_failures.total, 1);
@@ -1748,7 +1753,7 @@ fn job_metrics_count_committed_local_success_and_permanent_failure() {
     assert_eq!(logs.entries[2].level, crate::api::JobLogLevel::Ok);
     assert_eq!(queue.summary().unwrap().value.counter, u64::MAX);
     assert_eq!(queue.dispatch(200).unwrap().value.work, 0);
-    assert_eq!(queue.job_metrics(manager(), 7).unwrap(), observed);
+    assert_eq!(queue.job_metrics(7), observed);
 }
 
 #[test]
@@ -1784,7 +1789,7 @@ fn job_metrics_separate_retries_uncertainty_and_receipt_reconciliation() {
     assert_eq!(retry.occurrence, first.occurrence);
     assert_ne!(retry.sequence, first.sequence);
     queue.finish(&retry, 107, Outcome::Uncertain).unwrap();
-    let blocked = queue.job_metrics(manager(), 7).unwrap();
+    let blocked = queue.job_metrics(7);
     assert_eq!(blocked.dispatched.total, 2);
     assert_eq!(blocked.retry_dispatches.total, 1);
     assert_eq!(blocked.retryable_failures.total, 1);
@@ -1802,17 +1807,17 @@ fn job_metrics_separate_retries_uncertainty_and_receipt_reconciliation() {
         queue.finish(&mismatched, 201, Outcome::Success),
         Err(Error::ReceiptMismatch)
     );
-    assert_eq!(queue.job_metrics(manager(), 7).unwrap(), blocked);
+    assert_eq!(queue.job_metrics(7), blocked);
     // A successful resolve that remains uncertain is an observation, not job success.
     queue.finish(&retry, 201, Outcome::Uncertain).unwrap();
     queue.finish(&retry, 202, Outcome::Success).unwrap();
-    let completed = queue.job_metrics(manager(), 7).unwrap();
+    let completed = queue.job_metrics(7);
     assert_eq!(completed.reconciliations.total, 2);
     assert_eq!(completed.uncertain.total, 2);
     assert_eq!(completed.succeeded.total, 1);
     assert_eq!(completed.dispatched, blocked.dispatched);
     assert!(queue.finish(&retry, 203, Outcome::Success).is_err());
-    assert_eq!(queue.job_metrics(manager(), 7).unwrap(), completed);
+    assert_eq!(queue.job_metrics(7), completed);
 }
 
 #[test]
@@ -1822,11 +1827,11 @@ fn job_metrics_exclude_rejected_commits_and_leave_running_intent_blocked() {
     queue.create(increment(100)).unwrap();
     let mut queue = with_current_write_ceiling(queue, backing);
     let before = queue.cell.bytes().to_vec();
-    let counters = queue.job_metrics(manager(), 7).unwrap();
+    let counters = queue.job_metrics(7);
     let logs = log_page(&queue);
     assert!(queue.dispatch(100).is_err());
     assert_eq!(queue.cell.bytes(), before);
-    assert_eq!(queue.job_metrics(manager(), 7).unwrap(), counters);
+    assert_eq!(queue.job_metrics(7), counters);
     assert_eq!(log_page(&queue), logs);
 
     let backing = VectorMemory::default();
@@ -1843,24 +1848,18 @@ fn job_metrics_exclude_rejected_commits_and_leave_running_intent_blocked() {
     let delivery = queue.dispatch(100).unwrap().value.deliveries.pop().unwrap();
     let mut queue = with_current_write_ceiling(queue, backing.clone());
     let before = queue.cell.bytes().to_vec();
-    let counters = queue.job_metrics(manager(), 7).unwrap();
+    let counters = queue.job_metrics(7);
     let logs = log_page(&queue);
     assert!(queue.finish(&delivery, 101, Outcome::Success).is_err());
     assert_eq!(queue.cell.bytes(), before);
-    assert_eq!(queue.job_metrics(manager(), 7).unwrap(), counters);
+    assert_eq!(queue.job_metrics(7), counters);
     assert_eq!(log_page(&queue), logs);
     assert_eq!(queue.inspect(1).unwrap().status, Status::Running);
     drop(queue);
     let mut restored = Queue::open(backing, None).unwrap().0;
     assert!(log_page(&restored).entries.is_empty());
-    assert_eq!(
-        restored.job_metrics(manager(), 8).unwrap().dispatched.total,
-        0
-    );
-    assert_eq!(
-        restored.job_metrics(manager(), 8).unwrap().reset_sequence,
-        Some(0)
-    );
+    assert_eq!(restored.job_metrics(8).dispatched.total, 0);
+    assert_eq!(restored.job_metrics(8).reset_sequence, Some(0));
     assert!(restored.dispatch(200).unwrap().value.deliveries.is_empty());
     assert_eq!(restored.outstanding(1).unwrap(), delivery);
 }
@@ -1881,17 +1880,13 @@ fn job_metrics_authorize_reset_and_never_change_durable_authority() {
         .unwrap();
     let delivery = queue.dispatch(100).unwrap().value.deliveries.pop().unwrap();
     let before = queue.cell.bytes().to_vec();
-    let observed = queue.job_metrics(manager(), 7).unwrap();
+    let observed = queue.job_metrics(7);
     assert_eq!(
-        queue.job_metrics(Principal::anonymous(), 7),
+        queue.authorize(Principal::anonymous()),
         Err(Error::Unauthorized)
     );
-    assert_eq!(
-        queue.reset_job_metrics(Principal::anonymous(), 7),
-        Err(Error::Unauthorized)
-    );
-    assert_eq!(queue.job_metrics(manager(), 7).unwrap(), observed);
-    let reset = queue.reset_job_metrics(manager(), 7).unwrap();
+    assert_eq!(queue.job_metrics(7), observed);
+    let reset = queue.reset_job_metrics(7);
     assert_eq!(reset.canister_version, observed.canister_version);
     assert_eq!(reset.reset_sequence, Some(1));
     assert_eq!(reset.dispatched.total, 0);
@@ -1900,7 +1895,7 @@ fn job_metrics_authorize_reset_and_never_change_durable_authority() {
     assert_eq!(queue.outstanding(1).unwrap(), delivery);
     queue.corrupt_record(1).unwrap();
     assert!(queue.dispatch(201).is_err());
-    assert_eq!(queue.job_metrics(manager(), 7).unwrap(), reset);
+    assert_eq!(queue.job_metrics(7), reset);
 }
 
 fn log_request() -> crate::api::JobLogRequest {
@@ -1912,7 +1907,7 @@ fn log_request() -> crate::api::JobLogRequest {
 }
 
 fn log_page(queue: &Queue<VectorMemory>) -> crate::api::JobLogPage {
-    queue.job_logs(manager(), log_request(), 7).unwrap()
+    queue.job_logs(log_request(), 7).unwrap()
 }
 
 #[test]
@@ -1950,13 +1945,12 @@ fn job_logs_capture_committed_outcomes_without_payloads_or_read_side_effects() {
     assert_eq!(before.omitted.total, 0);
     let bytes = queue.cell.bytes().to_vec();
     assert_eq!(
-        queue.job_logs(Principal::anonymous(), log_request(), 7),
+        queue.authorize(Principal::anonymous()),
         Err(Error::Unauthorized)
     );
     for limit in [0, 9] {
         assert_eq!(
             queue.job_logs(
-                manager(),
                 crate::api::JobLogRequest {
                     limit,
                     ..log_request()
@@ -1967,7 +1961,7 @@ fn job_logs_capture_committed_outcomes_without_payloads_or_read_side_effects() {
         );
     }
     assert_eq!(queue.dispatch(3_000_000_000).unwrap().value.work, 0);
-    queue.reset_job_metrics(manager(), 7).unwrap();
+    queue.reset_job_metrics(7);
     assert_eq!(log_page(&queue), before);
     assert_eq!(queue.cell.bytes(), bytes);
     queue
@@ -2010,7 +2004,7 @@ fn job_logs_bound_retention_and_filtered_scans_with_continuable_empty_pages() {
     let mut request = log_request();
     let mut sequences = vec![];
     loop {
-        let page = queue.job_logs(manager(), request, 7).unwrap();
+        let page = queue.job_logs(request, 7).unwrap();
         assert!(page.entries.len() <= 8);
         assert!(page.scanned <= 32);
         sequences.extend(page.entries.iter().map(|entry| entry.sequence));
@@ -2022,7 +2016,6 @@ fn job_logs_bound_retention_and_filtered_scans_with_continuable_empty_pages() {
     assert_eq!(sequences, (12..140).rev().collect::<Vec<_>>());
     let filtered = queue
         .job_logs(
-            manager(),
             crate::api::JobLogRequest {
                 min_level: Some(JobLogLevel::Error),
                 ..log_request()
@@ -2053,5 +2046,5 @@ fn job_log_refusals_are_counted_without_refusing_committed_work() {
     assert_eq!(refused.omitted.total, 2);
     assert!(!refused.omitted.overflowed);
     assert_eq!(queue.summary().unwrap().value.counter, 2);
-    assert_eq!(queue.job_metrics(manager(), 7).unwrap().succeeded.total, 2);
+    assert_eq!(queue.job_metrics(7).succeeded.total, 2);
 }

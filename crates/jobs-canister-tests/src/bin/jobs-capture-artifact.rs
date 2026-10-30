@@ -1,5 +1,5 @@
 //! Jobs-owned optimizer recipe and evidence names around IC Build's exact capture.
-use clap::{Arg, Command as CliCommand, value_parser};
+use clap::{Args, Parser};
 use ic_build::artifacts::{CapturedArtifact, produce_and_retain_artifact};
 use ic_host_process::status::shell_status_code;
 use std::{
@@ -52,58 +52,45 @@ fn optimize(
     Ok(ExitCode::from(u8::try_from(code).unwrap_or(1)))
 }
 
-fn command() -> CliCommand {
-    CliCommand::new("jobs-capture-artifact")
-        .about("Capture qualification Wasm and retain optimizer evidence")
-        .version(env!("CARGO_PKG_VERSION"))
-        .arg(
-            Arg::new("input")
-                .required(true)
-                .value_parser(value_parser!(PathBuf)),
-        )
-        .arg(
-            Arg::new("destination")
-                .required(true)
-                .value_parser(value_parser!(PathBuf)),
-        )
-        .arg(
-            Arg::new("optimizer")
-                .long("optimize")
-                .value_name("OPTIMIZER")
-                .requires("level")
-                .value_parser(value_parser!(PathBuf)),
-        )
-        .arg(
-            Arg::new("level")
-                .value_name("LEVEL")
-                .requires("optimizer")
-                .allow_hyphen_values(true)
-                .value_parser(["-O3", "-Os", "-Oz"]),
-        )
+#[derive(Debug, Parser)]
+#[command(
+    name = "jobs-capture-artifact",
+    about = "Capture qualification Wasm and retain optimizer evidence",
+    version
+)]
+struct Options {
+    #[arg(value_name = "input")]
+    input: PathBuf,
+    #[arg(value_name = "destination")]
+    destination: PathBuf,
+    #[command(flatten)]
+    optimization: Option<Optimization>,
+}
+
+#[derive(Args, Debug)]
+#[group(requires_all = ["optimizer", "level"], multiple = true)]
+struct Optimization {
+    #[arg(long = "optimize", value_name = "OPTIMIZER", required = false)]
+    optimizer: PathBuf,
+    #[arg(value_name = "LEVEL", required = false, allow_hyphen_values = true, value_parser = ["-O3", "-Os", "-Oz"])]
+    level: String,
 }
 
 fn main() -> io::Result<ExitCode> {
-    let args = command().get_matches();
-    let source = args.get_one::<PathBuf>("input").expect("required input");
-    let destination = args
-        .get_one::<PathBuf>("destination")
-        .expect("required destination");
-    let status = if let Some(optimizer) = args.get_one::<PathBuf>("optimizer") {
-        let level = args
-            .get_one::<String>("level")
-            .expect("optimizer requires level");
+    let args = Options::parse();
+    let status = if let Some(optimization) = args.optimization {
         optimize(
-            source,
-            destination,
-            optimizer.as_os_str(),
-            OsStr::new(level),
+            &args.input,
+            &args.destination,
+            optimization.optimizer.as_os_str(),
+            OsStr::new(&optimization.level),
         )?
     } else {
-        capture(source, destination)?;
+        capture(&args.input, &args.destination)?;
         ExitCode::SUCCESS
     };
     if status == ExitCode::SUCCESS {
-        eprintln!("Retained capture: {}", destination.display());
+        eprintln!("Retained capture: {}", args.destination.display());
     }
     Ok(status)
 }
@@ -118,28 +105,22 @@ mod tests {
 
     #[test]
     fn cli_preserves_capture_arguments_and_requires_complete_optimizer_selection() {
-        let args = command()
-            .try_get_matches_from(["capture", "input with spaces", "out.wasm"])
-            .unwrap();
-        assert_eq!(
-            args.get_one::<PathBuf>("input").unwrap(),
-            Path::new("input with spaces")
-        );
-        assert!(args.get_one::<PathBuf>("optimizer").is_none());
+        let args = Options::try_parse_from(["capture", "input with spaces", "out.wasm"]).unwrap();
+        assert_eq!(args.input, Path::new("input with spaces"));
+        assert!(args.optimization.is_none());
         for level in ["-O3", "-Os", "-Oz"] {
-            let args = command()
-                .try_get_matches_from([
-                    "capture",
-                    "input",
-                    "output",
-                    "--optimize",
-                    "optimizer tool",
-                    level,
-                ])
-                .unwrap();
-            assert_eq!(args.get_one::<String>("level").unwrap(), level);
+            let args = Options::try_parse_from([
+                "capture",
+                "input",
+                "output",
+                "--optimize",
+                "optimizer tool",
+                level,
+            ])
+            .unwrap();
+            assert_eq!(args.optimization.as_ref().unwrap().level, level);
             assert_eq!(
-                args.get_one::<PathBuf>("optimizer").unwrap(),
+                args.optimization.as_ref().unwrap().optimizer,
                 Path::new("optimizer tool")
             );
         }
@@ -156,11 +137,10 @@ mod tests {
                 "--all-features",
             ],
         ] {
-            assert!(command().try_get_matches_from(args).is_err());
+            assert!(Options::try_parse_from(args).is_err());
         }
         assert_eq!(
-            command()
-                .try_get_matches_from(["capture", "--help"])
+            Options::try_parse_from(["capture", "--help"])
                 .unwrap_err()
                 .kind(),
             clap::error::ErrorKind::DisplayHelp
@@ -310,16 +290,15 @@ mod tests {
         fs::create_dir(&directory).unwrap();
         let destination = directory.join("consumer.wasm");
         assert!(
-            command()
-                .try_get_matches_from([
-                    OsStr::new("capture"),
-                    source.as_os_str(),
-                    destination.as_os_str(),
-                    OsStr::new("--optimize"),
-                    optimizer.as_os_str(),
-                    OsStr::new("--all-features"),
-                ])
-                .is_err()
+            Options::try_parse_from([
+                OsStr::new("capture"),
+                source.as_os_str(),
+                destination.as_os_str(),
+                OsStr::new("--optimize"),
+                optimizer.as_os_str(),
+                OsStr::new("--all-features"),
+            ])
+            .is_err()
         );
         assert_eq!(fs::read_dir(&directory).unwrap().count(), 0);
         fs::write(directory.join("producer.wasm"), b"existing evidence").unwrap();

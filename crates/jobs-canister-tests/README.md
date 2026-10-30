@@ -67,7 +67,7 @@ This fixture is not a production deployment or a persistent background service.
 
 ```bash
 # Parser/input tests; compiles the live scenario without starting a server.
-cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline
+bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests --example queue --locked --offline
 
 # Explicit local canister test, with visible schedules and assertions.
 make test-demo

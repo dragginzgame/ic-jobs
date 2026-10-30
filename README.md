@@ -93,8 +93,10 @@ the harness's `pocket-ic` feature supplies external conversions.
 
 Installation, management, fixture controls and delivery use IC Wire native Serde
 frames. Consumer-owned method identities and request/reply budgets live in
-`management_wire` and `delivery_wire`. Platform's explicit hooks validate unit
-RPC requests too; guards admit length before argument copies. The init hook
+`management_wire` and `delivery_wire`. Wire supplies the codec hooks used by
+Platform's entrypoints, including unit RPCs. Local guards retain oversized-request
+rejections before argument copies; the automatic Wire attributes are not selected.
+The init hook
 performs that admission explicitly because lifecycle macros have no guards.
 No Candid service or compatibility endpoint is generated. Frozen earlier Candid
 bytes are negative fixtures only.
@@ -166,16 +168,21 @@ stable cells. See [test consumers](docs/test-consumers.md) for their storage and
 timer boundaries.
 
 Choose checks for the affected caller. For native consumer storage/timer
-composition, use `cargo +1.91.0 test -p jobs-test-consumer --test composition
+composition, use `bash scripts/dev/minimum-rust.sh cargo test -p jobs-test-consumer --test composition
 --locked --offline`; for persisted Wire records, select `--test stored_wire`;
 for endpoint codecs, select `--test api_wire`. Run the packaged adapter example
-with `cargo +1.91.0 run -p ic-jobs --example persisted_job --locked --offline`.
-Qualify the core Rust floor separately with `cargo +1.91.0 check -p ic-jobs
---lib --locked --offline`. For the consumer's Wasm floor, use `cargo +1.91.0
+with `bash scripts/dev/minimum-rust.sh cargo run -p ic-jobs --example persisted_job --locked --offline`.
+Qualify the core Rust floor separately with `bash scripts/dev/minimum-rust.sh cargo check -p ic-jobs
+--lib --locked --offline`. For the consumer's Wasm floor, use `bash scripts/dev/minimum-rust.sh cargo
 check -p jobs-test-consumer --lib --target wasm32-unknown-unknown --locked
 --offline`. Lint the affected consumer with `cargo clippy -p jobs-test-consumer
 --all-targets --locked --offline -- -D warnings`, or select the Wasm target
 when runtime integration changes.
+
+The minimum-compiler launcher reads `workspace.package.rust-version` from
+[Cargo.toml](Cargo.toml), normalizes its toolchain selection and installs nothing.
+Make and both hosted workflows use that same projection. Hosted setup prepares
+the pinned host parsers first; development Rust comes from `rust-toolchain.toml`.
 
 `make clippy`, `make check-wasm`, `make check-msrv` and the other package-group
 targets aggregate several checks. `make ci` runs the full release suite and

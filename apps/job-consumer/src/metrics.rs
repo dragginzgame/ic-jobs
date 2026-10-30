@@ -48,16 +48,6 @@ impl Counts {
         }
     }
 
-    pub(crate) fn merge(&mut self, other: Self) {
-        self.dispatched.merge(other.dispatched);
-        self.retry_dispatches.merge(other.retry_dispatches);
-        self.succeeded.merge(other.succeeded);
-        self.retryable_failures.merge(other.retryable_failures);
-        self.permanent_failures.merge(other.permanent_failures);
-        self.uncertain.merge(other.uncertain);
-        self.reconciliations.merge(other.reconciliations);
-    }
-
     pub(crate) fn snapshot(&self, sequence: Option<u64>, canister_version: u64) -> JobMetrics {
         let view = |counter: MeasurementCounter| CounterMetric {
             total: counter.total(),

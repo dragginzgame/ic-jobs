@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.17.51]
+
+### 🧹 Cleanup
+
+- Project committed job events into counters and logs through one flow, and use
+  one management authorization path for diagnostics. Reuse Wire's codec hooks
+  while retaining request limits, rejection codes and synchronous rollback.
+- Share host management-call plumbing and controller snapshot sequences; use
+  typed artifact-capture arguments and smaller native corruption fixtures.
+- Derive contributor builds and hosted compiler setup from the declared Rust
+  policy. Isolate release-fixture groups from one another and refresh stale
+  release/status guidance. Published Jobs APIs and stored formats are unchanged.
+
+### 📦 Dependencies
+
+- Adopt Metrics 0.18.0 for qualification-consumer diagnostics, retaining counter
+  arithmetic, report formats and reset boundaries. The published Jobs library
+  remains Serde-only.
+- Adopt Logging 0.18.0 with an explicit 32 KiB retained-text budget that preserves
+  the existing 128-row limits. Keep all-topic paging, distinguish normal eviction
+  from append refusals, and retain heap-only diagnostics independent of job state
+  ([#79 — Adopt ic-logging 0.18 in the job-consumer logging adapter](https://github.com/dragginzgame/ic-jobs/issues/79)).
+
+### 🧪 Testing
+
+- Cover maximum UTF-8 log rows, truncation projection and text-budget refusal
+  accounting alongside the existing retention, pagination and commit-boundary tests.
+
 ## [0.17.50] - 2026-10-30
 
 ### 🧪 Testing

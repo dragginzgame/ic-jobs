@@ -9,10 +9,11 @@ LOCAL_TOOL_CHECK_TARGETS := ic-tools-check
 export PATH := $(CURDIR)/.tools/ic/bin:$(PATH)
 include make/consumer.mk
 TESTKIT_TOOL = bash scripts/dev/testkit-tool.sh
+MINIMUM_RUST = bash scripts/dev/minimum-rust.sh
 RELEASE_METADATA_LOCKFILE ?= $(CURDIR)/Cargo.lock
 RELEASE_METADATA_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-build --lockfile "$(RELEASE_METADATA_LOCKFILE)" --bin ic-build-release-metadata --profile debug --features cli
 VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
-	--input .shared-tooling.snapshot --input Makefile --input scripts/dev/testkit-tool.sh --input scripts/dev/queue-command.sh --input ci/tool-versions.env \
+	--input .shared-tooling.snapshot --input Makefile --input scripts/dev/testkit-tool.sh --input scripts/dev/queue-command.sh --input scripts/dev/minimum-rust.sh --input ci/tool-versions.env \
 	--input ci/ic-tools.tsv --input ci/release-delivery.txt --input ci/cargo-dependency-boundaries.json \
 	--input crates/ic-jobs/Cargo.toml --input apps/job-consumer/Cargo.toml \
 	--input crates/jobs-canister-tests/Cargo.toml
@@ -43,21 +44,21 @@ test-jobs:
 	+cargo test -p ic-jobs --tests --all-features --locked --offline
 
 test-consumers:
-	+cargo +1.91.0 test -p jobs-test-consumer --test composition --test stored_wire --locked --offline
-	+cargo +1.91.0 run -p ic-jobs --example persisted_job --locked --offline
+	+$(MINIMUM_RUST) cargo test -p jobs-test-consumer --test composition --test stored_wire --locked --offline
+	+$(MINIMUM_RUST) cargo run -p ic-jobs --example persisted_job --locked --offline
 
 .PHONY: check-consumer build-consumer install-testkit-tools testkit-tools-check install-consumer-server consumer-server-check test-canister test-canister-optimized
 check-consumer:
-	+cargo +1.91.0 test -p jobs-test-consumer --lib --test api_wire --locked --offline
+	+$(MINIMUM_RUST) cargo test -p jobs-test-consumer --lib --test api_wire --locked --offline
 	+$(MAKE) --no-print-directory build-consumer
-	+cargo +1.91.0 test -p jobs-canister-tests --bin jobs-capture-artifact --example queue --test queue_cli --test recovery --locked --offline
+	+$(MINIMUM_RUST) cargo test -p jobs-canister-tests --bin jobs-capture-artifact --example queue --test queue_cli --test recovery --locked --offline
 
 build-consumer:
-	+cargo +1.91.0 build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
+	+$(MINIMUM_RUST) cargo build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline
 
 .PHONY: build-recovery-tools
 build-recovery-tools:
-	+cargo +1.91.0 build -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
+	+$(MINIMUM_RUST) cargo build -p jobs-canister-tests --bin jobs-capture-artifact --locked --offline
 
 install-testkit-tools:
 	+$(TESTKIT_TOOL)
@@ -76,33 +77,33 @@ consumer-server-check:
 test-canister test-canister-optimized: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
 	+$(MAKE) --no-print-directory build-recovery-tools
-	+cargo +1.91.0 test -p jobs-canister-tests --test recovery --locked --offline --no-run
+	+$(MINIMUM_RUST) cargo test -p jobs-canister-tests --test recovery --locked --offline --no-run
 	+bash scripts/ci/test-canister.sh $(if $(filter test-canister-optimized,$@),--optimized)
 
 .PHONY: demo test-demo test-demo-cli
 demo: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
-	+cargo +1.91.0 build -p jobs-canister-tests --example queue --locked --offline
+	+$(MINIMUM_RUST) cargo build -p jobs-canister-tests --example queue --locked --offline
 	+bash scripts/dev/queue-command.sh demo
 
 test-demo: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
-	+cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline --no-run
+	+$(MINIMUM_RUST) cargo test -p jobs-canister-tests --example queue --locked --offline --no-run
 	+bash scripts/dev/queue-command.sh test-demo
 
 # Spawn-mode process tests intentionally do not borrow the batch runner's server.
 test-demo-cli: consumer-server-check
 	+$(MAKE) --no-print-directory build-consumer
-	+cargo +1.91.0 build -p jobs-canister-tests --example queue --locked --offline
+	+$(MINIMUM_RUST) cargo build -p jobs-canister-tests --example queue --locked --offline
 	+bash scripts/dev/queue-command.sh test-demo-cli
 
 check-msrv:
-	+cargo +1.91.0 check -p ic-jobs --lib --locked --offline
-	+cargo +1.91.0 check -p jobs-test-consumer --test composition --test stored_wire --locked --offline
+	+$(MINIMUM_RUST) cargo check -p ic-jobs --lib --locked --offline
+	+$(MINIMUM_RUST) cargo check -p jobs-test-consumer --test composition --test stored_wire --locked --offline
 
 check-wasm:
-	+cargo +1.91.0 check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline
-	+cargo +1.91.0 check -p jobs-test-consumer --lib --target wasm32-unknown-unknown --locked --offline
+	+$(MINIMUM_RUST) cargo check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline
+	+$(MINIMUM_RUST) cargo check -p jobs-test-consumer --lib --target wasm32-unknown-unknown --locked --offline
 
 clippy:
 	+cargo clippy -p ic-jobs --all-targets --all-features --locked --offline -- -D warnings

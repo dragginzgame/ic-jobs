@@ -23,6 +23,9 @@ prepare_phase() {
     cp "$root/Makefile" "$fixture/"
     cp -R "$root/ci" "$fixture/"
     cp "$root/scripts/dev/"{install-rust-tools,tool-store,cargo-tool-build,testkit-tool,queue-command}.sh "$fixture/scripts/dev/"
+    cp "$root/scripts/dev/minimum-rust.sh" "$fixture/scripts/dev/"
+    cp "$root/scripts/ci/read-cargo-workspace-rust-version.sh" "$fixture/scripts/ci/"
+    cp "$root/Cargo.toml" "$fixture/"
     cp "$root/scripts/ci/"{verify-file-checksum,test-canister,fixture-lifecycle}.sh "$fixture/scripts/ci/"
     cp "$root/Cargo.lock" "$fixture/Cargo.lock"
     export JOBS_CONSUMER_TOOLING_EVENTS="$fixture/events"
@@ -210,7 +213,7 @@ set -euo pipefail
 printf 'server %s\n' "$*" >> "$JOBS_CONSUMER_TOOLING_EVENTS"
 case "$*" in
     check) printf '%s\n' "$JOBS_CONSUMER_WASM_TARGET/server binary" ;;
-    'run --ttl 900 -- cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline -- --ignored --nocapture --test-threads=1')
+    'run --ttl 900 -- bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests --example queue --locked --offline -- --ignored --nocapture --test-threads=1')
         [[ "$IC_JOBS_CONSUMER_WASM" == "$JOBS_CONSUMER_WASM_TARGET/wasm32-unknown-unknown/release/jobs_test_consumer.wasm" ]] ;;
     *) exit 49 ;;
 esac
@@ -261,7 +264,7 @@ for command in demo test-demo test-demo-cli; do
         printf 'admission\ncargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline\n'
         case "$command" in
             demo) printf 'server check\nqueue\n' ;;
-            test-demo) printf 'server run --ttl 900 -- cargo +1.91.0 test -p jobs-canister-tests --example queue --locked --offline -- --ignored --nocapture --test-threads=1\n' ;;
+            test-demo) printf 'server run --ttl 900 -- bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests --example queue --locked --offline -- --ignored --nocapture --test-threads=1\n' ;;
             test-demo-cli) printf 'server check\ncargo +1.91.0 test -p jobs-canister-tests --test queue_cli --locked --offline -- --ignored --nocapture\n' ;;
         esac
     } > "$fixture/expected-events"
@@ -376,7 +379,7 @@ variant="${5%/server.stdout}"; variant="${variant##*/}"
 printf 'server stdout\n' > "$5"
 printf 'server stderr\n' > "$7"
 shift 8
-[[ "$*" == 'cargo +1.91.0 test -p jobs-canister-tests --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture' ]] || exit 49
+[[ "$*" == 'bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture' ]] || exit 49
 printf '%s\n' "$IC_JOBS_CONSUMER_WASM" >> "$JOBS_CONSUMER_CAPTURED/paths"
 cp "$IC_JOBS_CONSUMER_WASM" "$JOBS_CONSUMER_CAPTURED/$variant.wasm"
 printf 'replaced mutable producer\n' > "$JOBS_CONSUMER_PRODUCER"
@@ -496,6 +499,50 @@ done
 echo 'Changed lock, CLI selection or demo launcher stops Jobs CI after admission (actual Make route; substitute tool effects; no product validation)'
 )
 
+phase_rust_policy() (
+local fixture
+trap - EXIT
+prepare_phase rust-policy
+cp "$root/rust-toolchain.toml" "$fixture/"
+cat > "$fixture/.tools/rust/common/bin/cargo" <<'CARGO'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$JOBS_CONSUMER_TOOLING_EVENTS"
+CARGO
+chmod +x "$fixture/.tools/rust/common/bin/cargo"
+for selection in 1.92 1.92.3; do
+    POLICY_FLOOR="$selection" perl -pi -e \
+        's/^rust-version = "[^"]*"/rust-version = "$ENV{POLICY_FLOOR}"/' "$fixture/Cargo.toml"
+    expected="$selection"
+    [[ "$expected" == *.*.* ]] || expected="$expected.0"
+    : > "$fixture/events"
+    make --no-print-directory -C "$fixture" build-consumer > "$fixture/$selection.log" 2>&1
+    printf '+%s build -p jobs-test-consumer --release --target wasm32-unknown-unknown --locked --offline\n' \
+        "$expected" > "$fixture/expected"
+    cmp "$fixture/expected" "$fixture/events"
+done
+
+# Exercise both actual hosted selection steps without installing any compiler.
+POLICY_FLOOR=1.92 perl -pi -e \
+    's/^rust-version = "[^"]*"/rust-version = "$ENV{POLICY_FLOOR}"/' "$fixture/Cargo.toml"
+perl -pi -e 's/^channel = "[^"]*"/channel = "1.98.0"/' "$fixture/rust-toolchain.toml"
+for workflow in ci recovery; do
+    yq -o json '.' "$root/.github/workflows/$workflow.yml" | jq '.jobs[].steps' > "$fixture/steps.json"
+    bash "$root/scripts/ci/extract-workflow-step.sh" "$fixture/steps.json" rust-policy > "$fixture/selection.sh"
+    : > "$fixture/outputs"
+    (cd "$fixture" && GITHUB_OUTPUT="$fixture/outputs" bash -e -o pipefail selection.sh)
+    printf 'minimum=1.92.0\ndevelopment=1.98.0\n' > "$fixture/expected"
+    cmp "$fixture/expected" "$fixture/outputs"
+done
+
+# A malformed policy cannot fall back or dispatch a plausible Cargo command.
+perl -pi -e 's/^rust-version = "[^"]*"/rust-version = "invalid"/' "$fixture/Cargo.toml"
+: > "$fixture/events"
+status=0
+make --no-print-directory -C "$fixture" build-consumer > "$fixture/invalid.log" 2>&1 || status=$?
+[[ "$status" != 0 && ! -s "$fixture/events" ]] || exit 1
+echo 'Manifest Rust floor reaches actual Make/hosted selection; invalid policy refuses before Cargo (substitute compiler only)'
+)
+
 phase_cli_admission
 phase_server_commands
 phase_workflow_selection
@@ -503,4 +550,5 @@ phase_demo_commands
 phase_input_admission
 phase_artifact_capture
 phase_ci_admission
+phase_rust_policy
 fixture_complete=true

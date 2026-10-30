@@ -6,7 +6,6 @@ use ic_platform::{
 };
 use ic_testkit::pic::{
     CanisterInstallExt, InstallSpec, PocketIcInstance, PocketIcStartupConfig, advance_and_tick,
-    query_wire, update_wire,
 };
 use jobs_test_consumer::{
     api::{Create, Error as ApiError, Init, Status, Summary, Task, Timing, View},
@@ -216,27 +215,25 @@ impl Demo {
     }
 
     fn query<T: DeserializeOwned>(&self, method: Method, args: &impl Serialize) -> io::Result<T> {
-        let reply: Result<T, ApiError> = query_wire(
-            self.pic.instance(),
-            self.canister,
-            self.manager,
-            wire::control(method),
-            args,
-        )
-        .map_err(failure)?;
-        reply.map_err(failure)
+        self.client()
+            .query::<Result<T, ApiError>>(method, args)
+            .map_err(failure)?
+            .map_err(failure)
     }
 
     fn update<T: DeserializeOwned>(&self, method: Method, args: &impl Serialize) -> io::Result<T> {
-        let reply: Result<T, ApiError> = update_wire(
-            self.pic.instance(),
-            self.canister,
-            self.manager,
-            wire::control(method),
-            args,
-        )
-        .map_err(failure)?;
-        reply.map_err(failure)
+        self.client()
+            .update::<Result<T, ApiError>>(method, args)
+            .map_err(failure)?
+            .map_err(failure)
+    }
+
+    fn client(&self) -> wire::Client<'_> {
+        wire::Client {
+            pic: self.pic.instance(),
+            canister: self.canister,
+            caller: self.manager,
+        }
     }
 
     fn views(&self) -> io::Result<Vec<View>> {

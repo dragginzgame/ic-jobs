@@ -322,36 +322,41 @@ impl<M: Memory> Queue<M> {
         Ok(())
     }
 
-    pub(crate) fn job_metrics(
-        &self,
-        caller: Principal,
-        version: u64,
-    ) -> Result<crate::api::JobMetrics, Error> {
-        self.authorize(caller)?;
-        Ok(self
-            .metrics
+    // Management entrypoints authorize before projecting heap diagnostics, just
+    // as they do before ordinary queue operations. These reads need no reload.
+    pub(crate) fn job_metrics(&self, version: u64) -> crate::api::JobMetrics {
+        self.metrics
             .state()
-            .snapshot(self.metrics.sequence(), version))
+            .snapshot(self.metrics.sequence(), version)
     }
 
-    pub(crate) fn reset_job_metrics(
-        &mut self,
-        caller: Principal,
-        version: u64,
-    ) -> Result<crate::api::JobMetrics, Error> {
-        self.authorize(caller)?;
+    pub(crate) fn reset_job_metrics(&mut self, version: u64) -> crate::api::JobMetrics {
         self.metrics.reset(Counts::EMPTY);
-        self.job_metrics(caller, version)
+        self.job_metrics(version)
     }
 
     pub(crate) fn job_logs(
         &self,
-        caller: Principal,
         request: crate::api::JobLogRequest,
         version: u64,
     ) -> Result<crate::api::JobLogPage, Error> {
-        self.authorize(caller)?;
         self.logs.page(request, version)
+    }
+
+    // A single event projects into both diagnostic owners, only after commit.
+    // A refused log append cannot undo the metric or the durable transition.
+    fn observe(&mut self, now: u64, event: Event) {
+        match &event {
+            Event::Dispatch { retry, .. } => self.metrics.state_mut().dispatch(*retry),
+            Event::Outcome {
+                outcome,
+                reconciled,
+                ..
+            } => {
+                self.metrics.state_mut().outcome(*outcome, *reconciled);
+            }
+        }
+        self.logs.record(now, event);
     }
 
     fn load(&self) -> Result<Snapshot<Job>, Error> {
@@ -469,7 +474,6 @@ impl<M: Memory> Queue<M> {
         let mut snapshot = self.load()?;
         let mut deliveries = vec![];
         let mut work = 0;
-        let mut observations = Counts::EMPTY;
         let mut events = Vec::with_capacity(BATCH * 2);
         for _ in 0..BATCH {
             let Some((index, attempt)) =
@@ -480,7 +484,6 @@ impl<M: Memory> Queue<M> {
             };
             work += 1;
             let retry = snapshot.jobs[index].job.record().attempts > 1;
-            observations.dispatch(retry);
             events.push(Event::Dispatch { attempt, retry });
             match &snapshot.jobs[index].task {
                 Task::Increment(amount) => {
@@ -496,7 +499,6 @@ impl<M: Memory> Queue<M> {
                         .job
                         .finish(attempt, now, outcome)
                         .map_err(job_error)?;
-                    observations.outcome(outcome, false);
                     events.push(Event::Outcome {
                         attempt,
                         outcome,
@@ -509,9 +511,8 @@ impl<M: Memory> Queue<M> {
         if work > 0 {
             // Commit the complete batch before delivery envelopes escape.
             let committed = self.commit(snapshot, DispatchBatch { deliveries, work })?;
-            self.metrics.state_mut().merge(observations);
             for event in events {
-                self.logs.record(now, event);
+                self.observe(now, event);
             }
             Ok(committed)
         } else {
@@ -563,8 +564,7 @@ impl<M: Memory> Queue<M> {
             job.finish(attempt, now, outcome).map_err(job_error)?;
         }
         let committed = self.commit(snapshot, ())?;
-        self.metrics.state_mut().outcome(outcome, reconciled);
-        self.logs.record(
+        self.observe(
             now,
             Event::Outcome {
                 attempt,

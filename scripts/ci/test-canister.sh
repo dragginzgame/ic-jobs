@@ -13,7 +13,7 @@ trap 'status=$?; fixture_completion_status "$status" "$complete" || status=$?; e
 # Caller explicitly selects this live gate. The canonical Cargo-tool checker and
 # Testkit own executable selection and PocketIC admission/lifecycle respectively.
 cli="$(bash scripts/dev/testkit-tool.sh --check)"
-target="$(cargo +1.91.0 metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
+target="$(bash scripts/dev/minimum-rust.sh cargo metadata --format-version 1 --no-deps --locked --offline | jq -er .target_directory)"
 input="$target/wasm32-unknown-unknown/release/jobs_test_consumer.wasm"
 [[ -f "$input" && ! -L "$input" ]] || exit 1
 capture="$target/debug/jobs-capture-artifact"
@@ -31,7 +31,7 @@ cp "${cli%/bin/*}/selection.json" "$evidence/testkit-selection.json"
 {
     git rev-parse HEAD
     uname -sm
-    rustc +1.91.0 --version --verbose
+    bash scripts/dev/minimum-rust.sh rustc --version --verbose
     bash scripts/ci/verify-file-checksum.sh --print sha256 scripts/ci/test-canister.sh
     bash scripts/ci/verify-file-checksum.sh --print sha256 "$capture"
 } > "$evidence/source.txt"
@@ -57,7 +57,7 @@ for variant in "${variants[@]}"; do
     # Testkit's run command checks the prepared server bundle; it never downloads.
     "$cli" run --ttl 900 --server-stdout "$evidence/$variant/server.stdout" \
         --server-stderr "$evidence/$variant/server.stderr" \
-        -- cargo +1.91.0 test -p jobs-canister-tests \
+        -- bash scripts/dev/minimum-rust.sh cargo test -p jobs-canister-tests \
         --test recovery --locked --offline -- --ignored --test-threads=1 --nocapture \
         2>&1 | tee "$evidence/$variant/test.log"
 done

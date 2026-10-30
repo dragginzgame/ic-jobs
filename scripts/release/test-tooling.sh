@@ -255,7 +255,8 @@ refuse() {
     fi
 }
 
-if [[ "$group" == all || "$group" == delivery ]]; then
+phase_delivery() (
+trap - EXIT
 # Exercise actual metadata preparation, commits, annotated tags and local atomic
 # pushes for every increment, without running the consumer's complete gate.
 for kind in patch minor major; do
@@ -552,9 +553,10 @@ MAKE
     [[ -z "$(git status --porcelain)" ]] || exit 1
 done
 
-fi
+)
 
-if [[ "$group" == all || "$group" == recovery ]]; then
+phase_recovery() (
+trap - EXIT
 # A clean manually committed candidate can be the next release's base. Preserve
 # its undelivered intent and require fresh validation without replaying delivery.
 new_repository committed-undelivered
@@ -628,9 +630,10 @@ cmp .git/tool-events "$fixture/recovery-tools"
 cmp "$TOOLING_FETCH_EVENTS" "$fixture/recovery-fetch"
 [[ "$(grep -c '^install$' .git/editor-events)" == "$(grep -c '^install$' "$fixture/recovery-editor")" ]] || exit 1
 
-fi
+)
 
-if [[ "$group" == all || "$group" == metadata ]]; then
+phase_metadata() (
+trap - EXIT
 # The adapter checks the same grouped manifests as fmt-check, including when
 # release reconciliation selects a commit instead of the working tree.
 new_repository manifest-order
@@ -657,9 +660,10 @@ refuse unsorted-selected-commit env RELEASE_VERSION="$base_version" RELEASE_DATE
     RELEASE_COMMIT="$unsorted_commit" bash scripts/release/metadata.sh check
 cmp .git/sorted-manifest Cargo.toml
 
-fi
+)
 
-if [[ "$group" == all || "$group" == publication ]]; then
+phase_publication() (
+trap - EXIT
 # The actual publication adapter and shared helpers use real local Git. Only
 # Cargo's upload and curl's registry observation are substituted.
 new_repository publication
@@ -755,7 +759,12 @@ refuse failed-upload env TOOLING_UPLOAD_RESULT=42 bash scripts/release/publish.s
 refuse uncertain-upload-now-present env TOOLING_REGISTRY_HTTP=200 bash scripts/release/publish.sh origin
 [[ "$(wc -l < "$TOOLING_UPLOAD_EVENTS" | tr -d ' ')" == 1 ]] || exit 1
 [[ -z "$(git status --porcelain)" ]] || exit 1
-fi
+)
+
+if [[ "$group" == all || "$group" == delivery ]]; then phase_delivery; fi
+if [[ "$group" == all || "$group" == recovery ]]; then phase_recovery; fi
+if [[ "$group" == all || "$group" == metadata ]]; then phase_metadata; fi
+if [[ "$group" == all || "$group" == publication ]]; then phase_publication; fi
 
 if grep -E 'warning: (overriding recipe|ignoring old recipe)' "$fixture/"*.log; then
     echo 'release fixture emitted unexpected recipe warnings' >&2

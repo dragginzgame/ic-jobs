@@ -1,96 +1,98 @@
 # Current handoff
 
-## Current scope and delivery
+## Source and accepted scope
 
-Checkout baseline is `26108182368b3ef9687f195feaf2ce6c38021dfc`
-(Release 0.17.49). The user selected implementation of Jobs issue 78 and adoption
-of new upstream packages. Both are prepared in the working tree. Pending notes
-are 0.17.50; package versions remain unchanged. No staging, commit, push, release,
-publication, deployed-data reset or issue-state change was performed.
+Baseline: `796b68181b7820245d1785e869be82f2d46c420e` (Release 0.17.50).
+The ten-reduction cleanup, Metrics 0.18 adoption and subsequent Logging 0.18
+migration are prepared locally with pending 0.17.51 notes. Package versions and
+Git index/refs remain unchanged. No release, publication, deployment, data reset
+or conversion was performed. Published core runtime source/API remain Serde-only.
 
-The incoming lockfile already selected Platform 0.8.3, Metrics/Logging 0.17.7,
-Wire 0.7.24, Timers 0.32.3 and Build/Host/Testkit 0.70.4. Those selections are
-preserved and the catalog minimums now match. Memory/Storage additionally move
-from 0.56.0 to published 0.56.1; no other incoming lock selections changed.
-The selected Testkit and release-metadata CLIs were prepared and admitted.
-Shared Tooling remains reviewed 0.26.25 at
+The cleanup uses one post-commit diagnostic event flow and one manager-authorized
+queue accessor. Host transport/error handling, controller snapshots, native
+corruption setup and typed capture arguments are simplified. Release-fixture
+phases run in isolated subshells. Cargo's declared Rust floor supplies Make,
+launchers and hosted setup through `scripts/dev/minimum-rust.sh`, without setup
+side effects; development Rust comes from `rust-toolchain.toml`. Rust stays 1.91.
+Shared Tooling stays reviewed 0.26.25 at
 `6b6bbd9c9e5798f0ecf6105637392a7a55cd450e`; its snapshot files are unchanged.
 
-## Queue contract and retained installations
+Wire's published codec hooks are Wasm-only. **Keep the explicit Platform
+attributes and local guards:** automatic Wire attributes trap oversized RPC input,
+whereas this fixture rejects it. IDs, shapes, limits, rejection codes and
+synchronous reply-failure rollback remain; codec trap text comes from Wire.
 
-[#78 — Replace job-consumer JSON queue persistence with bounded IC Wire payloads](https://github.com/dragginzgame/ic-jobs/issues/78)
-is implemented locally. The qualification consumer stores native Wire under the
-queue-owned identity `JQW\x01`, separately from Memory's ledger. Admission is
-24 KiB total including the four-byte prefix, 1 MiB traversal allocation, 8,192
-nodes and depth 32. The existing 32-job/32-receipt and 256-byte message limits
-remain. Every record crosses Job::restore; header/task/receipt checks, error
-precedence, authorization and commit-before-dispatch ownership remain consumer-owned.
+## Logging and Metrics contracts
 
-There is no production JSON queue reader, converter, reset or blind redispatch.
-The [consumer guide](../../apps/job-consumer/README.md) owns the retained-installation
-retirement procedure. Preserve the old binary, backups, attempts and exact
-receipts; use the old reader to resolve Running/Uncertain obligations or obtain
-explicit owner disposition before retiring an installation. Missing evidence
-never establishes retry safety. Fresh qualification runs create new canisters;
-source adoption does not authorize destruction of an existing installation.
+[#79 — Adopt ic-logging 0.18 in the job-consumer logging adapter](https://github.com/dragginzgame/ic-jobs/issues/79)
+is implemented locally with published Logging 0.18.0. The retained UTF-8 text
+ceiling is `128 * (192 + 2 * 32)` = 32 KiB, preserving the existing 128-row,
+192-byte message and 32-byte per-label capacity. It excludes metadata, spare
+capacity and transient buffers; it is not a full heap cap. Paging explicitly
+uses TopicMatch::Any without changing the request contract. Successful append
+receipts retain sequence/truncation on rows; normal eviction is not an omitted
+event. All typed append refusals, including TextBudgetExceeded, increment omitted
+observations without changing committed job outcomes or retry authority.
 
-A frozen Memory 0.56.0 installation retains JSON with Running and Uncertain
-attempts and their exact receipts. Current recovery/fresh creation refuse while
-preserving the Cell header and payload. Memory bootstrap may update allocation
-bookkeeping first. Earlier incompatible CBOR Memory ledgers retain their separate
-zero-write refusal proof. Do not clear only a queue or allocation ledger.
-[Fixture provenance](../../crates/ic-jobs/tests/fixtures/README.md) identifies the
-producer, old-reader proof and preserved artifact location.
+Logs are heap-only. No Logging checkpoint is persisted, so the 0.18 checkpoint
+layout requires no retained-data transition here. Reconstruction still creates
+empty history/omissions; Metrics resets do not clear logs or reuse log IDs.
+The issue remains open pending delivery and source-matching acceptance.
 
-## Qualification
+The consumer selects Metrics 0.18.0 with unchanged counter/window arithmetic and
+numeric reports. Timers keeps its required Metrics 0.17.7; no Metrics values cross
+those Rust identities. Incoming Memory/Storage 0.56.2, Timers 0.32.4 and Tooling
+0.70.5 selections were preserved. Logging is the only package changed by this
+latest update. The lock-selected Testkit CLI was prepared through normal setup.
 
-Evidence root: `/tmp/ic-jobs-78-upstream.Mso2Zod0/`. It retains incoming inputs,
-old source/lock/Wasm and fixture producer, failed development checks, final source
-patch/archive, selected dependency graph, tool identities and final Wasm hashes.
-Use those dirty-source identities with the baseline; HEAD alone is not this proof.
+## Latest qualification
 
-On Rust 1.91, 68 selected consumer native tests pass: library, API Wire,
-composition and stored-record Wire. Four native capture-tool tests pass.
-Separate core native/Wasm compiler-floor checks pass, and the actual consumer
-Wasm builds on 1.91. Strict consumer native/Wasm and recovery/capture lint pass.
-Pin, direct-boundary and all five selected dependency-graph checks pass, including
-Serde-only core and no JSON in the qualification Wasm. Formatting/manifest order
-and documentation links pass. No full repository CI suite was selected.
+Evidence: `/tmp/ic-jobs-logging018.rB7SPK4d/`, including incoming inputs, final
+source/lock/graph, command logs, CLI setup/admission and actual tested Wasm.
+Use the retained dirty-source identities, not baseline HEAD alone, for this proof.
 
-The final original Wasm passes all eleven Linux PocketIC recovery tests through
-`make test-canister`, with Testkit 0.70.4/PocketIC 16.1.0. Actual evidence is at
-`live/jobs-recovery.mDLrLt/` within the evidence root; Wasm SHA-256 is
-`e60ea3527f279465b04d76405b7d976a7dd29ea1de97ce43f055596fd3d12fb1`.
-This covers same-Wire upgrades, exact blocked attempt/payload retention, real
-receiver receipts, lost replies, absent-receipt blocking, corruption/snapshot
-recovery, timer rollback and volatile Metrics/Logging reconstruction. No new
-optimized-variant, native macOS, provider or deployment acceptance is claimed.
-Issue 78 remains open pending delivery and source-matching hosted acceptance.
+Six focused native tests pass on Rust 1.91: full UTF-8 row capacity with no early
+byte eviction, successful eviction/truncation versus omission, new typed text
+refusal with unchanged history, redaction, bounded/empty-filter pagination and
+refused diagnostics after committed work. Strict consumer native/Wasm lint,
+actual minimum-compiler Wasm build, pin/boundary/five graph checks, manifest order
+and documentation links pass. The Serde-only core/native DTO boundaries remain.
 
-## Earlier Canic preparation
+All eleven Linux PocketIC recovery tests pass on the original Wasm using
+Testkit 0.70.5/PocketIC 16.1.0. Evidence: `live/jobs-recovery.LeLCoF/` within that
+root. Wasm SHA-256:
+`5c09d3ce958cc9ef65f3d0d4785cecc4063b8e138c8147452970c0901188abad`.
+This includes manager-only log/metric queries, reconstruction with jobs retained,
+real watchdog trap rollback, exact receipt recovery and blocked unknown effects.
+No full CI, new macOS, optimized-variant, provider or deployment acceptance ran.
 
-The separate private Canic contribution remains isolated at
+Earlier Metrics-only qualification (eight native checks, no live run) remains at
+`/tmp/ic-jobs-metrics018.1RGk9ddy/`. Cleanup qualification (74 native checks,
+release/consumer tooling fixtures, eleven live recovery cases and four terminal
+shutdown scenarios) remains at `/tmp/ic-jobs-complexity-cleanup.haF9H0W6/`.
+Keep those earlier source/graphs distinct; do not relabel their artifacts.
+
+## Retained state and earlier Canic work
+
+Release 0.17.50 contains
+[#78 — Replace job-consumer JSON queue persistence with bounded IC Wire payloads](https://github.com/dragginzgame/ic-jobs/issues/78).
+Current queue bytes remain `JQW\x01` bounded Wire. Retained JSON has no fallback,
+reset or converter. Preserve old binaries/backups, attempts and receipts and
+explicitly disposition Running/Uncertain work before retiring an installation;
+missing evidence never establishes retry safety. Memory's ledger is separately
+owned: never clear only a queue or ledger. Follow the
+[consumer guide](../../apps/job-consumer/README.md) and
+[fixture provenance](../../crates/ic-jobs/tests/fixtures/README.md). Prior JSON
+producer evidence remains at `/tmp/ic-jobs-78-upstream.Mso2Zod0/`.
+
+The private Canic contribution remains isolated at
 `/tmp/canic-jobs-adapter.dPFVZ7FD/source`, branch `codex/jobs-application-adapter`,
-commit `fc14bbe1baa3c0fdc09b0550e25a1d3fdcd9d2d1` on Canic base
-`d09d1692e29878221e53f5e5b71479025c09e7f2`. Its format patch and native/installed
-evidence are retained beside that checkout. No sibling checkout was edited.
-At that delivery review upstream main was still Release 0.112.0; no PR/push was
-created containing its unrelated unpublished release base. Integrate the scoped
-commit onto published source and qualify its resulting graph before delivery.
-This Jobs queue cut does not retroactively qualify that separate Canic graph.
-
+commit `fc14bbe1baa3c0fdc09b0550e25a1d3fdcd9d2d1` on base
+`d09d1692e29878221e53f5e5b71479025c09e7f2`, with its patch/evidence alongside.
+No sibling checkout was edited. Its release base was unpublished at that review;
+integrate onto published source and qualify that resulting graph before delivery.
 [Canic #502 — Assess one IC Jobs metadata boundary before adopting it](https://github.com/dragginzgame/canic/issues/502)
-remains open. The concrete placement-acknowledgement assessment leaves its
-aggregate lease/domain-operation owner unchanged; the private notification
-component is a separate consumer. The [integration guide](../canic-integration.md)
-does not advertise a shipped Canic mount API.
-
-Prior Jobs preparation remains at `/tmp/ic-jobs-canic-preparation.ew0F1QwW/` and
-Memory/Tooling adoption at `/tmp/ic-jobs-tooling0702-memory056.8W4xazfe/`.
-[Recovery run 40909177479](https://github.com/dragginzgame/ic-jobs/actions/runs/40909177479)
-qualified 132 executions on Linux and both macOS architectures for v0.17.46 /
-878e93c752ff5777ad5b11ba2e44611b3c0c319e, Memory 0.55.2 / Platform 0.8.1.
-The separate 0.17.47 graph's 44 Linux executions remain at
-`/tmp/ic-jobs-issue-qualification.qMGHSSmz/live/jobs-recovery.Tdw2kS/`.
-Keep those historical source/graphs distinct from the current proof and any
-instruction/cycle-cost claim. Published core runtime APIs remain Serde-only.
+records the placement lease/domain-operation assessment; leave its owner unchanged.
+The [integration guide](../canic-integration.md) does not advertise a shipped mount
+API. Historical all-host proofs remain in earlier handoffs/fixture guides; this
+Logging qualification does not qualify Canic or instruction/cycle costs.

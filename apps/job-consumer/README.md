@@ -192,8 +192,14 @@ The shared DTO declaration order defines the Postcard layout. Identity, directio
 canonicality and complete consumption are checked before result admission.
 Transport, decode and remote application errors remain unreadable evidence;
 they do not become an authoritative absent receipt or a safe retry.
-The endpoints use Platform's explicit decoder/encoder hooks. Response encoding
-failure traps with the receipt write; no Candid service is generated.
+The endpoints delegate codecs to `ic_wire::endpoint` through Platform's explicit
+hooks. The Wasm-only Wire `endpoint` feature supplies these helpers; its generated
+attributes and default IDs/budgets are not selected. Local length guards preserve
+the existing oversized-RPC rejection codes before copying; init still traps on
+invalid arguments. Codec failures and response encoding failures trap, with a
+response failure rolling back the synchronous receipt write. No Candid service
+is generated. Manager-only diagnostic endpoints use the same authorized queue
+accessor as other management calls, without loading durable state for heap reads.
 
 There is one current protocol: quiesce delivery dispatch, finish or explicitly
 dispose of in-flight calls, and rebuild/upgrade sender and receiver together
@@ -220,9 +226,13 @@ reviewed runtime adapters are owned by Platform. The selected registry executor
 Platform 0.8 identity. The Wasm graph requires one executor, IC0 provider and
 entrypoint generator and excludes application principal conversion and SHA-2.
 Stable-structures retains its own external Principal dependency.
-The consumer and Timers share Metrics 0.17.7. The consumer selects its arithmetic
-and reset-window bookkeeping only on Wasm and in tests; native DTOs remain
-independent of Metrics. The Wasm timer subtree contains neither Wire nor Candid.
+The consumer selects Metrics 0.18.0 arithmetic and reset-window bookkeeping only
+on Wasm and in tests; native DTOs remain independent of Metrics. Timers retains
+its required Metrics 0.17 dependency, locked to 0.17.7. The consumer does not pass
+Metrics values across that version boundary: each owner retains its diagnostics,
+and the RPC projects consumer-owned numeric DTOs. Counter arithmetic and the
+existing report shapes are unchanged by 0.18's added summary/histogram transport.
+The Wasm timer subtree contains neither Wire nor Candid.
 The consumer's own Wire dependency supplies its endpoint codecs. Metrics has no
 optional `wire` feature; its optional keyed heap `recording` feature stays disabled.
 Published `ic-jobs` remains independent of Metrics.
@@ -411,9 +421,13 @@ unmeasured; other hosts retain their own qualification.
 
 ## Committed transition logs
 
-The consumer uses IC Logging 0.17.2 for a heap-only history of the most recent
+The consumer uses IC Logging 0.18.0 for a heap-only history of the most recent
 128 events. Each retained message is at most 192 UTF-8 bytes and labels are at
-most 32 bytes. Count eviction bounds history; there is no age-retention timer.
+most 32 bytes. The combined retained source/topic/message budget is 32 KiB,
+derived as `128 * (192 + 2 * 32)` so every individually admitted row retains
+the existing count-based capacity. This is a text-payload bound, excluding row
+metadata, spare capacity and transient buffers; it is not a complete heap cap.
+Count eviction bounds history; there is no age-retention timer.
 Queue reconstruction starts an empty history and zero omitted count, without
 backfilling durable jobs. `reset_job_metrics` does not clear history or reuse its
 sequence IDs. A sequence belongs only to this heap instance; never carry a cursor
@@ -426,8 +440,20 @@ An uncertain result stays uncertain. Messages contain neither delivery payloads
 nor caller/destination principals. Idle work, stale/mismatched completions and
 failed stable writes add no events. A diagnostic append refusal increments a
 wide, overflow-aware omitted counter without changing committed work or retry
-authority. Count eviction is not an append refusal. The host converts its
+authority. Every append refusal, including the typed total-text refusal, follows
+that same omitted-counter path. Successful append receipts retain their sequence
+and truncation in the engine's rows; their normal eviction count is not an append
+refusal and is not added to omitted observations. Paging explicitly selects
+`TopicMatch::Any`, preserving the endpoint's existing all-topic behavior without
+adding a topic selector. The host converts its
 explicit transition timestamp from nanoseconds to whole seconds.
+
+The adapter does not persist Logging checkpoints. The 0.18 checkpoint contract
+therefore changes no retained queue format or durable log bytes here; the normal
+heap-history reset on reconstruction remains. Consumer qualification for
+[#79 — Adopt ic-logging 0.18 in the job-consumer logging adapter](https://github.com/dragginzgame/ic-jobs/issues/79)
+covers the byte budget, retained truncation, omission accounting and existing
+job/receipt separation; its source/graph is recorded in the handoff.
 
 Manager-only `job_logs` takes `JobLogRequest { before, min_level, limit }` through
 the existing management Wire budgets. Limits from one through eight are admitted;

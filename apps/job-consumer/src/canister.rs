@@ -88,15 +88,11 @@ fn admit_control_input() -> Result<(), String> {
 }
 
 fn decode_control<T: DeserializeOwned, const ID: u64>(bytes: Vec<u8>) -> T {
-    required(native::decode_request(ID, &bytes, control::REQUEST_LIMITS))
+    ic_wire::endpoint::decode_request(&bytes, ID, control::REQUEST_LIMITS)
 }
 
 fn encode_control<T: Serialize, const ID: u64>(result: T) -> Vec<u8> {
-    required(native::encode_response(
-        ID,
-        &result,
-        control::RESPONSE_LIMITS,
-    ))
+    ic_wire::endpoint::encode_response(&result, ID, control::RESPONSE_LIMITS)
 }
 
 fn encode_unit<const ID: u64>() -> Vec<u8> {
@@ -218,13 +214,7 @@ fn summary() -> Result<Summary, Error> {
     encode_with = "encode_control::<_, { Method::JobLogs as u64 }>"
 )]
 fn job_logs(request: crate::api::JobLogRequest) -> Result<crate::api::JobLogPage, Error> {
-    with_queue(|queue| {
-        queue.job_logs(
-            cdk::api::msg_caller(),
-            request,
-            cdk::api::canister_version(),
-        )
-    })
+    with_authorized_queue(|queue| queue.job_logs(request, cdk::api::canister_version()))
 }
 
 fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error> {
@@ -239,7 +229,7 @@ fn complete_delivery(delivery: &Delivery, outcome: Outcome) -> Result<(), Error>
     encode_with = "encode_control::<_, { Method::JobMetrics as u64 }>"
 )]
 fn job_metrics() -> Result<crate::api::JobMetrics, Error> {
-    with_queue(|queue| queue.job_metrics(cdk::api::msg_caller(), cdk::api::canister_version()))
+    with_authorized_queue(|queue| Ok(queue.job_metrics(cdk::api::canister_version())))
 }
 
 #[cdk::update(
@@ -248,9 +238,7 @@ fn job_metrics() -> Result<crate::api::JobMetrics, Error> {
     encode_with = "encode_control::<_, { Method::ResetJobMetrics as u64 }>"
 )]
 fn reset_job_metrics() -> Result<crate::api::JobMetrics, Error> {
-    with_queue(|queue| {
-        queue.reset_job_metrics(cdk::api::msg_caller(), cdk::api::canister_version())
-    })
+    with_authorized_queue(|queue| Ok(queue.reset_job_metrics(cdk::api::canister_version())))
 }
 
 async fn delivery_call(
@@ -328,12 +316,12 @@ fn admit_delivery_input() -> Result<(), String> {
 }
 
 fn decode_delivery<const ID: u64>(bytes: Vec<u8>) -> Delivery {
-    required(native::decode_request(ID, &bytes, REQUEST_LIMITS))
+    ic_wire::endpoint::decode_request(&bytes, ID, REQUEST_LIMITS)
 }
 
 fn encode_delivery<T: Serialize, const ID: u64>(result: T) -> Vec<u8> {
     // Encoding failure traps in the same segment as the receipt write.
-    required(native::encode_response(ID, &result, RESPONSE_LIMITS))
+    ic_wire::endpoint::encode_response(&result, ID, RESPONSE_LIMITS)
 }
 
 #[cdk::update(
