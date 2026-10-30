@@ -43,7 +43,8 @@ test-jobs:
 	+cargo test -p ic-jobs --tests --all-features --locked --offline
 
 test-consumers:
-	+cargo +1.91.0 test -p jobs-test-consumer --test composition --locked --offline
+	+cargo +1.91.0 test -p jobs-test-consumer --test composition --test stored_wire --locked --offline
+	+cargo +1.91.0 run -p ic-jobs --example persisted_job --locked --offline
 
 .PHONY: check-consumer build-consumer install-testkit-tools testkit-tools-check install-consumer-server consumer-server-check test-canister test-canister-optimized
 check-consumer:
@@ -97,7 +98,7 @@ test-demo-cli: consumer-server-check
 
 check-msrv:
 	+cargo +1.91.0 check -p ic-jobs --lib --locked --offline
-	+cargo +1.91.0 check -p jobs-test-consumer --test composition --locked --offline
+	+cargo +1.91.0 check -p jobs-test-consumer --test composition --test stored_wire --locked --offline
 
 check-wasm:
 	+cargo +1.91.0 check -p ic-jobs --lib --target wasm32-unknown-unknown --locked --offline

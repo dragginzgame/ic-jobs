@@ -10,6 +10,8 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
 - Every restore path uses the validated Job::restore boundary. Keep error
   transitions unchanged and uncertain effects blocked until explicit disposition.
 - New storage/scheduling policy must have a concrete consumer requirement.
+- For Canic adapter work, read [the integration guide](docs/canic-integration.md).
+  It describes a proposed consumer integration, not an implemented Canic API.
 - Follow the [shared validation cadence](DRAGGINZGAME.md#validation-and-evidence).
   Local focused checks include package tests, MSRV/Wasm checks and tooling
   fixtures; `make ci` is the full release suite. Live PocketIC qualification

@@ -62,8 +62,9 @@ result; it cannot replace the result's timestamp with a later management time.
 The JSON field is now `"last_outcome":{"outcome":"Success","at_ns":101}`,
 or `"last_outcome":null` before any recorded outcome. Both fields inside a
 recorded result are required. Retired serialized shapes are refused, including
-records with the old `last_outcome_ns` field. There is one current codec and no
-compatibility reader, converter or automatic reset.
+records with the old `last_outcome_ns` field. There is one current record shape
+and no compatibility reader, converter or automatic reset. Consumers select
+their codec and own its retained-byte contract.
 
 The repository maintainer explicitly approved retiring earlier installations
 without preserving their records for this cut. Consumers must retire/reset
@@ -201,8 +202,13 @@ It retains one job and its immutable payload in a bounded JSON snapshot. Atomic
 byte replacement and a counted destination substitute for storage and transport;
 the example does not establish IC rollback, timer delivery or a production codec.
 Its assertions cover rejected intent commits, failed completion commits, cold
-restoration of Running intent, blocked uncertainty and exact receipt resolution
-without another effect. The example's 4 KiB ceiling is consumer policy.
+restoration of Running intent, blocked uncertainty, duplicate receipts and exact
+receipt resolution without another effect. A safe retry retains its logical
+effect/payload and rejects a late older continuation; completion reloads current
+authority and preserves management metadata edited during delivery. The example's
+4 KiB ceiling is consumer policy. Its JSON byte store is illustrative: adapters
+own their codec and retained format. The published library depends only on Serde
+and does not require the qualification consumer's Memory/Storage versions.
 
 | Owner | Responsibility |
 | --- | --- |

@@ -15,7 +15,10 @@ Run `cargo run -p ic-jobs --locked --example persisted_job` for the packaged
 [adapter example](crates/ic-jobs/examples/persisted_job.rs), including failed
 commits and receipt reconciliation. The [adapter contract](crates/ic-jobs/README.md#adapter-integration-contract)
 and [acceptance checklist](docs/test-consumers.md#adapter-acceptance-checklist)
-describe the host obligations. The unpublished [canister consumer](apps/job-consumer/README.md)
+describe the host obligations. The [Canic integration guide](docs/canic-integration.md)
+maps those obligations to the proposed adapter; it does not advertise an existing
+Canic API. Jobs depends only on Serde, so Canic owns its integration dependency
+versions. The unpublished [canister consumer](apps/job-consumer/README.md)
 demonstrates application-owned storage, management and lifecycle integration.
 Its PocketIC harness is compiled by CI; live qualification is explicitly selected.
 
@@ -67,7 +70,7 @@ application's selected target graph and source rather than counting manifests.
 For example, inspect the qualification Wasm's paths with:
 
 ```sh
-cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.8.1 --locked --offline
+cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform --locked --offline
 cargo tree -p jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-cdk-executor --locked --offline
 ```
 
@@ -151,16 +154,19 @@ snapshot check alone does not establish deployment admission.
 
 ## Consumer qualification
 
-Run `make test-consumers` for native notification and maintenance scenarios,
-including commit failures, reconstruction, exact receipt reconciliation and
-bounded recurring work. These fixtures request IC Memory allocations through the
-[workspace-selected dependency](Cargo.toml); the host fixture reopens actual
+`make test-consumers` aggregates native notification/maintenance scenarios, stored
+Wire conformance and the packaged adapter example on Rust 1.91. They cover commit
+failures, reconstruction, exact receipt reconciliation, stale continuations and
+bounded recurring work. The composition fixtures request IC Memory allocations
+through the [workspace-selected dependency](Cargo.toml); the host fixture reopens actual
 stable cells. See [test consumers](docs/test-consumers.md) for their storage and
 timer boundaries.
 
 Choose checks for the affected caller. For native consumer storage/timer
 composition, use `cargo +1.91.0 test -p jobs-test-consumer --test composition
---locked --offline`; for endpoint codecs, select `--test api_wire` instead.
+--locked --offline`; for persisted Wire records, select `--test stored_wire`;
+for endpoint codecs, select `--test api_wire`. Run the packaged adapter example
+with `cargo +1.91.0 run -p ic-jobs --example persisted_job --locked --offline`.
 Qualify the core Rust floor separately with `cargo +1.91.0 check -p ic-jobs
 --lib --locked --offline`. For the consumer's Wasm floor, use `cargo +1.91.0
 check -p jobs-test-consumer --lib --target wasm32-unknown-unknown --locked

@@ -1,8 +1,9 @@
 # Jobs test consumer
 
 This package also owns the native notification/maintenance composition harness
-in `tests/composition.rs`. Run `make test-consumers` for its 19 scenarios;
-`check-msrv` qualifies core and composition separately on Rust 1.91. Memory and
+in `tests/composition.rs`, plus stored-record Wire checks in `tests/stored_wire.rs`.
+`make test-consumers` aggregates both targets and the packaged adapter example;
+`check-msrv` qualifies core and consumer targets separately on Rust 1.91. Memory and
 Timers integration dependencies belong here, outside the core package tests.
 
 Ordinary native library builds expose `api` DTOs and management/delivery identities/limits,
@@ -192,9 +193,9 @@ The consumer's own Wire dependency supplies its endpoint codecs. Metrics has no
 optional `wire` feature; its optional keyed heap `recording` feature stays disabled.
 Published `ic-jobs` remains independent of Metrics.
 Metrics now lives in the IC Observability repository with the same published
-crate identity and arithmetic. Platform 0.8.1 retains the explicit endpoint codecs
-and bounded external decoding used by this consumer and its host harness; no
-application or retained-data migration is required.
+crate identity and arithmetic. The selected Platform 0.8 supplies explicit endpoint
+codecs and bounded external decoding used by this consumer and its host harness.
+Its transport boundary is separate from Memory's installation cut above.
 Native DTOs select Platform 0.8's owned `principal` feature. Native tests explicitly
 select `principal-self-authenticating`; the recovery harness selects `pocket-ic`
 and hashing for its fixture identities. The application uses its owned Principal;
@@ -325,12 +326,10 @@ real trap rollback after management and timer reconciliation. Deliberate `fixtur
 faults in the unpublished Wasm rather than faking IC behavior with `cfg(test)`.
 Their API must never be copied into a production canister. Live execution and
 native macOS acceptance are recorded separately in the
-[handoff](../../docs/status/current.md). Completed
-[#11](https://github.com/dragginzgame/ic-jobs/issues/11) acceptance covers the older
-five-scenario v0.5.6 harness; completed [#20](https://github.com/dragginzgame/ic-jobs/issues/20)
-acceptance covers the six-case v0.5.9 harness. Current management/storage inputs
-require their own live evidence in [#23](https://github.com/dragginzgame/ic-jobs/issues/23). Harness
-compilation alone does not establish that acceptance.
+[handoff](../../docs/status/current.md). It records passing installed recovery on
+earlier source/graphs, including all three hosts for 0.17.46, separately from the
+Memory 0.56 adoption's native/Wasm checks. No installed recovery for the new
+ledger format is claimed. Harness compilation alone does not establish it.
 
 ## Committed job-outcome diagnostics
 

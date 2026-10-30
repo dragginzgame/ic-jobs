@@ -6,7 +6,9 @@ Use this checklist when adopting Jobs through a host adapter such as Canic.
 The packaged [persisted-job example](../crates/ic-jobs/examples/persisted_job.rs)
 and [adapter contract](../crates/ic-jobs/README.md#adapter-integration-contract)
 describe the commit and recovery sequence. Adapter implementations qualify their
-own persistence and transport boundaries using equivalent scenarios.
+own persistence and transport boundaries using equivalent scenarios. The
+[Canic integration guide](canic-integration.md) maps ownership and identity
+requirements without advertising an implemented adapter.
 
 | Required observation | Existing native reference |
 | --- | --- |
@@ -19,6 +21,9 @@ own persistence and transport boundaries using equivalent scenarios.
 | Authorization precedes private storage access | [management_refuses_unauthorized_calls_before_decoding_or_writing](../apps/job-consumer/tests/composition.rs) |
 | Failed management commits preserve the previous queue deadline | [management_commit_failures_preserve_queue_and_derived_wakeup](../apps/job-consumer/tests/composition.rs) |
 | Retained allocation bindings and blocked effects survive cold reopening | [host_pool_cells_reopen_committed_jobs_without_replaying_blocked_effects](../apps/job-consumer/tests/composition.rs) |
+| Wire records retain states/attempts and still require validated restoration | [stored Wire conformance](../apps/job-consumer/tests/stored_wire.rs) |
+| Duplicate receipts and late continuations cannot overwrite terminal/successor state | [packaged adapter example](../crates/ic-jobs/examples/persisted_job.rs) |
+| Completion preserves independent management edits made during delivery | [packaged adapter example](../crates/ic-jobs/examples/persisted_job.rs) |
 
 Native tests establish composition and refusal behavior. Installed acceptance
 must separately cover upgrade reconstruction, same-message rollback of storage
@@ -40,27 +45,40 @@ explicit reconciliation, stale/mismatched receipts, rejected Cell writes,
 authorization, reset nonmutation and empty windows after reconstruction. The
 Wire test preserves u128 totals, actual-overflow flags and distinct inspection/reset
 method identities. These tests do not establish actual IC trap rollback or costs.
-The ignored live case `job_metrics_are_authorized_resettable_and_restart_on_upgrade`
-checks manager access, reset nonmutation and empty observations after upgrade;
-it has been compiled but has not yet been executed against PocketIC.
+The explicitly selected live case
+`job_metrics_are_authorized_resettable_and_restart_on_upgrade` checks manager
+access, reset nonmutation and empty observations after same-format reconstruction.
+Historical runs and their exact graph boundaries are recorded in the
+[current handoff](status/current.md). Compilation alone is not live acceptance;
+earlier executions do not qualify a changed Memory format.
 
 The tooling fixture binds its Cargo stubs in Make's incoming PATH, including
 direct and recursive demo recipes on macOS GNU Make 3.81. Failed demo commands
 print their retained log and preserve the original exit status. The existing
 recorded-command cases still verify build/admission order and refused effects.
 
-Run `make test-consumers` for two small application-owned consumers in
-[the integration fixture](../apps/job-consumer/tests/composition.rs). The target tests
-the public scheduling API and direct Timers composition on Rust 1.91, using the
-selected locked graph.
+`make test-consumers` aggregates two small application-owned consumers in
+[the integration fixture](../apps/job-consumer/tests/composition.rs), stored Wire
+conformance and the packaged adapter example on Rust 1.91, using the selected
+locked graph. Select `--test composition` or `--test stored_wire` directly for
+focused consumer work; run the example separately with
+`cargo +1.91.0 run -p ic-jobs --example persisted_job --locked --offline`.
 Configured CI also runs this target on the three supported hosts. The harness
 and its support modules belong to the unpublished consumer package; the core
 package has no Memory or Timers development dependency. `check-consumer` selects
 the consumer library and frozen API-wire tests separately, avoiding a second
-composition run. Management Candid derives/encoding use published Platform;
-delivery requests/replies use published Wire with consumer-owned identities and
-limits. Testkit uses Platform's Candid decoder limits/error types; the harness has no
-separate decoder dependency.
+composition or stored Wire run. Installation, management and delivery use Wire
+with consumer-owned identities and limits. The harness's external PocketIC
+interfaces retain required Candid; Testkit uses Platform's external Candid
+decoder limits/error types without a separate decoder dependency here.
+
+The [stored Wire target](../apps/job-consumer/tests/stored_wire.rs) checks every
+job state, scheduling policy, safe-retry identity, wide job IDs and active attempt
+round-trips through `ic_wire::native`. It verifies that a decoded but inconsistent
+history still refuses at `Job::restore`, and rejects truncated/trailing input and
+byte-budget overflow. This is an additional native consumer codec proof. It
+changes neither the canister's JSON queue nor the packaged example's JSON store,
+selects no Canic storage envelope and adds no Wire dependency to the core crate.
 
 These consumers exercise the public API without adding storage, payloads,
 handlers or lifecycle ownership to the Jobs library. Each application decodes a
@@ -115,10 +133,11 @@ message-wide rollback.
 Reconstruction keeps only committed bytes and discards volatile consumer state.
 The tests cover refused intent/result commits, lost replies, receipt reconciliation,
 and corrupt metadata rejection before work. This is native composition evidence.
-Live IC message rollback, actual lifecycle upgrades,
-watchdog registration/provider delivery and external canister calls remain
-unqualified. A live harness must use IC Testkit's selected server setup/check
-contract rather than adding another PocketIC installer here.
+These native fixtures do not establish IC message rollback, installed lifecycle
+reconstruction, watchdog provider delivery or external canister calls. The separate
+live harness uses IC Testkit's selected server setup/check contract; see the
+source-bound evidence in the handoff rather than treating native passes as live
+qualification or claiming that no live qualification has ever run.
 
 ## Native management fixture
 
@@ -128,7 +147,7 @@ work or dispatch one eligible due notification. All calls require the fixture's
 configured manager identity before decoding storage, reading private payloads
 or writing. The supplied caller is trusted boundary input; a real canister must
 obtain it from the IC caller API, never from a request field. This native policy
-check does not qualify Candid endpoints or IC caller authentication.
+check does not qualify Wire endpoints or IC caller authentication.
 
 Listing accepts limits from one to four and an optional exclusive job-ID cursor.
 Pages sort by job ID independently of queue insertion order; each page observes
@@ -192,21 +211,18 @@ All decoded records still cross `Job::restore`; restored Running/Uncertain work
 stays blocked. It owns a new test installation rather than changing these native
 consumers' existing snapshots or any deployed format.
 
-`make check-consumer` runs native stable-memory tests, builds the Rust 1.91 Wasm,
-compiles the separate Testkit harness and checks native/Wasm Clippy. Ordinary CI
-includes these checks without launching a server. Explicit Testkit CLI/server
+`make check-consumer` runs native queue and endpoint-codec tests, builds the Rust
+1.91 Wasm, and compiles the separate Testkit harness while executing its native
+tests. Native/Wasm Clippy is a separate CI selection. Ordinary CI includes these
+checks without launching a server. Explicit Testkit CLI/server
 preparation and `make test-canister` select the live upgrade, rollback, watchdog
 and lost-result scenarios. Durable management now covers pause/resume,
 unstarted-occurrence rescheduling, wakeup reconstruction and real management trap
-rollback. The current ten-case live harness also checks Wire endpoint refusal,
-authorization and receipt persistence. It needs source-bound live qualification;
-historical receipts do not establish that its current graph passes. See
-[#23](https://github.com/dragginzgame/ic-jobs/issues/23). Completed
-[#11](https://github.com/dragginzgame/ic-jobs/issues/11) acceptance covers the older
-five-scenario v0.5.6 harness. Current inputs require their own source-bound
-execution and host evidence, including the additional watchdog scenario in
-[#20](https://github.com/dragginzgame/ic-jobs/issues/20). The original small native
-consumers remain focused models; they do not substitute for those IC observations.
+rollback. The live harness also checks Wire endpoint refusal, authorization,
+metrics/logging and receipt persistence. The handoff records historical passing
+graphs separately from the current Memory 0.56 graph, whose installed recovery
+has not been selected. The original small native consumers remain focused models;
+they do not substitute for those IC observations.
 
 The queue now contains known no-effect local counter failures as terminal jobs,
 while keeping the two-attempt bound and corrupt-record refusal. The additional
@@ -214,8 +230,8 @@ real-watchdog scenario traps after its stable batch write, observes the actual
 canister trap log, checks rollback and an armed successor, and clears the fault
 without rearming before requiring subsequent progress. Failed and completed jobs
 must remain terminal after upgrade, with no duplicate committed local effect.
-This case requires matching live execution evidence; prior five-scenario evidence
-does not qualify it. See [#20](https://github.com/dragginzgame/ic-jobs/issues/20).
+Matching installed evidence includes the tested source, dependency graph and Wasm
+variants; the current handoff records those identities and limits.
 
 The current [configuration tests](../crates/ic-jobs/tests/configuration.rs)
 round-trip current records and retain unresolved dispatch as blocked. Frozen

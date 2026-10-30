@@ -19,6 +19,7 @@ const MAX_BYTES: usize = 4096; // Example policy; adapters choose their own budg
 struct Entry<J> {
     job: J,
     payload: String,
+    label: String, // Editable management metadata, outside immutable effect identity.
 }
 
 #[derive(Clone)]
@@ -42,6 +43,7 @@ impl Store {
         Ok(Entry {
             job: Job::restore(stored.job)?,
             payload: stored.payload,
+            label: stored.label,
         })
     }
 
@@ -101,11 +103,12 @@ fn simulate_destination(delivery: &Delivery, effects: &mut usize) -> Delivery {
     delivery.clone()
 }
 
-fn main() -> Result<()> {
+fn receipt_recovery() -> Result<()> {
     let mut store = Store::default();
     store.commit(&Entry {
         job: Job::new(JobId(1), Schedule::Once { at_ns: 100 }, RetryPolicy::NONE),
         payload: "notify alice".into(),
+        label: "notification".into(),
     })?;
     let pending = store.bytes.clone();
     let mut wakeup = store.deadline()?;
@@ -176,6 +179,85 @@ fn main() -> Result<()> {
     assert_eq!(wakeup, None);
     assert_eq!(store.load()?.job.record().state, JobState::Completed);
     assert_eq!(effects, 1);
-    println!("Completed once; no pending deadline after receipt reconciliation.");
+
+    // A duplicate authenticated receipt is no new transition or effect. An
+    // adapter may return its own retained terminal result after checking identity.
+    let completed = store.bytes.clone();
+    let error = commit_transition(&mut store, &receipt, |job| {
+        job.resolve(receipt.attempt, 204, Outcome::Success)
+    })
+    .unwrap_err();
+    assert_eq!(
+        error.downcast_ref::<JobError>(),
+        Some(&JobError::NotUncertain)
+    );
+    assert_eq!(store.bytes, completed);
+    assert_eq!(effects, 1);
+    Ok(())
+}
+
+fn retry_and_late_completion() -> Result<()> {
+    let mut store = Store::default();
+    store.commit(&Entry {
+        job: Job::new(
+            JobId(2),
+            Schedule::Once { at_ns: 100 },
+            RetryPolicy::new(2, 5, 5)?,
+        ),
+        payload: "notify bob".into(),
+        label: "original label".into(),
+    })?;
+    let first = prepare(&mut store, 100)?.ok_or(JobError::NotDue)?;
+    commit_transition(&mut store, &first, |job| {
+        job.finish(first.attempt, 101, Outcome::Uncertain)
+    })?;
+    assert!(prepare(&mut store, 102)?.is_none());
+    // The application has now authenticated exact no-effect evidence. Elapsed
+    // time or lease expiry alone must never manufacture this classification.
+    commit_transition(&mut store, &first, |job| {
+        job.resolve(first.attempt, 102, Outcome::RetryableFailure)
+    })?;
+    let second = prepare(&mut store, 107)?.ok_or(JobError::NotDue)?;
+    assert_eq!(first.attempt.execution, second.attempt.execution);
+    assert_ne!(first.attempt.sequence, second.attempt.sequence);
+    assert_eq!(first.payload, second.payload);
+
+    // An older continuation resumes while the new attempt is Running. Its
+    // correlation cannot grant disposition of the successor, whatever it reports.
+    let running = store.bytes.clone();
+    let error = commit_transition(&mut store, &first, |job| {
+        job.finish(first.attempt, 108, Outcome::Success)
+    })
+    .unwrap_err();
+    assert_eq!(
+        error.downcast_ref::<JobError>(),
+        Some(&JobError::StaleAttempt)
+    );
+    assert_eq!(store.bytes, running);
+
+    // Management commits while the current delivery is awaiting. Completion
+    // reloads this entry and preserves its new label instead of writing a cached
+    // pre-call snapshot. The immutable payload and active attempt are unchanged.
+    let mut managed = store.load()?;
+    managed.label = "reviewed during delivery".into();
+    store.commit(&managed)?;
+    let mut effects = 0;
+    let receipt = simulate_destination(&second, &mut effects);
+    commit_transition(&mut store, &receipt, |job| {
+        job.finish(receipt.attempt, 109, Outcome::Success)
+    })?;
+    let completed = store.load()?;
+    assert_eq!(completed.label, "reviewed during delivery");
+    assert_eq!(completed.payload, second.payload);
+    assert_eq!(completed.job.record().state, JobState::Completed);
+    assert_eq!(effects, 1);
+    assert_eq!(store.deadline()?, None);
+    Ok(())
+}
+
+fn main() -> Result<()> {
+    receipt_recovery()?;
+    retry_and_late_completion()?;
+    println!("Receipt recovery and safe retry preserve one effect and current committed state.");
     Ok(())
 }

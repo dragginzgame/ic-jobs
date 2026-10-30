@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.17.49]
+
+### 🧪 Testing
+
+- Qualify public stored records and attempts through bounded Wire in the native
+  consumer, including wide identities, all job states and refusal of invalid
+  history. Keep the published library's Serde-only dependency boundary.
+- Extend the runnable adapter example with duplicate receipts, stale completion
+  after safe retry and management changes during delivery. Include the example
+  and stored Wire checks in the normal consumer validation selection.
+
+### 📚 Documentation
+
+- Add a Canic adapter integration guide covering ownership, domain identities,
+  commit ordering and installed acceptance. Correct stale codec, command and
+  qualification claims across the README, safety contract and consumer guides.
+
 ## [0.17.48] - 2026-10-29
 
 ### 📦 Dependencies
