@@ -147,8 +147,11 @@ still governs demonstrated integration blockers.
 
 ### Visible release-group map in Cargo.toml
 
-For a workspace with independent release groups, keep a concise comment map next
-to the root `[workspace]` table. List every group's name, member package names,
+For a workspace with independent release groups, use existing versioned local
+dependencies in root `[workspace.dependencies]` to show current numeric versions.
+Label those entries with their release group using nearby comments, preserving
+the normal formatter's dependency ordering. Keep a concise comment map next to
+`[workspace]` listing every group's name, member package names,
 canonical version source and changelog path. Include private members; identify
 them as qualification/tooling where helpful. For example:
 
@@ -168,13 +171,36 @@ members = [
     "crates/ic-wire-endpoint",
 ]
 resolver = "3"
+
+[workspace.dependencies]
+# codec group; authoritative versions are in the member manifests above.
+ic-wire = { path = "crates/ic-wire", version = "0.13.0" }
+ic-wire-derive = { path = "crates/ic-wire-derive", version = "0.13.0" }
+# endpoint group
+ic-wire-endpoint = { path = "crates/ic-wire-endpoint", version = "0.2.0" }
 ```
 
 The example illustrates the convention, not an instruction to create or rename
-packages. Use version-source references rather than copying numeric versions into
-comments. The existing `ci/cargo-release-groups.json` is the executable policy;
-Cargo manifests supply actual versions and dependencies. Comments are a readable
-map, never parsed release authority or a separate configuration format.
+packages or unused dependency entries. The existing `ci/cargo-release-groups.json`
+is the executable policy; member manifests supply package versions. Root dependency
+values remain actual Cargo requirements, not package-version inheritance. Do not
+copy numeric versions into comments or add a generated summary or shadow catalog.
+
+For every versioned root path dependency naming a workspace member, spell the full
+current member version. Preserve its existing bare, `^`, `~` or `=` operator; do
+not add exact pins merely for display. Group admission checks this equality for
+all groups, including through the normal dependency checker. It rejects both
+abbreviated versions and compatible but stale lower bounds that Cargo itself
+would accept. Release preparation updates the selected group's local requirements
+inside its existing transaction; other groups and external dependency requirements
+remain unchanged. Manual member-version edits must update the corresponding real
+requirements too. Before adopting the check, align root declarations with current
+members without changing package versions.
+
+A group with no existing versioned root dependency keeps its canonical member
+manifest reference in the comment map. Do not add unused dependencies or change
+an intentionally unversioned path entry solely to manufacture a displayed version.
+The root view reports declared versions, not proof of registry publication.
 
 Review the map against the policy and actual Cargo members when membership,
 version ownership or changelog paths change. Keep it readable after the normal

@@ -1,5 +1,10 @@
 # Current handoff
 
+The current request adopts Shared Tooling 0.27.20 under the existing instruction
+to push necessary source changes. Package versions, dependency selections and
+the completed releases below remain unchanged. Jobs' pending tooling notes select
+0.33.3 without bumping package metadata or starting another release/publication.
+
 ## Accepted scope and delivery
 
 The maintainer authorizes adopting the new Platform, Wire, Tooling, Memory,
@@ -49,11 +54,19 @@ The Timers guard and its source-override rejection fixtures select the qualified
 0.15 line, preserving executor/IC0-only library features, private FFI confinement
 and host/protocol exclusions. Jobs remains Serde-only and independent of Timers.
 
-Shared is canonically exported from clean committed revision
-`39a0a7612dab88d97d8e8f612fbfcf0b04fe83e6` (131 payloads). The supplier commit
-subject is 0.27.20 while its VERSION still records 0.27.19; snapshot metadata
-faithfully records that VERSION. Its delegated-delivery and explicit-cleanup
-rules are adopted without hand edits to owned payloads. No cleanup was run.
+Shared 0.27.20 is canonically exported from clean committed revision
+`267ba25810546bd9cb622d0fb43ccc0588622b67` (131 payloads). The VERSION mismatch
+in the preceding supplier commit is corrected. Group/dependency admission now
+checks full current versions for all existing versioned local root dependencies;
+the Timers requirement already matches 0.34.0 and is labelled with its group.
+Intentionally unversioned Jobs/private path declarations remain unversioned.
+No snapshot-owned payload is edited locally. No cleanup or tool installation ran.
+Current adoption evidence is `/tmp/ic-scheduling-shared020.P1MNg7/`; the earlier
+release evidence below remains bound to its original source and snapshot.
+Snapshot/pin/group admission, release-command fixtures, formatting and local links
+pass. Both groups' real adapter metadata/rollback fixtures pass, with full gates
+and registry effects substituted. Cargo metadata and lock bytes are unchanged;
+this tooling-only follow-up ran no full CI or new installed recovery qualification.
 
 Current evidence is `/tmp/ic-scheduling-adopt-all.AQGpWV/`, including the complete
 incoming dirty source archive, supplier index observations, exporter impact and

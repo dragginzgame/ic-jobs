@@ -985,6 +985,19 @@ transaction mechanics restore all selected files on failure. Failed checks retai
 Cargo output/statuses, policy/root inputs and preparation evidence. Source, index,
 receipt custody and the complete gate remain consumer-owned.
 
+The root dependency catalog also provides readable version information. Every
+versioned `[workspace.dependencies]` path entry naming a workspace member must
+spell its full current package version, optionally prefixed by `=`, `^` or `~`.
+Admission checks all groups, even when releasing only one; the existing
+`check-dependency-pins.sh --cargo-inheritance` path uses this same admission.
+For example, `0.73` and `0.73.0` both fail for a local package at `0.73.1`, even
+though Cargo accepts them as compatible requirements. Registry-only dependencies
+and unversioned path entries retain their existing policies. Preparation updates
+selected local requirements and preserves their operators within the existing
+transaction; no generated numeric comment summary or second version catalog is
+maintained. Before adopting this check, expand abbreviated local requirements
+and align stale ones without changing the packages' own versions.
+
 Group preparation requires an IC Build editor supplying `group-manifest` with
 the existing bounded input contract. Its selection JSON explicitly names a
 `workspace`, `package` or `unchanged` version and exact workspace requirement

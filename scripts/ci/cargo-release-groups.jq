@@ -59,6 +59,17 @@ def admit_groups($config; $root; $manifests; $lock; $selected):
   if ([$lock.package[] | select(.source == null) | {name,version}] | sort_by(.name)) !=
      ($owned | map({name,version}) | sort_by(.name))
   then error("stale or foreign local lock records") else . end |
+  # Cargo permits a compatible lower bound to lag a path package. The root
+  # catalog also serves as the visible version map, so require its full current
+  # version for every owned versioned path dependency, including other groups.
+  reduce (($root.workspace.dependencies // {} | to_entries[]) |
+      select((.value | type) == "object" and .value.path != null and .value.version != null)) as $d
+    (. ;
+      ($owned | map(select(.name == ($d.value.package // $d.key)))) as $packages |
+      if ($packages | length) == 1 and
+         ($d.value.version | sub("^[~^=]?[ \t]*"; "")) != $packages[0].version
+      then error("root dependency \($d.key) declares \($d.value.version); expected full local version \($packages[0].version), retaining its requirement operator")
+      else . end) |
   ($admitted | map(select(.name == $selected))) as $matches |
   if ($matches | length) != 1 then error("unknown release group") else $matches[0] end;
 

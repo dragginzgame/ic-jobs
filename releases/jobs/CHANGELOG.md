@@ -4,6 +4,14 @@ This ledger covers `ic-jobs`, `ic-jobs-test-consumer`, `ic-jobs-canister-test-su
 and `ic-jobs-canister-tests`. See the [Timers ledger](../timers/CHANGELOG.md)
 and [coordinated history through 0.33.1](../history.md).
 
+## [0.33.3] - Unreleased
+
+### 🔧 Changed
+
+- Adopt Shared Tooling 0.27.20. Release and dependency checks now reject stale
+  or abbreviated versions in existing local Cargo dependency declarations across
+  both release groups; selected-group preparation retains requirement operators.
+
 ## [0.33.2] - 2026-10-31
 
 ### 📦 Dependencies

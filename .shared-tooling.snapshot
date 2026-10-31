@@ -1,8 +1,8 @@
 # Shared Tooling snapshot v1
-# version	0.27.19
+# version	0.27.20
 format	1
 source	https://github.com/dragginzgame/shared-tooling
-revision	39a0a7612dab88d97d8e8f612fbfcf0b04fe83e6
+revision	267ba25810546bd9cb622d0fb43ccc0588622b67
 # entrypoint	DRAGGINZGAME.md
 # entrypoint	rules/contributions.md
 # entrypoint	rules/changelogs.md
@@ -104,7 +104,7 @@ file	cf5eaf21df764be9b65d02ea83e5f0b6500c6f75a8395ba47675ccd9dcab3a2b	-	DRAGGINZ
 file	c0b9a1469feefbf75e9ef894cc5c328fead7bbbff6f23f7216c50ac3ee0af2d0	-	rules/contributions.md
 file	ce1a133fb1cb113501199157fbca07172d39dc336f7cbb823a0ba629460cee73	-	rules/changelogs.md
 file	7e7baf2e5ad9d5b701879602442ee7d10759d17800fbb18cbbd4378a8700d6af	-	rules/cargo-dependencies.md
-file	2886d08628b447b5d6e959ecf2784aa5022feca65755ba8db474f68cab34dc9e	-	rules/rust-workspaces.md
+file	eec86969e0b0c68e9ab5c4375e145fbad299c9946b0ec21f6f773b7dd0dbf7c7	-	rules/rust-workspaces.md
 file	b0b4c00e2183a787791314f21d33d270b8003a1ec67286ce8a681b028214ff75	-	rules/dependency-pinning.md
 file	c957bb6465df829fa7aea4c8bdb9e7200bf5dd7f17776c0d57fcdf23eba634c3	-	rules/git-hooks.md
 file	21e468fd66fb4a7c00ca02ef460a13bcb5193128f300a4074ba82c6204d8964c	-	rules/agent-maintenance.md
@@ -126,7 +126,7 @@ file	52628e3c08d8c1ac8e258d34ea102daa81253fe78448d5afe406b52e247610d3	-	audits/f
 file	ffdca09602c44c8aff8fc2a17588b20eb6a56e2e71fb6d42ad75087fdd65819b	-	audits/complexity-and-technical-debt.md
 file	1b64cf2ba0393ab329ec29eb05a696d47ef5933f5ab9bff6e1fe4a7e7b294075	-	audits/module-surface-hardening.md
 file	090d05318e8114ea3e3ba789620a8f3ac638d43b2aad2f4e90a69e69b6d1f6f8	-	audits/module-cleanup.md
-file	b21b380b2cf51c8a6c3faf4da62bd16472508903045ee924762df1093b7037a9	-	docs/releases.md
+file	0de8902fc13a1c5d0ecf67eda8abb771f518ac13ba2595492a881679d8a49b3a	-	docs/releases.md
 file	4f2dd43c82bdaf079e586688110702f3a056b700807a4dc6ad47cd486866f683	x	scripts/ci/run-release.sh
 file	9e32385247296ce95d2b15b1290c64e6b6dff15716c1c139f21ab5e5128f4be3	x	scripts/ci/check-make-execution.sh
 file	918815a81861abd80684fea14f71cb5a298644317afc0f5860a3d1b6506a0a16	x	scripts/ci/next-release-version.sh
@@ -224,7 +224,7 @@ file	31c47b675fba90850681c6fac0d685def34b08a68e7e05bc55ae0403419fdf82	x	scripts/
 file	ffab807c6e7ecfa18e354e65201ee53cb40b8c376fcbad319bfc4a9e615dc46d	-	scripts/ci/shared-companions.sh
 file	b32efafd147ca5bc96bbeaeab67ad175e34dfc441b14c16f3c2b7a5c70b67dca	-	ci/external-ic-dependencies.txt
 file	eeeca9e6e7b92b888fd6547733d6136f0e7e9859d37c983f8048e60551a15c39	-	scripts/ci/StableVersion.pm
-file	051300c9445f4b3e919a64ef5d424d122a36b759f7f199c1765d76be84251091	-	scripts/ci/cargo-release-groups.jq
+file	fcff507841b0dde9de3a666e8ad5f84244d86ef72a59e14654633aa3b0eda384	-	scripts/ci/cargo-release-groups.jq
 file	ce27820fc6256fc417d3606dfcc8b850256c3f36a1a29132be587d49aceb82d4	-	scripts/ci/RustSource.pm
 file	d7db019a2c4576e4af02b50009418ecf819f1091dc29b6f72dcc236ef34db097	-	scripts/ci/cargo-publication-adapter.sh
 file	3e3510f6cf5b8a576f0d5b0fc9e9540417fd8e0e1baa8f35faf8f0882c93d640	-	scripts/ci/read-cargo-workspace-rust-version.sh
