@@ -8,12 +8,12 @@ set -euo pipefail
     echo 'usage: publish.sh REMOTE' >&2; exit 2;
 }
 remote="$1"
-export RELEASE_GROUP="${RELEASE_GROUP:-jobs}"
 root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
 cd "$root"
+bash "$root/scripts/release/group.sh" validate
 # Capture identity before admission so network observations and linting must
 # authorize the same release. Source admission still precedes metadata reads.
 bash "$root/scripts/ci/check-make-execution.sh"

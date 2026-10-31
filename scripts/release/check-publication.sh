@@ -7,13 +7,13 @@ set -euo pipefail
 [[ $# == 1 && "$1" =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]] || {
     echo 'usage: check-publication.sh REMOTE' >&2; exit 2;
 }
-export RELEASE_GROUP="${RELEASE_GROUP:-jobs}"
 remote="$1"
 root="${BASH_SOURCE[0]}"
 case "$root$PWD" in *$'\n'*|*$'\r'*) echo 'publication directory contains CR/LF' >&2; exit 2 ;; esac
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
+bash "$root/scripts/release/group.sh" validate
 case "$root" in *$'\n'*|*$'\r'*) echo 'resolved publication directory contains CR/LF' >&2; exit 2 ;; esac
 physical_cwd="$(cd -P -- . && printf '%s/.' "$PWD")"
 case "$physical_cwd" in *$'\n'*|*$'\r'*) echo 'resolved publication directory contains CR/LF' >&2; exit 2 ;; esac

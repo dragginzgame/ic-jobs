@@ -21,8 +21,10 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
   Serde-only and does not acquire a runtime dependency on Timers.
 - Both libraries and all probes belong to this root workspace. Issue #82 approves
   independent `jobs` and `timers` release groups in `ci/cargo-release-groups.json`.
-  Jobs and its three private qualification packages inherit the root version;
-  Timers and its four private probes use matching explicit package versions.
+  Both groups use explicit matching package versions, including all private
+  qualification members. There is no root workspace version. Group ledgers live
+  at `releases/jobs/CHANGELOG.md` and `releases/timers/CHANGELOG.md`; the root
+  changelog is an index. Release/resume/publication requires an explicit group.
   Dependencies and the lock remain root-owned. Sibling Timers source is provenance,
   not a build input. Grouping does not relax runtime or combined-consumer checks.
 - Rust floor: 1.91 for core and consumer-owned Timers integration. Qualify both separately.

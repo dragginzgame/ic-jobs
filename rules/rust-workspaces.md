@@ -52,8 +52,8 @@ apps/
 - Declare the maintained members in the root workspace. Keep common package
   metadata in `[workspace.package]`, with inherited child values. Package versions
   follow the [release-group rules](#coordinated-versions-and-workspace-boundaries):
-  a coordinated workspace uses root inheritance; approved independent groups may
-  use package literals. Keep the complete direct dependency catalog in
+  a coordinated workspace uses root inheritance; independent groups all use
+  package literals. Keep the complete direct dependency catalog in
   `[workspace.dependencies]` under the [Cargo dependency rules](cargo-dependencies.md).
   Those rules allow documented package-specific MSRVs; a higher internal-tool
   floor must not become the public libraries' minimum through inheritance alone.
@@ -106,11 +106,24 @@ still governs demonstrated integration blockers.
   [explicit release-group contract](../docs/releases.md#explicit-cargo-release-groups).
   Its admitted member versions are the scoped exception to workspace-version
   inheritance; root dependency inheritance and full workspace qualification remain.
-- In a grouped workspace, every member, including private tooling and fixtures,
-  belongs to one explicit group. At most one group uses `[workspace.package].version`; members
-  of other groups use literal package versions equal to their group's primary
-  package. Cargo has no per-group version-inheritance mechanism. Do not invent
-  shadow version fields, custom inheritance syntax or a second release runner.
+- In a workspace with independent release groups, every member, including private
+  tooling and fixtures, belongs to one explicit group. Remove
+  `[workspace.package].version`; every member declares a literal package version
+  equal to its group's primary package. The primary is only that group's version
+  authority, not a master package for the workspace. Other common metadata may
+  still inherit from `[workspace.package]`.
+- Cargo has no per-group version-inheritance mechanism. Do not add an intermediate
+  group `Cargo.toml`, nested workspace, shadow version file or custom inheritance
+  syntax to represent a release group. Keep existing crate paths, one root
+  dependency catalog and lockfile, and the existing release runner. Group release
+  material lives under `releases/<group>/`; package relocation is not part of
+  adopting this convention.
+- Treat every group symmetrically: each owns
+  `releases/<group>/CHANGELOG.md`, and root `CHANGELOG.md` is an index. Release,
+  resume and publication commands require an explicit `RELEASE_GROUP`; never
+  silently default to the former root-version group or the whole public roster.
+  Follow the [selection contract](../docs/releases.md#explicit-cargo-release-groups)
+  and [history migration rules](changelogs.md#release-group-changelogs-and-shared-history).
 - Leave unaffected groups' versions and changelogs unchanged. Cross-group
   requirements change only when needed for the selected dependency contract;
   they need not numerically match the consumer's own version. Exposed Rust types,
@@ -142,10 +155,11 @@ them as qualification/tooling where helpful. For example:
 ```toml
 # Release groups: ci/cargo-release-groups.json
 # codec: ic-wire, ic-wire-derive, ic-wire-benchmarks (private qualification)
-#   version: workspace.package.version; changelog: CHANGELOG.md
+#   version: crates/ic-wire/Cargo.toml package.version
+#   changelog: releases/codec/CHANGELOG.md
 # endpoint: ic-wire-endpoint
 #   version: crates/ic-wire-endpoint/Cargo.toml package.version
-#   changelog: crates/ic-wire-endpoint/CHANGELOG.md
+#   changelog: releases/endpoint/CHANGELOG.md
 [workspace]
 members = [
     "crates/ic-wire",
@@ -169,6 +183,13 @@ can sit above the table without reordering the `members` array or replacing the
 [member-role comments](#workspace-member-roles). A single-group workspace needs
 no JSON policy solely for documentation; an optional comment may name its shared
 version source and root changelog.
+
+An explicit task to adopt this convention includes converting inherited versions
+to their existing numeric values, moving ledgers with preserved history and
+updating the policy, callers and fixtures. It does not authorize numeric version
+bumps, package moves, publication or changes to existing release identities.
+Reconcile unfinished attempts against their recorded source and policy; do not
+reinterpret old journals after changing version ownership or ledger paths.
 
 ## Core and integration graph boundary
 

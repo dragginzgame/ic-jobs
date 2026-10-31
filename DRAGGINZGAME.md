@@ -30,12 +30,16 @@ same approach: mandatory local constraints first, task-specific references after
 - Ordinary fixes authorize local implementation and focused checks. Leave staging,
   commits, own release versions, tags and release execution to the user unless
   delegated. A PR request includes its branch, scoped commits, branch push and PR.
+  A release/ship/deploy request delegates the corresponding delivery workflow,
+  including routine group/version/order choices under
+  [delegated delivery](rules/contributions.md#delegated-delivery). Do not ask again
+  for each necessary command; guidance and readiness questions do not execute it.
 - Relevant cross-repository contributions in `dragginzgame/*` have standing
   isolated-PR authority. Follow the [contribution workflow](rules/contributions.md#cross-repository-pull-requests)
   before external writes. `toko` and `toko-miner` remain excluded without explicit
   authorization; DFINITY contributions remain excluded. Merges, integration-branch
   pushes, history rewrites, releases, publication, deployment and paid effects
-  retain their separate authorization and enforced protections.
+  require delivery or specific action authority and retain enforced protections.
 - Carry established authorization forward. Do not ask again for necessary
   substeps or stop an accepted coherent batch after each small slice. Inspection
   alone does not authorize repair. Resolve actual scope or effect ambiguity,
@@ -175,6 +179,8 @@ Use IcyDB-style emoji category sections in root release notes; read the
 [changelog rules](rules/changelogs.md) when updating them. Preserve build and
 recovery evidence on success, failure and retry; no implicit cleanup. See
 [artifact preservation](rules/engineering-details.md#changelogs-and-artifact-preservation).
+Keep plain `cargo clean` able to remove the owning workspace's entire `target/`
+directory. Artifact retention must not narrow explicit cleanup.
 
 ## IC stable-memory governance
 
@@ -196,8 +202,11 @@ one only with a concrete reason why an expectation cannot work. Follow the
 
 Keep related crates in one development workspace, with coordinated versions
 within explicit release groups where unrelated contracts need independent
-releases. Make group membership, version sources and changelog locations visible
-in root `Cargo.toml` comments under the
+releases. Independent groups all use explicit package versions and
+`releases/<group>/CHANGELOG.md`; the root has no shared version and its changelog
+is an index. Require explicit group selection for releases and publication.
+Make membership, version sources and changelog locations visible in root
+`Cargo.toml` comments under the
 [workspace versioning rules](rules/rust-workspaces.md#coordinated-versions-and-workspace-boundaries).
 Use root-owned dependency selections, reviewed shared tooling, explicit setup
 and the product's declared compiler/host requirements. External

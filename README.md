@@ -98,7 +98,7 @@ application's selected target graph and source rather than counting manifests.
 For example, inspect the qualification Wasm's paths with:
 
 ```sh
-cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.12.0 --locked --offline
+cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.15.2 --locked --offline
 cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform-runtime-guard --locked --offline
 ```
 
@@ -110,7 +110,7 @@ The qualification app selects Platform's `cdk` feature only on Wasm. Native
 consumer builds explicitly select Platform's `principal` feature for Serde DTOs
 and Wire contracts. Jobs, Memory and Timers remain Wasm/test dependencies; JSON
 is limited to native fixtures and tooling. Parser, Agent,
-certification and crypto features are not selected. Platform 0.12 owns the reviewed
+certification and crypto features are not selected. Platform 0.15 owns the reviewed
 runtime adapters and generator; its embedded executor and IC0 are shared with Timers. The qualification Wasm selects neither Candid nor full `ic-cdk`.
 Owned native DTO principals exclude external Principal and SHA-2 dependencies.
 The Wasm application selects neither principal conversion nor SHA-2 hashing;
@@ -159,7 +159,7 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
 host-only packages, JSON, Candid and full CDK. It requires one Timers, Platform runtime guard and entrypoint generator; registry
-executor and IC0 packages are excluded. The application, Timers and Memory share Platform 0.12, including the
+executor and IC0 packages are excluded. The application, Timers and Memory share Platform 0.15, including the
 stable-structures supplier.
 The graph excludes application principal conversion and SHA-2.
 A fourth context excludes Jobs, Memory, Timers, JSON and the IC runtime from
@@ -274,11 +274,13 @@ parsing and preserves the original/optimized capture invocation forms.
 ## Delivery
 
 The public repository is [dragginzgame/ic-scheduling](https://github.com/dragginzgame/ic-scheduling).
-Jobs is the default release group; select Timers with `RELEASE_GROUP=timers`.
+Select `RELEASE_GROUP=jobs` or `RELEASE_GROUP=timers` explicitly for releases,
+resume and publication. There is no default release group or shared root version.
 The [group policy](ci/cargo-release-groups.json) covers all nine members.
-See the [Jobs ledger](CHANGELOG.md), [Timers ledger](crates/ic-timers/CHANGELOG.md)
-and [shared history through 0.33.1](docs/changelog/shared-through-0.33.1.md).
-`make version` inspects the selected version. `make package` verifies its crate
+See the [Jobs ledger](releases/jobs/CHANGELOG.md), [Timers ledger](releases/timers/CHANGELOG.md)
+and [shared history through 0.33.1](releases/history.md).
+`make version` inventories both groups; add `RELEASE_GROUP` to inspect one.
+`make RELEASE_GROUP=jobs package` verifies its crate
 archive offline; `make publish-check` performs a publication dry run with registry
 access. Both permit working edits and upload nothing.
 

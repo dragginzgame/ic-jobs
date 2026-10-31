@@ -7,19 +7,24 @@ The root Cargo comment map lists every member, version owner and ledger.
 
 | Group | Version authority | Canonical changelog | Published package |
 | --- | --- | --- | --- |
-| `jobs` (default) | `workspace.package.version` | [Jobs](../CHANGELOG.md) | `ic-jobs` |
-| `timers` | `crates/ic-timers/Cargo.toml` literal `package.version` | [Timers](../crates/ic-timers/CHANGELOG.md) | `ic-timers` |
+| `jobs` | `crates/ic-jobs/Cargo.toml` literal `package.version` | [Jobs](../releases/jobs/CHANGELOG.md) | `ic-jobs` |
+| `timers` | `crates/ic-timers/Cargo.toml` literal `package.version` | [Timers](../releases/timers/CHANGELOG.md) | `ic-timers` |
 
-Jobs' three private qualification packages inherit the Jobs version. Timers'
-four private probe/harness packages use explicit versions equal to Timers.
+Every public and private group member has an explicit version equal to its
+group's primary package. The root has no `workspace.package.version` and its
+changelog is an index. Jobs owns three private qualification packages; Timers
+owns four private probe/harness packages.
 All remain unpublished. Earlier coordinated history through 0.33.1 is retained
-once in [shared history](changelog/shared-through-0.33.1.md); its existing
+once in [shared history](../releases/history.md); its existing
 `v0.33.1` tag remains historical. Group adoption changes no numeric version.
 
 ## Commands and delivery
 
 Every command below accepts `RELEASE_GROUP=jobs` or `RELEASE_GROUP=timers`.
-Omitting it selects Jobs; an unknown group refuses. For example:
+Release, resume and publication reject missing, empty or unknown selections
+before setup or validation. `PACKAGE` never selects a group; a supplied package
+must belong to the explicit group. Read-only `make version` inventories both
+groups when no selection is supplied. For example:
 
 ```sh
 make version
@@ -35,12 +40,14 @@ never authorizes a release, tag, push or upload. Both groups use the existing
 [delivery policy](../ci/release-delivery.txt), `origin` and `main`.
 Group tags are `jobs-vX.Y.Z` and `timers-vX.Y.Z`; commit subjects are
 `Release jobs X.Y.Z` and `Release timers X.Y.Z`. No old tag is renamed.
-Historical ungrouped attempts retain their recorded pre-group source and adapter;
-new group commands do not convert their journals or reinterpret their tags.
+Unfinished attempts from earlier layouts retain their recorded source, policy,
+adapter and file plan, including earlier grouped attempts. Resume them against
+that recorded layout; adoption does not convert journals or reinterpret tags.
 
 `make release-files` emits the selected group's exact NUL-delimited file plan.
-Jobs owns the root manifest/lock and root changelog. Timers owns the root
-manifest/lock, Timers changelog and five literal-version member manifests.
+Each group admits the root manifest/lock, its ledger under `releases/` and all
+of its literal-version member manifests. The root index and shared history are
+outside every release file plan and are never finalized as group notes.
 The Timers path requirement in the root catalog follows a Timers release;
 Jobs' package identity stays unchanged. This updated consumer declaration is
 not republished under an existing Jobs version. Release Jobs separately when
@@ -68,7 +75,7 @@ receipts stop recovery rather than authorizing another effect.
 Prepare selected dependencies with `cargo fetch --locked`. Use
 `make install-tools`, `make tools-check`, `make install-testkit-tools` and
 `make install-release-tools` for explicit setup and offline admission. The
-root lock selects the group-capable IC Build 0.73 editor; no alternate editor
+root lock selects the group-capable IC Build 0.73.1 editor; no alternate editor
 or handwritten metadata renderer is used. Standard fresh release preflight
 admits source and notes, prepares the locked cache and tools, then admits the
 editor. Resume admits the saved source's editor selection without fresh setup.

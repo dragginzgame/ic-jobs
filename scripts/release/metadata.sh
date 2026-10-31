@@ -8,9 +8,9 @@ root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
 root="${root%/.}"
+bash "$root/scripts/release/group.sh" validate
 bash "$root/scripts/ci/check-release-delivery.sh" \
     "$root/ci/release-delivery.txt" "${RELEASE_DELIVERY-direct}"
-export RELEASE_GROUP="${RELEASE_GROUP:-jobs}"
 if [[ "$operation" == version ]]; then
     exec bash "$root/scripts/release/group.sh" version
 fi

@@ -507,7 +507,7 @@ See the [combined development guide](../../docs/timers/development.md),
 [root README](../../README.md), and [current handoff](../../docs/status/current.md)
 for commands and qualification. The [architecture](../../docs/timers/architecture.md),
 [design records](../../docs/timers/design/0.26-owned-timer-backend.md) and
-[retained changelog](CHANGELOG.md) document the runtime and its history.
+[retained changelog](../../releases/timers/CHANGELOG.md) document the runtime and its history.
 
 ## License
 

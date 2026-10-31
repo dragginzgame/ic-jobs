@@ -10,7 +10,7 @@ suite="$(fixture_create "${TMPDIR:-/tmp}/scheduling-release-groups.XXXXXX")"
 fixture_complete=false
 trap 'fixture_finish "$?" "$suite" "Release-group fixture retained"' EXIT
 unset MAKEFLAGS MFLAGS MAKEOVERRIDES GNUMAKEFLAGS MAKEFILES
-unset RELEASE_COMMIT RELEASE_VERSION RELEASE_PREVIOUS RELEASE_DATE RELEASE_PREPARATION_SOURCE RELEASE_GROUP
+unset RELEASE_COMMIT RELEASE_VERSION RELEASE_PREVIOUS RELEASE_DATE RELEASE_PREPARATION_SOURCE RELEASE_GROUP PACKAGE
 export GROUP_TEST_REAL_MAKE GROUP_TEST_REAL_EDITOR GROUP_TEST_REAL_CARGO
 GROUP_TEST_REAL_MAKE="$(command -v make)"
 GROUP_TEST_REAL_CARGO="$(command -v cargo)"
@@ -20,7 +20,7 @@ if [[ -z "$GROUP_TEST_REAL_EDITOR" ]]; then
 fi
 mkdir "$suite/source" "$suite/bin"
 cp "$root"/{Cargo.toml,Cargo.lock,CHANGELOG.md,README.md,LICENSE,Makefile,.gitignore,.shared-tooling.snapshot,rust-toolchain.toml} "$suite/source/"
-cp -R "$root"/{crates,apps,scripts,make,ci,docs} "$suite/source/"
+cp -R "$root"/{crates,apps,scripts,make,ci,docs,releases} "$suite/source/"
 cat > "$suite/bin/editor" <<'EDITOR'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -66,17 +66,56 @@ CARGO
 chmod +x "$suite/bin/"*
 export PATH="$suite/bin:$PATH" GROUP_TEST_EDITOR="$suite/bin/editor"
 export CARGO_NET_OFFLINE=true RUSTUP_AUTO_INSTALL=0
+# Exercise public refusal before any tool, gate, journal or metadata effect.
+cp -R "$suite/source" "$suite/refusals"
+(
+    cd "$suite/refusals"
+    # shellcheck disable=SC2030 # Each phase deliberately owns its event files.
+    export GROUP_TEST_EVENTS="$suite/refusal-events" GROUP_TEST_UPLOADS="$suite/refusal-uploads"
+    : > "$GROUP_TEST_EVENTS"; : > "$GROUP_TEST_UPLOADS"
+    git init -q -b main
+    git config user.name 'Scheduling fixture'; git config user.email 'fixture@example.invalid'
+    git config core.hooksPath /dev/null
+    git add -- .; git commit -qm baseline
+    refuse_group() {
+        local selection="$1" status=0
+        shift
+        case "$selection" in
+            missing) env -u RELEASE_GROUP "$@" > "$suite/refusal.log" 2>&1 || status=$? ;;
+            empty) RELEASE_GROUP='' "$@" > "$suite/refusal.log" 2>&1 || status=$? ;;
+            unknown) RELEASE_GROUP=unknown "$@" > "$suite/refusal.log" 2>&1 || status=$? ;;
+        esac
+        [[ "$status" != 0 && ! -s "$GROUP_TEST_EVENTS" && ! -s "$GROUP_TEST_UPLOADS" ]] || exit 1
+        grep -F RELEASE_GROUP "$suite/refusal.log" > /dev/null
+        [[ ! -e .git/release-state && -z "$(git status --porcelain)" ]] || exit 1
+    }
+    for selection in missing empty unknown; do
+        for target in release-patch release-minor release-major release-resume publish publish-check package; do
+            refuse_group "$selection" "$GROUP_TEST_REAL_MAKE" --no-print-directory "$target"
+        done
+        refuse_group "$selection" bash scripts/release/metadata.sh preflight
+        refuse_group "$selection" bash scripts/release/publish.sh origin
+        refuse_group "$selection" bash scripts/release/check-publication.sh origin
+    done
+    for target in publish publish-check; do
+        if RELEASE_GROUP=jobs PACKAGE=ic-timers "$GROUP_TEST_REAL_MAKE" "$target" > "$suite/subset-refusal.log" 2>&1; then exit 1; fi
+        grep -F 'PACKAGE must belong' "$suite/subset-refusal.log" > /dev/null
+    done
+    [[ ! -e .git/release-state && -z "$(git status --porcelain)" ]] || exit 1
+    echo 'Explicit group selection refuses missing, empty and unknown Make/CLI requests before effects'
+)
 for selected in jobs timers; do
     repo="$suite/$selected"
     cp -R "$suite/source" "$repo"
     (
         cd "$repo"
         export RELEASE_GROUP="$selected" RELEASE_MAKE="$suite/bin/make"
+        # shellcheck disable=SC2031 # This phase establishes fresh event files.
         export GROUP_TEST_EVENTS="$suite/$selected-gates" GROUP_TEST_UPLOADS="$suite/$selected-uploads"
         : > "$GROUP_TEST_EVENTS"; : > "$GROUP_TEST_UPLOADS"
-        ledger=CHANGELOG.md; other_ledger=crates/ic-timers/CHANGELOG.md; package=ic-jobs; other=ic-timers
+        ledger=releases/jobs/CHANGELOG.md; other_ledger=releases/timers/CHANGELOG.md; package=ic-jobs; other=ic-timers
         if [[ "$selected" == timers ]]; then
-            ledger=crates/ic-timers/CHANGELOG.md; other_ledger=CHANGELOG.md; package=ic-timers; other=ic-jobs
+            ledger=releases/timers/CHANGELOG.md; other_ledger=releases/jobs/CHANGELOG.md; package=ic-timers; other=ic-jobs
         fi
         previous="$(bash scripts/release/group.sh version)"
         candidate="$(bash scripts/ci/next-release-version.sh "$previous" patch)"
@@ -99,6 +138,8 @@ for selected in jobs timers; do
         printf '%s\n' "$plan" > "$suite/$selected-plan.json"
         bash scripts/release/group.sh files > "$suite/$selected-files"
         cp "$other_ledger" "$suite/$selected-other-ledger"
+        cp CHANGELOG.md "$suite/$selected-index"
+        cp releases/history.md "$suite/$selected-history"
         cargo metadata --locked --offline --format-version 1 > "$suite/$selected-before.json"
         requirement="$(yq -p toml -o yaml -r '.workspace.dependencies.ic-timers.version' Cargo.toml)"
         if [[ "$mode" == all || "$mode" == metadata || "$mode" == retention ]]; then
@@ -139,7 +180,16 @@ for selected in jobs timers; do
             make release-resume VERSION="$candidate" RELEASE_MAKE="$suite/bin/make" > "$suite/$selected-resume.log" 2>&1
             [[ "$(cat "$GROUP_TEST_EVENTS")" == "$selected" ]]
             git show --format= --name-only HEAD | LC_ALL=C sort > "$suite/$selected-committed"
-            tr '\0' '\n' < "$suite/$selected-files" | LC_ALL=C sort > "$suite/$selected-expected"
+            # The plan admits the shared root manifest even when this group
+            # has no requirement to rewrite there. Only changed plan entries
+            # belong in the commit; unchanged admitted files remain receipt-bound.
+            : > "$suite/$selected-changed"
+            while IFS= read -r -d '' path; do
+                if [[ "$(git rev-parse "$base:$path")" != "$(git rev-parse "HEAD:$path")" ]]; then
+                    printf '%s\n' "$path" >> "$suite/$selected-changed"
+                fi
+            done < "$suite/$selected-files"
+            LC_ALL=C sort "$suite/$selected-changed" > "$suite/$selected-expected"
             cmp "$suite/$selected-committed" "$suite/$selected-expected"
             [[ "$(git log -1 --format=%s)" == "Release $selected $candidate" ]]
             bash scripts/ci/check-release-tag.sh "$(git rev-parse HEAD)" "$candidate" "$selected"
@@ -168,12 +218,14 @@ REGISTRY
             [[ "$(cat "$GROUP_TEST_UPLOADS")" == "publish -p $package --all-features --locked --registry crates-io --allow-dirty --dry-run" ]]
         fi
         cmp "$other_ledger" "$suite/$selected-other-ledger"
+        cmp CHANGELOG.md "$suite/$selected-index"
+        cmp releases/history.md "$suite/$selected-history"
         cargo metadata --locked --offline --format-version 1 > "$suite/$selected-after.json"
         jq -e --arg other "$other" --arg version "$other_version" '.packages[] | select(.name == $other and .source == null) | .version == $version' "$suite/$selected-after.json" > /dev/null
         if [[ "$selected" == jobs ]]; then
             [[ "$(yq -p toml -o yaml -r '.workspace.dependencies.ic-timers.version' Cargo.toml)" == "$requirement" ]]
         else
-            [[ "$(yq -p toml -o yaml -r '.workspace.package.version' Cargo.toml)" == "$other_version" ]]
+            [[ "$(yq -p toml -o yaml -r '.package.version' crates/ic-jobs/Cargo.toml)" == "$other_version" ]]
             [[ "$(yq -p toml -o yaml -r '.workspace.dependencies.ic-timers.version' Cargo.toml)" == "$candidate" ]]
             # The unchanged standalone Jobs consumer still builds against Jobs
             # its retained version after the independent Timers upgrade.

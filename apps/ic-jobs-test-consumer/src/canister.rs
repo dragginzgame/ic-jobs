@@ -88,11 +88,11 @@ fn admit_control_input() -> Result<(), String> {
 }
 
 fn decode_control<T: DeserializeOwned, const ID: u64>(bytes: Vec<u8>) -> T {
-    ic_wire::endpoint::decode_request(&bytes, ID, control::REQUEST_LIMITS)
+    ic_wire_endpoint::decode_request(&bytes, ID, control::REQUEST_LIMITS)
 }
 
 fn encode_control<T: Serialize, const ID: u64>(result: T) -> Vec<u8> {
-    ic_wire::endpoint::encode_response(&result, ID, control::RESPONSE_LIMITS)
+    ic_wire_endpoint::encode_response(&result, ID, control::RESPONSE_LIMITS)
 }
 
 fn encode_unit<const ID: u64>() -> Vec<u8> {
@@ -316,12 +316,12 @@ fn admit_delivery_input() -> Result<(), String> {
 }
 
 fn decode_delivery<const ID: u64>(bytes: Vec<u8>) -> Delivery {
-    ic_wire::endpoint::decode_request(&bytes, ID, REQUEST_LIMITS)
+    ic_wire_endpoint::decode_request(&bytes, ID, REQUEST_LIMITS)
 }
 
 fn encode_delivery<T: Serialize, const ID: u64>(result: T) -> Vec<u8> {
     // Encoding failure traps in the same segment as the receipt write.
-    ic_wire::endpoint::encode_response(&result, ID, RESPONSE_LIMITS)
+    ic_wire_endpoint::encode_response(&result, ID, RESPONSE_LIMITS)
 }
 
 #[cdk::update(

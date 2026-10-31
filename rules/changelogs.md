@@ -172,19 +172,29 @@ release/deployment admission, as required by the finalization rules below.
 
 ## Release-group changelogs and shared history
 
-Independently versioned groups each own one canonical changelog, at the unique
-path declared in `ci/cargo-release-groups.json`. Crates released together share
-that ledger; do not require a separate changelog per crate. Reuse existing
-appropriate locations, such as `crates/<primary-package>/CHANGELOG.md` or
-`docs/changelog/<group>/CHANGELOG.md`. Each ledger identifies its group and
-covered packages. Root emoji sections, compatibility assessment and automatic
-version selection apply to each group ledger.
+Independently versioned groups each own one canonical changelog at
+`releases/<group>/CHANGELOG.md`, declared in `ci/cargo-release-groups.json`.
+Crates released together share that ledger; do not require a separate changelog
+per crate or privilege one group with the root ledger. Each ledger identifies
+its group and covered packages. Root emoji sections, compatibility assessment
+and automatic version selection apply to each group ledger. Single-group
+repositories retain their existing root changelog and version convention.
 
-- Root `CHANGELOG.md` remains the navigation entry point. It may be the primary
-  group's ledger with links to other groups, or an index linking all group
-  ledgers. Do not invent an aggregate workspace version for that index or keep a
-  second copy of every group's release notes. Match each group's configured
-  ledger path to the selected layout; an index is not a release ledger.
+For example, a workspace with Metrics and Logging uses:
+
+```text
+CHANGELOG.md                       # Index only
+releases/
+  metrics/CHANGELOG.md              # Metrics group ledger
+  logging/CHANGELOG.md              # Logging group ledger
+  history.md                       # Earlier coordinated releases, if any
+```
+
+- Root `CHANGELOG.md` is an index linking every group ledger and, when present,
+  `releases/history.md`. It contains no numbered release entries or aggregate
+  workspace version. Do not keep duplicate release notes in the index or former
+  crate-local ledgers. An old ledger path may remain a short navigation pointer
+  when useful for existing readers; update maintained links to the canonical path.
 - Maintain at most one pending numbered entry per group that has changes, based
   on its own latest finalized release. Several groups may have pending entries
   in their separate ledgers. A release of one group does not finalize another
@@ -194,22 +204,20 @@ version selection apply to each group ledger.
   adoption, its notes explain its own compatibility impact and link to the
   supplier's entry. Do not copy the supplier's implementation history or label
   every consumer adoption breaking solely because the supplier's minor changed.
-- Preserve pre-split coordinated history once, including versions, dates,
-  headings, content and original release scope. Prefer leaving it in the root
-  changelog with a clear boundary note identifying the last coordinated release.
-  New group ledgers link back to that history and identify where their own
-  release series begins; do not duplicate or retroactively assign old entries
-  to the new groups.
-- If the root becomes an index and a separate shared historical changelog is
-  useful, an explicitly authorized migration may move the intact old ledger to
-  `docs/changelog/history.md` (or an established equivalent). Link it from the
-  root and group ledgers, update affected references, and preserve existing
-  historical detail files. The history file records the former coordinated
-  scope and cutoff; it receives no new group release entries. Do not move or
-  rewrite history merely to adopt this rule.
-- If detailed notes are needed, use a group-specific path such as
-  `docs/changelog/<group>/<major>.<minor>.md` to avoid collisions between equal
-  version numbers in different groups. Keep a single-group repository's existing
+- Preserve pre-split coordinated history once in `releases/history.md`, including
+  versions, dates, headings, content and original release scope. Identify the last
+  coordinated release. Group ledgers link back and identify where their own
+  series begins; do not retroactively assign shared entries to individual groups.
+  Omit the historical file when no coordinated history exists.
+- During an explicitly requested adoption, move existing independent entries to
+  their group ledgers and coordinated entries to the shared history without
+  rewriting their release identity or prose. Preserve older group-specific history
+  with its original scope. Update relative links and maintained references after
+  moves; retain historical detail files and evidence. The historical ledger gets
+  no new releases. A snapshot refresh alone does not migrate consumer ledgers.
+- New detailed notes belong at `releases/<group>/<major>.<minor>.md`, avoiding
+  collisions between equal version numbers in different groups. Existing linked
+  historical detail paths may remain. Keep a single-group repository's existing
   paths. State the group alongside a version in cross-group reports or links.
 
 Ledger organization does not authorize package moves, version resets, commits,

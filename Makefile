@@ -1,6 +1,20 @@
 .DEFAULT_GOAL := help
 export RELEASE_DELIVERY ?= direct
-export RELEASE_GROUP ?= jobs
+export RELEASE_GROUP
+# Refuse absent, empty or unknown selections before prerequisites or setup run.
+ifneq ($(filter release-patch release-minor release-major release-resume publish publish-check package,$(MAKECMDGOALS)),)
+ifneq ($(words $(RELEASE_GROUP)),1)
+$(error Select RELEASE_GROUP=jobs or timers explicitly)
+endif
+ifeq ($(filter jobs timers,$(RELEASE_GROUP)),)
+$(error Select RELEASE_GROUP=jobs or timers explicitly)
+endif
+ifneq ($(strip $(PACKAGE)),)
+ifneq ($(PACKAGE),ic-$(RELEASE_GROUP))
+$(error PACKAGE must belong to the explicitly selected RELEASE_GROUP)
+endif
+endif
+endif
 override SHARED_TOOLING_ROOT := $(CURDIR)
 override RELEASE_DELIVERY_POLICY := $(CURDIR)/ci/release-delivery.txt
 # Optimized qualification uses Binaryen; no other IC executable is required.
@@ -20,7 +34,7 @@ VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchai
 
 .PHONY: help version install-hooks check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling test-formatting-evidence package publish-check publish ci
 help:
-	@echo "IC Scheduling: shared workspace; RELEASE_GROUP=jobs (default) or timers"
+	@echo "IC Scheduling: shared workspace; explicitly select RELEASE_GROUP=jobs or timers"
 	@echo "Timers: test-timers, check-timer-provider, check-timer-dependencies, check-timer-probes"
 	@echo "Explicit Timers IC qualification: test-timer-watchdog, test-timer-cohorts"
 	@echo "Focused selections: see README (Consumer qualification) for package/test/target commands"
@@ -118,13 +132,16 @@ docs-check:
 	+cargo test -p ic-jobs --doc --all-features --locked --offline
 
 check-doc-links:
-	perl scripts/ci/check-documentation-links.pl --root . *.md docs/*.md docs/changelog/*.md docs/principles/*.md docs/status/*.md rules/*.md audits/*.md tasks/*.md $(shell rg --files docs/timers -g '*.md') crates/ic-timers/SAFETY.md crates/ic-timers/CHANGELOG.md $(wildcard apps/*/README.md apps/*/tests/fixtures/README.md crates/*/README.md crates/*/tests/fixtures/README.md)
+	perl scripts/ci/check-documentation-links.pl --root . *.md releases/history.md releases/*/CHANGELOG.md docs/*.md docs/changelog/*.md docs/principles/*.md docs/status/*.md rules/*.md audits/*.md tasks/*.md $(shell rg --files docs/timers -g '*.md') crates/ic-timers/SAFETY.md crates/ic-timers/CHANGELOG.md $(wildcard apps/*/README.md apps/*/tests/fixtures/README.md crates/*/README.md crates/*/tests/fixtures/README.md)
 
 check-pins:
 	+bash scripts/ci/check-dependency-pins.sh --cargo-inheritance
 
 .PHONY: check-dependency-boundaries check-release-groups package-all
 check-release-groups:
+	+@set -e; metadata="$$(mktemp)"; trap 'rm -f "$$metadata"' EXIT; \
+		yq -p toml -o json '.' Cargo.toml > "$$metadata"; \
+		jq -e --slurpfile root "$$metadata" '($$root[0].workspace.package | has("version") | not) and all(.groups[]; .version == "package" and .changelog == ("releases/" + .name + "/CHANGELOG.md"))' ci/cargo-release-groups.json > /dev/null
 	+bash scripts/ci/cargo-release-group.sh plan jobs > /dev/null
 	+bash scripts/ci/cargo-release-group.sh plan timers > /dev/null
 
@@ -138,7 +155,7 @@ CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-
 	ic-testkit-candid ic-testkit-native ic-jobs-test-consumer ic-jobs-canister-test-support pocket-ic serde_json serde_test
 QUALIFICATION_GRAPH_FORBIDDEN := ic-cdk-executor ic0 clap ctrlc serde_json ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native ic-jobs-canister-test-support pocket-ic tokio
-# Jobs, Timers and Memory share Platform 0.12 in the deployed graph.
+# Jobs, Timers and Memory share Platform 0.15 in the deployed graph.
 # Keep one executor, raw-system provider and entrypoint generator, without
 # application Principal conversion or hashing in the deployed graph.
 .PHONY: check-dependency-graphs
@@ -169,7 +186,7 @@ check-dependency-graphs:
 		--forbid-feature ic-platform/pocket-ic
 
 check-release-commands:
-	bash scripts/ci/check-release-commands.sh . make/consumer.mk make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh scripts/ci/check-release-delivery.sh ci/release-delivery.txt
+	RELEASE_GROUP=jobs bash scripts/ci/check-release-commands.sh . make/consumer.mk make/tools.mk make/release.mk make/rust-format.mk make/execution.mk scripts/ci/check-make-execution.sh scripts/ci/run-formatting.sh scripts/ci/check-release-delivery.sh ci/release-delivery.txt
 
 test-release-tooling: format-tools-check
 	+@editor="$$( $(RELEASE_METADATA_TOOL) --check )" && \
@@ -229,7 +246,11 @@ ci: shared-tooling-check
 		check-consumer check-msrv check-wasm docs-check package-all
 
 .PHONY: release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
-version release-version:
+version:
+	+@if test -n "$${RELEASE_GROUP:-}"; then bash scripts/release/group.sh version; else \
+		for group in jobs timers; do printf '%s: ' "$$group"; RELEASE_GROUP="$$group" bash scripts/release/group.sh version || exit; done; fi
+
+release-version:
 	@bash scripts/release/metadata.sh version
 
 release-preflight:
