@@ -56,7 +56,7 @@ ic-memory = "0.59.0"
 ic-storage = "0.59.0"
 ic-testkit = "0.75.0"
 ic-testkit-native = "0.75.0"
-ic-timers = { path = "crates/ic-timers", version = "0.33.1" }
+ic-timers = { path = "crates/ic-timers", version = "0.34.0" }
 ic-timers-test-protocol = { path = "crates/ic-timers-test-protocol" }
 ic-wire = "0.13.0"
 ic-wire-endpoint = "0.2.0"
