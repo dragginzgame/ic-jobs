@@ -3,7 +3,9 @@
 Jobs and Timers stay in one development workspace with two independent release
 identities, approved in [#82 — Version Jobs and Timers independently](https://github.com/dragginzgame/ic-scheduling/issues/82).
 The policy is [ci/cargo-release-groups.json](../ci/cargo-release-groups.json).
-The root Cargo comment map lists every member, version owner and ledger.
+The grouped root Cargo dependency catalog lists every member's full version and
+path once, beside its group's ledger. Each policy alias roster covers the complete
+catalog, including private qualification members that no other member uses.
 
 | Group | Version authority | Canonical changelog | Published package |
 | --- | --- | --- | --- |

@@ -5,6 +5,12 @@ def relative: type == "string" and length > 0 and
   (test("[\\r\\n\\t]") or startswith("/") or
    (split("/") | any(. == "" or . == "." or . == "..")) | not);
 def stable: type == "string" and test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$");
+# Root declarations are a complete catalog, including aliases not inherited by
+# any member. Cargo itself does not resolve or validate those unused entries.
+def member_catalog($root; $owned):
+  [($root.workspace.dependencies // {} | to_entries[]) |
+    . + {package:(if (.value | type) == "object" then .value.package // .key else .key end)} |
+    select(.package as $name | $owned | any(.name == $name))];
 def admit_groups($config; $root; $manifests; $lock; $selected):
   . as $metadata |
   [.packages[] | select(.id as $id | $metadata.workspace_members | index($id))] as $owned |
@@ -61,15 +67,24 @@ def admit_groups($config; $root; $manifests; $lock; $selected):
   then error("stale or foreign local lock records") else . end |
   # Cargo permits a compatible lower bound to lag a path package. The root
   # catalog also serves as the visible version map, so require its full current
-  # version for every owned versioned path dependency, including other groups.
-  reduce (($root.workspace.dependencies // {} | to_entries[]) |
-      select((.value | type) == "object" and .value.path != null and .value.version != null)) as $d
+  # version for every member, including unused aliases and other groups.
+  member_catalog($root; $owned) as $catalog |
+  if ($catalog | map(.package) | unique | sort) != ($owned | map(.name) | sort)
+  then error("root dependency catalog must include every workspace member") else . end |
+  reduce $catalog[] as $d
     (. ;
-      ($owned | map(select(.name == ($d.value.package // $d.key)))) as $packages |
-      if ($packages | length) == 1 and
-         ($d.value.version | sub("^[~^=]?[ \t]*"; "")) != $packages[0].version
+      ($owned | map(select(.name == $d.package))) as $packages |
+      if ($d.value | type) != "object" or ($d.value.path | type) != "string" or
+         ($d.value.path | length) == 0 or ($d.value.path | test("[\\r\\n\\t]")) or
+         ($d.value.version | type) != "string"
+      then error("root dependency \($d.key) requires a local path and full version")
+      elif ($d.value.version | sub("^[~^=]?[ \t]*"; "")) != $packages[0].version
       then error("root dependency \($d.key) declares \($d.value.version); expected full local version \($packages[0].version), retaining its requirement operator")
       else . end) |
+  if any($admitted[]; . as $g |
+      ([$catalog[] | select(.package as $n | $g.members | index($n)) | .key] | sort) !=
+      ($g.dependencies | sort))
+  then error("release-group dependency aliases must match the complete root member catalog") else . end |
   ($admitted | map(select(.name == $selected))) as $matches |
   if ($matches | length) != 1 then error("unknown release group") else $matches[0] end;
 

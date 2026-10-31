@@ -25,7 +25,9 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
   qualification members. There is no root workspace version. Group ledgers live
   at `releases/jobs/CHANGELOG.md` and `releases/timers/CHANGELOG.md`; the root
   changelog is an index. Release/resume/publication requires an explicit group.
-  Dependencies and the lock remain root-owned. Sibling Timers source is provenance,
+  The grouped root dependency catalog lists every member's path/full version and
+  ledger; policy alias rosters cover each catalog entry. Dependencies and the lock
+  remain root-owned. Sibling Timers source is provenance,
   not a build input. Grouping does not relax runtime or combined-consumer checks.
 - Rust floor: 1.91 for core and consumer-owned Timers integration. Qualify both separately.
 - Host workflows support Linux and macOS Intel/Apple Silicon. Bind native and

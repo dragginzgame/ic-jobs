@@ -75,6 +75,9 @@ qualification dependencies out of the libraries.
 
 Root `[workspace.dependencies]` entries select versions; each member opts into
 them. Their presence in the root catalog does not put them in every build.
+The Jobs and Timers blocks list all nine members with full versions and paths,
+including unused private qualification entries; group policy rosters keep those
+real requirements aligned during releases.
 The catalog labels `Production dependencies` and `Tests and tooling only`
 describe use here, independently of registry publication. Serde is shared by
 production and tests, so it belongs to production. The qualification Wasm and

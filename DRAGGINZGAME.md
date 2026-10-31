@@ -205,8 +205,8 @@ within explicit release groups where unrelated contracts need independent
 releases. Independent groups all use explicit package versions and
 `releases/<group>/CHANGELOG.md`; the root has no shared version and its changelog
 is an index. Require explicit group selection for releases and publication.
-Make membership, version sources and changelog locations visible in root
-`Cargo.toml` comments under the
+Show every member's version and path in root `Cargo.toml` dependency declarations.
+Group them once, with short titles and separate changelog comments, under the
 [workspace versioning rules](rules/rust-workspaces.md#coordinated-versions-and-workspace-boundaries).
 Use root-owned dependency selections, reviewed shared tooling, explicit setup
 and the product's declared compiler/host requirements. External

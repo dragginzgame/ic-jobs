@@ -12,7 +12,12 @@
         "ic-jobs-canister-tests"
       ],
       "changelog": "releases/jobs/CHANGELOG.md",
-      "dependencies": []
+      "dependencies": [
+        "ic-jobs",
+        "ic-jobs-canister-test-support",
+        "ic-jobs-canister-tests",
+        "ic-jobs-test-consumer"
+      ]
     },
     {
       "name": "timers",
@@ -27,7 +32,11 @@
       ],
       "changelog": "releases/timers/CHANGELOG.md",
       "dependencies": [
-        "ic-timers"
+        "ic-timers",
+        "ic-timers-pocketic",
+        "ic-timers-runtime-probe",
+        "ic-timers-size-probe",
+        "ic-timers-test-protocol"
       ]
     }
   ]

@@ -1,12 +1,3 @@
-# Release groups: ci/cargo-release-groups.json
-# jobs: ic-jobs, ic-jobs-test-consumer, ic-jobs-canister-test-support,
-#   ic-jobs-canister-tests (the latter three are private qualification packages)
-#   version: crates/ic-jobs/Cargo.toml package.version
-#   changelog: releases/jobs/CHANGELOG.md
-# timers: ic-timers, ic-timers-pocketic, ic-timers-runtime-probe,
-#   ic-timers-size-probe, ic-timers-test-protocol (the latter four are private)
-#   version: crates/ic-timers/Cargo.toml package.version
-#   changelog: releases/timers/CHANGELOG.md
 [workspace]
 # Production packages: crates/ic-jobs, crates/ic-timers.
 # Remaining members are unpublished consumer, test and qualification packages.
@@ -31,11 +22,24 @@ license = "MIT"
 description = "Durable application job policies for Internet Computer canisters"
 repository = "https://github.com/dragginzgame/ic-scheduling"
 
-# Shared declarations are opt-in for each member, not dependencies of every crate.
-# The Jobs library uses only Serde at runtime. The qualification Wasm uses
-# Wire; only native PocketIC tests transitively require Candid.
 [workspace.dependencies]
+# Jobs
+# Changelog : releases/jobs/CHANGELOG.md
+ic-jobs = { path = "crates/ic-jobs", version = "0.33.2" }
+ic-jobs-canister-test-support = { path = "crates/ic-jobs-canister-test-support", version = "0.33.2" }
+ic-jobs-canister-tests = { path = "crates/ic-jobs-canister-tests", version = "0.33.2" }
+ic-jobs-test-consumer = { path = "apps/ic-jobs-test-consumer", version = "0.33.2" }
+
+# Timers
+# Changelog : releases/timers/CHANGELOG.md
+ic-timers = { path = "crates/ic-timers", version = "0.34.0" }
+ic-timers-pocketic = { path = "crates/ic-timers-pocketic", version = "0.34.0" }
+ic-timers-runtime-probe = { path = "crates/ic-timers-runtime-probe", version = "0.34.0" }
+ic-timers-size-probe = { path = "crates/ic-timers-size-probe", version = "0.34.0" }
+ic-timers-test-protocol = { path = "crates/ic-timers-test-protocol", version = "0.34.0" }
+
 # Production dependencies
+# Metrics, Platform and Serde also serve qualification consumers.
 ic-metrics = { version = "0.24.0", default-features = false }
 ic-platform = { version = "0.15.2", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
@@ -48,17 +52,11 @@ ic-build = "0.73.1"
 ic-host-artifacts = "0.73.1"
 ic-host-fs = { version = "0.73.1", default-features = false }
 ic-host-process = { version = "0.73.1", default-features = false }
-ic-jobs = { path = "crates/ic-jobs" }
-ic-jobs-canister-test-support = { path = "crates/ic-jobs-canister-test-support" }
-ic-jobs-test-consumer = { path = "apps/ic-jobs-test-consumer" }
 ic-logging = { version = "0.23.2", default-features = false }
 ic-memory = "0.60.0"
 ic-storage = "0.60.0"
 ic-testkit = "0.75.0"
 ic-testkit-native = "0.75.0"
-# timers release group; member manifests own package versions.
-ic-timers = { path = "crates/ic-timers", version = "0.34.0" }
-ic-timers-test-protocol = { path = "crates/ic-timers-test-protocol" }
 ic-wire = "0.13.0"
 ic-wire-endpoint = "0.2.0"
 serde_json = "1.0"

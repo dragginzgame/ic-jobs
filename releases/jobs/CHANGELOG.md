@@ -15,9 +15,11 @@ and [coordinated history through 0.33.1](../history.md).
 
 ### 🔧 Changed
 
-- Adopt Shared Tooling 0.27.20. Release and dependency checks now reject stale
-  or abbreviated versions in existing local Cargo dependency declarations across
-  both release groups; selected-group preparation retains requirement operators.
+- Adopt Shared Tooling's 0.27.22 group-catalog rules. The root Cargo catalog shows
+  all nine members in Jobs/Timers blocks with their changelog paths; release and
+  dependency checks admit each full version, local path and owning alias roster,
+  including unused private entries. Selected-group preparation preserves
+  requirement operators and the other group's identities.
 
 ## [0.33.2] - 2026-10-31
 

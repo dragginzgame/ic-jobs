@@ -1,10 +1,11 @@
 # Current handoff
 
-The current request adopts Memory/Storage 0.60.0 and Metrics 0.24.0 under the
-existing instruction to push necessary source changes. Package versions remain
-Jobs 0.33.2 / Timers 0.34.0; registry artifacts and tags below remain unchanged.
-Pending notes select Jobs 0.33.3 for private consumer/tooling work and Timers
-0.35.0 for the exposed Metrics type-identity change. No new release/upload runs.
+The current request adopts Shared Tooling's 0.27.22 rules under the existing
+instruction to push necessary source changes. All nine members now appear in
+the root catalog as grouped path/full-version declarations, with complete release
+alias rosters. Package versions remain Jobs 0.33.2 / Timers 0.34.0; dependency
+selection, registry artifacts and tags below are unchanged. Pending notes remain
+Jobs 0.33.3 and Timers 0.35.0. No new release/upload runs.
 
 ## Accepted scope and delivery
 
@@ -67,19 +68,26 @@ The Timers guard and its source-override rejection fixtures select the qualified
 0.15 line, preserving executor/IC0-only library features, private FFI confinement
 and host/protocol exclusions. Jobs remains Serde-only and independent of Timers.
 
-Shared 0.27.20 is canonically exported from clean committed revision
-`267ba25810546bd9cb622d0fb43ccc0588622b67` (131 payloads). The VERSION mismatch
-in the preceding supplier commit is corrected. Group/dependency admission now
-checks full current versions for all existing versioned local root dependencies;
-the Timers requirement already matches 0.34.0 and is labelled with its group.
-Intentionally unversioned Jobs/private path declarations remain unversioned.
-No snapshot-owned payload is edited locally. No cleanup or tool installation ran.
-Shared adoption evidence is `/tmp/ic-scheduling-shared020.P1MNg7/`; the earlier
-release evidence below remains bound to its original source and snapshot.
+Shared 0.27.22 is canonically exported from clean revision
+`f4f431627290e18f0ccc1e5f8525d16b197cf7c3` (131 payloads). Its VERSION-only
+correction preserves all payloads reviewed at `143a9abb9ae81feae9400ff3844b03b1ddfdd75a`.
+The root Cargo catalog replaces the duplicate header map with Jobs/Timers blocks
+and separate ledger labels. It declares every member's current path/full version,
+including unused private entries; the owning policy rosters list all nine aliases.
+Member inheritance stays opt-in. No new dependency edges or numeric version bumps
+are introduced. The existing grouped formatter preserves each block.
+
+Current Shared adoption evidence is `/tmp/ic-scheduling-shared022.sL8syL/`.
 Snapshot/pin/group admission, release-command fixtures, formatting and local links
-pass. Both groups' real adapter metadata/rollback fixtures pass, with full gates
-and registry effects substituted. Cargo metadata and lock bytes are unchanged;
-that tooling-only follow-up ran no full CI or new installed recovery qualification.
+pass. Both groups' real adapter fixtures pass metadata rollback, receipts, exact
+delivery files, recovery and publication routing, with full gates/setup/uploads
+substituted. Their tooling payloads match the corrected final snapshot exactly.
+Full Cargo resolution (including features) and lock bytes match the prior
+inputs; only existing local dependency requirements acquire their current full
+versions. No owned snapshot payload is edited locally. Earlier 0.27.20 evidence
+remains at `/tmp/ic-scheduling-shared020.P1MNg7/`; earlier release evidence below
+remains bound to its original snapshot. This follow-up selects no full CI,
+new installed recovery, cleanup or tool installation.
 
 Earlier release evidence is `/tmp/ic-scheduling-adopt-all.AQGpWV/`, including the complete
 incoming dirty source archive, supplier index observations, exporter impact and
