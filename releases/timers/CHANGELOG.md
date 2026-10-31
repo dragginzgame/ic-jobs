@@ -7,6 +7,15 @@ is retained once in [coordinated history](../history.md).
 The older Timers entries below are preserved as imported provenance; an undated
 entry alone does not establish publication.
 
+## [0.35.0] - Unreleased
+
+### ⚠️ Breaking
+
+- Adopt Metrics 0.24 for the public measurement types. Consumers exchanging
+  these values must align Metrics identities; its optional native schemas now
+  use Wire 0.13. Timer runtime builds keep native metadata disabled, preserving
+  arithmetic, report shapes and deployed dependency boundaries.
+
 ## [0.34.0] - 2026-10-31
 
 ### ⚠️ Breaking

@@ -1,9 +1,10 @@
 # Current handoff
 
-The current request adopts Shared Tooling 0.27.20 under the existing instruction
-to push necessary source changes. Package versions, dependency selections and
-the completed releases below remain unchanged. Jobs' pending tooling notes select
-0.33.3 without bumping package metadata or starting another release/publication.
+The current request adopts Memory/Storage 0.60.0 and Metrics 0.24.0 under the
+existing instruction to push necessary source changes. Package versions remain
+Jobs 0.33.2 / Timers 0.34.0; registry artifacts and tags below remain unchanged.
+Pending notes select Jobs 0.33.3 for private consumer/tooling work and Timers
+0.35.0 for the exposed Metrics type-identity change. No new release/upload runs.
 
 ## Accepted scope and delivery
 
@@ -19,8 +20,9 @@ uploads completed, supplier-first, with atomic `main`/annotated-tag pushes:
 | timers | [ic-timers 0.34.0](https://crates.io/crates/ic-timers/0.34.0) | `timers-v0.34.0` | `ed255a393ef7245ffcc8cf25d413a0f883f4b6c2` |
 | jobs | [ic-jobs 0.33.2](https://crates.io/crates/ic-jobs/0.33.2) | `jobs-v0.33.2` | `4a76520d2265ab598113f00c4fbde0111268ffe2` |
 
-Every group member has its group's released version. Both retained journals are
-complete; do not replay effects. This handoff update changes no package payload.
+Every group member retains its group's last released numeric version. Both
+retained journals are complete; do not replay effects. Current catalog changes
+are pending release and do not rewrite the published artifacts.
 
 Issue [#82 — Version Jobs and Timers independently](https://github.com/dragginzgame/ic-scheduling/issues/82)
 approves two groups in the existing nine-member workspace. Policy and complete
@@ -42,11 +44,22 @@ use their recorded source/policy/layout; adoption never reinterprets journals.
 
 The root catalog/lock now selects Platform 0.15.2 and canonical Types 0.15.1,
 Wire 0.13.0, Endpoint 0.2.0, Testkit/Native 0.75.0, Build/Host 0.73.1,
-Memory/Storage 0.59.0 and Logging/Metrics 0.23.2. Testkit's typed calls now share
+Memory/Storage 0.60.0, Logging 0.23.2 and direct Metrics 0.24.0. Testkit's typed calls share
 Wire 0.13 Limits/Error with the consumer. Endpoint imports replace the removed
-Wire endpoint feature. Memory retains its own Wire 0.12 codec identity; no
-consumer error/type bridge or duplicate transport was added. Metrics defaults
-remain disabled; its optional native schemas still belong to Wire 0.12.
+Wire endpoint feature. Memory's codec errors and Metrics' optional native schemas
+now align with Wire 0.13; no consumer type bridge or duplicate transport was added.
+Metrics defaults remain disabled. Testkit separately retains its arithmetic-only
+Metrics 0.23 dependency; no cross-version measurement conversion is introduced.
+
+Current dependency-adoption evidence is `/tmp/ic-scheduling-memory-metrics.oyBtpP/`.
+Published Memory, Storage and Metrics implementation sources match their preceding
+versions (Metrics changes only embedded Markdown documentation); exposed supplier
+identities change while codec bytes, admission and numeric behavior are retained.
+Rust 1.91 strict native/Wasm Clippy, 172 Timers tests and 71 consumer tests pass.
+Group/pin/direct-boundary checks, all fourteen graph contexts, formatting and local
+links pass. The lock now has only Wire/Derive 0.13; no release, full CI or new
+installed recovery was selected for this focused dependency adoption. Earlier
+live receipts below remain bound to their original dependency graph.
 
 The runtime graph has one registry Platform facade, macro generator and exact
 runtime guard at 0.15.2, shared by Timers, Memory and the qualification consumer.
@@ -61,14 +74,14 @@ checks full current versions for all existing versioned local root dependencies;
 the Timers requirement already matches 0.34.0 and is labelled with its group.
 Intentionally unversioned Jobs/private path declarations remain unversioned.
 No snapshot-owned payload is edited locally. No cleanup or tool installation ran.
-Current adoption evidence is `/tmp/ic-scheduling-shared020.P1MNg7/`; the earlier
+Shared adoption evidence is `/tmp/ic-scheduling-shared020.P1MNg7/`; the earlier
 release evidence below remains bound to its original source and snapshot.
 Snapshot/pin/group admission, release-command fixtures, formatting and local links
 pass. Both groups' real adapter metadata/rollback fixtures pass, with full gates
 and registry effects substituted. Cargo metadata and lock bytes are unchanged;
-this tooling-only follow-up ran no full CI or new installed recovery qualification.
+that tooling-only follow-up ran no full CI or new installed recovery qualification.
 
-Current evidence is `/tmp/ic-scheduling-adopt-all.AQGpWV/`, including the complete
+Earlier release evidence is `/tmp/ic-scheduling-adopt-all.AQGpWV/`, including the complete
 incoming dirty source archive, supplier index observations, exporter impact and
 refresh logs, metadata, Clippy and consumer/policy checks. The full native/Wasm
 Clippy gate passes. Rust 1.91 consumer library, API-wire, composition and stored

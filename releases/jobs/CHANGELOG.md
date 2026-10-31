@@ -6,6 +6,13 @@ and [coordinated history through 0.33.1](../history.md).
 
 ## [0.33.3] - Unreleased
 
+### 📦 Dependencies
+
+- Adopt Memory/Storage 0.60 and Metrics 0.24 in the private consumer, aligning
+  their codec and optional native schemas with Wire 0.13. Keep Jobs Serde-only;
+  retained queue/ledger bytes, restore admission and blocked-effect recovery are
+  unchanged.
+
 ### 🔧 Changed
 
 - Adopt Shared Tooling 0.27.20. Release and dependency checks now reject stale
