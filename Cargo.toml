@@ -36,18 +36,18 @@ thiserror = "2.0"
 # Tests and tooling only
 clap = { version = "4.6", default-features = false, features = ["std", "help", "usage", "error-context"] }
 ctrlc = "3.5"
-ic-build = "0.72.0"
-ic-host-artifacts = "0.72.0"
-ic-host-fs = { version = "0.72.0", default-features = false }
-ic-host-process = { version = "0.72.0", default-features = false }
+ic-build = "0.72.1"
+ic-host-artifacts = "0.72.1"
+ic-host-fs = { version = "0.72.1", default-features = false }
+ic-host-process = { version = "0.72.1", default-features = false }
 ic-jobs = { path = "crates/ic-jobs" }
 ic-jobs-canister-test-support = { path = "crates/ic-jobs-canister-test-support" }
 ic-jobs-test-consumer = { path = "apps/ic-jobs-test-consumer" }
 ic-logging = { version = "0.21.0", default-features = false }
 ic-memory = "0.58.0"
 ic-storage = "0.58.0"
-ic-testkit = "0.72.0"
-ic-testkit-native = "0.72.0"
+ic-testkit = "0.72.1"
+ic-testkit-native = "0.72.1"
 ic-timers = { path = "crates/ic-timers", version = "0.33.1" }
 ic-timers-test-protocol = { path = "crates/ic-timers-test-protocol" }
 ic-wire = "0.10.0"

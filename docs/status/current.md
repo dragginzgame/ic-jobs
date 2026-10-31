@@ -3,11 +3,13 @@
 ## Accepted scope and source
 
 IC Scheduling combines `ic-jobs` and `ic-timers` in one nine-member workspace.
-Both published libraries use the explicitly approved shared version 0.33.0.
+Both published libraries use shared version 0.33.1, recorded by local tag
+`v0.33.1` and release commit `03b166f`. Pending notes select 0.33.2 for the
+compatible IC Tooling update; package versions remain unchanged.
 The user approved and GitHub completed the repository rename to
 `dragginzgame/ic-scheduling`; origin now points to that repository. The physical
-checkout remains `ic-jobs`; open `ic-scheduling.code-workspace` for the combined
-editor workspace. No commit, push, tag, publication or deployment was performed.
+checkout is now `ic-scheduling`; open `ic-scheduling.code-workspace` for the combined
+editor workspace. This adoption performs no commit, push, tag or publication.
 Private Jobs packages and directories now use `ic-jobs-canister-tests`,
 `ic-jobs-canister-test-support` and `ic-jobs-test-consumer`. All seven support
 packages remain `publish = false`; their roles are documented in the root README.
@@ -32,7 +34,7 @@ transport extraction remain included. Snapshot-owned files retain that adoption.
 ## Dependency state
 
 Active direct dependencies: Platform 0.11.1, Wire 0.10.0, Metrics/Logging 0.21.0,
-Tooling/Testkit 0.72.0, Memory/Storage 0.58.0 and local Timers 0.33.0.
+Tooling/Testkit 0.72.1, Memory/Storage 0.58.0 and local Timers 0.33.1.
 The coordinated Tooling release resolves the earlier Wire limits mismatch in
 both native harnesses. Platform owns one version-matched runtime guard; Memory
 and Storage now share Platform 0.11.1 and Wire 0.10 with the other consumers.
@@ -41,7 +43,7 @@ The deployed graphs still exclude registry executor and IC0 providers.
 
 Timers exposes Metrics types, so consumers exchanging them must select Metrics
 0.21 and native Wire metadata 0.10; runtime users coordinate on Platform 0.11.
-The user selected 0.33.1 for the pending changelog; package versions remain 0.33.0.
+The 0.33.1 release notes retain the earlier coordinated migration.
 The notes retain the public dependency identity changes and consumer actions. Queue
 and ledger bytes, validated restore, report fields and arithmetic are unchanged.
 Logging remains heap-only with the existing retained-text budget.
@@ -55,12 +57,17 @@ Previous failed candidates and focused evidence remain in
 
 ## Validation and maintained gates
 
-The attempted release stopped in `test-consumer-tooling`: its input-drift
-fixture searched console details omitted by nested validation. It now checks
-its own retained failure log. Both standalone and release-depth-2 focused
-runs pass; logs are in `/tmp/ic-scheduling-nested-fixture-fix/`. The original
-failure remains in `/tmp/jobs-consumer-tooling.QllqL7/` and release-state logs.
-The full release gate has not been rerun after this fix.
+Tooling 0.72.1 adoption passes locked metadata, direct boundaries, fourteen
+Jobs/Timers graph contexts, Rust 1.91 strict all-target harness Clippy, six
+native harness tests, Timers harness compilation, both CLI admission checks,
+release metadata fixtures and release-depth-2 consumer-tooling fixtures.
+Evidence is in `/tmp/ic-scheduling-tooling-latest/`. The pre-existing lockfile
+update, including `log` 0.4.35, was preserved. No live PocketIC or full CI ran.
+
+The earlier nested consumer-tooling failure was fixed by reading its retained
+failure log instead of omitted console details. Historical focused evidence is
+in `/tmp/ic-scheduling-nested-fixture-fix/`; the original failure remains in
+`/tmp/jobs-consumer-tooling.QllqL7/` and release-state logs.
 
 Memory/Storage 0.58 adoption passes locked metadata, direct boundaries and all
 five Jobs graph contexts, Rust 1.91 strict native/Wasm Clippy, 71 consumer tests

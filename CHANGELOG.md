@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.33.2] - Unreleased
+
+### 📦 Dependencies
+
+- Adopt IC Tooling 0.72.1 across Build, Host and Testkit dependencies and the
+  selected Testkit server and release-metadata editor. Runtime dependencies,
+  stored formats and the Rust 1.91 floor remain unchanged.
+
 ## [0.33.1] - 2026-10-30
 
 ### 🩹 Fixed
