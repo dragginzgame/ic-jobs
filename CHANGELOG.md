@@ -1,6 +1,18 @@
 # Changelog
 
-## [0.33.1] - Unreleased
+## [0.33.2] - Unreleased
+
+### 🩹 Fixed
+
+- Prepare Clippy for the declared minimum Rust toolchain in CI before running
+  Timer probe linting through the shared toolchain setup action.
+
+## [0.33.1] - 2026-10-30
+
+### 🩹 Fixed
+
+- Read retained input-drift diagnostics in the consumer-tooling fixture so it
+  also passes inside nested release validation, where console details are omitted.
 
 ### ⚠️ Breaking
 
@@ -8,11 +20,6 @@
   those types must align their Metrics dependency to 0.21 and native Wire
   metadata to 0.10. Coordinate runtime users on Platform 0.11. Report fields,
   Serde layouts and arithmetic remain unchanged.
-
-### 🩹 Fixed
-
-- Prepare Clippy for the declared minimum Rust toolchain in CI before running
-  Timer probe linting through the shared toolchain setup action.
 
 ### 📦 Workspace
 
