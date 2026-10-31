@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.2] - Unreleased
+
+### 🩹 Fixed
+
+- Prepare Clippy for the declared minimum Rust toolchain in CI before running
+  Timer probe linting through the shared toolchain setup action.
+
 ## [0.33.1] - 2026-10-30
 
 ### 🩹 Fixed
