@@ -51,4 +51,3 @@ It is retained once; group ledgers link here. Earlier Jobs history remains in
 - Replace path-based test module wiring with ordinary module discovery and a
   private shared host-support crate. Keep that transport out of the published
   Jobs library, qualification Wasm and capture binary's normal dependency graph.
-

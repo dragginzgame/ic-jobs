@@ -6,7 +6,8 @@ The maintainer authorizes adopting the new Platform, Wire, Tooling, Memory,
 Storage and Shared Tooling, pushing necessary source changes, and releasing both
 Scheduling groups to GitHub and crates.io. Delivery remains subject to the full
 configured gates; no guard, receipt or installed recovery check is waived.
-Source is prepared on `main`; no real commit/tag/push/upload has run in this batch.
+Source adoption is committed on `main` at `1b8aa4a`; release/tag/push/upload has
+not yet run in this batch. All earlier source and supplier evidence is retained.
 Both groups still have package version 0.33.1. Proposed delivery order is Timers
 0.34.0, then Jobs 0.33.2, with each upload at its own pushed annotated tag.
 
