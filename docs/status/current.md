@@ -6,10 +6,16 @@ The maintainer authorizes adopting the new Platform, Wire, Tooling, Memory,
 Storage and Shared Tooling, pushing necessary source changes, and releasing both
 Scheduling groups to GitHub and crates.io. Delivery remains subject to the full
 configured gates; no guard, receipt or installed recovery check is waived.
-Source adoption is committed on `main` at `1b8aa4a`; release/tag/push/upload has
-not yet run in this batch. All earlier source and supplier evidence is retained.
-Both groups still have package version 0.33.1. Proposed delivery order is Timers
-0.34.0, then Jobs 0.33.2, with each upload at its own pushed annotated tag.
+Source adoption is committed at `1b8aa4a`. Both standard releases and crates.io
+uploads completed, supplier-first, with atomic `main`/annotated-tag pushes:
+
+| Group | Published package | Tag | Release commit |
+| --- | --- | --- | --- |
+| timers | [ic-timers 0.34.0](https://crates.io/crates/ic-timers/0.34.0) | `timers-v0.34.0` | `ed255a393ef7245ffcc8cf25d413a0f883f4b6c2` |
+| jobs | [ic-jobs 0.33.2](https://crates.io/crates/ic-jobs/0.33.2) | `jobs-v0.33.2` | `4a76520d2265ab598113f00c4fbde0111268ffe2` |
+
+Every group member has its group's released version. Both retained journals are
+complete; do not replay effects. This handoff update changes no package payload.
 
 Issue [#82 — Version Jobs and Timers independently](https://github.com/dragginzgame/ic-scheduling/issues/82)
 approves two groups in the existing nine-member workspace. Policy and complete
@@ -56,7 +62,18 @@ Clippy gate passes. Rust 1.91 consumer library, API-wire, composition and stored
 Wire tests pass. Both group plans, pins, direct boundaries, all graph contexts,
 timer provider/source identity checks and their rejection fixtures pass. Tools
 are prepared through the canonical host/IC/Build/Testkit setup, with old tool
-selections retained. Full release validation and installed recovery remain next.
+selections retained. Each standard release passed complete CI, MSRV/Wasm and
+packaging, then 43 installed watchdog tests and the live cohort qualification.
+The released Jobs source also passed all 11 explicit live consumer recovery
+tests, including endpoint refusals, upgrades, rollback, authorization and blocked
+uncertain-effect disposition. Original Wasm recovery evidence is
+`/tmp/jobs-recovery.dfKRF6/`; optimized variants were not selected.
+
+Actual release/publication logs, registry observations, downloaded registry and
+upload archives, VCS identities and observed remote refs are retained in the
+current evidence directory. Both non-yanked registry checksums match both their
+downloaded and upload archives; their embedded source commits match the tags.
+Validated/prepared receipts and complete journals remain under `.git/release-state`.
 
 Earlier snapshot/group evidence is `/tmp/ic-scheduling-shared018/` and
 `/tmp/ic-scheduling-82/`: both real adapter fixtures cover preparation rollback,
