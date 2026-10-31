@@ -2,22 +2,22 @@
 
 ## Current scope
 
-Adopt Memory/Storage 0.60.3 and push the scoped source changes under the existing
-instruction. Both published source trees match 0.60.2; the update changes package
-selections only. Platform 0.15.3, Testkit/Native 0.75.1 and Wire/Derive 0.13.1
-remain selected. No package bump, release or upload.
-Jobs remains 0.33.2; Timers remains 0.34.0. Pending notes remain Jobs 0.33.3 and
-Timers 0.35.0 for the earlier exposed Metrics type-identity change.
+The user explicitly authorized releasing and publishing Timers 0.35.0 to unblock
+Canic's latest dependency cohort. Published Timers 0.34.0 uses Metrics 0.23;
+the prepared 0.35.0 source uses Metrics 0.24 for exposed measurement types.
+Canic's latest-cohort identity check observes two Metrics owners with published
+0.34.0. Release only the Timers group through its complete standard gate and
+separate crates.io publication. Jobs stays 0.33.2 with pending 0.33.3 notes.
 
-The incoming dirty Cargo.lock already contains these selections plus separate
-Logging 0.23.3 and Metrics 0.24.1 patches. Preserve those two patches unstaged.
-Original bytes and a scoped candidate are retained at
-`/tmp/ic-scheduling-memory-storage.BVzsUC/`. Qualification and commit use the
-scoped graph with existing Logging 0.23.2 / Metrics 0.24.0, then restore the
-original working lock byte-for-byte. Testkit shares the consumer's Metrics 0.24
-identity. Preserve the unrelated working-lock patches through delivery.
+Separate dirty Logging 0.23.3 and Metrics 0.24.1 lock patches remain user-owned.
+Retain their original bytes and patch outside the workspace, run the release on
+the committed Logging 0.23.2 / Metrics 0.24.0 graph, and reapply those two patches
+after publication without reverting the newly released Timers package versions.
+Testkit shares the consumer's Metrics 0.24 identity. No sibling checkout writes.
 
-Next open work is [#83 — Documentation-only CI selection](https://github.com/dragginzgame/ic-scheduling/issues/83),
+After registry verification, retry Canic's latest-cohort adoption in its own
+workspace; that downstream qualification is separate. Lower-priority open work is
+[#83 — Documentation-only CI selection](https://github.com/dragginzgame/ic-scheduling/issues/83),
 an optional CI cost improvement. Its reviewed exact prose allowlist must retain
 full native qualification for code, policy, unknown paths and ambiguous history.
 This dependency update does not implement that issue.
