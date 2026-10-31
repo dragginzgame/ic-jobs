@@ -8,13 +8,14 @@ and [coordinated history through 0.33.1](../history.md).
 
 ### 📦 Dependencies
 
-- Adopt Build/Host 0.73.2 and Wire/Derive 0.13.1. Refresh the lock-selected
-  release editor through managed setup; preserve codec frames, budgets and typed
-  Testkit integration with the existing Platform Types identity.
-- Adopt Memory/Storage 0.60 and Metrics 0.24 in the private consumer, aligning
+- Adopt Build/Host 0.73.2, Testkit/Native 0.75.1, Wire/Derive 0.13.1 and Endpoint
+  0.2.1. Refresh lock-selected tools through managed setup; preserve codec frames,
+  budgets and typed Testkit integration with the existing Platform Types identity.
+- Adopt Memory/Storage 0.60.2, its required Platform 0.15.3 facade/guard and
+  Metrics 0.24 in the private consumer, aligning
   their codec and optional native schemas with Wire 0.13. Keep Jobs Serde-only;
   retained queue/ledger bytes, restore admission and blocked-effect recovery are
-  unchanged.
+  unchanged. Testkit now shares the consumer's Metrics 0.24 identity.
 
 ### 🔧 Changed
 
