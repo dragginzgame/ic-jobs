@@ -1,5 +1,6 @@
 .DEFAULT_GOAL := help
 export RELEASE_DELIVERY ?= direct
+export RELEASE_GROUP ?= jobs
 override SHARED_TOOLING_ROOT := $(CURDIR)
 override RELEASE_DELIVERY_POLICY := $(CURDIR)/ci/release-delivery.txt
 # Optimized qualification uses Binaryen; no other IC executable is required.
@@ -14,12 +15,12 @@ RELEASE_METADATA_LOCKFILE ?= $(CURDIR)/Cargo.lock
 RELEASE_METADATA_TOOL = bash scripts/dev/install-rust-tools.sh --package ic-build --lockfile "$(RELEASE_METADATA_LOCKFILE)" --bin ic-build-release-metadata --profile debug --features cli
 VALIDATION_INPUTS := --input Cargo.toml --input Cargo.lock --input rust-toolchain.toml \
 	--input .shared-tooling.snapshot --input Makefile --input scripts/dev/testkit-tool.sh --input scripts/dev/queue-command.sh --input scripts/dev/minimum-rust.sh --input ci/tool-versions.env \
-	--input ci/ic-tools.tsv --input ci/release-delivery.txt --input ci/cargo-dependency-boundaries.json \
+	--input ci/ic-tools.tsv --input ci/release-delivery.txt --input ci/cargo-dependency-boundaries.json --input ci/cargo-release-groups.json \
 	$(foreach manifest,$(wildcard crates/*/Cargo.toml apps/*/Cargo.toml),--input $(manifest))
 
 .PHONY: help version install-hooks check test-jobs test-consumers check-msrv check-wasm clippy docs-check check-doc-links shared-tooling-check check-pins check-release-commands test-release-tooling test-formatting-evidence package publish-check publish ci
 help:
-	@echo "IC Scheduling: ic-jobs and ic-timers share this workspace and release version"
+	@echo "IC Scheduling: shared workspace; RELEASE_GROUP=jobs (default) or timers"
 	@echo "Timers: test-timers, check-timer-provider, check-timer-dependencies, check-timer-probes"
 	@echo "Explicit Timers IC qualification: test-timer-watchdog, test-timer-cohorts"
 	@echo "Focused selections: see README (Consumer qualification) for package/test/target commands"
@@ -117,12 +118,16 @@ docs-check:
 	+cargo test -p ic-jobs --doc --all-features --locked --offline
 
 check-doc-links:
-	perl scripts/ci/check-documentation-links.pl --root . *.md docs/*.md docs/principles/*.md docs/status/*.md rules/*.md audits/*.md tasks/*.md $(shell rg --files docs/timers -g '*.md') crates/ic-timers/SAFETY.md crates/ic-timers/CHANGELOG.md $(wildcard apps/*/README.md apps/*/tests/fixtures/README.md crates/*/README.md crates/*/tests/fixtures/README.md)
+	perl scripts/ci/check-documentation-links.pl --root . *.md docs/*.md docs/changelog/*.md docs/principles/*.md docs/status/*.md rules/*.md audits/*.md tasks/*.md $(shell rg --files docs/timers -g '*.md') crates/ic-timers/SAFETY.md crates/ic-timers/CHANGELOG.md $(wildcard apps/*/README.md apps/*/tests/fixtures/README.md crates/*/README.md crates/*/tests/fixtures/README.md)
 
 check-pins:
 	+bash scripts/ci/check-dependency-pins.sh --cargo-inheritance
 
-.PHONY: check-dependency-boundaries
+.PHONY: check-dependency-boundaries check-release-groups package-all
+check-release-groups:
+	+bash scripts/ci/cargo-release-group.sh plan jobs > /dev/null
+	+bash scripts/ci/cargo-release-group.sh plan timers > /dev/null
+
 check-dependency-boundaries:
 	+bash scripts/ci/check-cargo-dependency-boundaries.sh --consumer "$(CURDIR)" --external-ic
 
@@ -133,7 +138,7 @@ CORE_GRAPH_FORBIDDEN := clap ctrlc candid candid_derive candid_parser ic-cdk ic-
 	ic-testkit-candid ic-testkit-native ic-jobs-test-consumer ic-jobs-canister-test-support pocket-ic serde_json serde_test
 QUALIFICATION_GRAPH_FORBIDDEN := ic-cdk-executor ic0 clap ctrlc serde_json ic-storage candid candid_derive candid_parser ic-cdk ic-agent ic-build ic-host-fs \
 	ic-host-process ic-host-artifacts ic-host-text ic-testkit ic-testkit-candid ic-testkit-native ic-jobs-canister-test-support pocket-ic tokio
-# Jobs, Timers and Memory share Platform 0.11 in the deployed graph.
+# Jobs, Timers and Memory share Platform 0.12 in the deployed graph.
 # Keep one executor, raw-system provider and entrypoint generator, without
 # application Principal conversion or hashing in the deployed graph.
 .PHONY: check-dependency-graphs
@@ -170,7 +175,6 @@ test-release-tooling: format-tools-check
 	+@editor="$$( $(RELEASE_METADATA_TOOL) --check )" && \
 		CARGO_RELEASE_METADATA_EDITOR="$$editor" CARGO_RELEASE_METADATA_MAX_BYTES=1048576 \
 		bash scripts/release/test-tooling.sh
-	+bash scripts/release/test-publication.sh
 
 RELEASE_TOOLING_GROUPS := delivery recovery metadata publication
 .PHONY: test-release-tooling-retention $(addprefix test-release-tooling-,$(RELEASE_TOOLING_GROUPS))
@@ -200,12 +204,15 @@ test-consumer-tooling: build-recovery-tools
 formatting-hook-check: format-tools-check
 	+bash scripts/ci/check-jobs-formatting.sh
 
-package:
+package-all:
 	+cargo package -p ic-jobs -p ic-timers --all-features --locked --offline --allow-dirty
+
+package:
+	+@package="$$(bash scripts/release/group.sh package)" && cargo package -p "$$package" --all-features --locked --offline --allow-dirty
 
 publish-check:
 	+$(MAKE) --no-print-directory clippy
-	+cargo publish -p ic-jobs -p ic-timers --all-features --locked --registry crates-io --allow-dirty --dry-run
+	+@package="$$(bash scripts/release/group.sh package)" && cargo publish -p "$$package" --all-features --locked --registry crates-io --allow-dirty --dry-run
 
 publish:
 	+@bash scripts/release/publish.sh "$(RELEASE_REMOTE)"
@@ -216,10 +223,10 @@ validation-tools-check: tools-check format-tools-check
 # Ordered recursive calls preserve admission before dependent work under -j.
 ci: shared-tooling-check
 	+bash scripts/ci/run-validation-targets.sh --fail-fast $(VALIDATION_INPUTS) \
-		validation-tools-check clippy check-timer-provider check-timer-dependencies check-timer-probes check-doc-links check-pins check-dependency-boundaries check-dependency-graphs check-release-commands \
+		validation-tools-check check-release-groups clippy check-timer-provider check-timer-dependencies check-timer-probes check-doc-links check-pins check-dependency-boundaries check-dependency-graphs check-release-commands \
 		test-release-tooling test-formatting-evidence test-consumer-tooling test-timers test-timer-dependencies \
 		formatting-hook-check fmt-check check test-jobs test-consumers \
-		check-consumer check-msrv check-wasm docs-check package
+		check-consumer check-msrv check-wasm docs-check package-all
 
 .PHONY: release-version release-preflight release-verify release-prepare-version release-prepared-check release-files release-commit-check release-committed-check release-tagged-check release-push-check
 version release-version:
@@ -230,6 +237,7 @@ release-preflight:
 
 release-verify:
 	+CARGO_NET_OFFLINE=true VALIDATION_FAILURE_LOG_DIR="$$(git rev-parse --git-path release-state)/validation-failures" bash scripts/ci/run-validation-targets.sh --fail-fast $(VALIDATION_INPUTS) ci install-testkit-tools install-consumer-server test-timer-watchdog test-timer-cohorts
+	+@if test -n "$${RELEASE_SOURCE:-}"; then bash scripts/release/metadata.sh validated; fi
 
 release-prepare-version:
 	+@bash scripts/release/metadata.sh prepare
@@ -241,7 +249,7 @@ release-commit-check:
 	+@bash scripts/release/metadata.sh commit-check
 
 release-files:
-	@printf '%s\0' Cargo.toml Cargo.lock CHANGELOG.md
+	@bash scripts/release/group.sh files
 
 # Timers product checks share this workspace's lock, compilers and Testkit setup.
 .PHONY: test-timers check-timer-provider check-timer-dependencies check-timer-probes test-timer-watchdog test-timer-cohorts

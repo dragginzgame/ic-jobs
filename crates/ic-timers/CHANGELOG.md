@@ -1,4 +1,26 @@
-# Changelog
+# IC Timers changelog
+
+Timers owns this ledger and its explicit package version. Jobs uses the
+[root ledger](../../CHANGELOG.md). The shared Scheduling release through 0.33.1
+is retained once in [coordinated history](../../docs/changelog/shared-through-0.33.1.md).
+The older Timers entries below are preserved as imported provenance; an undated
+entry alone does not establish publication.
+
+## [0.34.0] - Unreleased
+
+### ⚠️ Breaking
+
+- Adopt Metrics 0.23 for public measurement types. Consumers exchanging these
+  values must align Metrics identities. With defaults disabled, native schemas
+  require Metrics' `native-wire` feature and Wire 0.12.
+- Adopt Platform 0.12 for the runtime and its matching singleton guard. Runtime
+  consumers coordinate on this facade; callbacks, retained bytes and arithmetic
+  semantics remain unchanged.
+
+### 🔧 Changed
+
+- Version and release Timers and its four private probes independently of Jobs.
+  [#82 — Version Jobs and Timers independently](https://github.com/dragginzgame/ic-scheduling/issues/82).
 
 All notable changes to this project are recorded here.
 

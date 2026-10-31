@@ -1,8 +1,8 @@
 # IC Scheduling
 
 One Rust workspace for durable jobs and observable timer primitives on the
-Internet Computer. Both published crates share version 0.33.0, one dependency
-catalog, lockfile, toolchain and CI.
+Internet Computer. Jobs and Timers have independent release versions within one
+dependency catalog, lockfile, toolchain and CI.
 
 - [`ic-jobs`](crates/ic-jobs/README.md): durable records and checked job policies.
 - [`ic-timers`](crates/ic-timers/README.md): volatile callbacks, wakeups and watchdogs.
@@ -98,7 +98,7 @@ application's selected target graph and source rather than counting manifests.
 For example, inspect the qualification Wasm's paths with:
 
 ```sh
-cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.11.1 --locked --offline
+cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform@0.12.0 --locked --offline
 cargo tree -p ic-jobs-test-consumer --target wasm32-unknown-unknown --edges normal,build --invert ic-platform-runtime-guard --locked --offline
 ```
 
@@ -110,7 +110,7 @@ The qualification app selects Platform's `cdk` feature only on Wasm. Native
 consumer builds explicitly select Platform's `principal` feature for Serde DTOs
 and Wire contracts. Jobs, Memory and Timers remain Wasm/test dependencies; JSON
 is limited to native fixtures and tooling. Parser, Agent,
-certification and crypto features are not selected. Platform 0.11 owns the reviewed
+certification and crypto features are not selected. Platform 0.12 owns the reviewed
 runtime adapters and generator; its embedded executor and IC0 are shared with Timers. The qualification Wasm selects neither Candid nor full `ic-cdk`.
 Owned native DTO principals exclude external Principal and SHA-2 dependencies.
 The Wasm application selects neither principal conversion nor SHA-2 hashing;
@@ -159,8 +159,8 @@ Cargo roots and its catalog and feature selections are reviewed separately.
 in CI/release validation: all-feature native and Wasm core graphs exclude the
 local tests/tooling and IC integrations; the all-feature qualification Wasm excludes
 host-only packages, JSON, Candid and full CDK. It requires one Timers, Platform runtime guard and entrypoint generator; registry
-executor and IC0 packages are excluded. The application, Timers and Memory
-share Platform 0.11.1, including the common stable-structures supplier.
+executor and IC0 packages are excluded. The application, Timers and Memory share Platform 0.12, including the
+stable-structures supplier.
 The graph excludes application principal conversion and SHA-2.
 A fourth context excludes Jobs, Memory, Timers, JSON and the IC runtime from
 ordinary native consumer builds, including the
@@ -273,14 +273,19 @@ parsing and preserves the original/optimized capture invocation forms.
 
 ## Delivery
 
-The public repository is [dragginzgame/ic-jobs](https://github.com/dragginzgame/ic-scheduling).
-`make version` inspects the local version. `make package` verifies the crate
+The public repository is [dragginzgame/ic-scheduling](https://github.com/dragginzgame/ic-scheduling).
+Jobs is the default release group; select Timers with `RELEASE_GROUP=timers`.
+The [group policy](ci/cargo-release-groups.json) covers all nine members.
+See the [Jobs ledger](CHANGELOG.md), [Timers ledger](crates/ic-timers/CHANGELOG.md)
+and [shared history through 0.33.1](docs/changelog/shared-through-0.33.1.md).
+`make version` inspects the selected version. `make package` verifies its crate
 archive offline; `make publish-check` performs a publication dry run with registry
 access. Both permit working edits and upload nothing.
 
 Explicitly authorized `make release-patch`, `make release-minor` and
 `make release-major` commands run the complete gate, prepare metadata, commit,
-tag and atomically push to `origin`/`main`. Package upload is a separate
+tag (`jobs-vX.Y.Z` or `timers-vX.Y.Z`) and atomically push to `origin`/`main`.
+Both groups retain the full combined release gate. Package upload is a separate
 `make publish` operation requiring clean source and the matching pushed annotated
 tag. See [delivery procedure](docs/releasing.md) for prerequisites and interruption
 recovery. Configuring these commands does not authorize a release or upload.

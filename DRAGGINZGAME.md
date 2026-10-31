@@ -194,10 +194,21 @@ suppressions. Repositories must review every `allow` for conversion and retain
 one only with a concrete reason why an expectation cannot work. Follow the
 [lint suppression rule](docs/principles/rust-code-hygiene.md#lint-suppressions).
 
-Use root-owned workspace dependencies and versions, reviewed shared tooling,
-explicit setup and the product's declared compiler/host requirements. External
-IC dependencies go through `ic-platform`; npm SDK Core uses
-`@tokostudios/ic-platform`. Do not add Python tooling. Read the applicable
+Keep related crates in one development workspace, with coordinated versions
+within explicit release groups where unrelated contracts need independent
+releases. Make group membership, version sources and changelog locations visible
+in root `Cargo.toml` comments under the
+[workspace versioning rules](rules/rust-workspaces.md#coordinated-versions-and-workspace-boundaries).
+Use root-owned dependency selections, reviewed shared tooling, explicit setup
+and the product's declared compiler/host requirements. External
+IC dependencies go through `ic-platform`; its canonical `ic-platform-types`
+identity owner may additionally select only `ic_principal` for explicit registry
+conversions and unchanged self-authentication. npm SDK Core uses
+`@tokostudios/ic-platform`. Keep reusable cores independently upgradable;
+adapters own their matching integration stacks and must not impose consumer
+framework dependencies on core development. Follow the
+[core and integration graph boundary](rules/rust-workspaces.md#core-and-integration-graph-boundary).
+Do not add Python tooling. Read the applicable
 [workspace/tooling contracts](rules/engineering-details.md#rust-workspaces-and-portable-tooling)
 for manifests, dependencies, hooks, installers or shared snapshots, and the
 [Rust hygiene guide](docs/principles/rust-code-hygiene.md) for Rust implementation.

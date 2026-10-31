@@ -41,6 +41,7 @@ jobs:
           minimum: ${{ steps.rust-policy.outputs.minimum }}
           development-target: wasm32-unknown-unknown
           minimum-target: wasm32-unknown-unknown
+          minimum-components: clippy
       - name: Prepare the complete selected toolset
         run: make install-tools
       - name: Check prepared tools offline

@@ -764,10 +764,10 @@ For direct low-level invocation, explicitly prepare the pinned published package
 then capture its offline-admitted selection before running the helper:
 
 ```sh
-bash scripts/dev/install-rust-tools.sh --package ic-build --version 0.18.0 \
-  --bin ic-build-release-metadata --profile debug || exit "$?"
+bash scripts/dev/install-rust-tools.sh --package ic-build --version 0.73.0 \
+  --bin ic-build-release-metadata --profile debug --features cli || exit "$?"
 CARGO_RELEASE_METADATA_EDITOR="$(bash scripts/dev/install-rust-tools.sh \
-  --package ic-build --version 0.18.0 --bin ic-build-release-metadata --profile debug \
+  --package ic-build --version 0.73.0 --bin ic-build-release-metadata --profile debug --features cli \
   --check --wait-seconds 30)" || exit "$?"
 export CARGO_RELEASE_METADATA_EDITOR
 export CARGO_RELEASE_METADATA_MAX_BYTES=8388608
@@ -809,8 +809,9 @@ the reusable Cargo-only metadata flow. Adopt it as a snapshot root; its version
 reader, changelog finalizer and preparation transaction are required companions.
 It requires root `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, workspace-inherited package versions
 and no source-less packages outside the workspace. It admits actual workspace
-and lock identities before mutation; independently versioned packages need their
-consumer-owned adapter. Existing adapters are not replaced by adoption alone.
+and lock identities before mutation. Explicitly approved independently versioned
+groups use the opt-in contract below. Existing consumer policy adapters are not
+replaced by adoption alone.
 
 Preparation delegates installation and restoration to
 `release-metadata-transaction.sh`. Every candidate finishes rendering before any
@@ -842,6 +843,131 @@ IC Metrics adopts the corrected helper from committed Shared Tooling 0.11.1
 through normal snapshot distribution, retaining its local policy in a thin adapter.
 Other Cargo consumers must retain their own file set, recovery and metadata policy
 when qualifying this adapter; it is not a fleet-wide automatic replacement.
+
+### Explicit Cargo release groups
+
+Independent release groups require the maintainer agreement described in
+[workspace boundaries](../rules/rust-workspaces.md#coordinated-versions-and-workspace-boundaries).
+Ordinary coordinated workspaces need no configuration or invocation changes.
+Keep related packages in their existing workspace; separate release identities
+do not require package moves or another lockfile. Make the declared groups easy
+to inspect using the root
+[`Cargo.toml` comment map](../rules/rust-workspaces.md#visible-release-group-map-in-cargotoml).
+Use [one changelog per group and retained shared history](../rules/changelogs.md#release-group-changelogs-and-shared-history);
+comments and a historical ledger are not executable release inputs.
+An approved consumer declares `ci/cargo-release-groups.json`, for example:
+
+```json
+{
+  "schema": 1,
+  "groups": [
+    {
+      "name": "codec",
+      "primary": "ic-wire",
+      "version": "workspace",
+      "members": ["ic-wire", "ic-wire-derive", "ic-wire-benchmarks"],
+      "changelog": "CHANGELOG.md",
+      "dependencies": ["ic-wire", "ic-wire-derive"]
+    },
+    {
+      "name": "endpoint",
+      "primary": "ic-wire-endpoint",
+      "version": "package",
+      "members": ["ic-wire-endpoint"],
+      "changelog": "crates/ic-wire-endpoint/CHANGELOG.md",
+      "dependencies": ["ic-wire-endpoint"]
+    }
+  ]
+}
+```
+
+This is an illustrative approved layout, not an instruction to create these
+packages or select their versions. Every actual workspace member, including
+private qualification packages, belongs to exactly one group. Names and ledgers
+are unique. A `workspace` group inherits `workspace.package.version`; at most one
+group uses that source. A `package` group owns literal `package.version` values
+in every member, all matching its primary member. No shadow version file is
+introduced. Member paths come from successful locked Cargo metadata.
+
+A group may declare an optional `metadata_files` array for additional
+consumer-owned release metadata, for example a runtime qualification lockfile
+and an exact runtime-guard pin. Paths must name existing regular files beneath
+the repository, without symlink components. They must be unique across groups
+and cannot overlap workspace manifests, the root lockfile, group ledgers, the
+group policy or Git state. They are appended in declared order to the exact
+release-file plan and bound by the existing source/receipt checks.
+
+A workspace may additionally declare top-level `shared_metadata_files` for
+consumer metadata needed by multiple groups, such as one combined qualification
+lock. These paths have one explicit common declaration and are included exactly
+once in every group's file plan. The same regular-file, reserved-path and
+uniqueness rules apply across common and group-local metadata; repeating a common
+path in any group is rejected. Consumers retain selective rendering and semantic
+checks so a release preserves unrelated portions of common files. This is not
+permission to share conflicting group ownership or stage undeclared files.
+
+Shared preparation preserves these files byte-for-byte and restores them with
+its transaction on failure. The consumer owns their rendering, semantic checks
+and any recovery spanning its additional preparation steps; listing a file does
+not supply those checks or make the whole consumer adapter transactional.
+An unselected group's additional metadata remains outside the staging roster.
+
+`dependencies` explicitly lists root `workspace.dependencies` aliases with both
+path and version that refer to members of that group, including renamed aliases
+and requirements used by other groups. It must match that complete set. Simple
+bare, `^`, `~` and `=` requirements retain precision and prefix; unsupported
+ranges refuse. External paths merely sharing a name are never rewritten. Member
+dependencies still inherit the root catalog. Releasing a supplier can update a
+cross-group requirement without changing the other group's package identity;
+that is workspace qualification, not publication of the other group's new
+dependency declaration under an already-published version. Release that consumer
+group separately when its own changed contract needs publication.
+
+Select `RELEASE_GROUP=endpoint` with the existing release commands and consumer
+policy adapter. The runner uses `endpoint-vX.Y.Z` tags, `Release endpoint X.Y.Z`
+commit subjects and `endpoint-X.Y.Z.plan` journals. Group PR delivery uses
+`release/endpoint-vX.Y.Z`. One repository-wide release lock still protects the
+shared lockfile and source. Group journals record the group explicitly, and
+validation receipts bind the group and policy blob as well as source/destination.
+Resume requires the same group, version and delivery identity. The runner admits
+the adapter's version and exact release-file list against the declared group;
+selecting a group must never narrow its full workspace/release validation gate.
+
+`cargo-release-metadata.sh prepare|check|check-graph PRIMARY` delegates group
+selection when `RELEASE_GROUP` is set and rejects a different primary. Both
+manifest ordering flags retain selected-commit semantics. The source-only group
+projection is also available as:
+
+```bash
+bash scripts/ci/cargo-release-group.sh version endpoint
+bash scripts/ci/cargo-release-group.sh files endpoint  # NUL-delimited exact metadata paths
+bash scripts/ci/cargo-release-group.sh plan endpoint   # admitted JSON for consumer policy
+```
+
+The plan and files include the root manifest/lock, selected group ledger and
+literal-version member manifests. Full locked/offline resolution admits every
+group and local lock record before and after preparation. Only the selected
+versions, declared local requirements and selected ledger are rendered; existing
+transaction mechanics restore all selected files on failure. Failed checks retain
+Cargo output/statuses, policy/root inputs and preparation evidence. Source, index,
+receipt custody and the complete gate remain consumer-owned.
+
+Group preparation requires an IC Build editor supplying `group-manifest` with
+the existing bounded input contract. Its selection JSON explicitly names a
+`workspace`, `package` or `unchanged` version and exact workspace requirement
+projections. The existing lock editor already accepts a selected package set.
+Adopt a published supplying editor through the normal tool-selection mechanism;
+do not patch vendored scripts or silently use an unrelated executable. The
+`test-cargo-release-groups.sh` fixture is part of the portable CI roster and uses
+Shared's selected IC Build 0.73.0 editor with its explicit `cli` feature. Direct
+producer integration qualification may select a compiled candidate explicitly;
+that evidence is not registry delivery or installed-tool admission.
+
+Publication remains separate. Use the consumer's explicit selected package batch
+with the existing publication adapter; it admits each package's own version and
+leaves Cargo's dependency ordering intact. Group release does not publish another
+group or waive any package's publication checks. No group is inferred and no
+second release runner is introduced.
 
 ### Pure release input admission
 

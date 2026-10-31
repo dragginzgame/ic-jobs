@@ -64,7 +64,7 @@ on it or introduce a persisted-format migration.
 Registry-published `ic-platform` is the selected boundary; the current lock and
 source-qualified receipts are recorded in [current status](../status/current.md).
 Published Platform owns the maintained non-cryptographic runtime and
-explicit-codec generator. Platform 0.11 embeds its maintained IC0 bindings and
+explicit-codec generator. Platform 0.12 embeds its maintained IC0 bindings and
 executor instead of selecting their registry packages; it selects no full CDK.
 The root catalog disables default Platform features. The library selects only
 `executor` and `ic0`; the two canister probes select `cdk` (including its new
@@ -78,10 +78,10 @@ Parser, Agent, certification and ledger capabilities remain unselected.
 The private platform uses `ic_platform::ic0` for its existing system calls,
 retaining context placement, protected spawning and callback/trap cleanup.
 Method/task handles now have Platform identity. Cargo's inherited executor
-singleton guard, selected through Platform 0.11.1's optional version-matched
+singleton guard, selected through Platform 0.12.0's optional version-matched
 helper, rejects a parallel executor owner. The helper has no runtime API;
 only Platform selects it. Applications must coordinate
-all canister runtime consumers on Platform 0.11 without handle conversions or
+all canister runtime consumers on Platform 0.12 without handle conversions or
 temporary runtime patches. Deployed roots have one Platform and no standalone
 `ic-cdk-executor` or `ic0` package. Native substitutes cannot
 qualify those IC paths. [The call ownership boundary](../../crates/ic-timers/SAFETY.md#platform-and-application-call-ownership)
@@ -145,14 +145,15 @@ The driver selects Platform, Testkit, Wire and the probe protocol only for its
 test binary. Its normal build coordinator uses Build and Host for artifacts and
 process custody, plus Clap/Serde/JSON for commands and receipts. It does not link
 the simulator or codecs. Build, Host and Testkit share the published family
-selected by the root lockfile. The driver and Testkit 0.72 share Platform 0.11.1 and Wire 0.10.
+selected by the root lockfile. The driver uses Platform 0.12 and Wire 0.11; Testkit 0.73 uses
+Platform 0.13 for native transport with the same external Principal identity.
 Both select the same external Principal and PocketIC package identities.
 Timers passes external client types across the test boundary, not owned
 Principal values.
 Testkit also selects Candid/management support for native provider
 fixtures; PocketIC retains Candid for its simulator protocols. These are native
 qualification dependencies. Independent library and canister graphs
-remain Candid-free and select only Platform 0.11.
+remain Candid-free and select only Platform 0.12.
 These host-only providers do not enter deployed graphs; there is no unpublished
 override.
 The local provider check also rejects Candid codec paths and default-codec

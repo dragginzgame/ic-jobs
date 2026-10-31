@@ -1,774 +1,186 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
-
-group="${1:-all}"
-case "$group" in all|retention|delivery|recovery|metadata|publication) ;; *)
-    echo 'usage: test-tooling.sh [all|retention|delivery|recovery|metadata|publication]' >&2; exit 2 ;;
-esac
-[[ $# -le 1 ]] || exit 2
-
-# Real Git fixtures; the complete release gate and crates.io effects are replaced.
-# Dependencies: Bash 3.2, Git, Make, Cargo/cargo-sort, jq/yq and Perl.
-root="${BASH_SOURCE[0]}"
-[[ "$root" == /* ]] || root="$PWD/$root"
-root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
-root="${root%/.}"
+set -euo pipefail
+mode="${1:-all}"
+case "$mode" in all|retention|metadata|delivery|recovery|publication) ;; *) exit 2 ;; esac
+root="$(cd -P "${BASH_SOURCE[0]%/*}/../.." && pwd -P)"
+export PATH="$root/.tools/host/bin:$PATH"
 # shellcheck source=scripts/ci/fixture-lifecycle.sh
 source "$root/scripts/ci/fixture-lifecycle.sh"
-fixture="$(fixture_create "${TMPDIR:-/tmp}/jobs-release-tooling.XXXXXX")"
+suite="$(fixture_create "${TMPDIR:-/tmp}/scheduling-release-groups.XXXXXX")"
 fixture_complete=false
-trap 'fixture_finish "$?" "$fixture" "Failed release tooling fixture retained"' EXIT
-trap 'printf "error: release tooling failed at %s:%s\n" "${BASH_SOURCE[0]}" "$LINENO" >&2' ERR
+trap 'fixture_finish "$?" "$suite" "Release-group fixture retained"' EXIT
 unset MAKEFLAGS MFLAGS MAKEOVERRIDES GNUMAKEFLAGS MAKEFILES
-unset RELEASE_DELIVERY RELEASE_SOURCE RELEASE_COMMIT RELEASE_VERSION RELEASE_PREVIOUS RELEASE_DATE
-unset RELEASE_REMOTE RELEASE_BRANCH RELEASE_MAKE VERSION
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE
-unset TOOLING_GATE_FAILURE TOOLING_REGISTRY_HTTP TOOLING_UPLOAD_RESULT
-unset TOOLING_FETCH_FAILURE
-unset TOOLING_INSTALL_FAILURE TOOLING_CHECK_FAILURE TOOLING_BUILD_EVENTS
-unset TOOLING_COMMON_CHECK_FAILURE
-unset TOOLING_CLIPPY_FAILURE TOOLING_CLIPPY_MUTATION
-export RUSTUP_AUTO_INSTALL=0
-
-if [[ "$group" == all || "$group" == retention ]]; then
-# Shared owns exit injection and retained-evidence assertions. Jobs selects its
-# actual fixture roster; archive round trips and command assertions stay local.
-# shellcheck source=scripts/ci/fixture-retention-probes.sh
-source "$root/scripts/ci/fixture-retention-probes.sh"
-mkdir -p "$fixture/exit-source/scripts/release" "$fixture/exit-source/scripts/ci"
-cp "$root/scripts/ci/fixture-retention-probes.sh" "$fixture/exit-source/scripts/ci/"
-for relative in scripts/release/test-tooling.sh scripts/release/test-publication.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh scripts/ci/check-jobs-formatting.sh; do
-    status=0
-    FIXTURE_PROBE_ROOT_VARIABLE=root fixture_probe_exits "$root/$relative" "$fixture" "$root" "${relative##*/}" || status=$?
-    [[ "$status" == 0 ]] || exit 1
-done
-
-# Contradict one explicit command-status assertion in each actual fixture. Bash 3.2
-# can ignore a bare [[ ... ]] failure, continue, and delete the evidence after
-# reaching completion; these mandatory checks must explicitly stop the fixture.
-for relative in scripts/release/test-tooling.sh scripts/release/test-publication.sh scripts/ci/test-formatting-evidence.sh scripts/ci/test-consumer-tooling.sh; do
-    # shellcheck disable=SC2016 # Select literal assertions from maintained sources.
-    case "$relative" in
-        scripts/release/test-tooling.sh) assertion='[[ "$status" == 0 ]]' ;;
-        scripts/release/test-publication.sh) assertion='[[ "$status" == 43 ]]' ;;
-        scripts/ci/test-formatting-evidence.sh) assertion='[[ "$status" == 37 ]]' ;;
-        scripts/ci/test-consumer-tooling.sh) assertion='[[ "$status" == 2 ]]' ;;
+unset RELEASE_COMMIT RELEASE_VERSION RELEASE_PREVIOUS RELEASE_DATE RELEASE_PREPARATION_SOURCE RELEASE_GROUP
+export GROUP_TEST_REAL_MAKE GROUP_TEST_REAL_EDITOR GROUP_TEST_REAL_CARGO
+GROUP_TEST_REAL_MAKE="$(command -v make)"
+GROUP_TEST_REAL_CARGO="$(command -v cargo)"
+GROUP_TEST_REAL_EDITOR="${CARGO_RELEASE_METADATA_EDITOR:-}"
+if [[ -z "$GROUP_TEST_REAL_EDITOR" ]]; then
+    GROUP_TEST_REAL_EDITOR="$(make --silent --no-print-directory -C "$root" release-tools-check)"
+fi
+mkdir "$suite/source" "$suite/bin"
+cp "$root"/{Cargo.toml,Cargo.lock,CHANGELOG.md,README.md,LICENSE,Makefile,.gitignore,.shared-tooling.snapshot,rust-toolchain.toml} "$suite/source/"
+cp -R "$root"/{crates,apps,scripts,make,ci,docs} "$suite/source/"
+cat > "$suite/bin/editor" <<'EDITOR'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ ( "${GROUP_TEST_EDITOR_FAILURE:-}" == manifest && "$*" == *group-manifest* ) ||
+      ( "${GROUP_TEST_EDITOR_FAILURE:-}" == lock && "$*" == *' lock '* ) ]]; then
+    echo 'partial invalid candidate'
+    exit 37
+fi
+exec "$GROUP_TEST_REAL_EDITOR" "$@"
+EDITOR
+cat > "$suite/bin/make" <<'MAKE'
+#!/usr/bin/env bash
+set -euo pipefail
+for arg in "$@"; do
+    case "$arg" in
+        RELEASE_SOURCE=*|RELEASE_PREVIOUS=*|RELEASE_VERSION=*|RELEASE_DATE=*|RELEASE_REMOTE=*|RELEASE_BRANCH=*|RELEASE_COMMIT=*|RELEASE_GROUP=*|RELEASE_PREPARATION_SOURCE=*) export "$arg" ;;
     esac
-    fixture_probe_assertion "$root/$relative" "$fixture" "$root" "${relative##*/}" \
-        --selected "$root/$relative" "$assertion" 'status=97' || exit 1
 done
-
-fi
-
-# Retention probes exercise only fixture admission/EXIT boundaries. They need
-# neither a metadata editor nor the Cargo/repository setup used by other groups.
-if [[ "$group" == retention ]]; then
-    printf 'Release tooling group retention passed (fixture retention only)\n'
-    fixture_complete=true
-    exit 0
-fi
-export TOOLING_EDITOR="${CARGO_RELEASE_METADATA_EDITOR:?select the admitted fixture editor}"
-unset CARGO_RELEASE_METADATA_EDITOR CARGO_RELEASE_METADATA_MAX_BYTES TOOLING_EDITOR_FAILURE
-
-export TOOLING_REAL_CARGO
-TOOLING_REAL_CARGO="$(command -v cargo)"
-mkdir "$fixture/cache-bin"
-cat > "$fixture/cache-bin/cargo" <<'CARGO'
-#!/usr/bin/env bash
-set -euo pipefail
-if [[ "${1:-}" == clippy ]]; then
-    printf '%s\n' "$*" >> .git/clippy-events
-    if [[ "${TOOLING_CLIPPY_FAILURE:-0}" == "$(wc -l < .git/clippy-events | tr -d ' ')" ]]; then
-        echo 'fixture Clippy failure' >&2
-        exit 37
-    fi
-    # Simulate concurrent edits at the last lint boundary, using real Git and
-    # coherent metadata. Upload itself remains intercepted below.
-    if [[ -n "${TOOLING_CLIPPY_MUTATION:-}" && "$(wc -l < .git/clippy-events | tr -d ' ')" == 3 ]]; then
-        version="$(bash scripts/ci/read-cargo-workspace-version.sh --stable Cargo.toml)"
-        case "$TOOLING_CLIPPY_MUTATION" in
-            head) git commit --quiet --allow-empty -m 'Fixture concurrent commit' ;;
-            version)
-                "$TOOLING_EDITOR" --max-input-bytes 1048576 \
-                    manifest Cargo.toml "$version" 0.0.0 > .git/concurrent-manifest
-                "$TOOLING_EDITOR" --max-input-bytes 1048576 \
-                    lock Cargo.lock "$version" 0.0.0 ic-jobs ic-jobs-test-consumer ic-jobs-canister-tests > .git/concurrent-lock
-                cp .git/concurrent-manifest Cargo.toml
-                cp .git/concurrent-lock Cargo.lock
-                git add -- Cargo.toml Cargo.lock
-                git commit --quiet -m 'Fixture concurrent version'
-                ;;
-            tag) git tag -f -a "v$version" -m 'Fixture concurrent tag replacement' ;;
-            missing-tag) git tag -d "v$version" ;;
-            dirty) printf '\nFixture concurrent edit.\n' >> README.md ;;
-            *) exit 49 ;;
-        esac
-    fi
-    exit 0
-fi
-if [[ -n "${TOOLING_CLIPPY_FAILURE:-}" ]]; then
-    case "${1:-}" in
-        check|test|build|package|doc|publish|run|+*)
-            printf '%s\n' "$*" >> .git/validation-events
-            exit 49 ;;
+for arg in "$@"; do
+    case "$arg" in
+        release-verify)
+            printf '%s\n' "${RELEASE_GROUP:?}" >> "$GROUP_TEST_EVENTS"
+            bash scripts/release/metadata.sh validated
+            exit 0 ;;
+        install-tools|tools-check|install-release-tools) exit 0 ;;
+        release-tools-check) printf '%s\n' "$GROUP_TEST_EDITOR"; exit 0 ;;
+        release-push-check)
+            if [[ "${GROUP_TEST_PUSH_FAILURE:-0}" == 1 ]]; then exit 37; fi ;;
     esac
-fi
-if [[ "${1:-}" == fetch ]]; then
-    printf '%s\n' "$*" >> "$TOOLING_FETCH_EVENTS"
-    [[ "$*" == 'fetch --locked' ]] || { echo 'unexpected cache preparation arguments' >&2; exit 45; }
-    if [[ "${TOOLING_FETCH_FAILURE:-0}" != 0 ]]; then
-        echo 'fixture registry fetch failed' >&2
-        exit "$TOOLING_FETCH_FAILURE"
-    fi
-    if [[ "${CARGO_NET_OFFLINE:-false}" == true && ! -f "$TOOLING_CACHE_READY" ]]; then
-        echo 'fixture dependency is absent from the offline cache' >&2
-        exit 44
-    fi
-    touch "$TOOLING_CACHE_READY"
-    exit 0
-fi
-exec "$TOOLING_REAL_CARGO" "$@"
-CARGO
-chmod +x "$fixture/cache-bin/cargo"
-export PATH="$fixture/cache-bin:$PATH"
-base_version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable "$root/Cargo.toml")"
-cat > "$fixture/expected-clippy" <<'CLIPPY'
-clippy -p ic-jobs --all-targets --all-features --locked --offline -- -D warnings
-clippy -p ic-jobs-test-consumer -p ic-jobs-canister-test-support -p ic-jobs-canister-tests -p ic-timers --all-targets --locked --offline -- -D warnings
-clippy -p ic-jobs-test-consumer --target wasm32-unknown-unknown --locked --offline -- -D warnings
-CLIPPY
-
-new_repository() {
-    local name="$1"
-    repository="$fixture/$name"
-    mkdir -p "$repository"
-    cp "$root"/{Cargo.toml,Cargo.lock,CHANGELOG.md,README.md,LICENSE,Makefile,.gitignore,.shared-tooling.snapshot,rust-toolchain.toml} "$repository/"
-    cp -R "$root/crates" "$root/apps" "$root/scripts" "$root/make" "$root/ci" "$repository/"
-    # Keep shared recipes intact; replace their external installer effects.
-    for toolset in host ic rust; do
-        cat > "$repository/scripts/dev/install-$toolset-tools.sh" <<'INSTALLER'
-#!/usr/bin/env bash
-set -euo pipefail
-consumer="$(cd -P . && printf '%s/.' "$PWD")"
-consumer="${consumer%/.}"
-if [[ "${1:-}" == --package ]]; then
-    [[ "${0##*/}" == install-rust-tools.sh && ( $# == 10 || $# == 11 ) ]] || exit 49
-    [[ "$2" == ic-build && "$3" == --lockfile && "$4" == /* && -f "$4" &&
-       "$5" == --bin && "$6" == ic-build-release-metadata && "$7" == --profile && "$8" == debug &&
-       "$9" == --features && "${10}" == cli ]] || exit 49
-    # Verify selection is read from the supplied lock, including saved-source
-    # recovery when live metadata cannot be parsed at all.
-    yq -p toml -o json '.' "$4" | jq -e '.package[] | select(.name == "ic-build")' > /dev/null
-    phase=install
-    if [[ "${11:-}" == --check ]]; then phase=check; else [[ $# == 10 ]] || exit 49; fi
-    printf '%s\n' "$phase" >> .git/editor-events
-    # A plausible path followed by failure must never dispatch the editor.
-    printf '%s\n' "$TOOLING_EDITOR"
-    [[ "${TOOLING_EDITOR_FAILURE:-}" != "$phase" ]] || exit 37
-    if [[ "${TOOLING_EDITOR_FAILURE:-}" == saved-check && "$phase" == check && -d .git/release-state ]]; then
-        for plan in .git/release-state/*.plan; do [[ ! -e "$plan" ]] || exit 37; done
-    fi
-    if [[ "$phase" == install ]]; then touch .git/editor-ready; fi
-    [[ -f .git/editor-ready ]] || exit 38
-    exit 0
-fi
-[[ $# -ge 4 ]] || exit 49
-[[ "$1" == --consumer && "$2" == "$consumer" ]] || exit 49
-case "${0##*/}" in
-    install-host-tools.sh) toolset=host; catalog=--versions; file=tool-versions.env ;;
-    install-ic-tools.sh) toolset=ic; catalog=--pins; file=ic-tools.tsv ;;
-    install-rust-tools.sh) toolset=rust; catalog=--versions; file=tool-versions.env ;;
-    *) exit 49 ;;
-esac
-[[ "$3" == "$catalog" && "$4" == "$consumer/ci/$file" ]] || exit 49
-shift 4
-if [[ "$toolset" == ic ]]; then
-    [[ "${1:-}" == --tool && "${2:-}" == wasm-opt ]] || exit 49
-    shift 2
-fi
-[[ $# -le 1 ]] || exit 49
-case "${1:-}" in
-    --preflight)
-        [[ "$toolset" != host ]] || exit 49
-        if [[ "$toolset" == rust ]]; then printf 'rust-preflight\n' >> .git/tool-events; fi ;;
-    --check)
-        phase="$toolset-tools-check"
-        printf '%s\n' "$phase" >> .git/tool-events
-        [[ "${TOOLING_COMMON_CHECK_FAILURE:-}" != "$phase" && "${TOOLING_CHECK_FAILURE:-0}" == 0 ]] || exit 1 ;;
-    '')
-        printf 'install-%s-tools\n' "$toolset" >> .git/tool-events
-        [[ "${TOOLING_INSTALL_FAILURE:-0}" == 0 ]] || exit 1 ;;
-    *) exit 49 ;;
-esac
-INSTALLER
-    done
-    cat > "$repository/scripts/ci/verify-shared-tooling-snapshot.sh" <<'VERIFY'
-#!/usr/bin/env bash
-exit 0
-VERIFY
-    # Keep the production Makefile. Substitute only the validation runner so the
-    # real release adapters and CI admission route cannot drift behind a replica.
-    cat > "$repository/scripts/ci/run-validation-targets.sh" <<'VALIDATE'
-#!/usr/bin/env bash
-set -euo pipefail
-[[ "${1:-}" == --fail-fast ]] || exit 49
-shift
-while [[ "${1:-}" == --input ]]; do
-    [[ $# -ge 2 && -n "$2" ]] || exit 49
-    shift 2
 done
-if [[ "$*" == 'ci install-testkit-tools install-consumer-server test-timer-watchdog test-timer-cohorts' ]]; then
-    [[ "${TOOLING_GATE_FAILURE:-0}" == 0 ]] || exit 1
-    printf 'substitute gate\n' >> .git/gate-events
-    exit 0
-fi
-[[ "${1:-}" == validation-tools-check ]] || exit 49
-make --no-print-directory validation-tools-check
-printf 'unexpected build\n' >> .git/validation-events
-exit 49
-VALIDATE
-    cd "$repository"
-    git init --quiet --initial-branch=main
-    git config user.name 'Release tooling fixture'
-    git config user.email fixture@example.invalid
-    git config commit.gpgSign false
-    git config tag.gpgSign false
-    git config core.hooksPath /dev/null
-    git init --quiet --bare "$repository.git"
-    git remote add origin "$repository.git"
-    export TOOLING_FETCH_EVENTS="$repository/.git/fetch-events"
-    export TOOLING_CACHE_READY="$repository/.git/cache-ready"
-    : > "$TOOLING_FETCH_EVENTS"
-}
-commit_source() {
-    git add -- .
-    git commit --quiet -m 'Fixture source'
-    git push --quiet origin main
-}
-refuse() {
-    local label="$1"
-    shift
-    if "$@" > "$fixture/$label.log" 2>&1; then
-        echo "Unexpected acceptance: $label" >&2; exit 1
-    else
-        refusal_status=$?
-    fi
-}
-
-phase_delivery() (
-trap - EXIT
-# Exercise actual metadata preparation, commits, annotated tags and local atomic
-# pushes for every increment, without running the consumer's complete gate.
-for kind in patch minor major; do
-    new_repository "release-$kind"
-    candidate="$(bash scripts/ci/next-release-version.sh "$base_version" "$kind")"
-    # Qualify both accepted numbered draft spellings through Jobs' actual
-    # preflight/render/commit route, not only the shared heading parser.
-    suffix=''
-    if [[ "$kind" == patch ]]; then suffix=' - Unreleased'; fi
-    printf '# Changelog\n\n## [%s]%s\n\n- Fixture release.\n' "$candidate" "$suffix" > CHANGELOG.md
-    printf '\n## [0.0.0] - 2020-01-01\n\n## [Draft]\n\n- Archived wording.\n' > "$fixture/archived-changelog"
-    cat "$fixture/archived-changelog" >> CHANGELOG.md
-    cat >> Makefile <<'MAKE'
-
-.PHONY: tooling-nested tooling-selection
-tooling-nested:
-	+@$(MAKE) tooling-selection
-tooling-selection:
-	@test "$(TOOLING_QUOTED_SELECTION)" = "owner's selection"
+exec "$GROUP_TEST_REAL_MAKE" "$@"
 MAKE
-    commit_source
-    base="$(git rev-parse HEAD)"
-    # The outer Make must refuse execution modes which can turn a failed or
-    # skipped recipe into successful release/formatting evidence. Exercise both
-    # direct flags and inherited controls before any cache or runner effects.
-    if [[ "$kind" == patch ]]; then
-        mkdir "$fixture/metadata-errors-temp"
-        # Rendering admits prepared tools offline and never installs them. No
-        # caller-provided editor environment is needed by the actual adapter.
-        refuse editor-not-prepared env RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" \
-            RELEASE_DATE=2026-10-09 bash scripts/release/metadata.sh prepare
-        [[ "$(cat .git/editor-events)" == check && ! -e .git/editor-ready ]] || exit 1
-        [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e .git/gate-events && ! -e .git/tool-events ]] || exit 1
-        [[ -z "$(git status --porcelain)" && -z "$(git tag)" ]] || exit 1
-        # A version mismatch must stop before cache/setup or metadata writes. The real
-        # reader still validates the manifest; substitute Cargo rejects later effects.
-        for operation in preflight prepare; do
-            : > "$TOOLING_FETCH_EVENTS"
-            refuse "mismatched-$operation" env RELEASE_PREVIOUS=9.9.9 RELEASE_VERSION=9.9.10 \
-                RELEASE_DATE=2026-10-10 TOOLING_FETCH_FAILURE=49 \
-                TMPDIR="$fixture/metadata-errors-temp" "$BASH" scripts/release/metadata.sh "$operation"
-            [[ "$refusal_status" == 1 && ! -s "$TOOLING_FETCH_EVENTS" ]] || exit 1
-            [[ -z "$(git status --porcelain)" && -z "$(ls -A "$fixture/metadata-errors-temp")" ]] || exit 1
-        done
-        refuse incomplete-prepare env -u RELEASE_VERSION RELEASE_PREVIOUS="$base_version" \
-            TMPDIR="$fixture/metadata-errors-temp" bash scripts/release/metadata.sh prepare
-        [[ "$refusal_status" == 1 && -z "$(git status --porcelain)" ]] || exit 1
-        # Shared validates required inputs before creating a mutation backup.
-        [[ -z "$(ls -A "$fixture/metadata-errors-temp")" ]] || exit 1
-        # Harmless goals use only the selected admission helper, even with an
-        # unrelated runtime root. Parallel recursive commands retain selections
-        # without loading their consumer Makefiles into the isolated probe.
-        make --no-print-directory help SHARED_TOOLING_ROOT="$fixture/unselected" > "$fixture/external-root.log" 2>&1
-        make -k -s --no-print-directory help "AUDIT_SELECTION=owner's selection" > "$fixture/ordinary-flags.log" 2>&1
-        recursive_make="$(command -v make) --no-print-directory -f Makefile"
-        make -j2 --no-print-directory tooling-nested "MAKE=$recursive_make" \
-            "TOOLING_QUOTED_SELECTION=owner's selection" SHARED_TOOLING_ROOT="$fixture/unselected" \
-            > "$fixture/recursive-selection.log" 2>&1
-        if grep -i jobserver "$fixture/recursive-selection.log" > /dev/null; then exit 1; fi
-        # Shared owns the exhaustive flag/control matrix. Keep each Jobs effect
-        # family plus inherited/cleared/replaced/erased controls at this boundary.
-        for selection in \
-            'release-patch -n direct' 'release-minor -n direct' \
-            'release-major -n direct' 'release-resume -n direct' \
-            'fmt -n direct' 'fmt-check -n direct' 'publish -n direct' \
-            'release-patch -i inherited' 'release-patch -q cleared' \
-            'release-patch -t replaced' 'release-patch -kin erased-mflags'; do
-            IFS=' ' read -r target mode controls <<< "$selection"
-            label="refused-mode-$target-$mode-$controls"
-            cp .git/index "$fixture/mode-index"
-            if [[ "$controls" == direct ]]; then
-                refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate"
-            elif [[ "$controls" == inherited ]]; then
-                refuse "$label" env _shared_make_execution_checked=yes MAKEFLAGS="$mode" \
-                    make --no-print-directory "$target" VERSION="$candidate"
-            elif [[ "$controls" == cleared ]]; then
-                refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS=
-            elif [[ "$controls" == replaced ]]; then
-                refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS=--no-print-directory
-            else
-                refuse "$label" make --no-print-directory "$mode" "$target" VERSION="$candidate" MAKEFLAGS= MFLAGS=
-            fi
-            [[ "$refusal_status" == 2 ]] || exit 1
-            if [[ "$controls" == erased-mflags ]]; then
-                grep -F "generated MFLAGS" "$fixture/$label.log" > /dev/null
-            else
-                grep -F 'Make recipe execution and failure propagation' "$fixture/$label.log" > /dev/null
-            fi
-            cmp .git/index "$fixture/mode-index"
-            [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]] || exit 1
-            [[ ! -e .git/gate-events && ! -s "$TOOLING_FETCH_EVENTS" ]] || exit 1
-            [[ ! -e .git/release-state ]] || exit 1
+cat > "$suite/bin/cargo" <<'CARGO'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == clippy ]]; then exit 0; fi
+if [[ "${1:-}" == publish || "${1:-}" == package ]]; then
+    printf '%s\n' "$*" >> "$GROUP_TEST_UPLOADS"
+    exit 0
+fi
+exec "$GROUP_TEST_REAL_CARGO" "$@"
+CARGO
+chmod +x "$suite/bin/"*
+export PATH="$suite/bin:$PATH" GROUP_TEST_EDITOR="$suite/bin/editor"
+export CARGO_NET_OFFLINE=true RUSTUP_AUTO_INSTALL=0
+for selected in jobs timers; do
+    repo="$suite/$selected"
+    cp -R "$suite/source" "$repo"
+    (
+        cd "$repo"
+        export RELEASE_GROUP="$selected" RELEASE_MAKE="$suite/bin/make"
+        export GROUP_TEST_EVENTS="$suite/$selected-gates" GROUP_TEST_UPLOADS="$suite/$selected-uploads"
+        : > "$GROUP_TEST_EVENTS"; : > "$GROUP_TEST_UPLOADS"
+        ledger=CHANGELOG.md; other_ledger=crates/ic-timers/CHANGELOG.md; package=ic-jobs; other=ic-timers
+        if [[ "$selected" == timers ]]; then
+            ledger=crates/ic-timers/CHANGELOG.md; other_ledger=CHANGELOG.md; package=ic-timers; other=ic-jobs
+        fi
+        previous="$(bash scripts/release/group.sh version)"
+        candidate="$(bash scripts/ci/next-release-version.sh "$previous" patch)"
+        other_group=timers; [[ "$selected" != timers ]] || other_group='jobs'
+        other_version="$(RELEASE_GROUP="$other_group" bash scripts/release/group.sh version)"
+        printf '# Fixture ledger\n\n## [%s] - Unreleased\n\n### 🩹 Fixed\n\n- Fixture group preparation.\n' "$candidate" > "$ledger"
+        git init -q -b main
+        git config user.name 'Scheduling fixture'; git config user.email 'fixture@example.invalid'
+        git config core.hooksPath /dev/null
+        git add -- .; git commit -qm baseline
+        base="$(git rev-parse HEAD)"
+        export RELEASE_SOURCE="$base" RELEASE_PREVIOUS="$previous" RELEASE_VERSION="$candidate"
+        export RELEASE_DATE=2026-10-31 RELEASE_REMOTE=origin RELEASE_BRANCH=main
+        git init -q --bare "$suite/$selected-remote.git"
+        git remote add origin "$suite/$selected-remote.git"
+        git push -q origin main
+        plan="$(bash scripts/release/group.sh plan)"
+        [[ "$(printf '%s\n' "$plan" | jq -r .primary)" == "$package" ]]
+        [[ "$(make -s release-version)" == "$previous" ]]
+        printf '%s\n' "$plan" > "$suite/$selected-plan.json"
+        bash scripts/release/group.sh files > "$suite/$selected-files"
+        cp "$other_ledger" "$suite/$selected-other-ledger"
+        cargo metadata --locked --offline --format-version 1 > "$suite/$selected-before.json"
+        requirement="$(yq -p toml -o yaml -r '.workspace.dependencies.ic-timers.version' Cargo.toml)"
+        if [[ "$mode" == all || "$mode" == metadata || "$mode" == retention ]]; then
+            bash scripts/release/metadata.sh validated
+            receipts=".git/release-state/$selected-$candidate.receipts"
+            cp "$receipts/validated" "$suite/$selected-valid-receipt"
+            printf 'tampered\n' >> "$receipts/validated"
+            if bash scripts/release/metadata.sh prepare > "$suite/$selected-tampered-receipt.log" 2>&1; then exit 1; fi
             git diff --exit-code HEAD -- > /dev/null
-        done
-        # Even harmless invocations cannot independently assign the evidence of
-        # the running Make's options, whether by CLI or an extra Makefile.
-        refuse refused-mflags-assignment make --no-print-directory help MFLAGS=
-        grep -F 'generated MFLAGS' "$fixture/refused-mflags-assignment.log" > /dev/null
-        printf 'override MFLAGS :=\n' > "$fixture/mflags.mk"
-        refuse refused-mflags-include make --no-print-directory -f "$fixture/mflags.mk" -f Makefile help
-        grep -F 'generated MFLAGS' "$fixture/refused-mflags-include.log" > /dev/null
-    fi
-    # Jobs selects direct release delivery only. Unsupported PR delivery must
-    # stop before fetching, validating or mutating this committed fixture.
-    refuse "refused-pr-$kind" env RELEASE_DELIVERY=pr make --no-print-directory "release-$kind"
-    grep -F 'consumer does not support PR delivery' "$fixture/refused-pr-$kind.log" > /dev/null
-    refuse "refused-pr-adapter-$kind" env RELEASE_DELIVERY=pr bash scripts/release/metadata.sh preflight
-    grep -F 'consumer does not support PR delivery' "$fixture/refused-pr-adapter-$kind.log" > /dev/null
-    if [[ "$kind" == patch ]]; then
-        # Shared mechanics cannot turn a caller-supplied override into Jobs policy.
-        refuse refused-policy-override make --no-print-directory release-patch \
-            RELEASE_DELIVERY=pr RELEASE_DELIVERY_POLICY=
-        grep -F 'consumer does not support PR delivery' "$fixture/refused-policy-override.log" > /dev/null
-    fi
-    [[ "$(git rev-parse HEAD)" == "$base" && ! -e .git/gate-events && ! -s "$TOOLING_FETCH_EVENTS" ]] || exit 1
-    git diff --exit-code HEAD -- > /dev/null
-    if [[ "$kind" == patch ]]; then
-        # Exercise Jobs' preflight boundary, not only the common heading parser:
-        # invalid candidates must refuse before cache/tool/gate or intent effects.
-        for heading in draft misplaced; do
-            if [[ "$heading" == draft ]]; then
-                printf '# Changelog\n\n## [Draft]\n\n- Invalid candidate.\n' > CHANGELOG.md
-            else
-                printf '# Changelog\n\n## [%s] - 2026-10-09\n\n## [%s]\n\n- Misplaced candidate.\n' \
-                    "$base_version" "$candidate" > CHANGELOG.md
-            fi
-            cp CHANGELOG.md "$fixture/invalid-heading-before"
-            refuse "invalid-heading-$heading" make --no-print-directory release-patch
-            cmp CHANGELOG.md "$fixture/invalid-heading-before"
-            [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" && ! -e .git/gate-events ]] || exit 1
-            [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e "$TOOLING_CACHE_READY" ]] || exit 1
-            [[ ! -e ".git/release-state/$candidate.plan" ]] || exit 1
-            git show HEAD:CHANGELOG.md > CHANGELOG.md
-        done
-        # The consumer adapter reports every refused path before gate/preparation,
-        # preserving hidden staged changes, working bytes and the index itself.
-        printf '\nFixture staged change.\n' >> README.md
-        git add README.md
-        git restore --source=HEAD --worktree -- README.md
-        printf '\nFixture unstaged change.\n' >> LICENSE
-        unusual=$'untracked\nsource.txt'
-        printf 'Fixture untracked content.\n' > "$unusual"
-        cp .git/index "$fixture/source-index"
-        cp LICENSE "$fixture/source-working"
-        cp "$unusual" "$fixture/source-untracked"
-        refuse refused-source make --no-print-directory release-patch
-        refuse refused-source-adapter env RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" \
-            RELEASE_DATE=2026-10-09 bash scripts/release/metadata.sh preflight
-        for expected in 'staged: README.md' 'unstaged: README.md' 'unstaged: LICENSE'; do
-            grep -F "$expected" "$fixture/refused-source-adapter.log" > /dev/null
-        done
-        printf '  untracked: %q\n' "$unusual" > "$fixture/source-expected"
-        grep -Fx -f "$fixture/source-expected" "$fixture/refused-source-adapter.log" > /dev/null
-        cmp .git/index "$fixture/source-index"
-        cmp LICENSE "$fixture/source-working"
-        cmp "$unusual" "$fixture/source-untracked"
-        [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" && ! -e .git/gate-events ]] || exit 1
-        [[ ! -s "$TOOLING_FETCH_EVENTS" && ! -e "$TOOLING_CACHE_READY" ]] || exit 1
-        [[ ! -e .git/tool-events ]] || exit 1
-        git restore --source=HEAD --staged --worktree -- README.md LICENSE
-        rm "$unusual"
-
-        # Shared's release-source fixture owns literal allowances and rename
-        # preservation. Keep Jobs' actual adapter observation boundary below.
-        # A failed Git observation stays distinct from a dirty checkout and cannot
-        # reach validation; invoke the actual adapter with a substituted observer.
-        mkdir "$fixture/source-bin"
-        export TOOLING_REAL_GIT
-        TOOLING_REAL_GIT="$(command -v git)"
-        cat > "$fixture/source-bin/git" <<'GIT'
+            cp "$suite/$selected-valid-receipt" "$receipts/validated"
+            for failure in manifest lock; do
+                status=0
+                GROUP_TEST_EDITOR_FAILURE="$failure" RELEASE_PREVIOUS="$previous" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-31 \
+                    RELEASE_PREPARATION_SOURCE="$base" bash scripts/release/metadata.sh prepare > "$suite/$selected-rollback-$failure.log" 2>&1 || status=$?
+                [[ "$status" != 0 ]] || exit 1
+                git diff --exit-code HEAD -- > /dev/null
+            done
+        fi
+        if [[ "$mode" == metadata || "$mode" == retention ]]; then
+            RELEASE_PREVIOUS="$previous" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-31 \
+                RELEASE_PREPARATION_SOURCE="$base" bash scripts/release/metadata.sh prepare > "$suite/$selected-prepare.log" 2>&1
+            RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-31 bash scripts/release/metadata.sh check
+        else
+            status=0
+            GROUP_TEST_PUSH_FAILURE=1 make release-patch RELEASE_MAKE="$suite/bin/make" > "$suite/$selected-release.log" 2>&1 || status=$?
+            [[ "$status" != 0 ]] || exit 1
+            [[ "$(cat "$GROUP_TEST_EVENTS")" == "$selected" ]]
+            [[ -f ".git/release-state/$selected-$candidate.plan" ]]
+            receipts=".git/release-state/$selected-$candidate.receipts"
+            [[ -f "$receipts/validated" && -f "$receipts/prepared" ]]
+            grep -Fx "$selected" ".git/release-state/$selected-$candidate.plan" > /dev/null
+            cmp "$suite/$selected-files" ".git/release-state/$selected-$candidate.plan.files"
+            # Resume must not accept another group's saved intent.
+            cp ".git/release-state/$selected-$candidate.plan" ".git/release-state/$other_group-$candidate.plan"
+            if make release-resume RELEASE_GROUP="$other_group" VERSION="$candidate" RELEASE_MAKE="$suite/bin/make" > "$suite/$selected-wrong-resume.log" 2>&1; then exit 1; fi
+            grep -F 'release group changed' "$suite/$selected-wrong-resume.log" > /dev/null
+            rm ".git/release-state/$other_group-$candidate.plan"
+            make release-resume VERSION="$candidate" RELEASE_MAKE="$suite/bin/make" > "$suite/$selected-resume.log" 2>&1
+            [[ "$(cat "$GROUP_TEST_EVENTS")" == "$selected" ]]
+            git show --format= --name-only HEAD | LC_ALL=C sort > "$suite/$selected-committed"
+            tr '\0' '\n' < "$suite/$selected-files" | LC_ALL=C sort > "$suite/$selected-expected"
+            cmp "$suite/$selected-committed" "$suite/$selected-expected"
+            [[ "$(git log -1 --format=%s)" == "Release $selected $candidate" ]]
+            bash scripts/ci/check-release-tag.sh "$(git rev-parse HEAD)" "$candidate" "$selected"
+            [[ "$(git --git-dir="$suite/$selected-remote.git" rev-parse main)" == "$(git rev-parse HEAD)" ]]
+            # Registry observation is substituted; real Git/tag/source admission stays active.
+            cat > scripts/ci/check-crates-io-version.sh <<'REGISTRY'
 #!/usr/bin/env bash
-set -euo pipefail
-if [[ "${1:-}" == status ]]; then echo 'fixture Git status observation failed' >&2; exit 9; fi
-exec "$TOOLING_REAL_GIT" "$@"
-GIT
-        chmod +x "$fixture/source-bin/git"
-        cp .git/index "$fixture/source-index"
-        refuse source-observation env PATH="$fixture/source-bin:$PATH" \
-            RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09 \
-            bash scripts/release/metadata.sh preflight
-        grep -F 'fixture Git status observation failed' "$fixture/source-observation.log" > /dev/null
-        grep -F 'cannot inspect release-source status' "$fixture/source-observation.log" > /dev/null
-        if grep -F 'uncommitted paths' "$fixture/source-observation.log" > /dev/null; then exit 1; fi
-        cmp .git/index "$fixture/source-index"
-        [[ ! -e .git/gate-events && -z "$(git status --porcelain)" ]] || exit 1
-
-        # Shared owns the cache matrix. Jobs retains actual fetch refusal,
-        # source/index custody and selected Make execution through its adapter.
-        cp .git/index "$fixture/cache-index"
-        for path in Cargo.toml Cargo.lock CHANGELOG.md; do cp "$path" "$fixture/cache-$path"; done
-        preflight=(env RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09)
-        refuse failed-fetch "${preflight[@]}" CARGO_NET_OFFLINE=false TOOLING_FETCH_FAILURE=43 bash scripts/release/metadata.sh preflight
-        [[ "$refusal_status" == 43 && ! -e "$TOOLING_CACHE_READY" ]] || exit 1
-        grep -F 'fixture registry fetch failed' "$fixture/failed-fetch.log" > /dev/null
-        cmp .git/index "$fixture/cache-index"
-        for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
-        [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" && ! -e .git/gate-events ]] || exit 1
-        [[ ! -e ".git/release-state/$candidate.plan" ]] || exit 1
-        export TOOLING_REAL_MAKE
-        TOOLING_REAL_MAKE="$(command -v make)"
-        cat > "$fixture/selected make" <<'MAKE'
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' "$*" >> .git/selected-make-events
-exec "$TOOLING_REAL_MAKE" "$@"
-MAKE
-        chmod +x "$fixture/selected make"
-        "${preflight[@]}" CARGO_NET_OFFLINE=false RELEASE_MAKE="$fixture/selected make" bash scripts/release/metadata.sh preflight
-        [[ -f "$TOOLING_CACHE_READY" ]] || exit 1
-        printf '%s\n' "--no-print-directory -C $repository install-tools" \
-            "--no-print-directory -C $repository tools-check" \
-            "--no-print-directory -C $repository install-release-tools" \
-            "--silent --no-print-directory -C $repository release-tools-check RELEASE_METADATA_LOCKFILE=$repository/Cargo.lock" > "$fixture/expected-make"
-        cmp .git/selected-make-events "$fixture/expected-make"
-        [[ "$(wc -l < "$TOOLING_FETCH_EVENTS" | tr -d ' ')" == 2 ]] || exit 1
-        cmp .git/index "$fixture/cache-index"
-        for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
-        [[ ! -e .git/gate-events && ! -e ".git/release-state/$candidate.plan" ]] || exit 1
-        printf 'rust-preflight\ninstall-host-tools\ninstall-rust-tools\ninstall-ic-tools\nhost-tools-check\nrust-tools-check\nic-tools-check\n' > "$fixture/expected-tools"
-        cmp .git/tool-events "$fixture/expected-tools"
-        # Shared owns every common leaf failure; Jobs retains late admission
-        # refusal through its real parallel CI route before product dispatch.
-        refuse missing-rust-parallel-ci env TOOLING_COMMON_CHECK_FAILURE=rust-tools-check \
-            make -j4 --no-print-directory ci
-        [[ ! -e .git/validation-events && ! -e .git/gate-events ]] || exit 1
-
-        # Exercise the actual CI orchestrator and Make recipes. Each selected
-        # lint failure must stop before any later Cargo work, even under -j.
-        cp scripts/ci/run-validation-targets.sh "$fixture/substitute-validation-runner"
-        cp "$root/scripts/ci/run-validation-targets.sh" scripts/ci/run-validation-targets.sh
-        for lint in 1 2 3; do
-            : > .git/clippy-events
-            refuse "clippy-$lint-parallel-ci" env TOOLING_CLIPPY_FAILURE="$lint" \
-                make -j4 --no-print-directory ci
-            grep -F 'fixture Clippy failure' "$fixture/clippy-$lint-parallel-ci.log" > /dev/null
-            head -n "$lint" "$fixture/expected-clippy" > "$fixture/selected-clippy"
-            cmp .git/clippy-events "$fixture/selected-clippy"
-            [[ ! -e .git/validation-events && ! -e .git/gate-events ]] || exit 1
-        done
-        cp "$fixture/substitute-validation-runner" scripts/ci/run-validation-targets.sh
-        # Both preparation boundaries stop before gate or metadata mutation.
-        for failure in install check; do
-            if [[ "$failure" == install ]]; then controls=(TOOLING_INSTALL_FAILURE=1);
-            else controls=(TOOLING_CHECK_FAILURE=1); fi
-            refuse "failed-tool-$failure" env "${controls[@]}" make --no-print-directory release-patch
-            [[ ! -e .git/gate-events && -z "$(git tag)" ]] || exit 1
-            for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
-        done
-
-        for failure in install check; do
-            refuse "failed-editor-$failure" env TOOLING_EDITOR_FAILURE="$failure" make --no-print-directory release-patch
-            [[ ! -e .git/gate-events && -z "$(git tag)" ]] || exit 1
-            for path in Cargo.toml Cargo.lock CHANGELOG.md; do cmp "$path" "$fixture/cache-$path"; done
-            [[ ! -e ".git/release-state/$candidate.plan" ]] || exit 1
-        done
-
-        refuse failed-gate env TOOLING_GATE_FAILURE=1 make --no-print-directory release-patch
-        [[ "$(git rev-parse HEAD)" == "$base" && -z "$(git tag)" ]] || exit 1
-        [[ "$(bash scripts/release/metadata.sh version)" == "$base_version" ]] || exit 1
-        [[ -z "$(git status --porcelain)" ]] || exit 1
-    fi
-    # The full offline gate runs fixtures against prepared dependencies. Model
-    # that input for the ordinary release series; cold-cache cases above select
-    # their offline/online outcomes explicitly without any actual fetch.
-    if [[ "${CARGO_NET_OFFLINE:-false}" == true ]]; then touch "$TOOLING_CACHE_READY"; fi
-    make --no-print-directory "release-$kind" > "$fixture/release-$kind.log" 2>&1
-    [[ "$(bash scripts/release/metadata.sh version)" == "$candidate" ]] || exit 1
-    [[ "$(git log -1 --format=%s)" == "Release $candidate" ]] || exit 1
-    [[ "$(git log -1 --format=%P)" == "$base" ]] || exit 1
-    bash scripts/ci/check-release-tag.sh "$(git rev-parse HEAD)" "$candidate"
-    tail -n "$(wc -l < "$fixture/archived-changelog" | tr -d ' ')" CHANGELOG.md > "$fixture/retained-changelog"
-    cmp "$fixture/archived-changelog" "$fixture/retained-changelog"
-    [[ "$(git -C "$repository.git" rev-parse refs/heads/main)" == "$(git rev-parse HEAD)" ]] || exit 1
-    [[ "$(git -C "$repository.git" rev-parse "refs/tags/v$candidate")" == "$(git rev-parse "refs/tags/v$candidate")" ]] || exit 1
-    # Compare machine-owned paths in byte order, regardless of the caller's locale.
-    [[ "$(git show --format= --name-only HEAD | LC_ALL=C sort)" == $'CHANGELOG.md\nCargo.lock\nCargo.toml' ]] || exit 1
-    [[ -z "$(git status --porcelain)" && -f ".git/release-state/$candidate.plan" ]] || exit 1
-    [[ "$(wc -l < .git/gate-events | tr -d ' ')" == 1 ]] || exit 1
-    cp .git/tool-events "$fixture/resumed-tools-$kind"
-    make --no-print-directory release-resume "VERSION=$candidate" > "$fixture/resume-$kind.log" 2>&1
-    [[ "$(wc -l < .git/gate-events | tr -d ' ')" == 1 ]] || exit 1
-    # Reconciliation of delivered intent must not replay preparation.
-    cmp .git/tool-events "$fixture/resumed-tools-$kind"
-    # Local-row version admission shares the identity parser and must refuse
-    # before later dirty-source admission, without changing the selected graph.
-    release_date="$(awk -v version="$candidate" '$1 == "##" && $2 == "[" version "]" { print $4; exit }' CHANGELOG.md)"
-    cp Cargo.lock .git/lock-before
-    "$TOOLING_EDITOR" --max-input-bytes 1048576 \
-        lock Cargo.lock "$candidate" 0.0.0 ic-jobs > .git/invalid.lock
-    cp .git/invalid.lock Cargo.lock
-    refuse "wrong-local-version-$kind" env RELEASE_VERSION="$candidate" RELEASE_DATE="$release_date" bash scripts/release/metadata.sh check
-    grep -F 'invalid coordinated workspace lock identities' "$fixture/wrong-local-version-$kind.log" > /dev/null
-    cp .git/lock-before Cargo.lock
-    [[ -z "$(git status --porcelain)" ]] || exit 1
+exit "${GROUP_TEST_REGISTRY_STATUS:-1}"
+REGISTRY
+            git add -- scripts/ci/check-crates-io-version.sh
+            git commit -qm 'fixture registry observation'
+            # Move fixture-only tag to the fixture observation source.
+            git tag -d "$selected-v$candidate" > /dev/null
+            git tag -a "$selected-v$candidate" -m fixture
+            git push -q origin main "+refs/tags/$selected-v$candidate"
+            if GROUP_TEST_REGISTRY_STATUS=2 bash scripts/release/check-publication.sh origin > "$suite/$selected-unknown-registry.log" 2>&1; then exit 1; fi
+            if RELEASE_GROUP="$other_group" bash scripts/release/check-publication.sh origin > "$suite/$selected-wrong-publication.log" 2>&1; then exit 1; fi
+            touch unexpected-source
+            if bash scripts/release/check-publication.sh origin > "$suite/$selected-dirty-publication.log" 2>&1; then exit 1; fi
+            rm unexpected-source
+            bash scripts/release/check-publication.sh origin
+            bash scripts/release/publish.sh origin
+            [[ "$(cat "$GROUP_TEST_UPLOADS")" == "publish -p $package --all-features --locked --registry crates-io" ]]
+            : > "$GROUP_TEST_UPLOADS"
+            make publish-check > "$suite/$selected-publish-check.log" 2>&1
+            [[ "$(cat "$GROUP_TEST_UPLOADS")" == "publish -p $package --all-features --locked --registry crates-io --allow-dirty --dry-run" ]]
+        fi
+        cmp "$other_ledger" "$suite/$selected-other-ledger"
+        cargo metadata --locked --offline --format-version 1 > "$suite/$selected-after.json"
+        jq -e --arg other "$other" --arg version "$other_version" '.packages[] | select(.name == $other and .source == null) | .version == $version' "$suite/$selected-after.json" > /dev/null
+        if [[ "$selected" == jobs ]]; then
+            [[ "$(yq -p toml -o yaml -r '.workspace.dependencies.ic-timers.version' Cargo.toml)" == "$requirement" ]]
+        else
+            [[ "$(yq -p toml -o yaml -r '.workspace.package.version' Cargo.toml)" == "$other_version" ]]
+            [[ "$(yq -p toml -o yaml -r '.workspace.dependencies.ic-timers.version' Cargo.toml)" == "$candidate" ]]
+            # The unchanged standalone Jobs consumer still builds against Jobs
+            # its retained version after the independent Timers upgrade.
+            CARGO_TARGET_DIR="$suite/jobs-consumer-target" bash scripts/dev/minimum-rust.sh cargo check \
+                -p ic-jobs --example persisted_job --locked --offline
+        fi
+        printf '%s group %s passed (real Cargo metadata/editor/Git; substituted full gate, tool setup and upload)\n' "$selected" "$mode"
+    )
 done
-
-)
-
-phase_recovery() (
-trap - EXIT
-# A clean manually committed candidate can be the next release's base. Preserve
-# its undelivered intent and require fresh validation without replaying delivery.
-new_repository committed-undelivered
-candidate="$(bash scripts/ci/next-release-version.sh "$base_version" patch)"
-printf '# Changelog\n\n## [%s]\n\n- Fixture release.\n' "$candidate" > CHANGELOG.md
-commit_source
-base="$(git rev-parse HEAD)"
-if [[ "${CARGO_NET_OFFLINE:-false}" == true ]]; then touch "$TOOLING_CACHE_READY"; fi
-refuse interrupted-preparation env TOOLING_EDITOR_FAILURE=saved-check make --no-print-directory release-patch
-[[ "$(tail -n 1 ".git/release-state/$candidate.plan")" == prepare ]] || exit 1
-RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09 \
-    RELEASE_PREPARATION_SOURCE="$base" bash scripts/release/metadata.sh prepare > "$fixture/committed-preparation.log" 2>&1
-git add -- Cargo.toml Cargo.lock CHANGELOG.md
-git commit --quiet -m 'Fixture committed preparation without delivery'
-committed_preparation="$(git rev-parse HEAD)"
-cp ".git/release-state/$candidate.plan" "$fixture/undelivered.plan"
-cp .git/gate-events "$fixture/undelivered-gate-events"
-next_candidate="$(bash scripts/ci/next-release-version.sh "$candidate" patch)"
-printf 'not a release plan\n' > .git/release-state/0.0.0.plan
-cp .git/release-state/0.0.0.plan "$fixture/malformed-history.plan"
-printf 'stale candidate plan\n' > ".git/release-state/$next_candidate.plan"
-refuse committed-revalidation env TOOLING_GATE_FAILURE=1 make --no-print-directory release-patch
-cmp ".git/release-state/$candidate.plan" "$fixture/undelivered.plan"
-cmp .git/release-state/0.0.0.plan "$fixture/malformed-history.plan"
-cmp .git/gate-events "$fixture/undelivered-gate-events"
-[[ "$(git rev-parse HEAD)" == "$committed_preparation" && -z "$(git status --porcelain)" && -z "$(git tag)" ]] || exit 1
-[[ ! -e ".git/release-state/$next_candidate.plan" ]] || exit 1
-[[ "$(git -C "$repository.git" rev-parse refs/heads/main)" == "$base" ]] || exit 1
-make --no-print-directory release-patch > "$fixture/committed-undelivered.log" 2>&1
-[[ "$(bash scripts/release/metadata.sh version)" == "$next_candidate" && -z "$(git status --porcelain)" ]] || exit 1
-[[ "$(tail -n 1 ".git/release-state/$next_candidate.plan")" == complete ]] || exit 1
-[[ "$(wc -l < .git/gate-events | tr -d ' ')" == 2 ]] || exit 1
-[[ "$(git tag)" == "v$next_candidate" && -z "$(git -C "$repository.git" tag --list "v$candidate")" ]] || exit 1
-[[ "$(git -C "$repository.git" rev-parse refs/heads/main)" == "$(git rev-parse HEAD)" ]] || exit 1
-[[ "$(git -C "$repository.git" rev-parse "refs/tags/v$next_candidate")" == "$(git rev-parse "refs/tags/v$next_candidate")" ]] || exit 1
-cmp ".git/release-state/$candidate.plan" "$fixture/undelivered.plan"
-cmp .git/release-state/0.0.0.plan "$fixture/malformed-history.plan"
-[[ "$(tail -n 1 ".git/release-state/$candidate.plan")" == prepare ]] || exit 1
-
-# Interrupt at saved preparation before rendering. Recovery must use the saved
-# lock, need no environment exports and never install or fetch against live bytes.
-new_repository editor-recovery
-candidate="$(bash scripts/ci/next-release-version.sh "$base_version" patch)"
-printf '# Changelog\n\n## [%s]\n\n- Fixture release.\n' "$candidate" > CHANGELOG.md
-commit_source
-base="$(git rev-parse HEAD)"
-if [[ "${CARGO_NET_OFFLINE:-false}" == true ]]; then touch "$TOOLING_CACHE_READY"; fi
-refuse interrupted-editor env TOOLING_EDITOR_FAILURE=saved-check make --no-print-directory release-patch
-[[ "$(tail -n 1 ".git/release-state/$candidate.plan")" == prepare ]] || exit 1
-[[ "$(wc -l < .git/gate-events)" -eq 1 ]] || exit 1
-cp Cargo.lock .git/original-lock
-cp .git/tool-events "$fixture/recovery-tools"
-cp "$TOOLING_FETCH_EVENTS" "$fixture/recovery-fetch"
-printf 'incomplete live lock [\n' > Cargo.lock
-RELEASE_PREVIOUS="$base_version" RELEASE_VERSION="$candidate" RELEASE_DATE=2026-10-09 \
-    RELEASE_PREPARATION_SOURCE="$base" bash scripts/release/metadata.sh preflight > "$fixture/saved-editor-selection.log" 2>&1
-[[ "$(cat Cargo.lock)" == 'incomplete live lock [' ]] || exit 1
-cmp .git/tool-events "$fixture/recovery-tools"
-cmp "$TOOLING_FETCH_EVENTS" "$fixture/recovery-fetch"
-cp .git/original-lock Cargo.lock
-rm .git/editor-ready
-cp .git/editor-events "$fixture/recovery-editor"
-refuse missing-recovery-editor make --no-print-directory release-resume "VERSION=$candidate"
-[[ "$(grep -c '^install$' .git/editor-events)" == "$(grep -c '^install$' "$fixture/recovery-editor")" ]] || exit 1
-[[ "$(git rev-parse HEAD)" == "$base" && -z "$(git status --porcelain)" && -z "$(git tag)" ]] || exit 1
-touch .git/editor-ready
-make --no-print-directory release-resume "VERSION=$candidate" > "$fixture/recovered-editor.log" 2>&1
-[[ "$(bash scripts/release/metadata.sh version)" == "$candidate" && -z "$(git status --porcelain)" ]] || exit 1
-[[ "$(wc -l < .git/gate-events)" -eq 1 ]] || exit 1
-cmp .git/tool-events "$fixture/recovery-tools"
-cmp "$TOOLING_FETCH_EVENTS" "$fixture/recovery-fetch"
-[[ "$(grep -c '^install$' .git/editor-events)" == "$(grep -c '^install$' "$fixture/recovery-editor")" ]] || exit 1
-
-)
-
-phase_metadata() (
-trap - EXIT
-# The adapter checks the same grouped manifests as fmt-check, including when
-# release reconciliation selects a commit instead of the working tree.
-new_repository manifest-order
-printf '# Changelog\n\n## [%s] - 2026-10-09\n\n- Fixture release.\n' "$base_version" > CHANGELOG.md
-commit_source
-sorted_commit="$(git rev-parse HEAD)"
-cp Cargo.toml .git/sorted-manifest
-perl scripts/ci/prepare-cargo-formatting-fixture.pl \
-    Cargo.toml workspace.dependencies ic-build ic-host-artifacts > .git/unsorted-manifest
-cp .git/unsorted-manifest Cargo.toml
-refuse unsorted-format-check make --no-print-directory fmt-check
-cmp .git/unsorted-manifest Cargo.toml
-refuse unsorted-release-check env RELEASE_VERSION="$base_version" RELEASE_DATE=2026-10-09 \
-    bash scripts/release/metadata.sh check
-cmp .git/unsorted-manifest Cargo.toml
-# A sorted selected commit must pass even when the working manifest is unsorted.
-RELEASE_VERSION="$base_version" RELEASE_DATE=2026-10-09 RELEASE_COMMIT="$sorted_commit" \
-    bash scripts/release/metadata.sh check > "$fixture/sorted-selected-commit.log" 2>&1
-git add -- Cargo.toml
-git commit --quiet -m 'Fixture unsorted dependency group'
-unsorted_commit="$(git rev-parse HEAD)"
-cp .git/sorted-manifest Cargo.toml
-refuse unsorted-selected-commit env RELEASE_VERSION="$base_version" RELEASE_DATE=2026-10-09 \
-    RELEASE_COMMIT="$unsorted_commit" bash scripts/release/metadata.sh check
-cmp .git/sorted-manifest Cargo.toml
-
-)
-
-phase_publication() (
-trap - EXIT
-# The actual publication adapter and shared helpers use real local Git. Only
-# Cargo's upload and curl's registry observation are substituted.
-new_repository publication
-commit_source
-tag="refs/tags/v$base_version"
-git tag -a "v$base_version" -m 'Fixture release'
-git push --quiet origin "$tag"
-# Keep the remote's ordinary path while exercising a checkout whose name contains
-# ordinary spaces. CR/LF checkouts are outside the reviewed baseline.
-publication_checkout="$fixture/publication checkout with spaces"
-cd "$fixture"
-mv "$repository" "$publication_checkout"
-repository="$publication_checkout"
-cd "$repository"
-mkdir "$fixture/bin"
-export TOOLING_UPLOAD_EVENTS="$fixture/upload-events"
-: > "$TOOLING_UPLOAD_EVENTS"
-cat > "$fixture/bin/cargo" <<'CARGO'
-#!/usr/bin/env bash
-set -euo pipefail
-if [[ "${1:-}" == publish ]]; then
-    printf '%s\n' "$*" >> "$TOOLING_UPLOAD_EVENTS"
-    exit "${TOOLING_UPLOAD_RESULT:-0}"
-fi
-exec "$TOOLING_CACHE_CARGO" "$@"
-CARGO
-cat > "$fixture/bin/curl" <<'CURL'
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s' "${TOOLING_REGISTRY_HTTP:-404}"
-exit 0
-CURL
-chmod +x "$fixture/bin/cargo" "$fixture/bin/curl"
-export TOOLING_CACHE_CARGO="$fixture/cache-bin/cargo"
-export PATH="$fixture/bin:$PATH"
-
-# The local real-Git publication fixture owns the source/tag/destination
-# matrix. Keep representative Jobs adapter refusals, exact upload dispatch and
-# reconciliation after an interrupted upload below.
-printf '\nFixture unstaged change.\n' >> README.md
-refuse unstaged-source bash scripts/release/publish.sh origin
-git restore --source=HEAD --worktree -- README.md
-
-refuse make-mode-n env MAKEFLAGS=-n bash scripts/release/publish.sh origin
-[[ ! -s "$TOOLING_UPLOAD_EVENTS" ]] || exit 1
-
-for lint in 1 2 3; do
-    : > .git/clippy-events
-    refuse "clippy-$lint-publication" env TOOLING_CLIPPY_FAILURE="$lint" \
-        make -j4 --no-print-directory publish
-    head -n "$lint" "$fixture/expected-clippy" > "$fixture/selected-clippy"
-    cmp .git/clippy-events "$fixture/selected-clippy"
-    [[ ! -s "$TOOLING_UPLOAD_EVENTS" ]] || exit 1
-done
-
-# Clean HEAD/version/tag changes can evade a cleanliness-only post-lint check.
-# Keep every refused mutation inside this disposable publication checkout.
-publication_commit="$(git rev-parse HEAD)"
-publication_tag="$(git rev-parse "$tag")"
-for mutation in head version tag missing-tag dirty; do
-    : > .git/clippy-events
-    refuse "clippy-mutation-$mutation" env TOOLING_CLIPPY_MUTATION="$mutation" \
-        make -j4 --no-print-directory publish
-    cmp .git/clippy-events "$fixture/expected-clippy"
-    [[ ! -s "$TOOLING_UPLOAD_EVENTS" ]] || exit 1
-    case "$mutation" in
-        head|version|tag)
-            grep -F 'release identity changed' "$fixture/clippy-mutation-$mutation.log" > /dev/null ;;
-    esac
-    if [[ "$mutation" == version ]]; then
-        "$TOOLING_REAL_CARGO" metadata --locked --offline --no-deps --format-version 1 > "$fixture/concurrent-version-metadata.json"
-    fi
-    git reset --quiet --hard "$publication_commit"
-    git update-ref "$tag" "$publication_tag"
-done
-: > .git/clippy-events
-refuse clippy-dry-run env TOOLING_CLIPPY_FAILURE=3 make -j4 --no-print-directory publish-check
-cmp .git/clippy-events "$fixture/expected-clippy"
-[[ ! -s "$TOOLING_UPLOAD_EVENTS" ]] || exit 1
-: > .git/clippy-events
-make -j4 --no-print-directory publish-check > "$fixture/publication-dry-run.log" 2>&1
-cmp .git/clippy-events "$fixture/expected-clippy"
-[[ "$(cat "$TOOLING_UPLOAD_EVENTS")" == 'publish -p ic-jobs -p ic-timers --all-features --locked --registry crates-io --allow-dirty --dry-run' ]] || exit 1
-: > "$TOOLING_UPLOAD_EVENTS"
-: > .git/clippy-events
-bash scripts/release/publish.sh origin > "$fixture/publication.log" 2>&1
-cmp .git/clippy-events "$fixture/expected-clippy"
-[[ "$(cat "$TOOLING_UPLOAD_EVENTS")" == 'publish -p ic-jobs -p ic-timers --all-features --locked --registry crates-io' ]] || exit 1
-: > "$TOOLING_UPLOAD_EVENTS"
-refuse failed-upload env TOOLING_UPLOAD_RESULT=42 bash scripts/release/publish.sh origin
-[[ "$refusal_status" == 42 ]] || exit 1
-[[ "$(wc -l < "$TOOLING_UPLOAD_EVENTS" | tr -d ' ')" == 1 ]] || exit 1
-refuse uncertain-upload-now-present env TOOLING_REGISTRY_HTTP=200 bash scripts/release/publish.sh origin
-[[ "$(wc -l < "$TOOLING_UPLOAD_EVENTS" | tr -d ' ')" == 1 ]] || exit 1
-[[ -z "$(git status --porcelain)" ]] || exit 1
-)
-
-if [[ "$group" == all || "$group" == delivery ]]; then phase_delivery; fi
-if [[ "$group" == all || "$group" == recovery ]]; then phase_recovery; fi
-if [[ "$group" == all || "$group" == metadata ]]; then phase_metadata; fi
-if [[ "$group" == all || "$group" == publication ]]; then phase_publication; fi
-
-if grep -E 'warning: (overriding recipe|ignoring old recipe)' "$fixture/"*.log; then
-    echo 'release fixture emitted unexpected recipe warnings' >&2
-    exit 1
-fi
-printf 'Release tooling group %s passed (real local Git; substitute gate and registry/upload effects)\n' "$group"
 fixture_complete=true

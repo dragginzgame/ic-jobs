@@ -2,124 +2,111 @@
 
 ## Accepted scope and source
 
-IC Scheduling combines `ic-jobs` and `ic-timers` in one nine-member workspace.
-Both published libraries use shared version 0.33.1, recorded by local tag
-`v0.33.1` and release commit `03b166f`. Pending notes select 0.33.2 for the
-compatible IC Tooling update; package versions remain unchanged.
-The user approved and GitHub completed the repository rename to
-`dragginzgame/ic-scheduling`; origin now points to that repository. The physical
-checkout is now `ic-scheduling`; open `ic-scheduling.code-workspace` for the combined
-editor workspace. This adoption performs no commit, push, tag or publication.
-Private Jobs packages and directories now use `ic-jobs-canister-tests`,
-`ic-jobs-canister-test-support` and `ic-jobs-test-consumer`. All seven support
-packages remain `publish = false`; their roles are documented in the root README.
-Rename checks pass: 45 consumer library tests, 4 API-wire tests, Rust 1.91 release
-Wasm build, capture build, consumer-tooling fixtures, five dependency graph
-contexts, formatting, documentation links and snapshot integrity. Evidence is
-retained at `/tmp/ic-scheduling-names-evidence/`; no live recovery ran.
+Issue [#82 — Version Jobs and Timers independently](https://github.com/dragginzgame/ic-scheduling/issues/82)
+approves two release groups in the existing nine-member root workspace.
+`jobs` is primary: `ic-jobs`, `ic-jobs-test-consumer`,
+`ic-jobs-canister-test-support`, `ic-jobs-canister-tests` inherit the root version.
+`timers`: `ic-timers`, `ic-timers-pocketic`, `ic-timers-runtime-probe`,
+`ic-timers-size-probe`, `ic-timers-test-protocol` use explicit matching versions.
+Only the two public libraries are publishable. Both groups currently remain
+0.33.1; no numeric bump, release, real commit/tag/push or publication was executed.
+The retained coordinated release is `v0.33.1`, commit `03b166f`.
+
+Policy: `ci/cargo-release-groups.json`; complete comment map: root Cargo.toml.
+Jobs ledger: `CHANGELOG.md`, pending 0.33.2 for compatible tooling/integration work.
+Timers ledger: `crates/ic-timers/CHANGELOG.md`, pending 0.34.0 for Metrics 0.22's
+exposed identity/native-metadata change. Shared history through 0.33.1 is retained
+once at `docs/changelog/shared-through-0.33.1.md`; older group entries are preserved.
+The user's staged CI change and unmerged changelog index entries remain intact.
+Resolving/staging that existing merge remains user-owned.
+
+## Release and dependency state
+
+Shared Tooling commit `39ba9836a269ee7ea7f073a3f23d9cefe3c7d03c` is adopted
+through its exporter (snapshot version metadata 0.27.16, including the committed
+0.27.17 shared-metadata support; no publication claim). Build 0.73.0 supplies the installed group-capable editor.
+Build, Host and Testkit now select 0.73.0. Earlier tool roots and evidence remain
+retained. Shared's committed HEAD is unchanged; its supplier checkout has only
+an uncommitted VERSION edit, so no dirty snapshot was exported.
+
+Default `RELEASE_GROUP=jobs`; select `timers` for version/package/publication and
+standard release/resume commands. Shared owns exact group file plans, metadata
+transactions, group tags/journals and source custody. Local adapters retain
+source/tool/publication policy and the complete combined release gate. Group tags
+are `jobs-vX.Y.Z` and `timers-vX.Y.Z`; historical coordinated tags remain unchanged.
+Shared receipt mechanics bind validated identity/group/policy and prepared exact
+metadata payloads under each group's retained state directory. Receipt admission
+precedes preparation and subsequent prepared/commit/tag/push checks.
+No new release system or extra lockfile was added. See `docs/releasing.md`.
+
+Direct runtime selections now use Platform 0.12.0 / Wire 0.11.0, Metrics/Logging
+0.23.0, Testkit 0.73.0 and Memory/Storage 0.58.1. The deployed graph has one
+Platform 0.12 facade/guard, shared with Memory. Native Testkit retains Platform
+0.13 without another runtime owner; its Wire 0.11 limits align with the harnesses.
+The newest composition still fails: Platform 0.15 conflicts with Endpoint 0.1 ->
+Platform 0.14 -> runtime guard 0.14, and Testkit 0.73 still accepts Wire 0.11,
+not the latest core 0.12.1. No aliases or type/transport copies were introduced.
+Release grouping does not isolate Cargo resolution or waive this compatibility.
+Failure evidence: `/tmp/ic-scheduling-stack-latest/latest-resolution.log`.
+Metrics defaults are disabled here; schemas require its explicit `native-wire`
+feature and Wire 0.12. Jobs remains Serde-only and independent of this stack.
+
+## Qualification and remaining work
+
+Current stack adoption evidence is under `/tmp/ic-scheduling-stack-latest/`:
+locked metadata and both group plans, fourteen graph contexts and direct
+boundaries, Rust 1.91 strict native/Wasm Clippy, 258 native tests and consumer/
+runtime-probe release Wasm builds pass. Timer boundary fixtures, release-depth
+consumer fixtures, dependency pins and both selected CLI admission checks pass.
+Both release-group metadata/receipt/rollback fixtures pass on the final lockfile
+(`group-metadata-fixtures.log`), preserving the unrelated group's identities.
+No full CI or live recovery was run.
+
+Issue #82 focused evidence is under `/tmp/ic-scheduling-82/`. Disposable Git/bare
+remote fixtures use the actual consumer adapter, shared editor and Cargo metadata;
+full release validation, tool installation and registry/upload effects are
+substituted. They are not live product releases or installed recovery evidence.
+Both group plans admit all nine members. Metadata preparation/rollback preserves
+unselected versions, ledgers and requirements. Timers-only preparation retains
+a Jobs 0.33.1 consumer and updates only the declared Timers requirement.
+Runtime singleton, provider, native/Wasm and Rust 1.91 obligations remain intact.
+The final receipt-enabled `make test-release-tooling` passes for both groups
+(`groups-receipts-final.log`), including tampered-receipt refusal, both editor
+rollback boundaries, a copied cross-group journal refusal and successful resume.
+Strict Rust 1.91 harness Clippy, 11 focused native capture/build tests, core MSRV,
+Timers/consumer Wasm checks, dependency policies/pins, both group plans, shared
+snapshot integrity, release-command fixtures, manifest order, ShellCheck and
+documentation checks pass. The release-depth consumer fixture also passes.
+Shared history was compared byte-for-byte against the pre-change root entry.
+
+The combined `release-verify` gate still runs complete CI, explicit Testkit/server
+setup and live Timers watchdog/cohort tests. Ordinary CI packages both public
+crates. No full local CI, live PocketIC or new macOS matrix was run for #82.
+Preceding dependency checks/tests remain source-bound historical evidence at
+`/tmp/ic-scheduling-cohort-adoption/`, `/tmp/ic-scheduling-persistence-latest/`,
+`/tmp/ic-scheduling-tooling-latest/` and `/tmp/ic-scheduling-latest-adoption/`.
+Earlier native/live qualification cannot establish recovery on this new graph.
+
+## Provenance and recovery constraints
 
 Jobs baseline: `50fac19a55624c2110778e21ba5bb15ef8bf469a` (0.17.51).
-Timers was imported from the authorized dirty sibling working tree on
-`651efce370bd6aec6290b74118eb709488062d0a` (0.32.4), including its pending
-Platform/Metrics migration. The sibling remains untouched and is not a build
-input. Migration evidence and incoming patches are retained at
-`/tmp/ic-scheduling-merge.7PRSi3Nq/`. Imported historical Timers evidence retains
-its original source identities and does not qualify this workspace.
+Timers import: dirty sibling at `651efce370bd6aec6290b74118eb709488062d0a`
+(0.32.4), including pending Platform/Metrics changes. The sibling is read-only
+provenance, never a build input. Migration evidence and incoming patches remain
+at `/tmp/ic-scheduling-merge.7PRSi3Nq/`. Shared snapshots are exporter-owned.
 
-Shared Tooling is reviewed 0.27.11 at
-`62edfbd43087a718bf0283e9040676a49211976d`, adopted through its exporter.
-Earlier dirty shared adoption and the private `ic-jobs-canister-test-support`
-transport extraction remain included. Snapshot-owned files retain that adoption.
+Consumers own durable metadata, storage, lifecycle reconstruction and handler
+selection. Timers owns its sole private volatile IC timer provider. Every restore
+uses `Job::restore`; Running/Uncertain effects stay blocked until explicit owner
+disposition. Queue bytes remain bounded Wire `JQW\x01`, with no JSON fallback,
+reset or converter. Preserve prior binaries/backups, attempts and receipts before
+retiring installations. Memory's allocation ledger is separately owned: never
+clear only a queue or ledger. See the consumer guide and fixture provenance.
+Logging remains heap-only, bounded to 32 KiB and recorded after committed work;
+Metrics reset does not clear logs or reuse IDs. Preserve explicit Platform
+attributes and local size guards and their rejection behavior.
 
-## Dependency state
-
-Active direct dependencies: Platform 0.11.1, Wire 0.10.0, Metrics/Logging 0.21.0,
-Tooling/Testkit 0.72.1, Memory/Storage 0.58.0 and local Timers 0.33.1.
-The coordinated Tooling release resolves the earlier Wire limits mismatch in
-both native harnesses. Platform owns one version-matched runtime guard; Memory
-and Storage now share Platform 0.11.1 and Wire 0.10 with the other consumers.
-The lockfile no longer contains the older Platform 0.10 or Wire 0.8 copies.
-The deployed graphs still exclude registry executor and IC0 providers.
-
-Timers exposes Metrics types, so consumers exchanging them must select Metrics
-0.21 and native Wire metadata 0.10; runtime users coordinate on Platform 0.11.
-The 0.33.1 release notes retain the earlier coordinated migration.
-The notes retain the public dependency identity changes and consumer actions. Queue
-and ledger bytes, validated restore, report fields and arithmetic are unchanged.
-Logging remains heap-only with the existing retained-text budget.
-
-Memory/Storage adoption evidence is in `/tmp/ic-scheduling-persistence-latest/`;
-the preceding coordinated adoption is in `/tmp/ic-scheduling-latest-adoption/`.
-Previous failed candidates and focused evidence remain in
-`/tmp/ic-scheduling-dependency-adoption/`,
-`/tmp/ic-scheduling-observability-019/` and
-`/tmp/ic-scheduling-adoption-071/`; they do not qualify the new graph.
-
-## Validation and maintained gates
-
-Tooling 0.72.1 adoption passes locked metadata, direct boundaries, fourteen
-Jobs/Timers graph contexts, Rust 1.91 strict all-target harness Clippy, six
-native harness tests, Timers harness compilation, both CLI admission checks,
-release metadata fixtures and release-depth-2 consumer-tooling fixtures.
-Evidence is in `/tmp/ic-scheduling-tooling-latest/`. The pre-existing lockfile
-update, including `log` 0.4.35, was preserved. No live PocketIC or full CI ran.
-
-The earlier nested consumer-tooling failure was fixed by reading its retained
-failure log instead of omitted console details. Historical focused evidence is
-in `/tmp/ic-scheduling-nested-fixture-fix/`; the original failure remains in
-`/tmp/jobs-consumer-tooling.QllqL7/` and release-state logs.
-
-Memory/Storage 0.58 adoption passes locked metadata, direct boundaries and all
-five Jobs graph contexts, Rust 1.91 strict native/Wasm Clippy, 71 consumer tests
-(library, API-wire, composition and stored-wire), and the release consumer Wasm
-build. The deployed graph now requires exactly one Platform identity. Evidence
-is in `/tmp/ic-scheduling-persistence-latest/`; no live recovery was run.
-
-The preceding coordinated Linux adoption passed full locked metadata, direct dependency boundaries,
-five Jobs and nine Timers graph contexts, Rust 1.91 strict native/Wasm Clippy,
-253 native tests, Timers harness compilation, and release Wasm builds for the
-Jobs consumer and Timers runtime probe. Selected Testkit 0.72 server and Build
-release-editor CLIs pass offline admission. Timer dependency-policy fixtures,
-consumer-tooling fixtures, dependency pins, documentation links and diff checks
-pass. Evidence is in `/tmp/ic-scheduling-latest-adoption/`; failed fixture
-attempts are retained separately from retries.
-
-Earlier consolidation evidence includes Jobs core tests, Timers doctests,
-provider confinement, package archives and release/publication fixtures under
-`/tmp/ic-scheduling-*.log` and the migration evidence directory. It remains
-historical evidence, not a fresh package or release qualification of this graph.
-
-The combined CI includes both products' native checks and probe gates. Explicit
-release verification additionally retains Timers watchdog and cohort live gates;
-ordinary CI does not launch PocketIC. The manually selected recovery workflow
-covers Jobs and Timers on Linux and macOS Intel/Apple Silicon. No combined-source
-live recovery, macOS matrix, full CI or release gate has yet passed. Earlier live
-receipts cannot establish recovery on this new graph.
-
-Earlier evidence remains separate at
-`/tmp/ic-jobs-platform-observability.azJk5Hk6/` (11 native, 2 live tests) and
-`/tmp/ic-jobs-upstream-adoption.haqjWO7J/` (74 native, 11 live tests).
-The unpublished dependency candidate at
-`/tmp/ic-jobs-platform091-wire080.41ddtgBu/` is superseded by this consolidation.
-
-## Retained authority and recovery constraints
-
-Jobs remains Serde-only and platform-neutral. Timers owns its existing private
-volatile timer registry and IC dispatch; consumers own durable metadata, storage,
-lifecycle reconstruction and handler selection. Every restore uses `Job::restore`.
-Running/Uncertain effects remain blocked until explicit consumer disposition.
-
-Queue bytes remain `JQW\x01` bounded Wire; no JSON fallback, reset or converter.
-Keep prior binaries/backups, attempts and receipts before retiring installations.
-Memory's ledger is separately owned: never clear only a queue or ledger. Follow
-the [consumer guide](../../apps/ic-jobs-test-consumer/README.md) and
-[fixture provenance](../../crates/ic-jobs/tests/fixtures/README.md).
-Logging remains heap-only, bounded to 32 KiB, and records after committed work;
-Metrics reset does not clear logs or reuse IDs. Keep explicit Platform attributes
-and local size guards to preserve rejection behavior.
-
-The private Canic contribution remains at
-`/tmp/canic-jobs-adapter.dPFVZ7FD/source`, branch `codex/jobs-application-adapter`,
-commit `fc14bbe1baa3c0fdc09b0550e25a1d3fdcd9d2d1`. Its source must be integrated
-and qualified separately before claiming Canic readiness; Jobs tests do not
-qualify Canic's storage-placement lease owner or imply a shipped mount API.
+The private Canic contribution remains `/tmp/canic-jobs-adapter.dPFVZ7FD/source`,
+branch `codex/jobs-application-adapter`, commit
+`fc14bbe1baa3c0fdc09b0550e25a1d3fdcd9d2d1`. It requires separate integration and
+qualification; Jobs tests do not establish Canic readiness or a shipped mount API.

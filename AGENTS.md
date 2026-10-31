@@ -19,8 +19,12 @@ This file is the local overlay. Read [the current handoff](docs/status/current.m
 - Timers owns the sole private IC timer provider; retain its unsafe FFI confinement,
   dependency checks, runtime qualification and policy cohort gates. Jobs stays
   Serde-only and does not acquire a runtime dependency on Timers.
-- Both libraries and all probes belong to this root workspace at shared version
-  0.33.0. Sibling Timers source is preserved as provenance, not a build input.
+- Both libraries and all probes belong to this root workspace. Issue #82 approves
+  independent `jobs` and `timers` release groups in `ci/cargo-release-groups.json`.
+  Jobs and its three private qualification packages inherit the root version;
+  Timers and its four private probes use matching explicit package versions.
+  Dependencies and the lock remain root-owned. Sibling Timers source is provenance,
+  not a build input. Grouping does not relax runtime or combined-consumer checks.
 - Rust floor: 1.91 for core and consumer-owned Timers integration. Qualify both separately.
 - Host workflows support Linux and macOS Intel/Apple Silicon. Bind native and
   live IC recovery qualification to their tested source and dependency graph;

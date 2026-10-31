@@ -1,59 +1,28 @@
-# Changelog
+# IC Jobs changelog
+
+Jobs is the default release group. See the [Timers ledger](crates/ic-timers/CHANGELOG.md)
+and [coordinated history through 0.33.1](docs/changelog/shared-through-0.33.1.md).
 
 ## [0.33.2] - Unreleased
 
 ### 📦 Dependencies
 
-- Adopt IC Tooling 0.72.1 across Build, Host and Testkit dependencies and the
-  selected Testkit server and release-metadata editor. Runtime dependencies,
-  stored formats and the Rust 1.91 floor remain unchanged.
+- Adopt IC Tooling 0.73, Memory/Storage 0.58.1 and Logging/Metrics 0.23 in
+  the private consumer. Keep Jobs Serde-only and preserve durable formats.
+- Align the consumer runtime on Platform 0.12 and Wire 0.11 with Testkit 0.73.
+  Platform 0.15 / Wire 0.12 still require newer Endpoint and typed Testkit suppliers.
+- Adopt the reviewed Shared Tooling release-group snapshot at
+  `39ba9836a269ee7ea7f073a3f23d9cefe3c7d03c` and the group-capable IC Build 0.73
+  metadata editor; align Host Process 0.73 for the Timers build callback.
 
-## [0.33.1] - 2026-10-30
+### 🔧 Changed
+
+- Version and release Jobs independently from Timers within the same workspace.
+  [#82 — Version Jobs and Timers independently](https://github.com/dragginzgame/ic-scheduling/issues/82).
 
 ### 🩹 Fixed
 
-- Read retained input-drift diagnostics in the consumer-tooling fixture so it
-  also passes inside nested release validation, where console details are omitted.
-
-### ⚠️ Breaking
-
-- Adopt Metrics 0.21.0 for Timers' public measurement types. Consumers exchanging
-  those types must align their Metrics dependency to 0.21 and native Wire
-  metadata to 0.10. Coordinate runtime users on Platform 0.11. Report fields,
-  Serde layouts and arithmetic remain unchanged.
-
-### 📦 Workspace
-
-- Consolidate IC Jobs and IC Timers as IC Scheduling at the approved shared
-  version 0.33.0, retaining separate published crates and consumer-owned durable
-  state. Import the Timers runtime, native tests, probes, safety contract and
-  historical evidence into one workspace and lockfile.
-- Adopt Platform 0.11.1 and Wire 0.10.0 with the local Timers source. Require the
-  embedded runtime guard and exclude registry executor/IC0 from deployed graphs.
-- Share formatting, setup, CI and two-package publication admission; preserve
-  independent native, Wasm and installed recovery qualification.
-
-### 📦 Dependencies
-
-- Adopt Tooling/Testkit 0.72.0 across Build, Host and Testkit dependencies,
-  aligning both native harnesses with Wire 0.10.0 and Platform 0.11.1.
-  This resolves the previous Testkit/Wire limits incompatibility.
-- Adopt Shared Tooling 0.27.11 at `62edfbd43087a718bf0283e9040676a49211976d`
-  through its exporter, and select Memory/Storage 0.58.0, removing the older
-  Platform and Wire copies from the resolved graph.
-  Preserve the existing queue/ledger formats, bounded RPC contracts and Rust 1.91
-  floor.
-- Adopt Metrics and Logging 0.21.0, preserving report layouts, heap-only logging
-  and retained-text limits.
-
-### 🧹 Cleanup
-
-- Align the three private Jobs support package names and directories under
-  `ic-jobs-*`, including workspace references, artifact paths and tooling fixtures.
-  Retain all seven unpublished support packages and their dependency boundaries.
-- Replace path-based test module wiring with ordinary module discovery and a
-  private shared host-support crate. Keep that transport out of the published
-  Jobs library, qualification Wasm and capture binary's normal dependency graph.
+- Prepare Clippy for the minimum Rust toolchain in hosted CI.
 
 ## [0.17.51] - 2026-10-30
 

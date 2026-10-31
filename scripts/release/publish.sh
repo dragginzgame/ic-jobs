@@ -8,6 +8,7 @@ set -euo pipefail
     echo 'usage: publish.sh REMOTE' >&2; exit 2;
 }
 remote="$1"
+export RELEASE_GROUP="${RELEASE_GROUP:-jobs}"
 root="${BASH_SOURCE[0]}"
 [[ "$root" == /* ]] || root="$PWD/$root"
 root="$(cd -P "${root%/*}/../.." && printf '%s/.' "$PWD")"
@@ -18,17 +19,18 @@ cd "$root"
 bash "$root/scripts/ci/check-make-execution.sh"
 bash "$root/scripts/ci/check-release-source.sh"
 commit="$(git rev-parse --verify HEAD)"
-version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable Cargo.toml)"
-tag="refs/tags/v$version"
+version="$(bash "$root/scripts/release/group.sh" version)"
+package="$(bash "$root/scripts/release/group.sh" package)"
+tag="refs/tags/$RELEASE_GROUP-v$version"
 tag_object="$(git rev-parse --verify "$tag")"
 bash "$root/scripts/release/check-publication.sh" "$remote"
 "${RELEASE_MAKE:-make}" --no-print-directory -C "$root" clippy
 current_commit="$(git rev-parse --verify HEAD)"
-current_version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable Cargo.toml)"
+current_version="$(bash "$root/scripts/release/group.sh" version)"
 current_tag="$(git rev-parse --verify "$tag")"
 [[ "$current_commit" == "$commit" && "$current_version" == "$version" && "$current_tag" == "$tag_object" ]] || {
     echo 'publication refused: release identity changed during admission or lint; upload has not started' >&2
     exit 1
 }
 bash "$root/scripts/ci/check-release-source.sh"
-cargo publish -p ic-jobs -p ic-timers --all-features --locked --registry crates-io
+cargo publish -p "$package" --all-features --locked --registry crates-io

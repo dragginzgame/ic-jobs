@@ -7,7 +7,7 @@ set -euo pipefail
 [[ $# == 1 && "$1" =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]] || {
     echo 'usage: check-publication.sh REMOTE' >&2; exit 2;
 }
-packages=(ic-jobs ic-timers)
+export RELEASE_GROUP="${RELEASE_GROUP:-jobs}"
 remote="$1"
 root="${BASH_SOURCE[0]}"
 case "$root$PWD" in *$'\n'*|*$'\r'*) echo 'publication directory contains CR/LF' >&2; exit 2 ;; esac
@@ -23,9 +23,10 @@ bash "$root/scripts/ci/check-make-execution.sh"
 # Publication allows no metadata exceptions; retain the helper's full diagnostics.
 bash "$root/scripts/ci/check-release-source.sh" || fail 'source admission failed before registry observation or upload'
 commit="$(git rev-parse --verify HEAD)" || fail 'publication requires a committed release'
-version="$(bash "$root/scripts/ci/read-cargo-workspace-version.sh" --stable Cargo.toml)"
+version="$(bash "$root/scripts/release/group.sh" version)"
+packages=("$(bash "$root/scripts/release/group.sh" package)")
 bash "$root/scripts/ci/check-release-tag.sh" "$commit" "$version"
-tag="refs/tags/v$version"
+tag="refs/tags/$RELEASE_GROUP-v$version"
 tag_object="$(git rev-parse --verify "$tag")"
 destination="$(git remote get-url --push --all "$remote" && printf '.')" || fail 'cannot inspect push destination'
 destination="${destination%.}"

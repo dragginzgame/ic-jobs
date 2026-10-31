@@ -7,9 +7,12 @@ this contract; the [release contract](../docs/releases.md) owns release executio
 
 ## Content and writing
 
-- Root `CHANGELOG.md` is the concise release ledger. Lead with the outcome and
-  practical effect for the repository's users, operators or developers. Use
-  plain language and consolidate related changes into short bullets or summaries.
+- Root `CHANGELOG.md` is the concise release ledger for a single release group.
+  Independently versioned groups use the
+  [group ledger and history rules](#release-group-changelogs-and-shared-history)
+  below. Lead with the outcome and practical effect for the repository's users,
+  operators or developers. Use plain language and consolidate related changes
+  into short bullets or summaries.
 - Update the current draft by default when a meaningful behavior or maintained
   tooling batch is complete. Cover the coherent outcome, including relevant
   public APIs, commands, output fields, diagnostics and operational changes.
@@ -156,19 +159,68 @@ release/deployment admission, as required by the finalization rules below.
   Shared Tooling minor release while its adoption needs only a consumer library
   patch. Product CLI users and deployment operators remain consumers of their
   respective published contracts; this is not a blanket tooling exemption.
-- A workspace with one coordinated version keeps that versioning scheme. Select
-  the increment from the combined consumer impact of its released packages; do
-  not split versions or manufacture breaking changes in sibling repositories to
-  mirror an upstream bump.
+- Select a release group's increment from the combined consumer impact of that
+  group's packages. Preserve established groups until a boundary change is
+  approved under the [workspace versioning rules](rust-workspaces.md#coordinated-versions-and-workspace-boundaries).
+  Do not advance unrelated groups or manufacture breaking changes in sibling
+  repositories to mirror an upstream bump.
 - Correct an unpublished pending heading and matching detail notes if the only
   reason for a minor bump was internal tooling adoption. Check the entire batch
   for independent breaking changes first. Preserve published versions, tags and
   history, and any already-started release's reconciliation obligations. This
   clarification authorizes no manifest/version edit or release execution.
 
+## Release-group changelogs and shared history
+
+Independently versioned groups each own one canonical changelog, at the unique
+path declared in `ci/cargo-release-groups.json`. Crates released together share
+that ledger; do not require a separate changelog per crate. Reuse existing
+appropriate locations, such as `crates/<primary-package>/CHANGELOG.md` or
+`docs/changelog/<group>/CHANGELOG.md`. Each ledger identifies its group and
+covered packages. Root emoji sections, compatibility assessment and automatic
+version selection apply to each group ledger.
+
+- Root `CHANGELOG.md` remains the navigation entry point. It may be the primary
+  group's ledger with links to other groups, or an index linking all group
+  ledgers. Do not invent an aggregate workspace version for that index or keep a
+  second copy of every group's release notes. Match each group's configured
+  ledger path to the selected layout; an index is not a release ledger.
+- Maintain at most one pending numbered entry per group that has changes, based
+  on its own latest finalized release. Several groups may have pending entries
+  in their separate ledgers. A release of one group does not finalize another
+  group's notes. Shared tooling or integration changes belong in the affected
+  group ledgers only when they change those groups' maintained surfaces.
+- Describe a change once in its owning ledger. When a dependent group requires
+  adoption, its notes explain its own compatibility impact and link to the
+  supplier's entry. Do not copy the supplier's implementation history or label
+  every consumer adoption breaking solely because the supplier's minor changed.
+- Preserve pre-split coordinated history once, including versions, dates,
+  headings, content and original release scope. Prefer leaving it in the root
+  changelog with a clear boundary note identifying the last coordinated release.
+  New group ledgers link back to that history and identify where their own
+  release series begins; do not duplicate or retroactively assign old entries
+  to the new groups.
+- If the root becomes an index and a separate shared historical changelog is
+  useful, an explicitly authorized migration may move the intact old ledger to
+  `docs/changelog/history.md` (or an established equivalent). Link it from the
+  root and group ledgers, update affected references, and preserve existing
+  historical detail files. The history file records the former coordinated
+  scope and cutoff; it receives no new group release entries. Do not move or
+  rewrite history merely to adopt this rule.
+- If detailed notes are needed, use a group-specific path such as
+  `docs/changelog/<group>/<major>.<minor>.md` to avoid collisions between equal
+  version numbers in different groups. Keep a single-group repository's existing
+  paths. State the group alongside a version in cross-group reports or links.
+
+Ledger organization does not authorize package moves, version resets, commits,
+tags or publication. Preserve already-published identities and unfinished release
+recovery. The [release mechanism](../docs/releases.md#explicit-cargo-release-groups)
+selects the group's own ledger; it does not finalize a shared historical file.
+
 ## Automatic next-version selection
 
-- Keep one numbered, undated pending release at the top of `CHANGELOG.md`, using
+- Keep one numbered, undated pending release at the top of the owning group's
+  ledger (`CHANGELOG.md` for a single-group repository), using
   `## [X.Y.Z]` or `## [X.Y.Z] - Unreleased`. Automatically create or update it as
   part of completing meaningful work. Do not use an unnumbered `Unreleased` or
   `Draft` heading or a separate notes queue.
@@ -197,9 +249,9 @@ release/deployment admission, as required by the finalization rules below.
 - Reuse the same pending entry until it is released. If later work makes an
   automatically selected patch breaking before 1.0, relabel that entire entry
   to the next minor from the same released base and carry all pending notes with
-  it. Do not increment again for each slice, create multiple pending versions,
-  or rewrite a tagged/published entry. Keep every maintained changelog view and
-  detail link aligned, including when a candidate changes minor line.
+  it. Do not increment again for each slice, create multiple pending versions in
+  one group, or rewrite a tagged/published entry. Keep every maintained changelog
+  view and detail link aligned, including when a candidate changes minor line.
 - In the handoff, state the selected next version and the compatibility reason,
   including the affected contract and required action for a breaking change.
   Selecting a changelog heading is automatic documentation maintenance; it does
@@ -256,14 +308,15 @@ For a latest finalized release of `0.14.7`:
 
 ## Detailed notes when needed
 
-- A small repository may keep its notes entirely in root `CHANGELOG.md`. Add
-  detailed notes when release volume or explanation makes the root hard to scan,
+- A small single-group repository may keep its notes entirely in root
+  `CHANGELOG.md`. Add detailed notes when release volume or explanation makes the root hard to scan,
   or retain them when the repository already uses that structure.
 - Use one `docs/changelog/<major>.<minor>.md` file for all patches in a minor
   line, rather than one file per patch. Use the automatically selected candidate's
   minor line for pending detail notes. If that candidate changes line, move only
   its unpublished notes to the matching file and update the root link; preserve
-  finalized history in its original files.
+  finalized history in its original files. Independent groups use the
+  group-specific paths described above.
 - A root minor-line index uses a concise overview per patch. A small patch may
   need only one short bullet; a broad release needs separate outcome and upgrade
   bullets or grouped sections under the readable-layout rules above.
