@@ -2,21 +2,25 @@
 
 ## Current scope
 
-Adopt Memory/Storage 0.60.2, Testkit/Native 0.75.1 and Wire Endpoint 0.2.1, then
-push the scoped source changes under the existing instruction. Wire/Derive stays
-current at 0.13.1. Memory requires Platform 0.15.3, so the facade, macros and
-matching exact guard are part of this update. No package bump, release or upload.
+Adopt Memory/Storage 0.60.3 and push the scoped source changes under the existing
+instruction. Both published source trees match 0.60.2; the update changes package
+selections only. Platform 0.15.3, Testkit/Native 0.75.1 and Wire/Derive 0.13.1
+remain selected. No package bump, release or upload.
 Jobs remains 0.33.2; Timers remains 0.34.0. Pending notes remain Jobs 0.33.3 and
 Timers 0.35.0 for the earlier exposed Metrics type-identity change.
 
 The incoming dirty Cargo.lock already contains these selections plus separate
 Logging 0.23.3 and Metrics 0.24.1 patches. Preserve those two patches unstaged.
 Original bytes and a scoped candidate are retained at
-`/tmp/ic-scheduling-memory-testkit-wire.guCIFe/`. Qualification and commit use the
+`/tmp/ic-scheduling-memory-storage.BVzsUC/`. Qualification and commit use the
 scoped graph with existing Logging 0.23.2 / Metrics 0.24.0, then restore the
-original working lock byte-for-byte. Testkit now uses Metrics 0.24, removing the
-old Metrics 0.23 lock entry without introducing cross-version conversions.
-Qualification restored the original lock; commit preparation must preserve it too.
+original working lock byte-for-byte. Testkit shares the consumer's Metrics 0.24
+identity. Preserve the unrelated working-lock patches through delivery.
+
+Next open work is [#83 — Documentation-only CI selection](https://github.com/dragginzgame/ic-scheduling/issues/83),
+an optional CI cost improvement. Its reviewed exact prose allowlist must retain
+full native qualification for code, policy, unknown paths and ambiguous history.
+This dependency update does not implement that issue.
 
 ## Workspace and suppliers
 
@@ -27,7 +31,7 @@ primary version sources. There is no root workspace version; catalog entries
 add dependency edges only when inherited by a member.
 
 The scoped graph selects Platform 0.15.3 / Types 0.15.1, Wire/Derive 0.13.1,
-Endpoint 0.2.1, Testkit/Native 0.75.1, Build/Host 0.73.2, Memory/Storage 0.60.2,
+Endpoint 0.2.1, Testkit/Native 0.75.1, Build/Host 0.73.2, Memory/Storage 0.60.3,
 Logging 0.23.2 and one Metrics 0.24.0. Metrics defaults stay disabled; Memory
 codec errors, optional Metrics schemas and Testkit typed calls align on Wire 0.13.
 Jobs remains Serde-only and independent of Timers.
@@ -44,13 +48,21 @@ payload changes here. Grouped formatting preserves the root catalogs. No cleanup
 
 ## Qualification and limits
 
-Current evidence is `/tmp/ic-scheduling-memory-testkit-wire.guCIFe/`: incoming and
+Current evidence is `/tmp/ic-scheduling-memory-storage.BVzsUC/`: incoming/scoped
+locks, registry records, source comparison and candidate inputs. Focused Rust
+1.91 native/Wasm consumer Clippy, all 71 consumer tests, pins, dependency boundaries,
+all fourteen graph contexts and timer dependency checks pass. Formatting and
+local link checks pass. No new live recovery or full local CI is claimed; the
+published Memory/Storage Rust sources are identical to the earlier live inputs.
+Hosted qualification is asynchronous and must be reported at its exact source.
+
+Previous evidence is `/tmp/ic-scheduling-memory-testkit-wire.guCIFe/`: incoming and
 scoped locks, registry records, source comparison, candidate source inputs, managed
 CLI setup and focused checks. Rust 1.91 native/Wasm Clippy, 172 Timers, 71 consumer
 and three protocol tests pass. Consumer tooling fixtures, all fourteen graph
 contexts, pins/group admission, formatting and local links pass. The managed
 Testkit 0.75.1 CLI is prepared; existing PocketIC 16.1.0 admission passes.
-All 11 explicit live consumer recovery tests pass on the scoped graph, including
+All 11 explicit live consumer recovery tests passed on that earlier graph, including
 endpoint refusals, traps, upgrades, authorization and uncertain-effect handling.
 Evidence is `/tmp/jobs-recovery.19LcGa/`, retaining the frozen Wasm, selected lock,
 tool identity and candidate Cargo manifest/source patch against `b569b7b`.

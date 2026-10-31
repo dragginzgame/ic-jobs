@@ -972,9 +972,9 @@ dependencies = [
 
 [[package]]
 name = "ic-memory"
-version = "0.60.2"
+version = "0.60.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ba5e353100583f043742839585a6e313b454c6616a68326c53d6332b18c5301"
+checksum = "701e91e8b7114cf605dd7d6b9efbc781c5ed3e5f633eba3914fa2634928c1dee"
 dependencies = [
  "ic-platform",
  "ic-wire",
@@ -1053,9 +1053,9 @@ dependencies = [
 
 [[package]]
 name = "ic-storage"
-version = "0.60.2"
+version = "0.60.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a29586d6c7fa413318908f588446d446743ab36c7622b027b345a252f93a107a"
+checksum = "91e77f1e9cdedf26916ef0b85052f063f1456ee360812d9c03ef96db02fc6f5c"
 dependencies = [
  "ic-memory",
  "ic-platform",
